@@ -1,0 +1,315 @@
+// Client behavior with a mocked fetch. Responses carry status codes, headers, and empty or trivial
+// bodies only: no Qloo-shaped data is invented here. Shape parsing against real responses is
+// tested in types.test.ts once fixtures exist (Slice 2).
+import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { MemoryCache } from "./cache";
+import { createQlooClient, type QlooClientOptions } from "./client";
+import { ENDPOINTS } from "./constants";
+import { createRunContext } from "./context";
+import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooParamError, QlooShapeError } from "./errors";
+import { createLimiter, type Limiter } from "./limiter";
+import type { QlooParams } from "./params";
+
+// Deliberately fake and low-entropy so secret scanners do not flag the test.
+const KEY = "not-a-real-qloo-key";
+const ID = "AFBD8046-1234-4ABC-9DEF-0123456789AB";
+const ID2 = "0C1D2E3F-4A5B-4C6D-8E7F-9A0B1C2D3E4F";
+
+const artistParams = (id = ID): QlooParams => ({ "filter.type": "urn:entity:artist", "signal.interests.entities": [id] });
+
+type Reply = Response | Error;
+
+function setup(replies: Reply[], options: Partial<QlooClientOptions> = {}) {
+  let clock = 1_700_000_000_000;
+  const now = () => clock;
+  const sleep = vi.fn(async (ms: number) => {
+    clock += ms;
+  });
+  const fetchMock = vi.fn<typeof fetch>(async () => {
+    const next = replies.shift();
+    if (!next) throw new Error("unexpected extra fetch");
+    if (next instanceof Error) throw next;
+    return next;
+  });
+  // No pacing by default so retry delays are easy to read. Pacing has its own tests.
+  const passThrough: Limiter = { run: (_key, task) => task(), pace: async () => {}, inFlight: () => false };
+  const client = createQlooClient({
+    apiKey: KEY,
+    fetch: fetchMock as unknown as typeof fetch,
+    now,
+    sleep,
+    random: () => 0,
+    limiter: passThrough,
+    cache: new MemoryCache(now),
+    ...options,
+  });
+  return { client, fetchMock, sleep, ctx: createRunContext({ runId: "run_test" }) };
+}
+
+const ok = (headers: Record<string, string> = {}) => new Response("{}", { status: 200, headers });
+const status = (code: number, body = "", headers: Record<string, string> = {}) => new Response(body, { status: code, headers });
+const anything = z.unknown();
+
+describe("configuration", () => {
+  it("throws QLOO_API_KEY missing at the first live request, without calling fetch", async () => {
+    const { client, fetchMock, ctx } = setup([], { apiKey: undefined });
+    await expect(client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })).rejects.toThrow(
+      new QlooConfigError("QLOO_API_KEY missing"),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a blank key as missing", async () => {
+    const { client, ctx } = setup([], { apiKey: "   " });
+    await expect(client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })).rejects.toThrow(
+      "QLOO_API_KEY missing",
+    );
+  });
+
+  it("rejects bad params before any network call", async () => {
+    const { client, fetchMock, ctx } = setup([]);
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: { "filter.type": "urn:entity:video_game" }, schema: anything }),
+    ).rejects.toBeInstanceOf(QlooParamError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("request and evidence", () => {
+  it("sends the key only as a header and returns an evidence receipt", async () => {
+    const { client, fetchMock, ctx } = setup([ok()]);
+    const { evidence } = await client.request(ctx, {
+      endpoint: ENDPOINTS.insights,
+      params: artistParams(),
+      schema: anything,
+      label: "Finding artists",
+      stage: "culture",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      `https://hackathon.api.qloo.com/v2/insights?filter.type=urn%3Aentity%3Aartist&signal.interests.entities=${ID}`,
+    );
+    expect(String(url)).not.toContain(KEY);
+    expect((init?.headers as Record<string, string>)["X-Api-Key"]).toBe(KEY);
+
+    expect(evidence).toMatchObject({
+      id: "run_test:1",
+      endpoint: "/v2/insights",
+      params: { "filter.type": "urn:entity:artist", "signal.interests.entities": ID },
+      label: "Finding artists",
+      stage: "culture",
+      status: 200,
+      cached: false,
+    });
+    expect(ctx.liveCalls).toBe(1);
+    expect(ctx.stageCalls).toEqual({ culture: 1 });
+    expect(JSON.stringify(ctx.ledger.entries)).not.toContain(KEY);
+  });
+
+  it("serves repeats from cache, marked cached, without spending a call", async () => {
+    const { client, fetchMock, ctx } = setup([ok()]);
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
+    await client.request(ctx, req);
+    const second = await client.request(ctx, req);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(second.evidence.cached).toBe(true);
+    expect(ctx.liveCalls).toBe(1);
+    expect(ctx.cachedCalls).toBe(1);
+  });
+
+  it("captures the monthly quota Qloo reports", async () => {
+    const { client, ctx } = setup([ok({ "x-month-ratelimit-remaining": "9876" })]);
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(ctx.monthRemaining).toBe(9876);
+  });
+
+  it("throws a shape error instead of passing unexpected data on, and does not cache the bad body", async () => {
+    const { client, fetchMock, ctx } = setup([ok(), ok()]);
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: z.object({ results: z.array(z.unknown()) }) };
+    await expect(client.request(ctx, req)).rejects.toBeInstanceOf(QlooShapeError);
+    await expect(client.request(ctx, req)).rejects.toBeInstanceOf(QlooShapeError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns the not-found value for a 404 and caches it", async () => {
+    const { client, fetchMock, ctx } = setup([status(404)]);
+    const req = {
+      endpoint: ENDPOINTS.search,
+      params: { query: "Nothing Like This", types: ["urn:entity:brand"] },
+      schema: z.array(z.unknown()),
+      onNotFound: [] as unknown[],
+    };
+    const first = await client.request(ctx, req);
+    const second = await client.request(ctx, req);
+    expect(first.data).toEqual([]);
+    expect(first.evidence.status).toBe(404);
+    expect(second.evidence.cached).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("retries", () => {
+  it("retries a 429 and honors Retry-After", async () => {
+    const { client, fetchMock, sleep, ctx } = setup([status(429, "", { "retry-after": "2" }), ok()]);
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(2000);
+  });
+
+  it("does not retry a 500, which Qloo returns deterministically", async () => {
+    const { client, fetchMock, ctx } = setup([status(500, "System Error")]);
+    const error = await client
+      .request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(QlooHttpError);
+    expect((error as QlooHttpError).status).toBe(500);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up on a 503 after 3 retries with exponential backoff", async () => {
+    const { client, fetchMock, sleep, ctx } = setup([status(503), status(503), status(503), status(503)]);
+    await expect(client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })).rejects.toThrow(
+      QlooHttpError,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 2000]);
+  });
+
+  it("fails fast when Retry-After is longer than the wait cap", async () => {
+    const { client, fetchMock, sleep, ctx } = setup([status(429, "", { "retry-after": "3600" })]);
+    const error = await client
+      .request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(QlooHttpError);
+    expect((error as QlooHttpError).status).toBe(429);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("times out a stalled body instead of hanging the run", async () => {
+    const stalled = () => new Response(new ReadableStream({ start() {} }), { status: 200 });
+    const { client, ctx } = setup([stalled()], { timeoutMs: 20, maxRetries: 0 });
+    const error = await client
+      .request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(QlooHttpError);
+    expect((error as Error).message).toContain("timed out after 20 ms");
+  });
+
+  it("retries network errors", async () => {
+    const { client, fetchMock, ctx } = setup([new TypeError("fetch failed"), ok()]);
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails fast on other 4xx with the key redacted from the message", async () => {
+    const { client, fetchMock, ctx } = setup([status(400, `bad request for ${KEY}`)]);
+    const error = (await client
+      .request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })
+      .catch((e: unknown) => e)) as Error;
+    expect(error).toBeInstanceOf(QlooHttpError);
+    expect(error.message).not.toContain(KEY);
+    expect(error.message).toContain("[redacted]");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("budget", () => {
+  it("stops a run at its cap of live calls", async () => {
+    const { client, fetchMock } = setup([ok(), ok()]);
+    const ctx = createRunContext({ runId: "run_capped", cap: 2 });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: { ...artistParams(ID), take: 5 }, schema: anything }),
+    ).rejects.toBeInstanceOf(QlooBudgetError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not count cached calls against the cap", async () => {
+    const { client } = setup([ok()]);
+    const ctx = createRunContext({ runId: "run_one", cap: 1 });
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
+    await client.request(ctx, req);
+    await expect(client.request(ctx, req)).resolves.toMatchObject({ evidence: { cached: true } });
+  });
+
+  it("stops live calls when the monthly quota drops below the floor", async () => {
+    const { client, fetchMock } = setup([ok({ "x-month-ratelimit-remaining": "120" })]);
+    const ctx = createRunContext({ runId: "run_floor", monthlyFloor: 300 });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything }),
+    ).rejects.toThrow("below the floor");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("in-flight sharing", () => {
+  function realLimiter() {
+    let clock = 0;
+    return createLimiter({ now: () => clock, sleep: async (ms) => void (clock += ms) });
+  }
+
+  it("makes one call for identical concurrent requests and marks the joiner as shared", async () => {
+    const { client, fetchMock, ctx } = setup([ok()], { limiter: realLimiter() });
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
+    const [a, b] = await Promise.all([client.request(ctx, req), client.request(ctx, req)]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(a.data).toEqual({});
+    expect(a.evidence.cached).toBe(false);
+    expect(b.evidence).toMatchObject({ cached: true, shared: true });
+    expect(ctx.liveCalls).toBe(1);
+    expect(ctx.cachedCalls).toBe(1);
+  });
+
+  it("charges only the run that made the call", async () => {
+    const { client, fetchMock } = setup([ok()], { limiter: realLimiter() });
+    const runA = createRunContext({ runId: "run_a" });
+    const runB = createRunContext({ runId: "run_b" });
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
+    await Promise.all([client.request(runA, req), client.request(runB, req)]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(runA.liveCalls).toBe(1);
+    expect(runB).toMatchObject({ liveCalls: 0, cachedCalls: 1 });
+  });
+
+  it("does not fail another run's request when one run is out of budget", async () => {
+    const { client, fetchMock } = setup([ok()], { limiter: realLimiter() });
+    const spent = createRunContext({ runId: "run_spent", cap: 0 });
+    const fresh = createRunContext({ runId: "run_fresh" });
+    const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
+    const [a, b] = await Promise.allSettled([client.request(spent, req), client.request(fresh, req)]);
+    expect(a.status).toBe("rejected");
+    expect((a as PromiseRejectedResult).reason).toBeInstanceOf(QlooBudgetError);
+    expect(b.status).toBe("fulfilled");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fresh.liveCalls).toBe(1);
+  });
+});
+
+describe("raw (fixture recorder)", () => {
+  it("returns any status and keeps only rate-limit headers", async () => {
+    const { client } = setup([
+      status(500, "System Error", { "set-cookie": "session=abc", "x-month-ratelimit-remaining": "9000" }),
+    ]);
+    const response = await client.raw(ENDPOINTS.insights, artistParams());
+    expect(response.status).toBe(500);
+    expect(response.body).toBe("System Error");
+    expect(response.headers).toEqual({ "x-month-ratelimit-remaining": "9000" });
+  });
+
+  it("can skip validation for probes", async () => {
+    const { client } = setup([status(400)]);
+    const response = await client.raw(ENDPOINTS.insights, { "filter.type": "urn:entity:book", "bias.trends": "high" }, { validate: false });
+    expect(response.status).toBe(400);
+  });
+
+  it("still validates by default", async () => {
+    const { client } = setup([]);
+    await expect(client.raw(ENDPOINTS.insights, { "filter.type": "urn:entity:video_game" })).rejects.toBeInstanceOf(QlooParamError);
+  });
+});

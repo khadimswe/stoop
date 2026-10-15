@@ -32,7 +32,7 @@ jobs:
           set -e
           hits=$(git ls-files -z \
             | grep -zv -E '^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$' \
-            | grep -zv -E '^(public/demo/|fixtures/)' \
+            | grep -zv -E '^(public/demo/|fixtures/raw/|fixtures/[^/]+\.json$)' \
             | xargs -0 grep -nI $'\xE2\x80\x94' 2>/dev/null || true)
           if [ -n "$hits" ]; then
             echo "Em dashes found. Replace with a comma, period, colon, parentheses, or a hyphen:"

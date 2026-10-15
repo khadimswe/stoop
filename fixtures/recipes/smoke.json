@@ -1,0 +1,11 @@
+{
+  "description": "One call to confirm the hackathon key works end to end. Run this first when the key arrives.",
+  "requests": [
+    {
+      "id": "search-olipop-brand",
+      "endpoint": "/search",
+      "params": { "query": "Olipop", "types": ["urn:entity:brand"], "take": 3 },
+      "note": "Should resolve to the soda brand, not a store or a person."
+    }
+  ]
+}
