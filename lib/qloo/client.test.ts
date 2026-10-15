@@ -58,6 +58,7 @@ describe("configuration", () => {
       new QlooConfigError("QLOO_API_KEY missing"),
     );
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.liveCalls).toBe(0);
   });
 
   it("treats a blank key as missing", async () => {
@@ -93,6 +94,7 @@ describe("request and evidence", () => {
     );
     expect(String(url)).not.toContain(KEY);
     expect((init?.headers as Record<string, string>)["X-Api-Key"]).toBe(KEY);
+    expect(init?.redirect).toBe("error");
 
     expect(evidence).toMatchObject({
       id: "run_test:1",
@@ -157,6 +159,14 @@ describe("retries", () => {
     await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(2000);
+    expect(ctx.liveCalls).toBe(2);
+  });
+
+  it("ignores an implausible rate-limit reset value and backs off instead", async () => {
+    const { client, fetchMock, sleep, ctx } = setup([status(429, "", { "x-second-ratelimit-reset": "1760000000" }), ok()]);
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(500);
   });
 
   it("does not retry a 500, which Qloo returns deterministically", async () => {
@@ -176,6 +186,7 @@ describe("retries", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([500, 1000, 2000]);
+    expect(ctx.liveCalls).toBe(4);
   });
 
   it("fails fast when Retry-After is longer than the wait cap", async () => {
@@ -229,6 +240,33 @@ describe("budget", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("never lets retries push a run past its cap, even in parallel", async () => {
+    const { client, fetchMock } = setup([status(503), status(503), status(503), ok(), ok(), ok()]);
+    const ctx = createRunContext({ runId: "run_storm", cap: 3 });
+    const results = await Promise.allSettled(
+      [ID, ID2, "11111111-2222-4333-8444-555555555555"].map((id) =>
+        client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(id), schema: anything }),
+      ),
+    );
+    expect(ctx.liveCalls).toBeLessThanOrEqual(3);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const result of results) {
+      expect(result.status).toBe("rejected");
+      expect((result as PromiseRejectedResult).reason).toMatchObject({ status: 503 });
+    }
+  });
+
+  it("spends the last of the budget on a retry, then stops new requests", async () => {
+    const { client, fetchMock } = setup([status(503), ok()]);
+    const ctx = createRunContext({ runId: "run_tight", cap: 2 });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything });
+    expect(ctx.liveCalls).toBe(2);
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything }),
+    ).rejects.toBeInstanceOf(QlooBudgetError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("does not count cached calls against the cap", async () => {
     const { client } = setup([ok()]);
     const ctx = createRunContext({ runId: "run_one", cap: 1 });
@@ -266,15 +304,15 @@ describe("in-flight sharing", () => {
     expect(ctx.cachedCalls).toBe(1);
   });
 
-  it("charges only the run that made the call", async () => {
-    const { client, fetchMock } = setup([ok()], { limiter: realLimiter() });
+  it("shares in-flight calls only within one run, so each run pays for its own", async () => {
+    const { client, fetchMock } = setup([ok(), ok()], { limiter: realLimiter() });
     const runA = createRunContext({ runId: "run_a" });
     const runB = createRunContext({ runId: "run_b" });
     const req = { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything };
     await Promise.all([client.request(runA, req), client.request(runB, req)]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(runA.liveCalls).toBe(1);
-    expect(runB).toMatchObject({ liveCalls: 0, cachedCalls: 1 });
+    expect(runB.liveCalls).toBe(1);
   });
 
   it("does not fail another run's request when one run is out of budget", async () => {
@@ -288,6 +326,24 @@ describe("in-flight sharing", () => {
     expect(b.status).toBe("fulfilled");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fresh.liveCalls).toBe(1);
+  });
+});
+
+describe("cache failures", () => {
+  it("keeps paid-for data when the cache write fails, and warns without the body", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failingCache = {
+      get: async () => undefined,
+      set: async () => {
+        throw new Error("cache unavailable");
+      },
+    };
+    const { client, ctx } = setup([ok()], { cache: failingCache });
+    const result = await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(result.data).toEqual({});
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("cache write failed");
+    warn.mockRestore();
   });
 });
 

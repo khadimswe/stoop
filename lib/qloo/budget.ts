@@ -1,7 +1,7 @@
 // Qloo call budget. The hackathon key allows about 10,000 calls a month, and the demo must stay
 // live through judging (Nov 2 to Nov 16), so every live run has a hard cap and a per-stage plan.
 
-/** Hard cap for one live run. Only live (uncached) calls count. */
+/** Hard cap for one live run. Every live HTTP attempt counts, retries included; cached and shared results do not. */
 export const RUN_CAP = 50;
 /** Cap for one "not this vibe" revision. */
 export const REVISE_CAP = 6;

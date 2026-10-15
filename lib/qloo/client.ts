@@ -119,9 +119,10 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
   function retryDelay(attempt: number, headers: Headers): number {
     const retryAfter = Number(headers.get("retry-after"));
     if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000;
-    // UNVERIFIED unit: assumed to be seconds until the per-second window resets.
+    // UNVERIFIED unit: assumed to be seconds until the per-second window resets. Larger values could
+    // be an epoch timestamp, so they fall back to backoff until Slice 2 fixtures confirm the unit.
     const reset = Number(headers.get("x-second-ratelimit-reset"));
-    if (Number.isFinite(reset) && reset > 0) return reset * 1000;
+    if (Number.isFinite(reset) && reset > 0 && reset <= 2) return reset * 1000;
     return backoff(attempt);
   }
 
@@ -138,6 +139,8 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     const work = (async () => {
       const response = await fetchImpl(url, {
         headers: { "X-Api-Key": key, Accept: "application/json" },
+        // A cross-origin redirect would forward X-Api-Key to another host, so redirects are refused.
+        redirect: "error",
         signal: controller.signal,
       });
       return { response, text: await response.text() };
@@ -152,20 +155,20 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
 
   /**
    * One logical request with pacing and retries. Returns the final response for any status.
-   * `onRetry` runs before every retry attempt so the caller can count it against its budget.
+   * `mayRetry` runs before every retry: it charges the retry to a budget, or returns false to stop
+   * retrying, in which case the last response (or network error) is returned as is.
    */
-  async function send(endpoint: Endpoint, query: string, onRetry: () => void): Promise<RawResponse> {
+  async function send(endpoint: Endpoint, query: string, mayRetry: () => boolean): Promise<RawResponse> {
     if (!apiKey) throw new QlooConfigError(MISSING_KEY);
     const url = `${baseUrl}${endpoint}${query ? `?${query}` : ""}`;
     for (let attempt = 0; ; attempt++) {
-      if (attempt > 0) onRetry();
       await limiter.pace();
       const started = now();
       let result: { response: Response; text: string };
       try {
         result = await fetchOnce(url, apiKey);
       } catch (error) {
-        if (attempt < maxRetries) {
+        if (attempt < maxRetries && mayRetry()) {
           await sleep(backoff(attempt));
           continue;
         }
@@ -174,11 +177,12 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
       const { response, text } = result;
       if (RETRYABLE_STATUSES.has(response.status) && attempt < maxRetries) {
         const delay = retryDelay(attempt, response.headers);
-        if (delay <= MAX_RETRY_WAIT_MS) {
+        // A wait longer than the cap (e.g. monthly quota spent) or an exhausted budget fails fast,
+        // so the caller can fall back to cache and a "partial data" badge.
+        if (delay <= MAX_RETRY_WAIT_MS && mayRetry()) {
           await sleep(delay);
           continue;
         }
-        // Too long to wait (e.g. monthly quota spent): fail fast so the caller can fall back.
       }
       return {
         status: response.status,
@@ -191,13 +195,17 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     }
   }
 
-  function assertBudget(ctx: RunContext): void {
-    if (ctx.liveCalls >= ctx.cap) {
-      throw new QlooBudgetError(`Run ${ctx.runId} reached its cap of ${ctx.cap} live Qloo calls`);
-    }
+  function budgetProblem(ctx: RunContext): string | null {
+    if (ctx.liveCalls >= ctx.cap) return `Run ${ctx.runId} reached its cap of ${ctx.cap} live Qloo calls`;
     if (ctx.monthRemaining !== undefined && ctx.monthRemaining < ctx.monthlyFloor) {
-      throw new QlooBudgetError(`Qloo monthly quota is below the floor (${ctx.monthRemaining} calls left)`);
+      return `Qloo monthly quota is below the floor (${ctx.monthRemaining} calls left)`;
     }
+    return null;
+  }
+
+  function assertBudget(ctx: RunContext): void {
+    const problem = budgetProblem(ctx);
+    if (problem) throw new QlooBudgetError(problem);
   }
 
   function charge(ctx: RunContext, stage: string | undefined): void {
@@ -251,46 +259,63 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
       return { data, evidence: record(ctx, req, hit, { cached: true, durationMs: 0 }) };
     }
 
-    // An identical request already in flight is shared: it costs this run nothing. Otherwise the
-    // first attempt is reserved now (synchronously, so parallel calls cannot overshoot the cap)
-    // and retries are charged as they happen, without ever failing the shared task on budget.
-    const joining = limiter.inFlight(key);
+    // Every live call needs the key; check it before anything is charged.
+    if (!apiKey) throw new QlooConfigError(MISSING_KEY);
+
+    // Identical requests already in flight in the same run share one call. Sharing is per run, so one
+    // run's budget can never fail or charge another run. The first attempt is reserved synchronously
+    // (parallel calls cannot overshoot the cap) and each retry must fit in the budget too.
+    const flightKey = `${ctx.runId}:${key}`;
+    const joining = limiter.inFlight(flightKey);
     if (!joining) {
       assertBudget(ctx);
       charge(ctx, req.stage);
     }
-    const response = await limiter.run(key, () =>
-      send(req.endpoint, canonicalQuery(req.params), () => charge(ctx, req.stage)),
-    );
+    const fetched = await limiter.run(flightKey, async () => {
+      const response = await send(req.endpoint, canonicalQuery(req.params), () => {
+        if (budgetProblem(ctx)) return false;
+        charge(ctx, req.stage);
+        return true;
+      });
 
-    const remaining = response.headers["x-month-ratelimit-remaining"];
-    if (remaining !== undefined && Number.isFinite(Number(remaining))) ctx.monthRemaining = Number(remaining);
+      const remaining = response.headers["x-month-ratelimit-remaining"];
+      if (remaining !== undefined && Number.isFinite(Number(remaining))) ctx.monthRemaining = Number(remaining);
 
-    const deterministicMiss = response.status === 404 && req.onNotFound !== undefined;
-    if (!deterministicMiss && (response.status < 200 || response.status >= 300)) {
-      const text = typeof response.body === "string" ? response.body : JSON.stringify(response.body ?? "");
-      throw new QlooHttpError(req.endpoint, response.status, snippet(text));
-    }
+      const deterministicMiss = response.status === 404 && req.onNotFound !== undefined;
+      if (!deterministicMiss && (response.status < 200 || response.status >= 300)) {
+        const text = typeof response.body === "string" ? response.body : JSON.stringify(response.body ?? "");
+        throw new QlooHttpError(req.endpoint, response.status, snippet(text));
+      }
 
-    let body: unknown = null;
-    if (!deterministicMiss) body = req.slim ? req.slim(response.body) : response.body;
-    const entry: CacheEntry = { status: response.status, body, fetchedAt: response.fetchedAt };
+      let body: unknown = null;
+      if (!deterministicMiss) body = req.slim ? req.slim(response.body) : response.body;
+      const entry: CacheEntry = { status: response.status, body, fetchedAt: response.fetchedAt };
 
-    // Parse before caching, so a bad body (gateway HTML, unexpected shape) is never cached.
-    const data = parse(req, entry);
-    await cache?.set(key, entry, ttlMs);
+      // Parse before caching, so a bad body (gateway HTML, unexpected shape) is never cached. The
+      // cache is written inside the shared task, so no identical request slips in before it lands.
+      parse(req, entry);
+      try {
+        await cache?.set(key, entry, ttlMs);
+      } catch (error) {
+        // The call is already paid for: keep the data and only warn (never log bodies or keys).
+        console.warn(`Qloo cache write failed for ${req.endpoint}: ${snippet(describe(error))}`);
+      }
+      return { entry, durationMs: response.durationMs };
+    });
+
+    const data = parse(req, fetched.entry);
     if (joining) ctx.cachedCalls++;
-    const evidence = record(ctx, req, entry, {
+    const evidence = record(ctx, req, fetched.entry, {
       cached: joining,
       shared: joining,
-      durationMs: joining ? 0 : response.durationMs,
+      durationMs: joining ? 0 : fetched.durationMs,
     });
     return { data, evidence };
   }
 
   async function raw(endpoint: Endpoint, params: QlooParams, rawOptions: { validate?: boolean } = {}) {
     if (rawOptions.validate !== false) validateParams(endpoint, params);
-    return send(endpoint, canonicalQuery(params), () => {});
+    return send(endpoint, canonicalQuery(params), () => true);
   }
 
   return { request, raw };
