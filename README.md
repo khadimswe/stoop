@@ -6,6 +6,10 @@ Ads are free to make now. Knowing who they're for isn't. Stoop uses [Qloo](https
 
 Built for the Qloo Agentic Hackathon (2026). Work in progress: the full judge guide, write-up, and live demo link land before submission.
 
+## Stoop is the brain, you bring your own camera
+
+Stoop decides who each ad is for and what it should feel like, then hands you copy-ready prompts and scripts for the video tools you already use (Higgsfield, Veo, Kling, Runway) or your own Higgsfield MCP. Stoop never renders video on your behalf from the public app; the before/after clips on the site were made ahead of time to show the difference.
+
 ## Status
 
 - [x] Qloo client: validated params, cache, rate limit, retries, call budget, evidence on every result
