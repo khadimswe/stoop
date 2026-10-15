@@ -1,0 +1,85 @@
+name: checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret leak scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  em-dashes:
+    name: No em dashes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files for U+2014
+        run: |
+          set -e
+          hits=$(git ls-files -z \
+            | grep -zv -E '^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$' \
+            | grep -zv -E '^(public/demo/|fixtures/)' \
+            | xargs -0 grep -nI $'\xE2\x80\x94' 2>/dev/null || true)
+          if [ -n "$hits" ]; then
+            echo "Em dashes found. Replace with a comma, period, colon, parentheses, or a hyphen:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "No em dashes."
+      - name: Scan commit messages for U+2014
+        if: github.event_name == 'push'
+        run: |
+          range="${{ github.event.before }}..${{ github.sha }}"
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then range="${{ github.sha }}"; fi
+          git fetch --deepen=50 >/dev/null 2>&1 || true
+          if git log --format=%B "$range" 2>/dev/null | grep -q $'\xE2\x80\x94'; then
+            echo "Em dash found in a commit message in this push."
+            exit 1
+          fi
+
+  local-files:
+    name: Local-only files not committed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block CLAUDE.md, .claude/, .mcp.json, .env files
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)CLAUDE\.md$|^\.claude/|^\.mcp\.json$|(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)
+          if [ -n "$bad" ]; then
+            echo "These files must stay local:"
+            echo "$bad"
+            exit 1
+          fi
+
+  build:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for package.json
+        id: pkg
+        run: |
+          if [ -f package.json ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "No package.json yet, skipping."; fi
+      - uses: actions/setup-node@v4
+        if: steps.pkg.outputs.exists == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.pkg.outputs.exists == 'true'
+        run: npm ci
+      - if: steps.pkg.outputs.exists == 'true'
+        run: npm run check

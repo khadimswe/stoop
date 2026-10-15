@@ -1,0 +1,26 @@
+title = "stoop gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "qloo-api-key-assignment"
+description = "Qloo API key assigned in code or config"
+regex = '''(?i)qloo[_-]?api[_-]?key\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}'''
+keywords = ["qloo"]
+
+[[rules]]
+id = "x-api-key-header"
+description = "Hardcoded X-Api-Key header value"
+regex = '''(?i)["']x-api-key["']\s*:\s*["'][A-Za-z0-9_\-]{16,}["']'''
+keywords = ["x-api-key"]
+
+[[rules]]
+id = "anthropic-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-"]
+
+[allowlist]
+description = "Example env file has empty values only"
+paths = ['''\.env\.example$''']
