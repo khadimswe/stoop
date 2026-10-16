@@ -1,20 +1,24 @@
 # Stoop
 
-Ads made on the block.
+**Stop making ads for nobody.** Data, not stereotypes.
 
-Ads are free to make now. Knowing who they're for isn't. Stoop uses [Qloo](https://www.qloo.com)'s taste graph to prove who a product's customer really is, find the culture they live in, and write short-form video ads that culture would make, with a Qloo receipt for every creative choice.
+Stoop uses [Qloo](https://www.qloo.com)'s taste data to map the audience around a product (who they are, what else they love, where they cluster), then writes the short-form ad they'd actually stop for, with a Qloo receipt for every creative choice.
+
+It's built for Shopify and DTC brands already running video ads on Meta and TikTok, and for startup founders making content that connects with their customers. Paste a store or product link (or describe the product), confirm a few "customers also love" picks, and get a Reality Gap report plus a Campaign Kit for Reels and TikTok (9:16).
+
+Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.
 
 Built for the Qloo Agentic Hackathon (2026). Work in progress: the full judge guide, write-up, and live demo link land before submission.
 
 ## Stoop is the brain, you bring your own camera
 
-Stoop decides who each ad is for and what it should feel like, then hands you copy-ready prompts and scripts for the video tools you already use (Higgsfield, Veo, Kling, Runway) or your own Higgsfield MCP. Stoop never renders video on your behalf from the public app; the before/after clips on the site were made ahead of time to show the difference.
+Stoop decides who each ad is for and what it should feel like, then hands you a Production Pack for the video tools you already use (Higgsfield, Veo, Kling, Runway): asset sheet prompts, scene prompts that reference them, a critique checklist, and a Director's Guide, plus scripts. Copy a prompt or download the kit. Stoop never renders video on your behalf from the public app; the before/after clips on the site were made ahead of time, following the same Director's Guide, to show the difference.
 
 ## Status
 
 - [x] Qloo client: validated params, cache, rate limit, retries, call budget, evidence on every result
 - [ ] Data reality check against the live API
-- [ ] Agent stages: prove, reality gap, segments, culture brief, creative director, prompt packs, scoring
+- [ ] Agent stages: page reading, audience proof, reality gap, segments, culture brief, creative director, Production Packs, scoring
 - [ ] Web app, examples, and before/after videos
 
 ## Setup
@@ -52,6 +56,11 @@ Every call goes through `lib/qloo/client.ts`:
 - **Honest about scores.** Heatmaps are ranked by popularity-corrected lift, and affinities are shown as rank or position against a reference panel scored in the same call, never as raw scores (`lib/qloo/lift.ts`).
 
 Only aggregate taste data is used. No personal data is ever sent to Qloo: just entity ids, tags, locations, and age bands.
+
+## Roadmap
+
+- **Precision mode:** connect your Shopify store so real order locations and best-sellers sharpen Qloo's picture. Aggregated, no customer PII.
+- **A Shopify App Store app** as the way in for brands.
 
 ## License
 
