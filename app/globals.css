@@ -4,7 +4,7 @@
 
 /*
  * Stoop design tokens. Daylight pages (paper) with dark "screens" as inset objects.
- * Full rules: docs/design-notes.md. Every color pair is checked by `npm run check:contrast`.
+ * Every color pair is checked by `npm run check:contrast`.
  * There is no OS dark-mode switch: the paper stays paper.
  */
 

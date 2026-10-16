@@ -1,7 +1,7 @@
 // Decides what the landing hero shows. The blind test needs real, founder-approved clips; until both
 // hook clips for the lead example are rendered from approved prompts and the founder has approved
 // those exact files for the hero, the hero falls back to the lead example's Reality Gap card and
-// Screening Room (docs/plan.md section 16.10).
+// Screening Room.
 import { z } from "zod";
 
 /** Set in Gate 2, when the data picks the lead example. Null keeps the fallback hero. */
