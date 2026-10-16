@@ -5,8 +5,9 @@
 //     every address DNS returns for its host must pass the policy, not just the first one
 //   - the socket is pinned to the checked address through a custom lookup, while the hostname stays
 //     in the Host header and the TLS SNI, so a DNS rebind cannot swap in another address
-//   - https never redirects down to http; 5 s for the whole fetch; a 1 MB body cap; HTML, XHTML or
-//     JSON only; uncompressed bodies only; no cookies sent or kept; a plain identifying User-Agent
+//   - https never redirects down to http; storefront ports only (80, 443, 8080, 8443); 5 s for the
+//     whole fetch; a 1 MB body cap; HTML, XHTML or JSON only; uncompressed bodies only; no cookies
+//     sent or kept; a plain identifying User-Agent
 // Network problems never throw: every failure is a typed result the reader can explain in one line.
 // PageBudget holds the "one page per run" rule: the product page and its .json sibling, once each.
 import dns from "node:dns";
@@ -75,6 +76,8 @@ export const systemResolver: Resolver = async (hostname) =>
 export interface GuardedFetchOptions {
   /** Which addresses may be reached. Only tests pass anything but the default (to reach 127.0.0.1). */
   policy?: AddressPolicy;
+  /** Which ports may be reached. Only tests pass anything but ALLOWED_PORTS (a local server's port). */
+  ports?: readonly number[];
   resolve?: Resolver;
   /** Covers the whole fetch: DNS, every redirect and the body. */
   timeoutMs?: number;
@@ -316,7 +319,7 @@ export async function guardedFetch(input: string, options: GuardedFetchOptions =
     let current = input;
     for (let redirects = 0; ; redirects++) {
       if (controller.signal.aborted) return stopped();
-      const checked = checkUrl(current, policy);
+      const checked = checkUrl(current, policy, options.ports);
       if (!checked.ok) return failed(checked.reason, checked.detail);
       const pinned = await pinAddress(checked, resolve, policy, controller.signal);
       if ("reason" in pinned) return controller.signal.aborted ? stopped() : failed(pinned.reason, pinned.detail);

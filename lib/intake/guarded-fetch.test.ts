@@ -99,7 +99,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const fetchLocal = (path: string, options: Parameters<typeof guardedFetch>[1] = {}) => guardedFetch(`${base}${path}`, { policy: loopbackToo, ...options });
+const fetchLocal = (path: string, options: Parameters<typeof guardedFetch>[1] = {}) => guardedFetch(`${base}${path}`, { policy: loopbackToo, ports: [port], ...options });
 
 describe("guardedFetch, address policy", () => {
   it("refuses 127.0.0.1 under the default policy, without connecting", async () => {
@@ -115,7 +115,7 @@ describe("guardedFetch, address policy", () => {
       { address: "127.0.0.1", family: 4 },
       { address: "10.0.0.7", family: 4 },
     ];
-    const result = await guardedFetch(`http://shop.stoop.test:${port}/page`, { policy: loopbackToo, resolve: mixed });
+    const result = await guardedFetch(`http://shop.stoop.test:${port}/page`, { policy: loopbackToo, ports: [port], resolve: mixed });
     expect(result).toMatchObject({ ok: false, reason: "blocked-address" });
     expect(result.ok ? "" : result.detail).toContain("10.0.0.7");
     expect(seen.length).toBe(before);
@@ -132,15 +132,25 @@ describe("guardedFetch, address policy", () => {
   it("refuses bad links before any lookup", async () => {
     const resolve = vi.fn(local());
     expect(await guardedFetch("ftp://shop.stoop.test/", { resolve })).toMatchObject({ ok: false, reason: "bad-url" });
-    expect(await guardedFetch("http://0x7f000001/", { resolve, policy: loopbackToo })).toMatchObject({ ok: false, reason: "bad-url" });
+    expect(await guardedFetch("http://0x7f000001/", { resolve, policy: loopbackToo, ports: [port] })).toMatchObject({ ok: false, reason: "bad-url" });
     expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("refuses ports that are not storefront ports, without connecting", async () => {
+    const before = seen.length;
+    const resolve = vi.fn(local());
+    // The local server's own port is refused unless a test allows it.
+    expect(await guardedFetch(`http://shop.stoop.test:${port}/page`, { policy: loopbackToo, resolve })).toMatchObject({ ok: false, reason: "bad-url" });
+    expect(await guardedFetch("http://shop.stoop.test:6379/", { policy: loopbackToo, resolve })).toMatchObject({ ok: false, reason: "bad-url" });
+    expect(resolve).not.toHaveBeenCalled();
+    expect(seen.length).toBe(before);
   });
 });
 
 describe("guardedFetch, pinned connection", () => {
   it("connects to the checked address and keeps the hostname in the Host header", async () => {
     const resolve = vi.fn(local());
-    const result = await guardedFetch(`http://shop.stoop.test:${port}/echo`, { policy: loopbackToo, resolve });
+    const result = await guardedFetch(`http://shop.stoop.test:${port}/echo`, { policy: loopbackToo, ports: [port], resolve });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const headers = JSON.parse(result.body) as Record<string, string>;
@@ -156,7 +166,7 @@ describe("guardedFetch, pinned connection", () => {
   it("re-resolves and re-checks on every hop, so a rebind to a private address is caught", async () => {
     const answers = ["127.0.0.1", "10.0.0.9"];
     const rebinding: Resolver = async () => [{ address: answers.shift() ?? "10.0.0.9", family: 4 }];
-    const result = await guardedFetch(`http://shop.stoop.test:${port}/to-name`, { policy: loopbackToo, resolve: rebinding });
+    const result = await guardedFetch(`http://shop.stoop.test:${port}/to-name`, { policy: loopbackToo, ports: [port], resolve: rebinding });
     expect(result).toMatchObject({ ok: false, reason: "blocked-address" });
   });
 
@@ -287,9 +297,9 @@ describe("PageBudget", () => {
   it("refuses an over-budget fetch without touching the network", async () => {
     const before = seen.length;
     const budget = new PageBudget(`${base}/page`);
-    expect(await budget.fetch(`${base}/page`, { policy: loopbackToo })).toMatchObject({ ok: true });
-    expect(await budget.fetch(`${base}/page`, { policy: loopbackToo })).toMatchObject({ ok: false, reason: "over-budget" });
-    expect(await budget.fetch(`${base}/json`, { policy: loopbackToo })).toMatchObject({ ok: false, reason: "over-budget" });
+    expect(await budget.fetch(`${base}/page`, { policy: loopbackToo, ports: [port] })).toMatchObject({ ok: true });
+    expect(await budget.fetch(`${base}/page`, { policy: loopbackToo, ports: [port] })).toMatchObject({ ok: false, reason: "over-budget" });
+    expect(await budget.fetch(`${base}/json`, { policy: loopbackToo, ports: [port] })).toMatchObject({ ok: false, reason: "over-budget" });
     expect(seen.length).toBe(before + 1);
   });
 });

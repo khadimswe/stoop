@@ -316,6 +316,8 @@ export const publicAddress: AddressPolicy = (address) => {
 // --- URLs --------------------------------------------------------------------------------------
 
 export const MAX_URL_LENGTH = 2_048;
+/** The ports a store page is served on. Anything else (6379, 22, 5432) is not a storefront. */
+export const ALLOWED_PORTS: readonly number[] = [80, 443, 8080, 8443];
 
 /** Names that only ever mean "this machine" or a private network (RFC 6761, 6762, 8375, ICANN .internal). */
 const LOCAL_SUFFIXES = ["localhost", "local", "internal", "home.arpa", "localdomain"];
@@ -353,12 +355,21 @@ const badUrl = (detail: string): UrlCheck => ({ ok: false, reason: "bad-url", de
 const blocked = (detail: string): UrlCheck => ({ ok: false, reason: "blocked-address", detail });
 
 /**
- * Checks one link before anything is fetched: http or https only, no credentials, a public host.
- * A numeric host is classified by the address it really means, refused when that address is not
- * public, and refused anyway when it is not written in canonical form. Domain names still need the
- * DNS check in guarded-fetch.ts, which applies the same policy to every address they resolve to.
+ * Checks one link before anything is fetched: http or https only, no credentials, a public host,
+ * a storefront port. A numeric host is classified by the address it really means, refused when that
+ * address is not public, and refused anyway when it is not written in canonical form. Domain names
+ * still need the DNS check in guarded-fetch.ts, which applies the same policy to every address they
+ * resolve to. Only tests pass another policy or other ports (to reach a local server).
  */
-export function checkUrl(input: string, policy: AddressPolicy = publicAddress): UrlCheck {
+export function checkUrl(input: string, policy: AddressPolicy = publicAddress, ports: readonly number[] = ALLOWED_PORTS): UrlCheck {
+  const checked = checkHost(input, policy);
+  if (!checked.ok) return checked;
+  const port = checked.url.port ? Number(checked.url.port) : checked.url.protocol === "https:" ? 443 : 80;
+  if (!ports.includes(port)) return badUrl(`Port ${port} is not a storefront port. Only ports ${ports.join(", ")} are read.`);
+  return checked;
+}
+
+function checkHost(input: string, policy: AddressPolicy): UrlCheck {
   if (typeof input !== "string" || input.trim() === "") return badUrl("The link is empty.");
   if (input.length > MAX_URL_LENGTH) return badUrl(`The link is longer than ${MAX_URL_LENGTH} characters.`);
   let url: URL;

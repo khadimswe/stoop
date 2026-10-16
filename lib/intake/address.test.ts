@@ -243,10 +243,24 @@ describe("checkUrl", () => {
     if (!result.ok) expect(result.detail).toContain("Use 93.184.216.34");
   });
 
+  it("allows only storefront ports, unless a test passes its own", () => {
+    for (const input of ["http://shop.example.com/", "https://shop.example.com/", "http://shop.example.com:8080/", "https://shop.example.com:8443/", "https://shop.example.com:443/"]) {
+      expect(reason(input), input).toBe("ok");
+    }
+    for (const input of ["http://shop.example.com:6379/", "https://shop.example.com:22/", "http://93.184.216.34:5432/", "https://shop.example.com:444/"]) {
+      expect(reason(input), input).toBe("bad-url");
+    }
+    expect(checkUrl("http://shop.example.com:6379/", publicAddress, [6379])).toMatchObject({ ok: true });
+    // An address problem is reported before a port problem.
+    expect(reason("http://127.0.0.1:6379/")).toBe("blocked-address");
+  });
+
   it("applies an injected policy to numeric hosts", () => {
     const loopbackToo = (address: string) =>
       address === "127.0.0.1" ? { allowed: true as const, address, family: 4 as const } : publicAddress(address);
     expect(checkUrl("http://127.0.0.1:8080/", loopbackToo)).toMatchObject({ ok: true });
+    expect(checkUrl("http://127.0.0.1:49152/", loopbackToo)).toMatchObject({ ok: false, reason: "bad-url" });
+    expect(checkUrl("http://127.0.0.1:49152/", loopbackToo, [49152])).toMatchObject({ ok: true });
     // Still refused: non-canonical spellings, and every other private address.
     expect(checkUrl("http://0x7f000001/", loopbackToo)).toMatchObject({ ok: false, reason: "bad-url" });
     expect(checkUrl("http://10.0.0.1/", loopbackToo)).toMatchObject({ ok: false, reason: "blocked-address" });
