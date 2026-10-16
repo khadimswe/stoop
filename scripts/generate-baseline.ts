@@ -2,7 +2,7 @@
 // show how a brief written without Qloo varies from run to run. Then, for run 1 (the Control, fixed in
 // advance), it writes the 3 concepts with the same concept writer the Qloo path uses.
 //
-//   npm run baseline -- <slug>|--all [--runs 3] [--force] [--reroll-control]
+//   npm run baseline -- <slug>|--all [--runs 3] [--force] [--reroll-control --because "<reason>"]
 //
 // Writes data/baselines/<slug>/run-<n>.json and concepts.json, and skips runs that already exist
 // unless --force. Run 1 (the Control) is replaced only with --reroll-control, and never once its pack
@@ -25,7 +25,7 @@ const MAX_CALLS = 40;
 const MAX_RUNS = 10;
 const DEFAULT_RUNS = 3;
 const EM_DASH = String.fromCharCode(0x2014);
-const USAGE = "Usage: npm run baseline -- <slug>|--all [--runs 3] [--force] [--reroll-control]";
+const USAGE = 'Usage: npm run baseline -- <slug>|--all [--runs 3] [--force] [--reroll-control --because "<reason>"]';
 
 function fail(message: string): never {
   console.error(message);
@@ -37,12 +37,14 @@ interface Args {
   runs: number;
   force: boolean;
   rerollControl: boolean;
+  because?: string;
 }
 
 function parseArgs(argv: readonly string[]): Args {
   let all = false;
   let force = false;
   let rerollControl = false;
+  let because: string | undefined;
   let runs = DEFAULT_RUNS;
   const slugs: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -50,6 +52,7 @@ function parseArgs(argv: readonly string[]): Args {
     if (arg === "--all") all = true;
     else if (arg === "--force") force = true;
     else if (arg === "--reroll-control") rerollControl = true;
+    else if (arg === "--because") because = argv[++i]?.trim();
     else if (arg === "--runs" || arg.startsWith("--runs=")) {
       const value = arg === "--runs" ? argv[++i] : arg.slice("--runs=".length);
       runs = Number(value);
@@ -59,10 +62,12 @@ function parseArgs(argv: readonly string[]): Args {
   }
   if (all === (slugs.length > 0) || slugs.length > 1) fail(USAGE);
   if (rerollControl && !force) fail(`--reroll-control needs --force.\n${USAGE}`);
-  if (all) return { candidates: CANDIDATES, runs, force, rerollControl };
+  // A Control is only regenerated when an input changed, and the run file records which.
+  if (rerollControl && (!because || because.length < 10)) fail(`--reroll-control needs --because "<why an input changed>".\n${USAGE}`);
+  if (all) return { candidates: CANDIDATES, runs, force, rerollControl, because };
   const candidate = candidateBySlug(slugs[0]);
   if (!candidate) fail(`No candidate "${slugs[0]}". Known: ${CANDIDATES.map((c) => c.slug).join(", ")}.`);
-  return { candidates: [candidate], runs, force, rerollControl };
+  return { candidates: [candidate], runs, force, rerollControl, because };
 }
 
 async function writeChecked(file: string, value: unknown, apiKey: string): Promise<void> {
@@ -76,7 +81,7 @@ async function writeChecked(file: string, value: unknown, apiKey: string): Promi
 const tokens = (value: number | null) => (value === null ? "?" : value.toLocaleString("en-US"));
 
 async function main(): Promise<void> {
-  const { candidates, runs, force, rerollControl } = parseArgs(process.argv.slice(2));
+  const { candidates, runs, force, rerollControl, because } = parseArgs(process.argv.slice(2));
 
   loadLocalEnv();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -123,7 +128,7 @@ async function main(): Promise<void> {
       break;
     }
     try {
-      const result = await generateBaseline(candidate, { model, modelId, run });
+      const result = await generateBaseline(candidate, { model, modelId, run, because: force ? because : undefined });
       calls += result.attempts;
       add(result.usage);
       await writeChecked(file, result, apiKey);

@@ -71,7 +71,7 @@ describe("candidate pool", () => {
   });
 
   it("sets the creative direction where the format needs it", () => {
-    expect(candidateBySlug("pets-outfits")?.direction?.cast).toBe("pet");
+    expect(candidateBySlug("pets-outfits")?.direction).toEqual({ look: "animation_3d", cast: "pet", energy: "auto" });
     expect(candidateBySlug("apparel-everyday")?.direction?.look).toBe("animation_3d");
     expect(candidateBySlug("apparel-everyday")?.direction).toEqual({ look: "animation_3d", cast: "auto", energy: "auto" });
   });
