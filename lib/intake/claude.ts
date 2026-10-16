@@ -10,6 +10,10 @@ import { STOOP_PROVIDER_OPTIONS } from "../agent/model";
 
 // Thinking always runs on this model and counts toward the limit, so leave room beyond the JSON.
 const MAX_OUTPUT_TOKENS = 16_000;
+/** Longest wait for one intake answer, retries included. The /start screen is waiting on it. */
+export const CLAUDE_TIMEOUT_MS = 20_000;
+/** One retry on a retryable provider error (overloaded, rate limited), inside the same timeout. */
+export const CLAUDE_MAX_RETRIES = 1;
 
 export const usageSchema = z.strictObject({
   inputTokens: z.number().int().nonnegative().nullable(),
@@ -36,10 +40,20 @@ export interface AskOptions {
   schema: z.ZodType;
   name: string;
   description?: string;
+  /** Cancels the call, e.g. when the founder leaves the page. A cancelled call rejects. */
+  abortSignal?: AbortSignal;
+  /** Defaults to CLAUDE_TIMEOUT_MS. A timed-out call is a failure line, not an error. */
+  timeoutMs?: number;
 }
 
-/** One call with structured output. Rethrows anything but a malformed or cut-off answer (auth, network). */
+/**
+ * One call with structured output, a timeout and one retry. A malformed, cut-off or timed-out
+ * answer comes back as a failure line; anything else (auth, a cancelled call) is rethrown.
+ */
 export async function askOnce(model: LanguageModel, options: AskOptions): Promise<Asked> {
+  const timeoutMs = options.timeoutMs ?? CLAUDE_TIMEOUT_MS;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const abortSignal = options.abortSignal ? AbortSignal.any([timeout, options.abortSignal]) : timeout;
   try {
     const result = await generateText({
       model,
@@ -47,6 +61,8 @@ export async function askOnce(model: LanguageModel, options: AskOptions): Promis
       prompt: options.prompt,
       output: Output.object({ schema: options.schema, name: options.name, ...(options.description ? { description: options.description } : {}) }),
       maxOutputTokens: MAX_OUTPUT_TOKENS,
+      maxRetries: CLAUDE_MAX_RETRIES,
+      abortSignal,
       providerOptions: STOOP_PROVIDER_OPTIONS,
     });
     try {
@@ -56,8 +72,13 @@ export async function askOnce(model: LanguageModel, options: AskOptions): Promis
       return { output: undefined, usage: usageOf(result.usage), failure: "the answer ended before it was complete" };
     }
   } catch (error) {
-    if (!NoObjectGeneratedError.isInstance(error)) throw error;
-    return { output: undefined, usage: usageOf(error.usage), failure: "the answer was not valid JSON for the schema" };
+    if (NoObjectGeneratedError.isInstance(error)) {
+      return { output: undefined, usage: usageOf(error.usage), failure: "the answer was not valid JSON for the schema" };
+    }
+    if (timeout.aborted && !options.abortSignal?.aborted) {
+      return { output: undefined, usage: usageOf(undefined), failure: `Claude did not answer within ${timeoutMs / 1000} s` };
+    }
+    throw error;
   }
 }
 
