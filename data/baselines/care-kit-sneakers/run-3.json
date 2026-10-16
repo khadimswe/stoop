@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "candidate": "care-kit-sneakers",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:41:04.156Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4052,
+    "outputTokens": 1072
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "male",
+      "description": "Adults who treat their sneakers like a collection. They rotate pairs, notice every scuff and crease, and take pride in a clean sole line. They follow drops, trade tips on care, and want a simple routine that keeps pairs wearable instead of boxed up."
+    },
+    "productRole": "The kit is unzipped and laid out on a towel, then used in sequence on a scuffed white leather low-top: foam pumped onto the soft brush and worked over the upper in small circles, the stiff brush scrubbing the midsole until grime lifts, then the microfiber towel wiping the foam away. A split-second before and after shows the clean result, and the pieces slide back into the zip pouch at the end.",
+    "mood": "Satisfying, confident, crisp, a little obsessive",
+    "music": {
+      "style": "Modern lo-fi hip hop beat with a dry punchy snare, warm sub bass, soft dusty keys and a light vinyl texture, with clean percussive accents synced to brush strokes",
+      "tempo": "about 88 bpm"
+    },
+    "visual": {
+      "look": "Macro-driven top-down and low-angle shots, clean natural window light with a neutral warm grade, shallow depth of field on foam and bristles, fine film grain. Fast rhythmic cuts every 1 to 1.5 seconds synced to the beat, one hard match-cut from dirty to clean at the 9 second mark, final 3 seconds on a calm packshot of the open pouch beside the finished pair."
+    },
+    "wardrobe": {
+      "styling": "Relaxed streetwear in muted tones: plain heavyweight tees, a washed zip hoodie, cargo pants and a simple cap. No logos, no printed text. Sneakers shown are unbranded-looking low-tops in white leather, plus one canvas and one knit pair on a shelf."
+    },
+    "setting": {
+      "types": [
+        "apartment hallway with a sneaker shelf wall",
+        "kitchen counter by a window",
+        "small bedroom collection corner"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, confident and understated, like someone who simply cares about details",
+      "use": [
+        "Names the exact job each tool does in a few words",
+        "Keeps lines short and rhythmic to match the brush strokes",
+        "Mentions leather, canvas and knit in one breath",
+        "Ends with a calm call to grab the kit at $28"
+      ],
+      "avoid": [
+        "Claims about protection or lasting results",
+        "Fake reviews, ratings or sales numbers",
+        "Hype slang or resale talk",
+        "Naming other brands",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "That scuff has been bothering you for weeks.",
+      "Watch this midsole go from grey to white.",
+      "Your best pair deserves better than a wet wipe."
+    ],
+    "talent": {
+      "description": "One fictional adult in their mid twenties with a calm, focused demeanor, relaxed streetwear styling and careful hands, seen mostly from the shoulders down and in close hand shots, with a brief glance at camera and small satisfied smile at the end."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "Jason Markk"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "New York"
+    ]
+  }
+}

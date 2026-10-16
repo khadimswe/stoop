@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "7423497c8c0b2f06cbd6842c01073d862b72b95f17da6f501a56e695848438db",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:52:43.842Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5133,
+    "outputTokens": 4305
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "The Lid Comes Off",
+        "hook": "First second: a hand unbuttons a crisp collared shirt cuff by the entryway as a tote bag thuds onto a bench. Overlay: The workday ends when this lid comes off.",
+        "emotion": "Quiet relief",
+        "surpriseBeat": "The room visibly shifts: as the flame settles, the lamps dim by themselves in a soft fade and the cool dusk light warms to amber, so the candle seems to switch the whole evening over.",
+        "locations": [
+          {
+            "slug": "apartment-entryway",
+            "description": "Narrow entryway with coat hooks and a wooden bench where a tote bag is dropped",
+            "timeOfDay": "dusk",
+            "lighting": "Cool blue window light fading, a single dim lamp"
+          },
+          {
+            "slug": "living-room",
+            "description": "Lived-in apartment living room with a linen sofa, throw blanket and a small side table",
+            "timeOfDay": "dusk",
+            "lighting": "Candlelight as key, dim lamp as fill, warm amber grade"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "A tired adult in their early 30s drops a tote bag on the entryway bench and unbuttons a crisp collared shirt cuff.",
+            "camera": "handheld",
+            "framing": "Medium close on torso and hands, shallow depth of field",
+            "motion": "Slow, heavy movements, shoulders slumped",
+            "lighting": "Cool dusk window light with a dim lamp",
+            "productVisible": false,
+            "location": "apartment-entryway",
+            "overlayText": "The workday ends when this lid comes off.",
+            "dialogue": null,
+            "sound": "Tote thud on wood, soft exhale, faint room tone"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "Now in an oatmeal knit cardigan and lounge pants, the adult lifts the charcoal lid off the candle jar and sets the lid down beside it on the side table.",
+            "camera": "push_in_slow",
+            "framing": "Close on the jar on the side table, leaf label facing camera, hands entering late and staying at the sides of the jar",
+            "motion": "Lid lifted straight up and set aside, one simple move",
+            "lighting": "Dim lamp fill, warm amber grade",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Soft ceramic and glass clink of the lid, fingerpicked guitar begins"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The adult lights the single cotton wick and sits back on the linen sofa, pulling the throw blanket over bare feet.",
+            "camera": "handheld",
+            "framing": "Medium close, face half lit by the new flame",
+            "motion": "Small settling movements, a long slow breath",
+            "lighting": "Candlelight key, lamp fill",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "Cedar. Fig. Black tea.",
+            "dialogue": "This is the moment the evening shifts.",
+            "sound": "Soft match strike, brushed percussion enters"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 4,
+            "action": "Macro on the flame and creamy wax pool glowing amber. The camera pulls back as the lamps fade softly down and the room turns to amber glow with shoulders visibly dropping.",
+            "camera": "pull_out_reveal",
+            "framing": "Starts macro on flame and wax, ends wide on the glowing living room",
+            "motion": "Flame steadies, the adult's shoulders drop",
+            "lighting": "Candlelight takes over as key as the lamp dims",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "About 50 hours. Reusable glass jar.",
+            "dialogue": null,
+            "sound": "Warm piano pad swells, faint breathy hum"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The candle sits centered on the side table, leaf label facing camera, flame lit. The adult's hand passes in with a charcoal lid only at the very end to rest it nearby, while a second adult's hand passes a mug in the background.",
+            "camera": "static",
+            "framing": "Held centered product shot, label facing camera",
+            "motion": "Still, flame flickers gently",
+            "lighting": "Candlelight key, dim lamp fill",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "Light one tonight.",
+            "dialogue": "Light one when you're ready.",
+            "sound": "Guitar resolves, soft exhale"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 5,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Follows the brief's ritual closely with a clear single emotion and a well staged product. The lamps dimming on their own is a gentle surprise, not a bold one."
+      }
+    },
+    {
+      "concept": {
+        "title": "Shirt Off, Flame On",
+        "hook": "First second: a crash zoom onto a collared shirt being unbuttoned in the entryway, then a hard cut to a lit flame. Overlay: Your evening starts with one small flame.",
+        "emotion": "Warm, unhurried relief",
+        "surpriseBeat": "A quick cut-back shows the same jar unlit on the table, then the lit flame arrives in a match cut, revealing the whole ritual took only a few seconds and the room changes completely.",
+        "locations": [
+          {
+            "slug": "living-room",
+            "description": "Apartment living room at dusk with a linen sofa, throw blanket and small side table",
+            "timeOfDay": "dusk",
+            "lighting": "Candlelight key, dim lamp fill"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "A tired adult unbuttons a crisp collared shirt, a tote bag already dropped on a bench behind them.",
+            "camera": "crash_zoom_in",
+            "framing": "Tight on chest and hands, shallow depth of field",
+            "motion": "Quick tired fingers, then a pause",
+            "lighting": "Cool dusk window light",
+            "productVisible": false,
+            "location": "living-room",
+            "overlayText": "Your evening starts with one small flame.",
+            "dialogue": null,
+            "sound": "Tote thud, a sharp breath"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The unlit candle sits on the side table with its charcoal lid on. The adult's hand lifts the lid straight up and away.",
+            "camera": "dolly_in",
+            "framing": "Medium close on the jar, leaf label facing camera",
+            "motion": "Single lift of the lid",
+            "lighting": "Dim lamp, amber grade",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Fingerpicked guitar begins, soft glass clink"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The adult, now in an oatmeal knit cardigan and wool socks, lights the wick and sinks into the linen sofa.",
+            "camera": "handheld",
+            "framing": "Medium close, flame glow on face",
+            "motion": "Slow sink into the cushions",
+            "lighting": "Candlelight key",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "Cedar, fig, black tea.",
+            "dialogue": null,
+            "sound": "Match strike, brushed percussion"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 4,
+            "action": "Macro of the flame settling over the amber wax pool, then a slow pull back to the adult's shoulders dropping as the lamp dims.",
+            "camera": "push_in_slow",
+            "framing": "Macro on flame and wax pool",
+            "motion": "Flame steadies and the wax glows",
+            "lighting": "Candlelight only, soft shadow",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "About 50 hours. Reusable glass jar.",
+            "dialogue": "Cedar, fig, black tea. Home, finally.",
+            "sound": "Warm piano pad, faint hum"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The candle held centered, leaf label to camera. The lid is set back on to close the evening as the flame goes out beneath it.",
+            "camera": "static",
+            "framing": "Centered product shot",
+            "motion": "Lid placed gently on the jar",
+            "lighting": "Warm amber, low",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "Light one tonight.",
+            "dialogue": null,
+            "sound": "Soft lid clink, guitar fades out"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The crash zoom gives a strong first second and the lid closing covers the brief's ending. The surprise is mild and the single location is less varied."
+      }
+    },
+    {
+      "concept": {
+        "title": "One Mug, One Flame",
+        "hook": "First second: a bare foot steps over a dropped tote bag, a collared shirt half unbuttoned, the room still cold and blue. Overlay: Cedar, fig, black tea. Home, finally.",
+        "emotion": "Soft, cozy relief",
+        "surpriseBeat": "A second adult's hand slips a steaming mug into frame at the moment the flame settles, showing the evening was being held open for the person coming home.",
+        "locations": [
+          {
+            "slug": "apartment-entryway",
+            "description": "Entryway with coat hooks and a bench holding a dropped tote bag",
+            "timeOfDay": "dusk",
+            "lighting": "Cool blue window light"
+          },
+          {
+            "slug": "living-room",
+            "description": "Living room with a linen sofa, throw blanket and a small side table",
+            "timeOfDay": "dusk",
+            "lighting": "Candlelight key, dim lamp fill"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A tired adult steps in, lets a tote bag drop onto the bench by the coat hooks and unbuttons a crisp collared shirt.",
+            "camera": "snorricam",
+            "framing": "Close on the adult, entryway sliding behind them",
+            "motion": "Slow tired walk, a long exhale",
+            "lighting": "Cool dusk light, dim lamp",
+            "productVisible": false,
+            "location": "apartment-entryway",
+            "overlayText": "Cedar, fig, black tea. Home, finally.",
+            "dialogue": null,
+            "sound": "Door click, tote thud, quiet room tone"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "In an oatmeal cardigan and wool socks, the adult lifts the charcoal lid off the candle on the side table and sets it aside.",
+            "camera": "dolly_in",
+            "framing": "Close on the jar with the leaf label facing camera",
+            "motion": "One smooth lid lift",
+            "lighting": "Dim lamp fill, amber grade",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Fingerpicked guitar enters, soft glass clink"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The adult lights the single cotton wick and sits on the linen sofa, the throw blanket pulled across their lap.",
+            "camera": "handheld",
+            "framing": "Medium close, candlelit face",
+            "motion": "Slow settling, head tipping back",
+            "lighting": "Candlelight key",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "About 50 hours. Reusable glass jar.",
+            "dialogue": "The evening is shifting. Let it.",
+            "sound": "Match strike, brushed percussion"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Macro of the flame and amber wax pool. A second adult's hand passes a mug in the background, softly out of focus.",
+            "camera": "push_in_slow",
+            "framing": "Macro on flame, mug hand blurred behind",
+            "motion": "Flame steady, mug gliding into frame",
+            "lighting": "Candlelight key with warm lamp fill",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Warm piano pad, faint breathy hum"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The jar sits centered on the side table, label to camera, lid resting beside it, the room glowing amber behind.",
+            "camera": "static",
+            "framing": "Held centered product shot",
+            "motion": "Flame flickers gently",
+            "lighting": "Candlelight key, soft shadow",
+            "productVisible": true,
+            "location": "living-room",
+            "overlayText": "Light one tonight.",
+            "dialogue": "Light one when you're ready.",
+            "sound": "Guitar resolves, soft exhale"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Very clear cozy emotion and a tender mug moment that fits the brief. The opening is quieter for a scroll and the mug beat is background, so its surprise is soft."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}

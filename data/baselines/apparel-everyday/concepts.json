@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "1f123f46ec63ade48071044bf2dcbec50a973b4099df47aa34646c2a990f0e90",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:50:46.180Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5247,
+    "outputTokens": 4031
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Same Shoulders",
+        "hook": "Macro of a folded charcoal tee on a folded hoodie, clay-soft 3D, cotton weave visible. Overlay: Heavy cotton. Boxy cut. Nothing to explain.",
+        "emotion": "quiet satisfaction",
+        "surpriseBeat": "After the washing drum, the tee and hoodie slide out and settle in slow motion with the same square shoulders and crisp hem as before.",
+        "locations": [
+          {
+            "slug": "studio-backdrop",
+            "description": "Minimal 3D studio set with a pale warm backdrop",
+            "timeOfDay": "day",
+            "lighting": "Warm studio key light, soft shadows"
+          },
+          {
+            "slug": "laundry-room",
+            "description": "Tiny stylized laundry room with a front-load washer",
+            "timeOfDay": "day",
+            "lighting": "Warm soft key light with gentle grain"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "The folded tee on the folded hoodie sits centered on the pale backdrop. Slow push toward the weave of the cotton.",
+            "camera": "push_in_slow",
+            "framing": "Macro on the stack, edges of both garments readable",
+            "motion": "Camera moves only; stack is still",
+            "lighting": "Warm studio key light, soft shadows",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Heavy cotton. Boxy cut. Nothing to explain.",
+            "dialogue": null,
+            "sound": "Lo-fi hip hop at about 88 bpm, dusty drums, soft electric piano, light vinyl crackle"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "A relaxed stylized adult character pulls the tee on and it drops into a boxy shape with relaxed shoulders.",
+            "camera": "static",
+            "framing": "Medium shot, character centered against the backdrop",
+            "motion": "Unhurried pull-on, fabric falls and settles",
+            "lighting": "Warm studio key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Heavyweight cotton tee",
+            "dialogue": null,
+            "sound": "Soft cloth rustle, round sub bass note on the beat"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The brushed fleece hoodie is zipped around a shoulder. The fleece compresses, then springs back.",
+            "camera": "dolly_in",
+            "framing": "Close on the shoulder, fleece fibers visible",
+            "motion": "Slow zip, fabric compresses and rebounds",
+            "lighting": "Warm key light with soft shadows",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Brushed fleece hoodie",
+            "dialogue": null,
+            "sound": "Soft zipper glide, muted fleece press"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Both garments tumble through the washing drum, then slide out onto the surface and settle in slow motion with square shoulders and a crisp hem.",
+            "camera": "static",
+            "framing": "Front view of the washer door, then the garments settling",
+            "motion": "Slow tumble, then slow-motion fabric settle",
+            "lighting": "Warm soft light",
+            "productVisible": true,
+            "location": "laundry-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Gentle drum hum, then a soft hush as the fabric settles"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The stack is re-folded and held on the pale backdrop. The camera pulls back to a medium shot.",
+            "camera": "pull_out_reveal",
+            "framing": "Stack centered, held end frame",
+            "motion": "Stack still",
+            "lighting": "Warm studio key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Small runs. One small symbol. Prices at the end.",
+            "dialogue": "Same shape after the wash.",
+            "sound": "Piano chord resolves, vinyl crackle fades"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Directly follows the brief's wear and wash montage with the product as hero. The surprise is quiet by design, so it scores moderately."
+      }
+    },
+    {
+      "concept": {
+        "title": "Stitch by Stitch",
+        "hook": "Extreme macro of a circle-and-line symbol being stitched into charcoal cotton, thread appearing stitch by stitch on the beat. Overlay: One small symbol.",
+        "emotion": "calm craft appreciation",
+        "surpriseBeat": "The macro pulls out in one move to reveal the tiny embroidered symbol sits on a full boxy tee worn by a relaxed character.",
+        "locations": [
+          {
+            "slug": "studio-backdrop",
+            "description": "Minimal 3D studio set with a pale warm backdrop",
+            "timeOfDay": "day",
+            "lighting": "Warm studio key light, soft shadows"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "Macro of the circle-and-line symbol appearing stitch by stitch on charcoal cotton, weave visible.",
+            "camera": "push_in_slow",
+            "framing": "Extreme macro on fabric and thread",
+            "motion": "Stitches appear one by one on the beat",
+            "lighting": "Warm key light, soft shadows",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "One small symbol.",
+            "dialogue": null,
+            "sound": "Dusty lo-fi drums at about 88 bpm, a tick for each stitch"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The folded tee on the folded hoodie sits on the backdrop. The camera moves around the stack.",
+            "camera": "orbit",
+            "framing": "Medium close on the stack from every side",
+            "motion": "Camera circles; stack is still",
+            "lighting": "Warm studio key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Boxy heavyweight tee. Brushed fleece hoodie.",
+            "dialogue": "Heavy cotton. Boxy cut.",
+            "sound": "Soft electric piano chords, round sub bass"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "A character pulls the hoodie on and the brushed fleece compresses, then springs back.",
+            "camera": "handheld",
+            "framing": "Medium shot, hood down",
+            "motion": "Easy pull-on, fleece rebounds",
+            "lighting": "Warm key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Soft fleece rustle, vinyl crackle"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The macro pulls out to reveal the symbol on the chest of a boxy tee worn by the relaxed character, who stands with an easy posture.",
+            "camera": "pull_out_reveal",
+            "framing": "Starts macro on the stitches, ends medium shot",
+            "motion": "Character stands still while the camera pulls back",
+            "lighting": "Warm studio key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Bass note swells softly"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The character steps out of frame, leaving the folded stack in a held end frame.",
+            "camera": "static",
+            "framing": "Stack centered on the pale backdrop",
+            "motion": "Stack still",
+            "lighting": "Warm studio key light",
+            "productVisible": true,
+            "location": "studio-backdrop",
+            "overlayText": "Small runs. Prices at the end.",
+            "dialogue": "Small runs. One small symbol.",
+            "sound": "Piano chord resolves, light crackle"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The macro stitch opening is distinctive and uses the brief's symbol detail. The reveal is pleasant, though the product is worn more than it is tested."
+      }
+    },
+    {
+      "concept": {
+        "title": "Third Wash",
+        "hook": "A charcoal tee dropped into a washing drum, spinning at the glass. Overlay: Most tees give up by the third wash.",
+        "emotion": "calm confidence",
+        "surpriseBeat": "After the spin, the tee tumbles out and snaps to its boxy shape with square shoulders, while a limp generic shirt is not shown, only the crisp hem holds.",
+        "locations": [
+          {
+            "slug": "laundry-room",
+            "description": "Tiny stylized laundry room with a front-load washer",
+            "timeOfDay": "day",
+            "lighting": "Warm soft key light"
+          },
+          {
+            "slug": "sunlit-bedroom",
+            "description": "Sunlit dorm-style bedroom with a shelf and a chair",
+            "timeOfDay": "morning",
+            "lighting": "Soft sunlight with warm fill"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "The charcoal tee and hoodie tumble behind the front-load washer glass.",
+            "camera": "static",
+            "framing": "Front view of the washer door filling the frame",
+            "motion": "Slow drum tumble",
+            "lighting": "Warm soft key light",
+            "productVisible": true,
+            "location": "laundry-room",
+            "overlayText": "Most tees give up by the third wash.",
+            "dialogue": null,
+            "sound": "Lo-fi hip hop at about 88 bpm, soft drum hum under it"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The door opens and the folded tee on the folded hoodie is lifted out and set on the counter.",
+            "camera": "dolly_in",
+            "framing": "Medium shot of the stack on the counter",
+            "motion": "Simple lift and set down",
+            "lighting": "Warm key light",
+            "productVisible": true,
+            "location": "laundry-room",
+            "overlayText": "Boxy heavyweight cotton tee",
+            "dialogue": null,
+            "sound": "Soft thud, vinyl crackle"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "In the sunlit bedroom, a second adult character hangs the hoodie on a chair back.",
+            "camera": "tracking_side",
+            "framing": "Medium shot, chair and shelf in view",
+            "motion": "Calm walk and hang",
+            "lighting": "Soft sunlight with warm fill",
+            "productVisible": true,
+            "location": "sunlit-bedroom",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Quiet room tone, soft electric piano"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The relaxed character pulls the tee on and it drops into its boxy shape. Slow motion at the 8 second mark shows the fabric settle with square shoulders.",
+            "camera": "push_in_slow",
+            "framing": "Medium close on the shoulders and hem",
+            "motion": "Slow-motion cloth settle",
+            "lighting": "Soft sunlight",
+            "productVisible": true,
+            "location": "sunlit-bedroom",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Round sub bass hold, cloth hush"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The camera pulls back to the stack on the shelf, held end frame.",
+            "camera": "pull_out_reveal",
+            "framing": "Stack on shelf, bedroom softly visible",
+            "motion": "Stack still",
+            "lighting": "Soft sunlight",
+            "productVisible": true,
+            "location": "sunlit-bedroom",
+            "overlayText": "Small runs. Prices at the end.",
+            "dialogue": "Heavy cotton. Boxy cut.",
+            "sound": "Piano resolves, crackle fades"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The hook line comes from the brief and the bedroom adds warmth. The surprise description is muddled and the first frame is less striking than the macro concepts."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}

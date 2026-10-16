@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "candidate": "care-kit-sneakers",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:40:37.128Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4052,
+    "outputTokens": 1161
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "male",
+      "description": "Adults who treat their sneakers like a collection: they rotate pairs, notice every scuff and crease, and want a clean pair before they step out. They follow sneaker culture, value a tidy shelf, and like simple tools that do one job well without risking the colors or materials of a pair they paid good money for."
+    },
+    "productRole": "The kit is the star of a satisfying clean-up sequence. The pouch is unzipped, the stiff brush scrubs a scuffed white midsole, the foaming cleaner pumps into a thick lather on a knit upper worked with the soft brush, and the gray microfiber towel wipes the foam away to reveal a clean surface. The last shot packs everything back into the zip pouch.",
+    "mood": "Satisfying, confident, crisp, a little obsessive",
+    "music": {
+      "style": "Modern lo-fi hip-hop beat with a punchy kick, dry snare snaps, a warm muted bass and a simple electric piano loop, with a small percussive click on each reveal",
+      "tempo": "about 92 bpm"
+    },
+    "visual": {
+      "look": "Tight macro and mid shots with a clean, slightly warm grade and strong contrast. Shallow depth of field on the bristles and foam, a soft key light from the side to show texture, fine grain. Fast cuts of about 1 second timed to the beat, with one split-screen before and after at the 10 second mark and a slow push-in on the finished pair at the end. Text overlays are minimal and large, all in the lower third."
+    },
+    "wardrobe": {
+      "styling": "Plain heather gray hoodie or a solid black tee, relaxed dark trousers, no logos or visible text on any clothing. Sneakers on screen are unbranded in look: a white leather low-top with a scuffed midsole, a cream canvas pair, and a gray knit runner with mud splatter."
+    },
+    "setting": {
+      "types": [
+        "bright home sneaker shelf corner with a wooden floor",
+        "small apartment entryway with a mat and a bench",
+        "clean concrete-top workbench by a window"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, assured and a little playful, like a friend who is quietly particular about shoes",
+      "use": [
+        "Names the exact problem, like creased toe boxes, scuffed soles and muddy knit",
+        "Describes the result in visible terms: bright midsole, clean mesh, colors intact",
+        "Mentions what comes in the pouch: cleaner, two brushes, one towel",
+        "States the $28 price once, plainly",
+        "Ends with a short, calm invitation to get the kit"
+      ],
+      "avoid": [
+        "Health or protection claims",
+        "Invented ratings, review counts or sales numbers",
+        "Speaking as a customer who tried it",
+        "Brand names or hype slang",
+        "Promises about removing every stain"
+      ]
+    },
+    "hooks": [
+      "That pair deserves better than a wet paper towel.",
+      "Scuffed midsoles end here. Watch this.",
+      "Your shelf is clean. Your sneakers should be too."
+    ],
+    "talent": {
+      "description": "One adult in their mid twenties with a calm, focused attitude and a short fade haircut, shown mostly from the hands and torso up with a few face glimpses at the end. A second adult friend in their late twenties appears briefly at the end admiring the finished pair. Both are fictional."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "Jason Markk",
+        "Nike"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "New York"
+    ]
+  }
+}

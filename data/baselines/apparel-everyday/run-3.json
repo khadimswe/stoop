@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "candidate": "apparel-everyday",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:31:46.786Z",
+  "instructionsHash": "b46b3e585e23ae817e02f8b51ed88ace105d3512c44a173ac01a4319a94f1c97",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4076,
+    "outputTokens": 1236
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who are in college or just out of it, who want plain, well-made basics that hold their shape and look good without shouting. They like simple colors, a relaxed boxy fit, and clothes that feel solid. They are budget aware, so they want fewer pieces that last, and they notice small details like stitching and fabric weight."
+    },
+    "productRole": "The folded charcoal tee and hoodie stack is the hero object. In a 3D animated sequence, the stack is unfolded, the tee is pulled on and drops into a boxy shape, the hoodie is tugged over it, and then both go through a fast animated wash cycle and come out with the same shape. Close-ups show the thick cotton weave, the brushed fleece interior, and the small off-white embroidered circle-and-line symbol being stitched in a quick macro beat.",
+    "mood": "Calm, tactile, quietly confident, with a playful toy-like warmth",
+    "music": {
+      "style": "Lo-fi hip hop with a warm 90s boom-bap drum loop, soft electric piano chords, a mellow bass line and light vinyl crackle, with a soft snap on each cut",
+      "tempo": "about 88 bpm"
+    },
+    "visual": {
+      "look": "Stylized 3D animation with soft clay-like materials, rounded forms and exaggerated fabric simulation so the cotton looks thick and the fleece looks fluffy. Matte shaders with subtle fiber texture, warm key light with soft shadows, shallow depth of field and macro camera moves on the weave and stitching. Muted washed palette of charcoal, sand and faded olive against a simple pastel backdrop. Vertical 9:16 framing, centered subjects, smooth camera pushes and quick match cuts every 1 to 2 seconds. Final beat is a steady hero shot of the folded stack with the symbol large and sharp."
+    },
+    "wardrobe": {
+      "styling": "Simple stylized 3D characters wear the product itself: a boxy charcoal tee, then a charcoal hoodie over it, with relaxed straight pants in sand or faded blue and plain white sneakers. No logos, no prints, no readable text on any clothing."
+    },
+    "setting": {
+      "types": [
+        "minimal pastel studio set with a folded-clothes shelf",
+        "small animated laundry room with a front-loading washer",
+        "cozy dorm-style bedroom corner"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, calm and confident, short sentences, a little wry",
+      "use": [
+        "Speak as the brand in plain short lines",
+        "Name the real details: heavyweight cotton, brushed fleece, boxy cut, small runs",
+        "State the prices $38 and $78 once, plainly",
+        "Point to how the pieces hold their shape wash after wash",
+        "End on a simple invitation to see the colors"
+      ],
+      "avoid": [
+        "Health or protection claims",
+        "Ratings, reviews or sales numbers",
+        "Hype words and exclamation points",
+        "Speaking as a customer who tried it",
+        "Mentioning other brands"
+      ]
+    },
+    "hooks": [
+      "Plain on the front. Heavy where it counts.",
+      "This tee has weight. Watch it drop.",
+      "Same shape after the fiftieth wash."
+    ],
+    "talent": {
+      "description": "One or two fictional stylized 3D adult characters with simple rounded features, relaxed posture and easygoing energy, shown mostly from the shoulders down or in soft profile so the clothing and fit are the focus. Their look is casual and campus-ready."
+    },
+    "references": {
+      "artist": [
+        "Tyler, the Creator"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Rick and Morty"
+      ],
+      "brand": [
+        "Carhartt",
+        "Champion"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "New York"
+    ]
+  }
+}

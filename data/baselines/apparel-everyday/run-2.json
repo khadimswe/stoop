@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "candidate": "apparel-everyday",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:31:31.265Z",
+  "instructionsHash": "b46b3e585e23ae817e02f8b51ed88ace105d3512c44a173ac01a4319a94f1c97",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.1: \"best seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
+  ],
+  "usage": {
+    "inputTokens": 9519,
+    "outputTokens": 2479
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29"
+      ],
+      "genderSkew": "balanced",
+      "description": "Young adults, mostly 18 to 24, who want plain, well-made basics they can wear every day. They care about fit, weight and how a piece looks after many washes. They like quiet details over loud graphics, and they share finds that feel a little under the radar."
+    },
+    "productRole": "The folded charcoal tee and hoodie stack is the hero object. In the animation the stack gets put through a loop of real life: tossed in a washing drum, spun, pulled out and shaken open to show the boxy shape holding. The tee is pulled on over a head and the hoodie is pulled on over it, the fabric dropping into a clean boxy drape. A macro push-in shows the small off-white embroidered circle-and-line symbol on the chest, thread by thread.",
+    "mood": "Calm, tactile, quietly confident, with a playful pop",
+    "music": {
+      "style": "Lo-fi hip hop with a warm vintage soul sample feel, dusty drums, soft electric piano, round sub bass and a light vinyl crackle. Mellow but with a small bounce on the cuts.",
+      "tempo": "about 88 bpm"
+    },
+    "visual": {
+      "look": "Stylized 3D animation with a soft clay-and-felt feel. Fabric is simulated with visible cotton weave, fuzzy brushed fleece fibers and believable heavy drape. Warm key light with soft shadows, matte surfaces, subtle film grain overlay and shallow depth of field. Vertical 9:16 framing with the product centered in the lower two thirds. Pacing is about 8 cuts in 15 seconds, with smooth squash-and-stretch on the fabric, a fast whip transition from the washing drum to the bedroom, and a slow macro push-in on the embroidery for the last beat. Palette is washed charcoal, warm cream and a dusty sage accent. No readable text on any surface except a closing end card."
+    },
+    "wardrobe": {
+      "styling": "Animated adult characters wear the washed charcoal tee and hoodie in a boxy fit, with plain relaxed trousers, simple canvas-style sneakers without logos and a bare tote bag. Everything is solid color with no graphics, no logos and no readable text."
+    },
+    "setting": {
+      "types": [
+        "shared laundromat with round washing machine windows",
+        "small dorm-style bedroom with a bunk and a desk",
+        "sunny campus-style courtyard with benches"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, warm and understated, short sentences, a little wry",
+      "use": [
+        "Talks about weight, fit and how the fabric holds up wash after wash",
+        "Names the price plainly: $38 tee, $78 hoodie",
+        "Points to the small embroidered symbol as the only detail",
+        "Ends with a simple invitation to see the colors"
+      ],
+      "avoid": [
+        "Health or regulated claims",
+        "Ratings, review counts, popularity or sales claims",
+        "Speaking as a customer who tried it",
+        "Loud hype or pressure phrases",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Plain on the front. Heavy in the hand.",
+      "Watch this tee go through the wash.",
+      "One small circle. Zero loud graphics."
+    ],
+    "talent": {
+      "description": "Two fictional animated adult characters with soft stylized proportions: one adult relaxed and sleepy-eyed who carries a laundry bag, and one adult upbeat and curious who pulls the hoodie on. Energy is easygoing and a bit goofy, with no real-person likeness."
+    },
+    "references": {
+      "artist": [
+        "Tyler, the Creator"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Rick and Morty"
+      ],
+      "brand": [
+        "Carhartt",
+        "Champion"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "New York"
+    ]
+  }
+}

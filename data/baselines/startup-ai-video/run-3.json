@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "startup-ai-video",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:35:15.075Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4045,
+    "outputTokens": 1172
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "balanced",
+      "description": "Solo creators and small business owners who post short videos every week. They have a camera roll full of clips they never finish editing, they are short on time, and they care about looking polished and consistent without hiring anyone or spending evenings in a timeline."
+    },
+    "productRole": "The app is the hero of the story. A creator picks a handful of raw clips from a messy camera roll, chooses a 15 second length, and taps once. The phone screen shows the clip blocks snapping into a tidy timeline with cuts and captions landing on the beat. The creator then nudges one clip, trims a caption, and taps post. The app edits their own footage only.",
+    "mood": "Relieved, quick, quietly confident, with a small payoff of satisfaction",
+    "music": {
+      "style": "Upbeat indie electronic pop with a clean four on the floor kick, plucky synth arpeggios, finger snaps and a light bass. Modern and bright, with a small drum fill on the final cut.",
+      "tempo": "about 112 bpm"
+    },
+    "visual": {
+      "look": "Natural bright daylight grade with soft warm highlights and gentle sage and cream tones. Handheld phone-native vertical framing at eye level, shallow depth of field on close-ups of the phone screen, light grain. Fast pacing: a cut every 1 to 1.5 seconds, with the cuts matching the music beat. Opens on a chaotic scrolling camera roll, then the visual rhythm tightens as the edit snaps together. Screen close-ups use abstract colored blocks only, no readable text."
+    },
+    "wardrobe": {
+      "styling": "Everyday creator casual: oversized plain knit sweater in oatmeal, a plain washed denim jacket, a simple apron in canvas for the shop owner, plain t-shirts in muted earth tones. No logos, no printed text, minimal jewelry."
+    },
+    "setting": {
+      "types": [
+        "sunlit small home studio corner with a desk and ring light",
+        "small independent ceramics shop with shelves of handmade mugs",
+        "cozy apartment couch with a laptop closed beside it"
+      ]
+    },
+    "voice": {
+      "tone": "Friendly, direct and a little wry, like a smart friend who respects your time",
+      "use": [
+        "Speaks to the viewer's weekly posting routine",
+        "Names the simple steps: pick clips, pick a length, tap",
+        "Points out that the edit is fully adjustable before posting",
+        "Keeps sentences short and concrete",
+        "Ends with a plain invitation to try it and mentions $9.99 a month"
+      ],
+      "avoid": [
+        "Claiming it generates people or writes ads",
+        "Hype words like game-changing or revolutionary",
+        "Invented ratings, user counts or testimonials",
+        "Speaking as a customer who tried it",
+        "Promising views, followers or sales"
+      ]
+    },
+    "hooks": [
+      "Your camera roll is not a video yet.",
+      "Forty clips. One tap. Fifteen seconds.",
+      "Stop editing at midnight. Post by lunch."
+    ],
+    "talent": {
+      "description": "Two fictional adults. One is an adult solo creator in their mid twenties with a relaxed, quick-witted energy, filming at a desk. The other is an adult small business owner in their early thirties, practical and warm, in a ceramics shop. Both react with small genuine smiles of relief as the edit appears."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CapCut",
+        "Canva"
+      ],
+      "place": [],
+      "person": [
+        "Casey Neistat"
+      ]
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Austin"
+    ]
+  }
+}

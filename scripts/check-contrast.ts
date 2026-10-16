@@ -27,7 +27,8 @@ const PAIRS: Pair[] = [
   ["rose-deep", "rose-soft", "text", "flagged chip text and tag"],
   ["dusk", "paper-raised", "text", "interpreted chip text and tag"],
   ["ink-soft", "paper-raised", "text", "creative chip text and tag"],
-  ["ink", "paper-raised", "text", "provenance badge and nav text"],
+  ["ink", "paper-raised", "text", "provenance badge, nav text, Your-choice chip text"],
+  ["ink", "paper-raised", "ui", "Your-choice chip border"],
   ["concrete-line", "paper-raised", "ui", "creative chip dashed border"],
   // App register: white cards and filled inputs (hairlines are decorative dividers, not UI boundaries)
   ["ink", "surface", "text", "text on app cards"],
@@ -43,6 +44,7 @@ const PAIRS: Pair[] = [
   ["paper", "screen", "text", "text on screens"],
   ["paper-dim", "screen", "text", "secondary text on screens"],
   ["paper", "screen-raised", "text", "text on raised screen panels"],
+  ["paper", "screen", "ui", "Your-choice chip border on screens"],
   ["paper-dim", "screen-raised", "text", "secondary text on raised panels"],
   ["dusk-light", "screen", "text", "Qloo chip text on screens"],
   ["screen", "dusk-light", "text", "solid Qloo chip on screens"],

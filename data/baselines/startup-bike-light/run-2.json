@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "candidate": "startup-bike-light",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:36:03.338Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4018,
+    "outputTokens": 1031
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who ride a bike to work most days of the year, including in dim winter mornings and early evenings. They like useful gear that works without fuss, track their rides, care about being seen in traffic, and appreciate good design that does not look like a toy. They listen to podcasts on the way and value quick setup and clean charging."
+    },
+    "productRole": "Clipped to a seat post by hand in seconds with the rubber strap, no tools. It then runs on a real commute: the lens glows brighter the instant the rider brakes at a light, and the flash pattern shifts as dusk falls. A quick shot shows the phone app battery level, and a USB-C cable plugging into the light at a desk.",
+    "mood": "Calm, confident, quietly clever",
+    "music": {
+      "style": "Minimal modern electronic with warm analog synth pads, a soft side-chain pulse, tight dry kick and light finger-snap percussion, building slightly at the brake moment",
+      "tempo": "about 104 bpm"
+    },
+    "visual": {
+      "look": "Handheld-stabilized vertical footage at low camera height behind the bike, 35mm equivalent lens, cool blue dusk grade with the red light as the one saturated color, fine film grain, shallow depth of field with bokeh from traffic lights. Quick cuts of 1 to 2 seconds: macro of the strap mount, rear tracking shot, brake pulse close-up, USB-C charge at a desk. Final 2 seconds hold on the light, product centered, on dark pavement."
+    },
+    "wardrobe": {
+      "styling": "Practical commuter layers: a charcoal technical shell jacket, slim dark trousers with a reflective ankle band, a plain helmet, simple gloves, a small roll-top backpack. All unbranded, muted neutrals with no logos or text."
+    },
+    "setting": {
+      "types": [
+        "city street bike lane at dusk",
+        "apartment entryway with a bike against the wall",
+        "office desk by a window"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, assured and brief, like a smart friend who respects your time",
+      "use": [
+        "States one concrete behavior per line, such as brighter on braking",
+        "Uses short sentences and plain verbs",
+        "Mentions tool-free mounting and USB-C charging",
+        "Ends with a simple invitation to see the light"
+      ],
+      "avoid": [
+        "Health, safety guarantee or protection claims",
+        "Ratings, reviews or sales numbers",
+        "Hype words and slang",
+        "Speaking as a customer who tried it",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Your taillight should notice when you brake.",
+      "Dusk is coming. Your light already knows.",
+      "Seat post, strap, done. Five seconds."
+    ],
+    "talent": {
+      "description": "One fictional adult commuter in their early thirties, relaxed and focused, with a practical, understated style. A few passing adult cyclists and drivers appear only as blurred background."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "Rapha",
+        "GoPro"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Chicago"
+    ]
+  }
+}

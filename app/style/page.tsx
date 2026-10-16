@@ -90,6 +90,9 @@ export default function StylePage() {
             <Chip origin="creative" showOrigin>
               Tempo
             </Chip>
+            <Chip origin="yours" showOrigin>
+              Look
+            </Chip>
             <Chip origin="flagged" showOrigin>
               Setting
             </Chip>
@@ -103,6 +106,9 @@ export default function StylePage() {
             </Chip>
             <Chip origin="creative" surface="screen" showOrigin>
               Camera
+            </Chip>
+            <Chip origin="yours" surface="screen" showOrigin>
+              Energy
             </Chip>
             <Chip origin="flagged" surface="screen" showOrigin>
               Cliche

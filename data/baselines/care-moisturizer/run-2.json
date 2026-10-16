@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "care-moisturizer",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:38:21.176Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4022,
+    "outputTokens": 1164
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Busy working adults who want skin that feels comfortable without a ten step routine. They keep a short bathroom shelf, value plain ingredients and fair prices, and like products that fit into a rushed morning and a tired night. They trust simple, honest explanations over hype."
+    },
+    "productRole": "The jar is opened on a bathroom counter and a pea-sized scoop of glossy gel-cream is taken with a fingertip. It is pressed onto cheeks and forehead and blended in within seconds as the skin visibly goes from slightly dull to soft and dewy. In a second beat, the same cream goes on before a quick makeup step in a morning rush, then the lid is clicked closed and the jar is dropped back on a shelf next to a toothbrush cup.",
+    "mood": "Calm, unfussy, quietly satisfying, a small easy win in a busy day",
+    "music": {
+      "style": "Warm lo-fi indie pop with soft finger-picked electric guitar, muted drum machine, gentle bass and a light airy synth pad, modern bedroom-recorded feel",
+      "tempo": "about 96 bpm"
+    },
+    "visual": {
+      "look": "Soft natural window light, clean neutral grade with warm highlights and gentle contrast, fine film grain. Handheld 35mm-style framing at close and medium distances, with macro inserts on the gel texture and the fingertip scoop. Quick but unhurried pacing: about six cuts, each 2 to 3 seconds, with a satisfying texture close-up at the 5 second mark and a clean product hero on a shelf at the end. Vertical framing keeps the face and jar in the center safe zone."
+    },
+    "wardrobe": {
+      "styling": "Relaxed everyday basics in muted tones: an oatmeal knit sweater, a plain white tee, a soft gray robe, hair pulled back with a plain clip or towel headband. No logos, no printed text, minimal jewelry."
+    },
+    "setting": {
+      "types": [
+        "bright small apartment bathroom with a white tile counter",
+        "tidy bedroom vanity corner by a window",
+        "entryway shelf with keys and a tote bag"
+      ]
+    },
+    "voice": {
+      "tone": "Plain, warm and a little dry, like a friend who respects your time",
+      "use": [
+        "Names the two key ingredients, glycerin and squalane, in simple words",
+        "Says it is light, unscented and sinks in fast",
+        "Mentions it works alone or under makeup",
+        "States clearly that it is a daily moisturizer without sunscreen",
+        "Ends with the price of $32 and one simple call to action"
+      ],
+      "avoid": [
+        "Health, medical or treatment claims",
+        "Promises about fixing skin problems",
+        "Ratings, reviews or sales claims",
+        "Talking like a customer who tried it",
+        "Long routines or step counts beyond one"
+      ]
+    },
+    "hooks": [
+      "Your skincare routine just got one step.",
+      "One jar. Ten seconds. Done.",
+      "No ten steps. Just moisturizer."
+    ],
+    "talent": {
+      "description": "One fictional adult woman in her early thirties with a relaxed, natural look and tied-back hair, shown getting ready in a hurry but unbothered. A second fictional adult, a man in his late thirties, appears briefly in the background of the entryway scene grabbing keys."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CeraVe",
+        "Glossier"
+      ],
+      "place": [],
+      "person": [
+        "Emma Chamberlain"
+      ]
+    },
+    "assumedCities": [
+      "New York",
+      "Los Angeles"
+    ]
+  }
+}

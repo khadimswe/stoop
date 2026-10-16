@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "candidate": "home-candles",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:39:53.537Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.1: \"cure\" is a health or regulated claim.",
+    "voice.avoid.2: \"best seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
+  ],
+  "usage": {
+    "inputTokens": 9313,
+    "outputTokens": 2217
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Working adults who treat the evening as a reset. They care about a calm, lived-in home, like thoughtful small purchases, and enjoy a ritual that marks the end of the workday: lights low, shoes off, something warm to drink. They notice texture, packaging and scent, and prefer quiet comfort over loud decor."
+    },
+    "productRole": "The candle is the evening ritual. A hand lifts the charcoal lid, a match lights the single cotton wick, and the flame settles. The room visibly changes around it: overhead light clicks off, a lamp glows, shoulders drop. The candle stays lit on a side table while the adult curls up nearby. A final close shot shows the creamy wax pool glowing in the amber glass.",
+    "mood": "Quiet, warm, unwinding, softly satisfying",
+    "music": {
+      "style": "Soft indie folk with fingerpicked acoustic guitar, a gentle upright piano figure, light brushed percussion and warm airy vocal-free pads, intimate and close-mic'd",
+      "tempo": "about 78 bpm"
+    },
+    "visual": {
+      "look": "Warm amber and soft shadow grade with lifted blacks and gentle film grain. Shallow depth of field on a 50mm-style lens, mostly handheld-still framing with slow push-ins. Candle flame is the main light source in close shots. Pacing is unhurried: five or six cuts across 15 seconds, with one hero macro of the match strike and flame catching, and a final locked-off product shot."
+    },
+    "wardrobe": {
+      "styling": "Soft lived-in knits, an oversized oatmeal cardigan, a faded plain henley, loose linen trousers, wool socks. Muted earth tones of cream, rust, olive and charcoal. No logos, no prints with text."
+    },
+    "setting": {
+      "types": [
+        "small apartment living room at dusk",
+        "entryway with coat hooks and a bowl of keys",
+        "wooden side table beside a reading chair"
+      ]
+    },
+    "voice": {
+      "tone": "Calm, warm and understated, like a friend lowering their voice at the end of a long day",
+      "use": [
+        "Names the feeling of arriving home",
+        "Mentions the scents plainly: cedar, fig, black tea",
+        "Notes the small-batch hand pouring and the 50 hour burn",
+        "Ends with a gentle invitation to light one"
+      ],
+      "avoid": [
+        "Hype, urgency or countdown language",
+        "Health, wellness or stress-relief claims",
+        "Ratings, review counts or popularity claims",
+        "Speaking as a customer who tried it",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Keys down. Shoes off. Now, the match.",
+      "The workday ends when you light this.",
+      "Your home has an off switch. Here it is."
+    ],
+    "talent": {
+      "description": "One fictional adult in their early thirties with a relaxed, tired-but-content energy, shown arriving home, then settling in. Hands appear in close shots striking the match and lifting the lid. Optional second adult glimpsed softly out of focus on the sofa, reading. All casting is fictional."
+    },
+    "references": {
+      "artist": [
+        "Phoebe Bridgers"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Bridgerton"
+      ],
+      "brand": [
+        "Anthropologie",
+        "Bath & Body Works"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Austin"
+    ]
+  }
+}

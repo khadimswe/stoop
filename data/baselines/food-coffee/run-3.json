@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "candidate": "food-coffee",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:34:05.581Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4044,
+    "outputTokens": 1074
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who work from home or flexible schedules and treat the morning cup as a small ritual. They brew by hand at home, notice freshness and origin, and like buying from small makers they can trust. They value quiet routines, good tools and plain honest information over hype."
+    },
+    "productRole": "The cream bag is the start of the morning routine. A hand folds open the top, tips whole beans into a hand grinder, the grind is heard, then hot water is poured over the grounds in a pour-over dripper. The bag returns to the counter beside a full mug as steam rises. The one-way valve gets a gentle squeeze that releases a puff of aroma, shown in close-up.",
+    "mood": "Calm, warm, unhurried, quietly confident",
+    "music": {
+      "style": "Warm lo-fi acoustic: fingerpicked nylon-string guitar, soft brushed drums, light upright bass and a faint vinyl crackle, with the grinder and pour sounds mixed in as part of the rhythm",
+      "tempo": "about 88 bpm"
+    },
+    "visual": {
+      "look": "Natural window light with soft morning contrast, warm film-like grade with creamy highlights and gentle rust-orange accents. Shot on a 35mm-style lens with shallow depth of field and fine grain. Mostly close, hand-level framing with slow handheld movement. Pacing of about 8 cuts in 15 seconds, timed to the grind, the pour and the first sip, ending on a steady hero frame of the bag and mug."
+    },
+    "wardrobe": {
+      "styling": "Soft, lived-in home clothes: an oatmeal knit sweater, a washed linen shirt, a plain heather-gray tee, rolled sleeves. Muted earth tones with no logos, no prints and no text."
+    },
+    "setting": {
+      "types": [
+        "sunlit home kitchen counter",
+        "small home office desk by a window",
+        "quiet apartment breakfast nook"
+      ]
+    },
+    "voice": {
+      "tone": "Plain, warm and a little dry, like a friend who knows coffee and doesn't oversell it",
+      "use": [
+        "States simple facts such as roasted each week and shipped within days",
+        "Names the tasting notes in everyday words",
+        "Mentions the 12 oz bag and the monthly option once",
+        "Invites the viewer to start the morning with better beans"
+      ],
+      "avoid": [
+        "Hype words or superlatives",
+        "Health or energy claims",
+        "Ratings, reviews or sales numbers",
+        "Snobbish coffee jargon",
+        "Speaking as a customer who tried it"
+      ]
+    },
+    "hooks": [
+      "Your morning cup deserves a roast date.",
+      "Roasted this week. Not last season.",
+      "Open the bag. Smell the difference."
+    ],
+    "talent": {
+      "description": "One fictional adult in their early thirties with a relaxed, focused presence, working from home. Mostly seen in hands, profile and over-the-shoulder shots, with a small genuine smile at the first sip. An optional second adult passes through the background with a laptop, kept out of focus."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [
+        "The Bear"
+      ],
+      "brand": [
+        "Blue Bottle Coffee",
+        "Chemex"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Denver"
+    ]
+  }
+}

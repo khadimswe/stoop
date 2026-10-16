@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "762b08b423e4130b500654e6f4c898412a430de49ff3e4bdd41ff175c21ae4b3",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:52:15.287Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5150,
+    "outputTokens": 3939
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Notices the Brake",
+        "hook": "Low rear-wheel-level shot of a bike on a dusk lane, the red lens glowing steady in deep blacks. Overlay: Your light should notice when you brake.",
+        "emotion": "calm confidence",
+        "surpriseBeat": "A single slow-motion beat: the rider squeezes the brake and the frosted red lens swells brighter while the music pulse builds.",
+        "locations": [
+          {
+            "slug": "city-bike-lane",
+            "description": "City bike lane at dusk with passing traffic blurred in the background",
+            "timeOfDay": "dusk",
+            "lighting": "warm fading sky, cool blue shadows, deep blacks so the red glow pops"
+          },
+          {
+            "slug": "apartment-entryway",
+            "description": "Tidy apartment entryway with a bike leaning on the wall",
+            "timeOfDay": "golden hour",
+            "lighting": "soft warm window light"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "The bike rolls away from camera along the lane, the light glowing steady red. The commuter in an olive shell jacket and plain helmet rides unhurried.",
+            "camera": "handheld",
+            "framing": "Low, rear-wheel level, light centered in frame",
+            "motion": "Rider pedals steadily away, passing traffic softly blurred",
+            "lighting": "Dusk blue with deep blacks, red glow popping",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Your light should notice when you brake.",
+            "dialogue": null,
+            "sound": "Soft traffic hum, tire hiss, downtempo bassline begins"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "In the entryway, the commuter sets the light against the seat post and clips the rubber strap on in one quick motion.",
+            "camera": "push_in_slow",
+            "framing": "Medium close on the seat post, label side facing camera, hands enter late and stay clear of the label",
+            "motion": "One smooth clip-on, then the hand lifts away",
+            "lighting": "Soft golden window light",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": "Clips on. No tools.",
+            "dialogue": "It clips on. No tools.",
+            "sound": "Soft rubber snap, finger-snap percussion"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Back on the lane, the commuter rolls through the evening commute, backpack on, with a passing rider in the background.",
+            "camera": "tracking_side",
+            "framing": "Wide side view of rider and bike with traffic lights behind",
+            "motion": "Steady, relaxed pedaling",
+            "lighting": "Golden hour fading to blue",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Muted electric piano chords, distant traffic"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The rider squeezes the brake and the frosted red lens glows brighter, in slow motion.",
+            "camera": "dolly_in",
+            "framing": "Rear view, light filling the lower half of the frame, shallow depth of field",
+            "motion": "Bike slows, light swells brighter",
+            "lighting": "Cool blue dusk, intense red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Brighter when you brake.",
+            "dialogue": "Brighter when you brake.",
+            "sound": "Music pulse builds, soft brake squeak"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Clean close-up of the light on the seat post, glowing steady, held still.",
+            "camera": "static",
+            "framing": "Product close-up, centered, label readable by shape",
+            "motion": "Still, gentle glow",
+            "lighting": "Deep blue dusk, red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Take a look.",
+            "dialogue": "Take a look.",
+            "sound": "Bassline settles, a single soft chord"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Closely follows the brief's real product behavior with a clear brake-glow beat. Reliable and clean, but the surprise is expected rather than unexpected."
+      }
+    },
+    {
+      "concept": {
+        "title": "Dusk Already Knows",
+        "hook": "Golden-hour rear view of the light flashing in a slow, even pattern. Overlay: Dusk arrives. Your light already knows.",
+        "emotion": "quiet cleverness",
+        "surpriseBeat": "As the sky shifts from gold to blue in one continuous ride, the flash pattern changes on its own, with no rider action.",
+        "locations": [
+          {
+            "slug": "city-bike-lane",
+            "description": "City bike lane with passing traffic, from golden hour into dusk",
+            "timeOfDay": "golden hour to dusk",
+            "lighting": "warm gold shifting to cool blue, deep blacks"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "The light flashes slowly on the seat post as the bike rides away in warm light.",
+            "camera": "handheld",
+            "framing": "Mounted view behind the saddle, light in lower center",
+            "motion": "Gentle bob of pedaling",
+            "lighting": "Golden hour",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Dusk arrives. Your light already knows.",
+            "dialogue": null,
+            "sound": "Warm analog bassline, soft finger-snaps"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The commuter, in a navy shell and reflective trouser cuff, rides on while the strap-mounted light holds steady on the post.",
+            "camera": "tracking_side",
+            "framing": "Side view of the rear wheel, cuff band and light",
+            "motion": "Even, relaxed pedaling",
+            "lighting": "Low gold sun",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Clips on. No tools.",
+            "dialogue": "No tools to mount it.",
+            "sound": "Tire hiss, muted electric piano"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "A passing rider overtakes in the background as street lights flicker on.",
+            "camera": "static",
+            "framing": "Low at wheel level, lane stretching ahead",
+            "motion": "Both riders move through frame",
+            "lighting": "Gold fading to blue",
+            "productVisible": false,
+            "location": "city-bike-lane",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Traffic passing, soft hum"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The sky turns blue and the light changes its flash pattern, in a single slow-motion beat.",
+            "camera": "push_in_slow",
+            "framing": "Rear view, light large in frame, shallow depth of field",
+            "motion": "Light pattern shifts as the bike rolls on",
+            "lighting": "Cool blue dusk, bright red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "The flash pattern shifts with the light.",
+            "dialogue": "The pattern changes as daylight fades.",
+            "sound": "Music pulse builds slightly"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Clean close-up of the light on the post, glowing in the blue dusk.",
+            "camera": "static",
+            "framing": "Product close-up, centered",
+            "motion": "Still",
+            "lighting": "Deep blue with red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Take a look.",
+            "dialogue": "Take a look.",
+            "sound": "Bassline resolves"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Showcases the less common daylight-fade feature with a quiet, clever turn. The hook is softer, and the pattern change is subtle for a video model to render."
+      }
+    },
+    {
+      "concept": {
+        "title": "Charged Before Dinner",
+        "hook": "Close shot of a USB-C cable plugged into the light on a desk, a soft red glow in the dark. Overlay: Charges over USB-C.",
+        "emotion": "calm readiness",
+        "surpriseBeat": "A whip pan from the desk lands on the same light already glowing brighter at a brake on the dusk lane, jumping from plug-in to the ride.",
+        "locations": [
+          {
+            "slug": "office-bike-room",
+            "description": "Office bike room with a desk, a charging cable and a bike on the wall",
+            "timeOfDay": "late afternoon",
+            "lighting": "soft warm window light with cool shadows"
+          },
+          {
+            "slug": "city-bike-lane",
+            "description": "City bike lane at dusk with passing traffic",
+            "timeOfDay": "dusk",
+            "lighting": "cool blue with deep blacks and a red glow"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "The light sits on the desk with a USB-C cable plugged in and a faint red glow.",
+            "camera": "push_in_slow",
+            "framing": "Close shot, shallow depth of field, phone beside it showing a battery level bar",
+            "motion": "Still, with a slow push",
+            "lighting": "Warm desk light with a red glow",
+            "productVisible": true,
+            "location": "office-bike-room",
+            "overlayText": "Charges over USB-C.",
+            "dialogue": "It charges over USB-C.",
+            "sound": "Soft electric piano, quiet room tone"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The commuter unplugs the light and clips it onto the seat post of the bike in one quick motion.",
+            "camera": "overhead_top_down",
+            "framing": "Top-down on the seat post, hands enter late and never cover the label",
+            "motion": "One smooth clip-on",
+            "lighting": "Warm window light",
+            "productVisible": true,
+            "location": "office-bike-room",
+            "overlayText": "Clips on. No tools.",
+            "dialogue": null,
+            "sound": "Rubber snap, finger-snap percussion"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The commuter wheels the bike out and begins the evening ride in a plain helmet and roll-top backpack.",
+            "camera": "tracking_side",
+            "framing": "Side view, bike and rider in the lane",
+            "motion": "Relaxed riding",
+            "lighting": "Golden hour into dusk",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Downtempo bassline, traffic hum"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Rider squeezes the brake and the lens glows brighter in slow motion.",
+            "camera": "dolly_in",
+            "framing": "Rear low view, light large in frame",
+            "motion": "Bike slows, glow swells",
+            "lighting": "Blue dusk, red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Brighter when you brake.",
+            "dialogue": "Brighter when you brake.",
+            "sound": "Music pulse builds"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Clean close-up of the light on the post, steady glow.",
+            "camera": "static",
+            "framing": "Product close-up, centered",
+            "motion": "Still",
+            "lighting": "Deep blue, red glow",
+            "productVisible": true,
+            "location": "city-bike-lane",
+            "overlayText": "Take a look.",
+            "dialogue": "Take a look.",
+            "sound": "Bassline settles"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 3,
+          "insider_not_outsider": 4,
+          "surprise": 2
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": false
+        },
+        "reason": "Covers charging and mount well, but it spreads across several features and the escalation is mild, so the single surprise beat is unclear."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": [
+    2
+  ]
+}

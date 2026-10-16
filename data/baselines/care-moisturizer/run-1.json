@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "care-moisturizer",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:49:48.833Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4022,
+    "outputTokens": 1196
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Busy working adults who want skin that feels comfortable without a ten-step routine. They squeeze skincare into rushed mornings and tired nights, like simple products with short ingredient lists, and are wary of hype. They value a calm, tidy bathroom shelf and things that just work under makeup or alone."
+    },
+    "productRole": "The jar is the hero of a fast morning routine. An adult twists off the cream lid, scoops a pea-sized amount of glossy gel-cream with two fingers, and presses it across cheeks and forehead. A macro shot shows the gel melting into skin within seconds. A quick cut shows foundation or tinted balm going on smoothly over it, then the jar is set down and the person walks out the door. The lid with its debossed circle stays visible in the final frame.",
+    "mood": "Calm, quick, quietly confident, a small win in a busy morning",
+    "music": {
+      "style": "Light modern indie pop with a soft finger-snap beat, warm muted electric piano, a gentle bass pulse and airy synth pads. Minimal, upbeat but relaxed, with a small lift at the final shot.",
+      "tempo": "about 100 bpm"
+    },
+    "visual": {
+      "look": "Soft natural window light, gently warm neutral grade with creamy highlights and slightly lifted shadows, fine film grain. Handheld 35mm-feel framing at eye level, with one tight macro shot of the gel texture on the fingertips. Quick cuts of about 1 to 1.5 seconds that follow a clock-like rhythm (alarm, scoop, press, makeup, keys). Final 2 seconds hold on a still of the jar against a plain bathroom shelf."
+    },
+    "wardrobe": {
+      "styling": "Casual and unfussy: an oatmeal knit sweater, a plain white tee, a soft gray robe, hair clipped back with a plain claw clip, and a simple blazer thrown over in the last shot. Neutral tones, no logos, no visible text on clothing."
+    },
+    "setting": {
+      "types": [
+        "bright small apartment bathroom",
+        "tidy bedroom vanity by a window",
+        "entryway with keys and a bag by the door"
+      ]
+    },
+    "voice": {
+      "tone": "Warm, dry, matter-of-fact, like a friend who keeps things simple",
+      "use": [
+        "Names the one-step idea plainly",
+        "Mentions the light gel-cream feel and that it sinks in fast",
+        "Points out that it works under makeup or on its own",
+        "Mentions that it is unscented and has no sunscreen so it fits a simple routine",
+        "Ends with a short, calm call to shop"
+      ],
+      "avoid": [
+        "Medical, treatment or protection claims",
+        "Ratings, reviews or sales numbers",
+        "Hype words like miracle or glow-up",
+        "Talking as a customer who tried it",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Your skincare routine does not need ten steps.",
+      "One jar. Ten seconds. Out the door.",
+      "Morning skincare, minus the whole shelf."
+    ],
+    "talent": {
+      "description": "One fictional adult in their early thirties with a relaxed, no-fuss energy, getting ready in the morning. A second fictional adult in their late thirties appears briefly in a quick cut doing the same routine at night, to show it is for anyone with a busy schedule. Natural skin, minimal makeup, real and unposed."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CeraVe",
+        "Glossier"
+      ],
+      "place": [],
+      "person": [
+        "Emma Chamberlain"
+      ]
+    },
+    "assumedCities": [
+      "New York",
+      "Los Angeles"
+    ]
+  }
+}

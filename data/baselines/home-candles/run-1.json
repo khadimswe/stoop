@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "home-candles",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:39:17.328Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4025,
+    "outputTokens": 1057
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Working adults who treat the end of the workday as a ritual. They care about a calm, lived-in home, enjoy small affordable upgrades, like warm textures and earthy scents, and want the evening to feel different from the workday."
+    },
+    "productRole": "The candle is the signal that the workday is over. An adult lifts the charcoal lid, lights the single cotton wick, and sets the jar on a side table. We watch the flame settle, the creamy wax glow amber, and the room soften as lamps dim and shoulders drop. The lid goes back on at the end to close the evening.",
+    "mood": "Quiet relief, warm, unhurried, softly cozy",
+    "music": {
+      "style": "Intimate indie folk with fingerpicked acoustic guitar, soft brushed percussion, a low warm piano pad and a faint breathy vocal hum, modern bedroom-recording feel",
+      "tempo": "about 78 bpm"
+    },
+    "visual": {
+      "look": "Warm amber and soft shadow grade with gentle lifted blacks, fine film grain, shallow depth of field on a 50mm-style lens. Mostly handheld-still close framings with slow push-ins. Candlelight is the key light, with a dim lamp as fill. Five to six unhurried cuts, with a macro shot of the flame and wax pool at the midpoint. End on a held, centered product shot with the leaf label facing camera."
+    },
+    "wardrobe": {
+      "styling": "Oversized oatmeal knit cardigan, soft cotton lounge pants, bare feet or wool socks. Work clothes visible in the first shot only: a crisp collared shirt being unbuttoned, a tote bag dropped by the door. No logos or readable text."
+    },
+    "setting": {
+      "types": [
+        "lived-in apartment living room at dusk",
+        "entryway with coat hooks and a bag dropped on a bench",
+        "small side table beside a linen sofa with a throw blanket"
+      ]
+    },
+    "voice": {
+      "tone": "Calm, warm and gently confident, like a quiet exhale",
+      "use": [
+        "Names the feeling of the evening shifting",
+        "Mentions the scents cedar, fig and black tea",
+        "States the roughly 50-hour burn and reusable glass jar plainly",
+        "Ends with a soft invitation to light one"
+      ],
+      "avoid": [
+        "Health or stress-cure claims",
+        "Invented reviews, ratings or sales numbers",
+        "Hype, urgency or countdown language",
+        "Speaking as a customer who tried it"
+      ]
+    },
+    "hooks": [
+      "The workday ends when this lid comes off.",
+      "Your evening starts with one small flame.",
+      "Cedar, fig, black tea. Home, finally."
+    ],
+    "talent": {
+      "description": "One fictional adult in their early 30s with a relaxed, understated presence, shown coming home tired and gradually unwinding. Optionally a second adult's hand passing a mug in the background. No real people or lookalikes."
+    },
+    "references": {
+      "artist": [
+        "Phoebe Bridgers"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Bridgerton"
+      ],
+      "brand": [
+        "Anthropologie",
+        "Bath & Body Works"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Brooklyn"
+    ]
+  }
+}
