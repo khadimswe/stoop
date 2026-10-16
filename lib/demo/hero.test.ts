@@ -18,33 +18,33 @@ const culture: DemoClip = { id: "sauce-hero-culture", example: "sauce", role: "h
 const approvedBoth = approvals(["p1", "p2"], [control, culture]);
 
 describe("hero mode", () => {
-  it("falls back to the Reality Gap card when there are no clips", () => {
-    expect(heroMode(manifest([]), approvals([], []), "sauce")).toEqual({ kind: "reality-gap" });
+  it("falls back to the Reality Check card when there are no clips", () => {
+    expect(heroMode(manifest([]), approvals([], []), "sauce")).toEqual({ kind: "reality-check" });
   });
 
   it("falls back until Gate 2 names a lead example", () => {
-    expect(heroMode(manifest([control, culture]), approvedBoth, null).kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, culture]), approvedBoth, null).kind).toBe("reality-check");
   });
 
   it("ignores approved clips that belong to another example", () => {
-    expect(heroMode(manifest([control, culture]), approvedBoth, "coffee").kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, culture]), approvedBoth, "coffee").kind).toBe("reality-check");
   });
 
   it("falls back when the clips exist but the founder has not approved them for the hero", () => {
-    expect(heroMode(manifest([control, culture]), approvals(["p1", "p2"], []), "sauce").kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, culture]), approvals(["p1", "p2"], []), "sauce").kind).toBe("reality-check");
   });
 
   it("falls back when only one of the two hook clips is approved", () => {
-    expect(heroMode(manifest([control, culture]), approvals(["p1", "p2"], [culture]), "sauce").kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, culture]), approvals(["p1", "p2"], [culture]), "sauce").kind).toBe("reality-check");
   });
 
   it("falls back when a clip was rendered from a prompt that was never approved", () => {
-    expect(heroMode(manifest([control, culture]), approvals(["p1"], [control, culture]), "sauce").kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, culture]), approvals(["p1"], [control, culture]), "sauce").kind).toBe("reality-check");
   });
 
   it("falls back after a re-render under the same id, until the new file is approved", () => {
     const rerendered = { ...culture, sha256: "c".repeat(64) };
-    expect(heroMode(manifest([control, rerendered]), approvedBoth, "sauce").kind).toBe("reality-gap");
+    expect(heroMode(manifest([control, rerendered]), approvedBoth, "sauce").kind).toBe("reality-check");
   });
 
   it("turns the blind test on once both hook clips are approved as those exact files", () => {

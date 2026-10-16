@@ -6,7 +6,7 @@ Stoop uses [Qloo](https://www.qloo.com)'s taste data to map the audience around 
 
 The idea is concept diversity grounded in Qloo taste data: for each product, Stoop builds two or three distinct concept worlds, each drawn from what that taste neighborhood loves across music, film, brands and places.
 
-It's built for Shopify and DTC brands already running video ads on Meta and TikTok, for the small creative agencies and AI-ad operators who make ads for several brands, and for startup founders making content that connects with their customers. Paste a store or product link (or describe the product), confirm a few "customers also love" picks, and get a Reality Gap report plus a Campaign Kit for Reels and TikTok (9:16).
+It's built for Shopify and DTC brands already running video ads on Meta and TikTok, for the small creative agencies and AI-ad operators who make ads for several brands, and for startup founders making content that connects with their customers. Paste a store or product link (or describe the product), confirm a few "customers also love" picks, and get a Reality Check report plus a Campaign Kit for Reels and TikTok (9:16).
 
 Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.
 
@@ -19,8 +19,8 @@ Stoop decides who each ad is for and what it should feel like, then hands you a 
 ## Status
 
 - [x] Qloo client: validated params, cache, rate limit, retries, call budget, evidence on every result
-- [ ] Data reality check against the live API
-- [ ] Agent stages: page reading, audience proof, reality gap, segments, culture brief, creative director, Production Packs, scoring
+- [x] Data check against the live API ([docs/data-check.md](docs/data-check.md))
+- [ ] Agent stages: page reading, audience proof, Reality Check, segments, culture brief, creative director, Production Packs, scoring
 - [ ] Web app, examples, and before/after videos
 
 ## Setup

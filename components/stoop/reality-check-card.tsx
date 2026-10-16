@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 import { cn } from "cn";
 
 /**
- * The Reality Gap, demo beat 1. Up to three lines, each only when its input exists:
+ * The Reality Check, demo beat 1. Up to three lines, each only when its input exists:
  * what the brand said, what its site speaks to (Claude's reading, never Qloo data), and what Qloo
  * measured. Without store data, "measured" is the audience around the product's taste neighborhood,
  * never the brand's actual buyers.
  * - voice "brand": the landing, about an example ("This brand said X. Their site speaks to Y.")
  * - voice "you": a report, to its owner ("Your site speaks to X. You said Y.")
  */
-export function RealityGapCard({
+export function RealityCheckCard({
   voice,
   brand,
   said,
@@ -48,7 +48,7 @@ export function RealityGapCard({
 
   return (
     <section
-      aria-label={brand ? `Reality gap for ${brand}` : "Reality gap"}
+      aria-label={brand ? `Reality check for ${brand}` : "Reality check"}
       className={cn(
         "flex min-w-0 flex-col gap-4 bg-surface p-6",
         register === "marketing" ? "rounded-card border-2 border-ink shadow-float sm:p-7" : "rounded-xl border border-hairline",
@@ -57,7 +57,7 @@ export function RealityGapCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="type-kicker text-ink-soft">
-          Reality gap{brand && <span> · {brand}</span>}
+          Reality check{brand && <span> · {brand}</span>}
         </p>
         {provenance}
       </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Chip, SeedChip } from "@/components/stoop/chip";
 import { ProvenanceBadge } from "@/components/stoop/provenance-badge";
-import { RealityGapCard } from "@/components/stoop/reality-gap-card";
+import { RealityCheckCard } from "@/components/stoop/reality-check-card";
 import { ReceiptPanel } from "@/components/stoop/receipt-panel";
 import { Screen } from "@/components/stoop/screen";
 import { Stamp } from "@/components/stoop/stamp";
@@ -155,10 +155,10 @@ export default function StylePage() {
         <p className="text-sm text-ink-soft">Left: the landing stage (ink border, sticker shadow). Right: the app version.</p>
       </Block>
 
-      <Block title="Reality gap and receipt">
+      <Block title="Reality check and receipt">
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex flex-col gap-6">
-            <RealityGapCard
+            <RealityCheckCard
               voice="brand"
               register="marketing"
               brand="[Example brand]"
@@ -167,7 +167,7 @@ export default function StylePage() {
               measured="[Z]"
               receipt="/v2/insights · demographics + taste tags"
             />
-            <RealityGapCard voice="you" siteSpeaksTo="[X]" said="[Y]" measured="[Z]" />
+            <RealityCheckCard voice="you" siteSpeaksTo="[X]" said="[Y]" measured="[Z]" />
           </div>
           <ReceiptPanel
             cue="Music style"
