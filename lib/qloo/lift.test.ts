@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { joinByGeohash, linearFit, median, panelPosition, rankWithin, ratioLift, residualLift, topBy } from "./lift";
+import { findFixture, readFixtureFile, recorded } from "./fixtures";
+import { joinByGeohash, linearFit, mean, median, panelPosition, rankWithin, ratioLift, residualLift, topBy } from "./lift";
+import { heatmapResponse } from "./types";
 
 describe("linearFit", () => {
   it("recovers a perfect line", () => {
@@ -96,5 +98,28 @@ describe("panelPosition", () => {
 });
 
 describe("heatmap fixtures", () => {
-  it.todo("TODO(slice-2): heatmap fixture -> lift ranking, residual vs. baseline ratio");
+  // Recorded US heatmap for the apparel candidate's seeds (fixtures/probe-insights.json heatmap-us).
+  const cells = heatmapResponse.parse(recorded(readFixtureFile(findFixture("probe-insights") as string), "heatmap-us").body);
+  const correlation = (xs: number[], ys: number[]) => {
+    const mx = mean(xs);
+    const my = mean(ys);
+    let num = 0;
+    let dx = 0;
+    let dy = 0;
+    xs.forEach((x, i) => {
+      num += (x - mx) * (ys[i] - my);
+      dx += (x - mx) ** 2;
+      dy += (ys[i] - my) ** 2;
+    });
+    return num / Math.sqrt(dx * dy);
+  };
+
+  it("raw affinity tracks popularity, which is why cities are ranked by lift", () => {
+    expect(correlation(cells.map((c) => c.affinity), cells.map((c) => c.popularity))).toBeGreaterThan(0.9);
+  });
+
+  it("residual lift removes the popularity trend", () => {
+    const lifts = residualLift(cells);
+    expect(Math.abs(correlation(lifts, cells.map((c) => c.popularity)))).toBeLessThan(0.01);
+  });
 });

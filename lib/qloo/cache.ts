@@ -10,7 +10,8 @@ export interface CacheEntry {
 }
 
 export interface QlooCache {
-  get(key: string): Promise<CacheEntry | undefined>;
+  /** `request` is a readable "endpoint?query" for error messages; caches that never throw ignore it. */
+  get(key: string, request?: string): Promise<CacheEntry | undefined>;
   set(key: string, entry: CacheEntry, ttlMs: number): Promise<void>;
 }
 

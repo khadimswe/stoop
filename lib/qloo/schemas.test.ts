@@ -180,3 +180,23 @@ describe("search, tags and compare params", () => {
     expect(errorFor(ENDPOINTS.compare, { "a.signal.interests.entities": [ID] })).toMatch(/b\.signal\.interests\.entities/);
   });
 });
+
+describe("scoring calls ask for every id", () => {
+  const ids = Array.from({ length: 21 }, (_, i) => `AFBD8046-1234-4ABC-9DEF-${String(i).padStart(12, "0")}`);
+  const tags = Array.from({ length: 21 }, (_, i) => `urn:tag:genre:music:g${i}`);
+
+  it("rejects filter.results.entities with more ids than take (Qloo's default of 20 cuts silently)", () => {
+    const base = { "filter.type": "urn:entity:artist", "signal.interests.entities": [ID], "filter.results.entities": ids };
+    expect(errorFor(ENDPOINTS.insights, base)).toMatch(/take \(20\) must be at least the number of filter.results.entities \(21\)/);
+    expect(errorFor(ENDPOINTS.insights, { ...base, take: 10 })).toMatch(/take \(10\)/);
+    expect(() => validateParams(ENDPOINTS.insights, { ...base, take: 21 })).not.toThrow();
+  });
+
+  it("applies the same rule to places and to filter.results.tags", () => {
+    const place = { "filter.type": "urn:entity:place", "signal.interests.entities": [ID], "filter.location.query": "Atlanta", "filter.results.entities": ids };
+    expect(errorFor(ENDPOINTS.insights, place)).toMatch(/must be at least/);
+    const tag = { "filter.type": "urn:tag", "signal.interests.entities": [ID], "filter.results.tags": tags };
+    expect(errorFor(ENDPOINTS.insights, tag)).toMatch(/filter.results.tags \(21\)/);
+    expect(() => validateParams(ENDPOINTS.insights, { ...tag, take: 21 })).not.toThrow();
+  });
+});

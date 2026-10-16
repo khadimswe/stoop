@@ -2,7 +2,7 @@ import type { QlooClient, QlooResult } from "./client";
 import { ENDPOINTS } from "./constants";
 import type { RunContext } from "./context";
 import type { SearchParams } from "./schemas";
-import { searchResponse, type QlooEntity } from "./types";
+import { searchResponse, slimEntitiesBody, type QlooEntity } from "./types";
 
 /**
  * Resolves a name to Qloo entities. `types` is required: without it, brand names resolve to single
@@ -21,6 +21,7 @@ export function searchEntities(
     params,
     schema: searchResponse,
     onNotFound: [],
+    slim: slimEntitiesBody,
     label: meta.label ?? `Searching Qloo for "${params.query}"`,
     stage: meta.stage,
   });
