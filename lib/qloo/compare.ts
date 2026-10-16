@@ -5,7 +5,7 @@ import type { CompareParams } from "./schemas";
 import { compareResponse, type CompareResult } from "./types";
 
 /**
- * Compares two taste profiles: what they share and what sets each apart. Powers the Reality Gap
+ * Compares two taste profiles: what they share and what sets each apart. Powers the Reality Check
  * (stated customer vs. measured customer). Thin for venues, so use brand and artist seeds.
  */
 export function compareProfiles(

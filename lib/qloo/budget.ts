@@ -9,18 +9,19 @@ export const REVISE_CAP = 6;
 export const OFFLINE_CAP = 80;
 
 /**
- * Planned live calls per stage for a 2-segment run. Seeds are resolved by autocomplete before the
- * run starts, so Prove spends nothing on search.
+ * Planned live calls per stage for a 2-segment run, recalibrated from Gate 2's recordings. Seeds are
+ * resolved by autocomplete before the run starts, so Prove spends nothing on search. Gate 4
+ * re-checks the culture and scoring rows.
  */
 export const RUN_BUDGET = {
-  prove: 3, // urn:tag, urn:demographics, urn:heatmap
-  gap: 2, // /v2/tags for the stated customer, /v2/analysis/compare
-  segments: 2, // one urn:tag re-run per segment for the distinctness check
-  culture: 12, // artist, movie, tv_show, brand, place per segment (10), person + podcast once (2)
-  resolve: 8, // /search for the LLM-only brief's named references
-  scoring: 8, // one filter.results.entities call per type per segment
+  prove: 4, // urn:demographics, urn:heatmap, music-genre tags, emotional-tone tags
+  gap: 2, // stated taste tags scored against the tag panel (one call per kind named)
+  segments: 6, // per segment: artist and brand (shared with Culture) and a heatmap
+  culture: 8, // per segment: movie, TV and places (6); person and podcast once (2)
+  resolve: 4, // /search for the LLM-only brief's named references (rarely beyond the seeds, Gate 2)
+  scoring: 12, // per segment: one filter.results call per scored type (artist, brand, movie, TV, music, tone)
   critique: 4, // self-critique re-queries and thin-field probes
-  searchReserve: 4, // retries of ambiguous resolutions
+  searchReserve: 6, // suggested-seed resolution and retries of ambiguous resolutions
 } as const;
 export type BudgetStage = keyof typeof RUN_BUDGET;
 

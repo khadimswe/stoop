@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Chip } from "@/components/stoop/chip";
 import { ProvenanceBadge } from "@/components/stoop/provenance-badge";
-import { RealityGapCard } from "@/components/stoop/reality-gap-card";
+import { RealityCheckCard } from "@/components/stoop/reality-check-card";
 import { ReceiptPanel } from "@/components/stoop/receipt-panel";
 import { Screen } from "@/components/stoop/screen";
 import { VideoTile } from "@/components/stoop/video-tile";
@@ -11,7 +11,7 @@ import approvals from "@/public/demo/approvals.json";
 import manifest from "@/public/demo/manifest.json";
 
 // The blind test needs approved clips. Gate 7 adds it for mode.kind === "blind-test"; until then every
-// visitor gets the fallback: the lead example's Reality Gap card (beat 1), then its Screening Room (beat 2)
+// visitor gets the fallback: the lead example's Reality Check card (beat 1), then its Screening Room (beat 2)
 // with one receipt open (beat 3).
 const mode = heroMode(manifestSchema.parse(manifest), approvalsSchema.parse(approvals), LEAD_EXAMPLE);
 
@@ -48,7 +48,7 @@ export default function Home() {
             taste data only.
           </p>
         </div>
-        <RealityGapCard
+        <RealityCheckCard
           voice="brand"
           register="marketing"
           brand={LEAD.brand}

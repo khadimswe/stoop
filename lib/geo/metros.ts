@@ -59,8 +59,8 @@ export function shortMetroName(metro: Pick<Metro, "name">): string {
   const override = LABEL_OVERRIDES[metro.name];
   if (override) return override;
   const [cities, states = ""] = metro.name.split(", ");
-  // "Louisville/Jefferson County, KY-IN" -> "Louisville, KY"
-  const city = cities.split(/-+/)[0].split("/")[0];
+  // "Louisville/Jefferson County, KY-IN" -> "Louisville, KY"; Census "Barnstable Town" -> "Barnstable"
+  const city = cities.split(/-+/)[0].split("/")[0].replace(/ Town$/, "");
   return states ? `${city}, ${states.split("-")[0]}` : city;
 }
 
@@ -126,8 +126,10 @@ export interface MetroLift {
   score: number;
   /** Mean cell popularity (signal density) for this audience. */
   popularity: number;
-  /** The metro's strongest cell, for the receipt. */
-  topCell: { geohash: string; lift: number };
+  /** The metro's strongest cell (highest lift), for the receipt. */
+  topCell: { geohash: string; lift: number; lat: number; lon: number };
+  /** The metro's densest qualifying cell (highest popularity): its urban core, where place queries are anchored. */
+  coreCell: { geohash: string; popularity: number; lat: number; lon: number };
 }
 
 /** Per-cell percentile totals across the reference audiences, on the shared grid, so a mean (or a leave-one-out mean) is one division. */
@@ -155,21 +157,120 @@ export function gridCoverage(cells: readonly HeatmapPoint[], grid: ReadonlySet<s
   return grid.size === 0 ? 0 : present.size / grid.size;
 }
 
-/** The reference: the cells every audience has, with each audience's percentile on that grid summed per cell. */
-export function buildReferenceHeatmap(audiences: readonly (readonly HeatmapPoint[])[]): Map<string, { sum: number; n: number }> {
-  const counts = new Map<string, number>();
-  for (const cells of audiences) for (const cell of new Set(cells.map((c) => c.geohash))) counts.set(cell, (counts.get(cell) ?? 0) + 1);
-  const grid = new Set([...counts].filter(([, n]) => n === audiences.length).map(([geohash]) => geohash));
+/**
+ * The reference: each audience's percentile on the grid, summed per cell. The grid defaults to
+ * the cells every audience has; pass one to rank more audiences on an existing grid. Cells an
+ * audience lacks count as tied at the bottom, as in gridPercentiles, so every cell has every audience.
+ */
+export function buildReferenceHeatmap(
+  audiences: readonly (readonly HeatmapPoint[])[],
+  grid?: ReadonlySet<string>,
+): Map<string, { sum: number; n: number }> {
+  let cells = grid;
+  if (!cells) {
+    const counts = new Map<string, number>();
+    for (const audience of audiences) for (const hash of new Set(audience.map((c) => c.geohash))) counts.set(hash, (counts.get(hash) ?? 0) + 1);
+    cells = new Set([...counts].filter(([, n]) => n === audiences.length).map(([geohash]) => geohash));
+  }
   const reference = new Map<string, { sum: number; n: number }>();
-  for (const cells of audiences) {
-    for (const cell of gridPercentiles(cells, grid)) {
-      const entry = reference.get(cell.geohash) ?? { sum: 0, n: 0 };
-      entry.sum += cell.affinity;
+  for (const hash of cells) reference.set(hash, { sum: 0, n: 0 });
+  for (const audience of audiences) {
+    const ranked = new Map(gridPercentiles(audience, cells).map((c) => [c.geohash, c.affinity]));
+    // Missing cells take the mean rank of the bottom tie: (missing - 1) / 2 positions up from 0.
+    const missing = cells.size - ranked.size;
+    const bottom = missing > 0 ? (missing - 1) / 2 / Math.max(cells.size - 1, 1) : 0;
+    for (const [hash, entry] of reference) {
+      entry.sum += ranked.get(hash) ?? bottom;
       entry.n += 1;
-      reference.set(cell.geohash, entry);
     }
   }
   return reference;
+}
+
+/** A frozen reference set: how many audiences, which ones (receipt), and the per-cell sums. */
+export interface ReferenceSet {
+  audiences: number;
+  members: readonly string[];
+  cells: ReferenceHeatmap;
+}
+
+/**
+ * The two frozen sets in data/geo/reference-heatmap.json: the 9 recorded candidates, and the full
+ * set (the candidates plus every recorded reference audience dense enough to rank on the grid).
+ */
+export interface ReferenceSets {
+  candidates: ReferenceSet;
+  full: ReferenceSet;
+}
+
+type ReferenceFile = {
+  sets: Record<"candidates" | "full", { audiences: number; members: string[]; cells: Record<string, [number, number]> }>;
+};
+
+export function parseReferenceFile(file: ReferenceFile): ReferenceSets {
+  const set = (raw: ReferenceFile["sets"]["full"]): ReferenceSet => ({
+    audiences: raw.audiences,
+    members: raw.members,
+    cells: new Map(Object.entries(raw.cells).map(([hash, [sum, n]]) => [hash, { sum, n }])),
+  });
+  return { candidates: set(file.sets.candidates), full: set(file.sets.full) };
+}
+
+export type CityFlag = "small-set-only" | "large-swing";
+
+export interface RankedCity extends MetroLift {
+  rank: number;
+  /** Reference audiences this ranking compared against (leave-one-out removes the audience itself). */
+  comparedWith: number;
+  /** Rank against the 9 candidate audiences alone, or null when outside that ranking. */
+  candidateSetRank: number | null;
+  flags: CityFlag[];
+}
+
+/** A rank that moves this much between the small and the full reference set is unstable either way. */
+export const LARGE_SWING = 20;
+
+/** A city in the top 5 against the candidates alone that falls outside the top 10 against the full set only "holds against the small set". */
+export const SMALL_SET_TOP = 5;
+export const FULL_SET_TOP = 10;
+
+/**
+ * Cities ranked against the full reference set, each with its rank against the 9 candidates for
+ * the stability check, plus the cities whose rank held only against the small set.
+ */
+export function rankCities(
+  cells: readonly HeatmapPoint[],
+  sets: ReferenceSets,
+  options: { own?: boolean; exclude?: readonly HeatmapPoint[] } = {},
+): { cities: RankedCity[]; smallSetOnly: { metro: Metro; candidateSetRank: number; fullRank: number | null }[] } {
+  const full = liftByMetro(cells, sets.full.cells, { own: options.own, exclude: options.exclude });
+  const small = liftByMetro(cells, sets.candidates.cells, { own: options.own, exclude: options.exclude });
+  const smallRank = new Map(small.map((m, i) => [m.metro.geoid, i + 1]));
+  const fullRank = new Map(full.map((m, i) => [m.metro.geoid, i + 1]));
+  const flagged = (geoid: string) => {
+    const s = smallRank.get(geoid);
+    const f = fullRank.get(geoid);
+    return s !== undefined && s <= SMALL_SET_TOP && (f === undefined || f > FULL_SET_TOP);
+  };
+  const comparedWith = sets.full.audiences - (options.own ? 1 : 0) - (options.exclude ? 1 : 0);
+  const swing = (geoid: string, rank: number) => {
+    const s = smallRank.get(geoid);
+    return s === undefined || Math.abs(s - rank) > LARGE_SWING;
+  };
+  const toRanked = (m: MetroLift, rank: number): RankedCity => ({
+    ...m,
+    rank,
+    comparedWith,
+    candidateSetRank: smallRank.get(m.metro.geoid) ?? null,
+    flags: [...(flagged(m.metro.geoid) ? (["small-set-only"] as const) : []), ...(swing(m.metro.geoid, rank) ? (["large-swing"] as const) : [])],
+  });
+  return {
+    cities: full.map((m, i) => toRanked(m, i + 1)),
+    smallSetOnly: small
+      .slice(0, SMALL_SET_TOP)
+      .filter((m) => flagged(m.metro.geoid))
+      .map((m) => ({ metro: m.metro, candidateSetRank: smallRank.get(m.metro.geoid) as number, fullRank: fullRank.get(m.metro.geoid) ?? null })),
+  };
 }
 
 function rankMetros(
@@ -179,16 +280,19 @@ function rankMetros(
   options: { minCells?: number; metros?: readonly Metro[] },
 ): MetroLift[] {
   const minCells = options.minCells ?? MIN_CELLS;
-  const byMetro = new Map<string, { metro: Metro; lifts: number[]; popularity: number; top: { geohash: string; lift: number } }>();
+  const byMetro = new Map<string, { metro: Metro; lifts: number[]; popularity: number; top: MetroLift["topCell"]; core: MetroLift["coreCell"] }>();
   cells.forEach((cell, index) => {
     const lift = lifts[index];
     if (lift === null || !keepCell(cell)) return;
     const metro = nearestMetro(cell, options.metros);
     if (!metro) return;
-    const entry = byMetro.get(metro.geoid) ?? { metro, lifts: [], popularity: 0, top: { geohash: cell.geohash, lift } };
+    const here = { geohash: cell.geohash, lift, lat: cell.lat, lon: cell.lon };
+    const dense = { geohash: cell.geohash, popularity: cell.popularity, lat: cell.lat, lon: cell.lon };
+    const entry = byMetro.get(metro.geoid) ?? { metro, lifts: [], popularity: 0, top: here, core: dense };
     entry.lifts.push(lift);
     entry.popularity += cell.popularity;
-    if (lift > entry.top.lift) entry.top = { geohash: cell.geohash, lift };
+    if (lift > entry.top.lift) entry.top = here;
+    if (cell.popularity > entry.core.popularity) entry.core = dense;
     byMetro.set(metro.geoid, entry);
   });
   return [...byMetro.values()]
@@ -201,6 +305,7 @@ function rankMetros(
         score: (lift * e.lifts.length) / (e.lifts.length + SHRINK_CELLS),
         popularity: e.popularity / e.lifts.length,
         topCell: e.top,
+        coreCell: e.core,
       };
     })
     .filter((m) => m.cells >= minCells)
@@ -214,15 +319,34 @@ function rankMetros(
 export function liftByMetro(
   cells: readonly HeatmapPoint[],
   reference: ReferenceHeatmap,
-  options: { own?: boolean; minCells?: number; minCellPopularity?: number; metros?: readonly Metro[] } = {},
+  options: {
+    own?: boolean;
+    /** A reference audience to leave out of the mean (for a segment: its parent audience, whose signal it shares). */
+    exclude?: readonly HeatmapPoint[];
+    minCells?: number;
+    minCellPopularity?: number;
+    metros?: readonly Metro[];
+  } = {},
 ): MetroLift[] {
   const minPopularity = options.minCellPopularity ?? MIN_CELL_POPULARITY;
   const ranked = gridPercentiles(cells, reference);
+  const left = options.exclude ? new Map(gridPercentiles(options.exclude, reference).map((c) => [c.geohash, c.affinity])) : null;
+  const missingLeft = left ? reference.size - left.size : 0;
+  const bottomLeft = missingLeft > 0 ? (missingLeft - 1) / 2 / Math.max(reference.size - 1, 1) : 0;
   const lifts = ranked.map((cell) => {
     const ref = reference.get(cell.geohash) as { sum: number; n: number };
-    const n = options.own ? ref.n - 1 : ref.n;
+    let sum = ref.sum;
+    let n = ref.n;
+    if (options.own) {
+      sum -= cell.affinity;
+      n -= 1;
+    }
+    if (left) {
+      sum -= left.get(cell.geohash) ?? bottomLeft;
+      n -= 1;
+    }
     if (n < 1) return null;
-    return cell.affinity - (options.own ? ref.sum - cell.affinity : ref.sum) / n;
+    return cell.affinity - sum / n;
   });
   return rankMetros(ranked, lifts, (cell) => cell.popularity >= minPopularity, options);
 }
@@ -239,7 +363,7 @@ export function residualLiftByMetro(
   return rankMetros(cells, residualLift(cells), () => true, options).filter((m) => m.popularity >= minMean);
 }
 
-const STATES: Readonly<Record<string, string>> = {
+export const STATES: Readonly<Record<string, string>> = {
   AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut",
   DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois",
   IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
@@ -270,4 +394,37 @@ export function localityMatch(echo: { name: string; disambiguation: string }, la
 /** True for an exact or partial match. */
 export function localityMatchesMetro(echo: { name: string; disambiguation: string }, label: string): boolean {
   return localityMatch(echo, label) !== "mismatch";
+}
+
+/** Radius for place queries around a metro's strongest cell (a geohash-4 cell is about 40 by 20 km). */
+export const PLACE_RADIUS_M = 20_000;
+
+/**
+ * Where place queries for a metro are anchored: the center of its densest qualifying Qloo cell (the
+ * urban core), as WKT POINT(lon lat) plus a radius. A coordinate cannot be fuzzy-matched to the
+ * wrong town, unlike a locality name (Gate 3: "Bend, OR" matched Bendorf, Germany, and "Barnstable
+ * Town, MA" matched a town center in Hong Kong). The strongest-lift cell can be rural (Fort
+ * Collins' sits in the mountains about 75 km west), so it stays the receipt, not the anchor.
+ */
+export function placeAnchor(metro: Pick<MetroLift, "coreCell">): { "filter.location": string; "filter.location.radius": number } {
+  return { "filter.location": `POINT(${metro.coreCell.lon} ${metro.coreCell.lat})`, "filter.location.radius": PLACE_RADIUS_M };
+}
+
+/** The principal city to look up as a Qloo locality: the label's city, without Census suffixes ("Barnstable Town" -> "Barnstable"). */
+export function localityName(metro: Pick<Metro, "name">): { city: string; state: string | null } {
+  const [city, abbr = ""] = shortMetroName(metro).split(", ");
+  return { city: city.replace(/ (Town|City|city|town|village)$/, ""), state: STATES[abbr] ?? null };
+}
+
+/**
+ * The Qloo locality for a metro's principal city, from a typed /search: the first result whose
+ * name is the city and whose description holds the full state name. Undefined when none fits, so
+ * a place query never runs against the wrong town.
+ */
+export function acceptLocality<T extends { name: string; disambiguation: string | null }>(results: readonly T[], metro: Pick<Metro, "name">): T | undefined {
+  const { city, state } = localityName(metro);
+  return results.find((r) => {
+    const text = ` ${normalizeName(r.disambiguation ?? "")} `;
+    return normalizeName(r.name) === normalizeName(city) && (!state || text.includes(` ${normalizeName(state)} `));
+  });
 }

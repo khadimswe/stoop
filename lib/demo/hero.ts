@@ -1,6 +1,6 @@
 // Decides what the landing hero shows. The blind test needs real, founder-approved clips; until both
 // hook clips for the lead example are rendered from approved prompts and the founder has approved
-// those exact files for the hero, the hero falls back to the lead example's Reality Gap card and
+// those exact files for the hero, the hero falls back to the lead example's Reality Check card and
 // Screening Room.
 import { z } from "zod";
 
@@ -52,11 +52,11 @@ export type DemoApprovals = z.infer<typeof approvalsSchema>;
 
 export type HeroMode =
   | { kind: "blind-test"; example: string; control: DemoClip; culture: DemoClip }
-  | { kind: "reality-gap" };
+  | { kind: "reality-check" };
 
 /** The blind test runs only on the lead example's two hook clips, each approved as that exact file. */
 export function heroMode(manifest: DemoManifest, approvals: DemoApprovals, lead: string | null): HeroMode {
-  if (!lead) return { kind: "reality-gap" };
+  if (!lead) return { kind: "reality-check" };
   const approved = (c: DemoClip) =>
     approvals.prompts.includes(c.promptHash) &&
     approvals.heroClips.some((h) => h.id === c.id && h.promptHash === c.promptHash && h.sha256 === c.sha256);
@@ -66,5 +66,5 @@ export function heroMode(manifest: DemoManifest, approvals: DemoApprovals, lead:
   if (control && culture && approved(control) && approved(culture)) {
     return { kind: "blind-test", example: lead, control, culture };
   }
-  return { kind: "reality-gap" };
+  return { kind: "reality-check" };
 }

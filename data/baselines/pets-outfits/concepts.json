@@ -1,113 +1,331 @@
 {
   "version": 1,
   "briefId": "control",
-  "inputHash": "64e7d85f729fe416988c47f21382feed13d42736bebc4ddd641059ef2d7f6b4d",
+  "inputHash": "e584d012e1ef877bede86d7745a70c99fa317179d6fc0923ea7cc93577223919",
   "modelId": "claude-sonnet-5-5",
   "effort": "medium",
-  "generatedAt": "2026-10-16T15:49:36.372Z",
+  "generatedAt": "2026-10-16T20:39:55.571Z",
   "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
   "attempts": 1,
   "usage": {
-    "inputTokens": 5218,
-    "outputTokens": 4633
+    "inputTokens": 5248,
+    "outputTokens": 4391
   },
   "concepts": [
     {
       "concept": {
-        "title": "Runway Walk, Leaf Edition",
-        "hook": "A medium dog in a mustard pom-pom beanie trots straight at the lens on a leaf-covered path, pom-pom bouncing in slow motion. On-screen line: Your dog called. He wants a sweater.",
-        "emotion": "Delight",
-        "surpriseBeat": "Mid-trot, the dog stops dead on the path, sits, and turns its head to the side like a model hitting a pose, as if the walk was a runway.",
+        "title": "Ears Out, Pom-Pom On",
+        "hook": "First second: a gray tabby sits on a window seat, a mustard beanie with a small pom-pom already on, ears popping through the two openings. Overlay: Your cat just found out she looks incredible.",
+        "emotion": "smug delight",
+        "surpriseBeat": "The tabby catches her reflection in the dark window glass, pauses, then lifts her chin and slowly turns her head to show off the pom-pom.",
         "locations": [
           {
-            "slug": "autumn-park-path",
-            "description": "Sidewalk park path covered in fallen leaves, bare-edged trees in soft background",
+            "slug": "window-seat-living-room",
+            "description": "cozy miniature living room with a knit throw draped over a window seat, muted teal wall behind",
             "timeOfDay": "late afternoon",
-            "lighting": "Low golden sun, warm highlights, soft creamy shadows"
+            "lighting": "soft warm key light with gentle rim light on fur and yarn"
           },
           {
-            "slug": "wooden-surface",
-            "description": "Plain wooden tabletop for the final locked-off product frame",
-            "timeOfDay": "late afternoon",
-            "lighting": "Soft warm window light from the side"
+            "slug": "cream-photo-corner",
+            "description": "soft cream backdrop with a yarn-ball prop, clean empty floor",
+            "timeOfDay": "studio neutral",
+            "lighting": "soft even key light with gentle rim light"
           }
         ],
         "scenes": [
           {
             "beat": "hook",
-            "seconds": 3,
-            "action": "A medium dog wearing the mustard knit beanie with pom-pom trots toward the camera, ears poking through the ear openings, pom-pom bouncing in slow motion.",
-            "camera": "tracking_side",
-            "framing": "Pet eye level, medium shot, shallow depth of field, 35mm look",
-            "motion": "Steady confident trot, leaves kicking up lightly behind",
-            "lighting": "Low golden sun, warm rim light on the yarn",
+            "seconds": 2,
+            "action": "Gray tabby sits on the window seat wearing the mustard beanie, ears through the openings, big expressive eyes blinking once.",
+            "camera": "push_in_slow",
+            "framing": "Centered close shot of the cat's head and beanie, shallow depth of field, vertical safe zone",
+            "motion": "Ears twitch through the openings, pom-pom bobs with a squash and stretch blink",
+            "lighting": "Warm key with soft rim light, teal background",
             "productVisible": true,
-            "location": "autumn-park-path",
-            "overlayText": "Your dog called. He wants a sweater.",
+            "location": "window-seat-living-room",
+            "overlayText": "Your cat just found out she looks incredible.",
             "dialogue": null,
-            "sound": "Leaves crunching, light paws, upbeat indie pop starts with plucked acoustic guitar"
+            "sound": "Ukulele pluck starts, soft wool squish on the blink"
           },
           {
             "beat": "product",
             "seconds": 3,
-            "action": "Macro of the beanie knit and the adjustable strap resting under the dog's chin as it keeps walking.",
-            "camera": "handheld",
-            "framing": "Close-up on the knit texture and strap, steady handheld, no label text",
-            "motion": "Dog's head gently bobbing, yarn stretching around the ears",
-            "lighting": "Warm golden backlight with soft shadow",
+            "action": "Side view shows the two ear openings and the stitched texture of the mustard knit as the cat settles on the knit throw.",
+            "camera": "orbit",
+            "framing": "Medium close, cat centered, visible stitches and fuzzy fibers",
+            "motion": "Cat turns her head slowly, pom-pom swaying",
+            "lighting": "Soft key, subsurface glow on fur and yarn",
             "productVisible": true,
-            "location": "autumn-park-path",
-            "overlayText": "Soft stretch yarn. Adjustable straps.",
-            "dialogue": "Soft stretch yarn. Adjustable straps. Runway ready.",
-            "sound": "Soft hand claps join, light glockenspiel"
+            "location": "window-seat-living-room",
+            "overlayText": "Soft stretch yarn",
+            "dialogue": "Soft stretch yarn, made to sit just right.",
+            "sound": "Light hand claps on the beat, glockenspiel accent"
           },
           {
             "beat": "cultural",
             "seconds": 3,
-            "action": "A small dog in a matching knit bandana trots into frame beside the beanie dog, both walking along the leaf path side by side.",
-            "camera": "tracking_side",
-            "framing": "Two dogs at eye level, medium wide, shallow focus on the leaves",
-            "motion": "Both dogs trot in step, bandana fluttering slightly",
-            "lighting": "Golden hour sun through trees",
+            "action": "The cat glances toward the window glass and notices her reflection, eyes widening.",
+            "camera": "dolly_in",
+            "framing": "Cat in profile with faint reflection in the glass, centered",
+            "motion": "Cat freezes, tail tip flicks",
+            "lighting": "Warm interior light against muted teal dusk",
             "productVisible": true,
-            "location": "autumn-park-path",
+            "location": "window-seat-living-room",
             "overlayText": null,
             "dialogue": null,
-            "sound": "Bouncy bass groove, paws on leaves"
+            "sound": "Music dips to bass and shuffle, tiny whistle hook"
           },
           {
             "beat": "escalation",
             "seconds": 3,
-            "action": "The beanie dog stops, sits, and turns its head sideways in a mock-serious model pose while the small dog trots past.",
+            "action": "The cat lifts her chin and slowly turns her head, showing off the pom-pom like she planned it.",
             "camera": "crash_zoom_in",
-            "framing": "Tight on the dog's face and beanie, pom-pom sharp",
-            "motion": "Dog sits abruptly and holds still, pom-pom swaying then settling",
-            "lighting": "Warm sun, soft creamy shadow on the far side",
+            "framing": "Tight on face and beanie, centered",
+            "motion": "Chin lifts, eyes half close in a smug blink, pom-pom bounces",
+            "lighting": "Rim light flares on the yarn fuzz",
             "productVisible": true,
-            "location": "autumn-park-path",
-            "overlayText": "Mock-serious. Fully committed.",
+            "location": "window-seat-living-room",
+            "overlayText": "Ears out, pom-pom on, zero complaints.",
             "dialogue": null,
-            "sound": "Music pauses for one beat, small whistle hook"
+            "sound": "Whistle hook lands with a boop effect"
           },
           {
             "beat": "payoff",
-            "seconds": 3,
-            "action": "Final locked-off frame of the mustard beanie with pom-pom, the knit bandana and the rust-red sweater folded on a wooden surface.",
+            "seconds": 4,
+            "action": "Clean shot of the mustard beanie folded with the rust-red sweater, paw tag facing camera, yarn ball beside them.",
             "camera": "static",
-            "framing": "Locked-off, slightly above, products centered and fully visible",
-            "motion": "Still frame, one soft settle of a pom-pom",
-            "lighting": "Soft warm window light, light film grain",
+            "framing": "Centered product shot, full stack visible, tag facing camera",
+            "motion": "Still, only the yarn ball rolls a little and stops",
+            "lighting": "Soft even key on cream backdrop",
             "productVisible": true,
-            "location": "wooden-surface",
-            "overlayText": "$24. Machine washable. New colors each season. Shop now.",
-            "dialogue": "Twenty-four dollars. New colors each season. Come shop.",
-            "sound": "Music resolves with a final glockenspiel note"
+            "location": "cream-photo-corner",
+            "overlayText": "Shop now, $24",
+            "dialogue": "Small cats to large dogs, new colors each season. Shop now, $24.",
+            "sound": "Music resolves with glockenspiel and a last hand clap"
           }
         ]
       },
       "rubric": {
         "scores": {
           "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 4,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Strong smug payoff built on the brief's own hook and the ear openings. The reflection moment is charming but gentle; product is worn throughout."
+      }
+    },
+    {
+      "concept": {
+        "title": "Click, Stretch, Strut",
+        "hook": "First second: a rust-red sweater springs into shape over a fluffy dog's back with a wool squish. Overlay: Tiny sweater. Big main character energy.",
+        "emotion": "playful pride",
+        "surpriseBeat": "The small terrier in the second beanie trots into frame and falls in step behind the sweater dog, copying his strut exactly.",
+        "locations": [
+          {
+            "slug": "autumn-porch",
+            "description": "tiny autumn porch with scattered leaves and a pumpkin, muted teal wall",
+            "timeOfDay": "golden hour",
+            "lighting": "low warm key with soft rim light"
+          },
+          {
+            "slug": "cream-photo-corner",
+            "description": "soft cream backdrop with a yarn-ball prop",
+            "timeOfDay": "studio neutral",
+            "lighting": "soft even key with gentle rim light"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "The rust-red knit sweater stretches over a fluffy medium dog's back and springs into shape.",
+            "camera": "crash_zoom_in",
+            "framing": "Tight on the dog's back and shoulders, centered",
+            "motion": "Knit stretches then snaps back with squash and stretch",
+            "lighting": "Warm key with rim glow on stitches",
+            "productVisible": true,
+            "location": "autumn-porch",
+            "overlayText": "Tiny sweater. Big main character energy.",
+            "dialogue": null,
+            "sound": "Wool squish effect on the beat, ukulele pluck"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The adjustable strap on the mustard beanie clicks snug under the chin of a small terrier waiting beside the pumpkin.",
+            "camera": "dolly_in",
+            "framing": "Medium close on terrier's face, strap visible under chin",
+            "motion": "Terrier tilts head, ears wiggle, tail wags",
+            "lighting": "Soft warm key, leaves glowing behind",
+            "productVisible": true,
+            "location": "autumn-porch",
+            "overlayText": "Adjustable straps",
+            "dialogue": "Adjustable straps, snug and easy.",
+            "sound": "Soft click, light hand claps"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The sweater dog struts along the porch past the pumpkin, leaves kicking up behind him.",
+            "camera": "tracking_side",
+            "framing": "Full body, centered in safe zone",
+            "motion": "Bouncy confident strut with squash and stretch on each step",
+            "lighting": "Golden hour key with rim light",
+            "productVisible": true,
+            "location": "autumn-porch",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Shuffle groove with warm bass steps"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The terrier in the beanie trots into frame and copies the strut exactly, a step behind.",
+            "camera": "static",
+            "framing": "Wide, both dogs centered on the porch",
+            "motion": "Matching steps, heads held high, leaves tumble",
+            "lighting": "Warm key, soft rim",
+            "productVisible": true,
+            "location": "autumn-porch",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Whistle hook, glockenspiel hit on the second dog's entrance"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 4,
+            "action": "Sweater and beanie sit folded together, paw tag facing camera, yarn ball beside them.",
+            "camera": "push_in_slow",
+            "framing": "Centered product shot, tag toward camera",
+            "motion": "Still, with a tiny yarn ball rolling to rest",
+            "lighting": "Soft even key on cream",
+            "productVisible": true,
+            "location": "cream-photo-corner",
+            "overlayText": "Machine washable. Shop now, $24",
+            "dialogue": "Machine washable and made for the whole family. Shop now, $24.",
+            "sound": "Music resolves with a final hand clap"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 5,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The sweater spring is a bold opening and the click shows the real product use. The copycat strut is a clear single escalation with good rhythm."
+      }
+    },
+    {
+      "concept": {
+        "title": "A Tiny Day in Knits",
+        "hook": "First second: a mustard beanie lands on a gray tabby's head from above, ears pop through the openings. Overlay: Ears out, pom-pom on, zero complaints.",
+        "emotion": "cozy contentment",
+        "surpriseBeat": "The tabby, the dog and the terrier all end up asleep in a heap on the window seat in their knits, the dog's chest rising in time with the music.",
+        "locations": [
+          {
+            "slug": "window-seat-living-room",
+            "description": "cozy miniature living room with a knit throw and a window seat, muted teal wall",
+            "timeOfDay": "morning to afternoon",
+            "lighting": "soft warm window light with gentle rim light"
+          },
+          {
+            "slug": "cream-photo-corner",
+            "description": "soft cream backdrop with a yarn-ball prop",
+            "timeOfDay": "studio neutral",
+            "lighting": "soft even key"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "The mustard beanie drops onto the tabby's head and the ears pop through the openings.",
+            "camera": "static",
+            "framing": "Tight centered on the cat's head, vertical safe zone",
+            "motion": "Ears squash through the openings, pom-pom bounces",
+            "lighting": "Warm key with soft rim",
+            "productVisible": true,
+            "location": "window-seat-living-room",
+            "overlayText": "Ears out, pom-pom on, zero complaints.",
+            "dialogue": null,
+            "sound": "Wool squish and ukulele pluck"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The fluffy dog stands still while the rust-red sweater stretches over his back and springs into shape.",
+            "camera": "tilt_up_reveal",
+            "framing": "Starts at paws, tilts up to the sweater, centered",
+            "motion": "Sweater snaps into place, dog gives a happy shake",
+            "lighting": "Warm key, fiber glow on yarn",
+            "productVisible": true,
+            "location": "window-seat-living-room",
+            "overlayText": "Soft stretch yarn",
+            "dialogue": "Soft stretch yarn that springs right back.",
+            "sound": "Hand claps, glockenspiel accent"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The terrier in a second beanie wiggles across the rug, pom-pom swinging, then hops up on the knit throw.",
+            "camera": "handheld",
+            "framing": "Medium shot, terrier centered",
+            "motion": "Wiggly bouncy trot with squash and stretch",
+            "lighting": "Window light, soft rim",
+            "productVisible": true,
+            "location": "window-seat-living-room",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Shuffle groove, light boop effects"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "All three pets pile onto the window seat and fall asleep in their knits, the dog's chest rising slowly.",
+            "camera": "pull_out_reveal",
+            "framing": "Starts close on the sleeping tabby, pulls back to the whole heap",
+            "motion": "Slow breathing, one ear twitch",
+            "lighting": "Warm light fades slightly toward golden",
+            "productVisible": true,
+            "location": "window-seat-living-room",
+            "overlayText": "Sizes for small cats to large dogs",
+            "dialogue": null,
+            "sound": "Music softens to ukulele and a soft whistle"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 4,
+            "action": "Beanie and sweater sit folded together, paw tag facing camera.",
+            "camera": "static",
+            "framing": "Centered clean product shot, tag toward camera",
+            "motion": "Still",
+            "lighting": "Soft even key on cream",
+            "productVisible": true,
+            "location": "cream-photo-corner",
+            "overlayText": "New colors each season. Shop now, $24",
+            "dialogue": "New colors each season. Shop now, $24.",
+            "sound": "Final glockenspiel note and hand clap"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
           "specificity": 4,
           "product_role": 4,
           "emotional_clarity": 5,
@@ -118,225 +336,7 @@
           "no_stereotype": true,
           "has_surprise_beat": true
         },
-        "reason": "Clear delight and a strong slow-motion pom-pom hook. The model-pose stop is charming but predictable, and the product is worn rather than shown being put on."
-      }
-    },
-    {
-      "concept": {
-        "title": "Zero Regrets",
-        "hook": "Cat in an empty rust-red sweater held open on a window seat, the cat calmly walks toward it. On-screen line: Cat in a sweater: zero regrets, full confidence.",
-        "emotion": "Dry amusement",
-        "surpriseBeat": "The cat steps into the sweater with total calm, while the dog beside it in the beanie flinches at the strap click, reversing who is the drama queen.",
-        "locations": [
-          {
-            "slug": "window-seat-living-room",
-            "description": "Sunlit apartment living room with a wide window seat and cushions",
-            "timeOfDay": "morning",
-            "lighting": "Soft sunlight through the window, warm and creamy"
-          },
-          {
-            "slug": "wooden-surface",
-            "description": "Plain wooden surface for the final locked-off frame",
-            "timeOfDay": "morning",
-            "lighting": "Soft warm window light from the side"
-          }
-        ],
-        "scenes": [
-          {
-            "beat": "hook",
-            "seconds": 3,
-            "action": "A rust-red knit sweater lies open on the window seat. A short-haired cat walks up and stands still in front of it.",
-            "camera": "push_in_slow",
-            "framing": "Cat eye level, shallow depth of field, sweater and cat in frame",
-            "motion": "Cat pads forward slowly and pauses, tail upright",
-            "lighting": "Soft morning window light, golden highlights",
-            "productVisible": true,
-            "location": "window-seat-living-room",
-            "overlayText": "Cat in a sweater: zero regrets, full confidence.",
-            "dialogue": null,
-            "sound": "Quiet room tone, plucked acoustic guitar begins"
-          },
-          {
-            "beat": "product",
-            "seconds": 3,
-            "action": "The cat steps calmly through the sweater opening, the stretch yarn giving as it walks through.",
-            "camera": "handheld",
-            "framing": "Low medium shot at cat eye level, steady handheld",
-            "motion": "One paw then the next, the knit stretching and settling over the back",
-            "lighting": "Warm window light, soft shadow",
-            "productVisible": true,
-            "location": "window-seat-living-room",
-            "overlayText": "Soft stretch yarn",
-            "dialogue": "Soft stretch yarn. Zero fuss.",
-            "sound": "Soft hand claps, gentle bass groove"
-          },
-          {
-            "beat": "cultural",
-            "seconds": 3,
-            "action": "The dog sits beside the window seat while a hand eases the mustard beanie over its head and through the ear openings, then clicks the adjustable strap.",
-            "camera": "dolly_in",
-            "framing": "Eye-level on the dog, hand entering late from the side, label clear of hands",
-            "motion": "Dog sits patiently, ears pop through the openings",
-            "lighting": "Sunlit living room, warm highlights",
-            "productVisible": true,
-            "location": "window-seat-living-room",
-            "overlayText": "Adjustable straps",
-            "dialogue": null,
-            "sound": "Soft strap click, glockenspiel note"
-          },
-          {
-            "beat": "escalation",
-            "seconds": 3,
-            "action": "The cat sits in the window seat in the sweater, unbothered, while the dog beside it tilts its beanie head at the cat.",
-            "camera": "static",
-            "framing": "Two-shot of cat and dog on the window seat, locked off",
-            "motion": "Cat blinks slowly, dog tilts head, pom-pom flops",
-            "lighting": "Backlit by window, creamy glow",
-            "productVisible": true,
-            "location": "window-seat-living-room",
-            "overlayText": "Meet the most dressed ones in the house.",
-            "dialogue": "Meet the most dressed ones in the house.",
-            "sound": "Music pauses a beat, small whistle hook"
-          },
-          {
-            "beat": "payoff",
-            "seconds": 3,
-            "action": "Final locked-off frame of the rust-red sweater and mustard beanie folded on a wooden surface.",
-            "camera": "overhead_top_down",
-            "framing": "Straight down, products centered and fully visible",
-            "motion": "Still, a single soft settle",
-            "lighting": "Warm side light, light grain",
-            "productVisible": true,
-            "location": "wooden-surface",
-            "overlayText": "$24. Machine washable. Shop now.",
-            "dialogue": "Twenty-four dollars. Machine washable. Come shop.",
-            "sound": "Music resolves on a bouncy final chord"
-          }
-        ]
-      },
-      "rubric": {
-        "scores": {
-          "scroll_stop": 4,
-          "specificity": 4,
-          "product_role": 5,
-          "emotional_clarity": 4,
-          "insider_not_outsider": 4,
-          "surprise": 3
-        },
-        "gates": {
-          "no_stereotype": true,
-          "has_surprise_beat": true
-        },
-        "reason": "Shows the brief's real putting-on routine and the cat stepping in, so the product is clearly used. The surprise is gentle, and the dog and cat gag adds a second small beat."
-      }
-    },
-    {
-      "concept": {
-        "title": "From Wash to Wardrobe",
-        "hook": "A rust-red sweater tumbles in a front-loading washer drum in the first second. On-screen line: Meet the most dressed one in the house.",
-        "emotion": "Cozy satisfaction",
-        "surpriseBeat": "The washer door opens and the sweater is revealed already folded beside the pom-pom beanie, followed by the cat strolling in to claim the stack.",
-        "locations": [
-          {
-            "slug": "laundry-nook",
-            "description": "Small laundry nook with a front-loading washer and a wooden shelf",
-            "timeOfDay": "afternoon",
-            "lighting": "Soft warm light from a nearby window"
-          },
-          {
-            "slug": "window-seat-living-room",
-            "description": "Sunlit apartment living room with a wide window seat",
-            "timeOfDay": "afternoon",
-            "lighting": "Golden sunlight through the window"
-          }
-        ],
-        "scenes": [
-          {
-            "beat": "hook",
-            "seconds": 3,
-            "action": "The rust-red sweater turns slowly inside the washer drum, seen through the round glass door.",
-            "camera": "static",
-            "framing": "Locked-off close shot of the drum, sweater shape clear",
-            "motion": "Slow drum rotation, sweater tumbling gently",
-            "lighting": "Warm nook light with a soft glow on the glass",
-            "productVisible": true,
-            "location": "laundry-nook",
-            "overlayText": "Meet the most dressed one in the house.",
-            "dialogue": null,
-            "sound": "Soft washer hum, upbeat indie pop intro with plucked guitar"
-          },
-          {
-            "beat": "product",
-            "seconds": 3,
-            "action": "The short-haired cat sits on the washer top watching the drum, wearing the same rust-red sweater.",
-            "camera": "push_in_slow",
-            "framing": "Cat eye level, shallow depth of field, drum blurred behind",
-            "motion": "Cat's head follows the spinning drum",
-            "lighting": "Warm window light with creamy shadow",
-            "productVisible": true,
-            "location": "laundry-nook",
-            "overlayText": "Machine washable",
-            "dialogue": "Machine washable. Naturally.",
-            "sound": "Washer hum, soft hand claps"
-          },
-          {
-            "beat": "cultural",
-            "seconds": 3,
-            "action": "The medium dog trots across the living room in the mustard pom-pom beanie, ending at the window seat.",
-            "camera": "tracking_side",
-            "framing": "Eye-level tracking, pom-pom bounce in slow motion",
-            "motion": "Trot, pom-pom bounce, stretch yarn moving with the head",
-            "lighting": "Golden window light, warm highlights",
-            "productVisible": true,
-            "location": "window-seat-living-room",
-            "overlayText": "Soft stretch yarn. Adjustable straps.",
-            "dialogue": "Soft stretch yarn. Adjustable straps.",
-            "sound": "Bouncy bass groove, paws on floor"
-          },
-          {
-            "beat": "escalation",
-            "seconds": 3,
-            "action": "Back at the laundry nook, the washer door opens and the sweater and pom-pom beanie sit folded on the shelf. The cat strolls in and settles on the stack.",
-            "camera": "pull_out_reveal",
-            "framing": "Starts on the folded stack, pulls back to reveal the nook and cat",
-            "motion": "Cat steps onto the stack and curls up",
-            "lighting": "Soft warm nook light",
-            "productVisible": true,
-            "location": "laundry-nook",
-            "overlayText": null,
-            "dialogue": null,
-            "sound": "Music pauses a beat, whistle hook"
-          },
-          {
-            "beat": "payoff",
-            "seconds": 3,
-            "action": "Final locked-off frame of the folded sweater, beanie and bandana on a wooden surface.",
-            "camera": "static",
-            "framing": "Locked-off, products fully visible and centered",
-            "motion": "Still frame",
-            "lighting": "Soft warm light, light film grain",
-            "productVisible": true,
-            "location": "laundry-nook",
-            "overlayText": "$24. New colors each season. Shop now.",
-            "dialogue": "Twenty-four dollars. New colors each season. Come shop.",
-            "sound": "Final glockenspiel note"
-          }
-        ]
-      },
-      "rubric": {
-        "scores": {
-          "scroll_stop": 3,
-          "specificity": 4,
-          "product_role": 4,
-          "emotional_clarity": 4,
-          "insider_not_outsider": 4,
-          "surprise": 3
-        },
-        "gates": {
-          "no_stereotype": true,
-          "has_surprise_beat": true
-        },
-        "reason": "The washer hook is distinctive and uses the brief's closing beat early. It is quieter than the others, and the cat appearing in a sweater inside the nook while the sweater washes needs care in the edit."
+        "reason": "Very clear cozy emotion and every piece is worn through the day. The nap pile is sweet but predictable, and the hook is softer than the others."
       }
     }
   ],

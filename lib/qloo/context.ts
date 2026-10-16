@@ -25,6 +25,6 @@ export function createRunContext(options: { runId: string; cap?: number; monthly
     liveCalls: 0,
     cachedCalls: 0,
     stageCalls: {},
-    ledger: createLedger(options.runId),
+    ledger: createLedger(),
   };
 }

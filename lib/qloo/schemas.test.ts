@@ -200,3 +200,11 @@ describe("scoring calls ask for every id", () => {
     expect(() => validateParams(ENDPOINTS.insights, { ...tag, take: 21 })).not.toThrow();
   });
 });
+
+describe("place locations", () => {
+  it("accept a Qloo locality id as filter.location, as Qloo's docs allow", () => {
+    expect(() =>
+      validateParams(ENDPOINTS.insights, { "filter.type": "urn:entity:place", "signal.interests.entities": [ID], "filter.location": ID }),
+    ).not.toThrow();
+  });
+});

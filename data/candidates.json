@@ -97,7 +97,7 @@
       "statedCustomer": "Pet owners who treat their cat or dog like family and love dressing them up, 25 to 40.",
       "region": "United States",
       "platforms": "reels-tiktok-9x16",
-      "direction": { "cast": "pet" }
+      "direction": { "cast": "pet", "look": "animation_3d" }
     },
     {
       "slug": "care-moisturizer",

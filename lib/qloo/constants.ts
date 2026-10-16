@@ -16,6 +16,8 @@ export const ENTITY_TYPES = [
   "book",
   "brand",
   "destination",
+  // Named places (cities, neighborhoods): searchable, and accepted by place queries as filter.location.
+  "locality",
   "movie",
   "person",
   "place",

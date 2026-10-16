@@ -1,0 +1,17 @@
+{
+  "description": "Top-up: stage 1 (resolve) requests the current code needs; record them, then run plan missing again.",
+  "requests": [
+    {
+      "id": "tags--music--bedroom-pop",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "bedroom pop",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for pets-outfits: \"Upbeat bedroom pop with a soft shuffle groove, plucked ukule\"."
+    }
+  ]
+}

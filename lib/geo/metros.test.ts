@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { findFixture, readFixtureFile, recorded } from "../qloo/fixtures";
 import { CANDIDATES } from "../demo/candidates";
-import { heatmapResponse } from "../qloo/types";
+import { heatmapResponse, insightsEntitiesResponse, searchResponse } from "../qloo/types";
 import { readFileSync } from "node:fs";
+import { loadReferenceSets } from "./reference";
 import {
+  acceptLocality,
   buildReferenceHeatmap,
   gridCoverage,
+  localityName,
+  placeAnchor,
+  rankCities,
   gridPercentiles,
+  haversineKm,
   liftByMetro,
   localityMatch,
   localityMatchesMetro,
@@ -128,13 +134,33 @@ describe("city ranking on the recorded candidate heatmaps", () => {
     for (const cell of gridPercentiles(sparse, reference)) expect(cell.affinity).toBeCloseTo(full.get(cell.geohash) as number, 10);
   });
 
-  it("matches the frozen reference file", () => {
-    const file = JSON.parse(readFileSync("data/geo/reference-heatmap.json", "utf8")) as { cells: Record<string, [number, number]> };
-    expect(Object.keys(file.cells).length).toBe(reference.size);
+  it("matches the frozen reference file: the 9 candidates exactly, and a full set on the same grid", () => {
+    const file = JSON.parse(readFileSync("data/geo/reference-heatmap.json", "utf8")) as {
+      sets: Record<"candidates" | "full", { audiences: number; members: string[]; cells: Record<string, [number, number]> }>;
+    };
+    const { candidates, full } = file.sets;
+    expect(candidates.audiences).toBe(9);
+    expect(Object.keys(candidates.cells).length).toBe(reference.size);
     for (const [hash, { sum, n }] of reference) {
-      expect(file.cells[hash][1]).toBe(n);
-      expect(file.cells[hash][0]).toBeCloseTo(sum, 5);
+      expect(candidates.cells[hash][1]).toBe(n);
+      expect(candidates.cells[hash][0]).toBeCloseTo(sum, 5);
     }
+    // The full set adds the dense recorded reference audiences on the same grid.
+    expect(full.audiences).toBe(full.members.length);
+    expect(full.audiences).toBeGreaterThan(candidates.audiences);
+    expect(Object.keys(full.cells).sort()).toEqual(Object.keys(candidates.cells).sort());
+    for (const [, n] of Object.values(full.cells)) expect(n).toBeLessThanOrEqual(full.audiences);
+  });
+
+  it("flags a city whose rank holds only against the small set, and reports the comparison size", () => {
+    const sets = loadReferenceSets();
+    const { cities, smallSetOnly } = rankCities(heatmaps["home-candles"], sets, { own: true });
+    expect(cities[0].comparedWith).toBe(sets.full.audiences - 1);
+    expect(smallSetOnly.map((c) => shortMetroName(c.metro))).toEqual(["Cincinnati, OH"]);
+    // Louisiana holds for the hot sauce against both sets.
+    const sauce = rankCities(heatmaps["food-hot-sauce"], sets, { own: true }).cities.slice(0, 2);
+    expect(sauce.map((c) => shortMetroName(c.metro))).toEqual(["Slidell, LA", "Baton Rouge, LA"]);
+    for (const city of sauce) expect(city.candidateSetRank).toBeLessThanOrEqual(2);
   });
 
   it("with leave-one-out, sums each cell's lifts to zero across the reference audiences (separation is partly built in)", () => {
@@ -169,5 +195,48 @@ describe("locality echo check", () => {
   it("is a mismatch in the wrong state or city", () => {
     expect(localityMatch({ name: "Atlanta", disambiguation: "Atlanta, Cass, Texas, United States of America" }, "Atlanta, GA")).toBe("mismatch");
     expect(localityMatch({ name: "Dallas", disambiguation: "Dallas, Texas, United States" }, "Austin, TX")).toBe("mismatch");
+  });
+});
+
+describe("place anchors and localities", () => {
+  const byName2 = (name: string) => METROS.find((m) => m.name === name) as (typeof METROS)[number];
+
+  it("looks up the principal city, without Census suffixes, with its full state name", () => {
+    expect(localityName(byName2("Barnstable Town, MA"))).toEqual({ city: "Barnstable", state: "Massachusetts" });
+    expect(localityName(byName2("Portland-Vancouver-Hillsboro, OR-WA"))).toEqual({ city: "Portland", state: "Oregon" });
+  });
+
+  it("accepts a locality only when name and state both match", () => {
+    const portland = byName2("Portland-Vancouver-Hillsboro, OR-WA");
+    const results = [
+      { name: "Portland", disambiguation: "Portland, Cumberland, Maine, United States of America" },
+      { name: "Portland", disambiguation: "Portland, Multnomah, Oregon, United States of America" },
+    ];
+    expect(acceptLocality(results, portland)?.disambiguation).toMatch(/Oregon/);
+    expect(acceptLocality([results[0]], portland)).toBeUndefined();
+    expect(acceptLocality([{ name: "Flint Charter Township", disambiguation: "Flint Charter Township, Genesee, Michigan, United States of America" }], byName2("Flint, MI"))).toBeUndefined();
+  });
+
+  it("anchors a point query at the metro's densest cell", () => {
+    expect(placeAnchor({ coreCell: { geohash: "9xjq", popularity: 0.99, lat: 40.5, lon: -105.1 } })).toEqual({
+      "filter.location": "POINT(-105.1 40.5)",
+      "filter.location.radius": 20_000,
+    });
+  });
+
+  it("returned only places near the requested city when queried by verified locality id (recorded)", () => {
+    // Where each locality is, from the recorded locality searches.
+    const localities = new Map<string, { lat: number; lon: number }>();
+    for (const request of readFixtureFile(findFixture("pool-refresh-5") as string).requests) {
+      for (const hit of searchResponse.parse(request.body)) if (hit.location) localities.set(hit.id, hit.location);
+    }
+    const places = readFixtureFile(findFixture("pool-refresh-6") as string);
+    for (const request of places.requests) {
+      const anchor = localities.get(request.params["filter.location"]);
+      expect(anchor, request.id).toBeDefined();
+      const entities = insightsEntitiesResponse.parse(request.body);
+      expect(entities.length).toBeGreaterThan(0);
+      for (const place of entities) expect(haversineKm(place.location as { lat: number; lon: number }, anchor as { lat: number; lon: number })).toBeLessThan(60);
+    }
   });
 });
