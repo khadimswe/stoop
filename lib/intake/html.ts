@@ -142,13 +142,16 @@ export const MAX_TAG_TEXT = 65_536;
 
 /**
  * Index just past the ">" closing the tag that opens at `start`, honoring quoted values, or -1 when
- * there is none within MAX_TAG_TEXT characters. Callers then skip ahead by MAX_TAG_TEXT, so a page
- * full of unclosed tags is walked once, not once per tag.
+ * there is none within `max` characters. Searches that look for one tag among many (startTags,
+ * jsonLdBlocks) keep the MAX_TAG_TEXT cap and then skip ahead by it, so a page full of unclosed tags
+ * is walked once, not once per tag. A walk that always moves past the tag it read (visibleText,
+ * skipNested) passes Infinity: it is linear anyway, and a long tag's attributes never leak into the
+ * text.
  */
-function tagEnd(html: string, start: number): number {
+function tagEnd(html: string, start: number, max = MAX_TAG_TEXT): number {
   let quote = 0;
   let previous = 0;
-  const stop = Math.min(html.length, start + MAX_TAG_TEXT);
+  const stop = Math.min(html.length, start + max);
   for (let i = start + 1; i < stop; i++) {
     const code = html.charCodeAt(i);
     if (quote) {
@@ -245,7 +248,7 @@ function skipNested(html: string, lower: string, name: string, from: number): nu
     if (nextClose === undefined || (nextClose >= 0 && nextClose < position)) nextClose = findTag(lower, close, position);
     if (nextClose < 0) return html.length;
     if (nextOpen >= 0 && nextOpen < nextClose) {
-      const end = tagEnd(html, nextOpen);
+      const end = tagEnd(html, nextOpen, Infinity);
       if (end < 0) return html.length;
       if (html.charCodeAt(end - 2) !== 47) depth++; // "<svg/>" opens nothing
       position = end;
@@ -304,13 +307,9 @@ export function visibleText(html: string): string {
       i = lt + 1;
       continue;
     }
-    const end = tagEnd(part, lt);
-    if (end < 0) {
-      // Not a tag within the cap: skip the stretch it covers rather than rescanning it.
-      i = lt + MAX_TAG_TEXT;
-      out.push(" ");
-      continue;
-    }
+    const end = tagEnd(part, lt, Infinity);
+    // Never closed: the rest of the page is inside the tag, not text.
+    if (end < 0) break;
     out.push(" ");
     i = end;
     const [, slash, name] = match;

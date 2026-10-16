@@ -73,6 +73,7 @@ export async function buildExampleRun(slug: ExampleSlug, client: QlooClient, ctx
  * The recordings the audience stages read for the examples: seed searches, the whole-audience and
  * segment calls, Gate 2's scoring calls (the Reality Check's taste check) and the pet hats re-score.
  * Loading only these (not every fixture, about 45 MB) keeps replays fast; a missing one still throws.
+ * A new recording the examples read goes in this list too (scripts/run-audience.ts reads every fixture).
  */
 export const AUDIENCE_FIXTURES = ["pool-resolve", "pool-audience", "pool-segments", "pool-scoring", "pool-refresh-2", "pool-refresh-3", "audience-segments"] as const;
 

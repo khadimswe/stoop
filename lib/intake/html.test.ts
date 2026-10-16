@@ -45,6 +45,12 @@ describe("visibleText", () => {
     expect(visibleText('<p title="x > y">inside</p>')).toBe("inside");
   });
 
+  it("never reads a long tag's attributes as text", () => {
+    const data = JSON.stringify({ variants: Array.from({ length: 4_000 }, (_, i) => ({ id: i, title: `Size ${i}` })) }).replaceAll('"', "&quot;");
+    expect(data.length).toBeGreaterThan(80_000);
+    expect(visibleText(`<div data-product="${data}"><p>Hand-poured soy candle.</p></div>`)).toBe("Hand-poured soy candle.");
+  });
+
   // Work is counted in characters scanned, not timed: a quadratic walk over these pages scans
   // billions of characters, a linear one a small multiple of the page.
   const hostile: [string, string][] = [

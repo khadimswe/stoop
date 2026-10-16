@@ -254,7 +254,8 @@ describe("toStatedAudience", () => {
     expect(stated.text.length).toBeLessThanOrEqual(SITE_TEXT_MAX);
   });
 
-  it("lets the caller say who stated it", () => {
-    expect(toStatedAudience(reading({}), "you").by).toBe("you");
+  it("takes who stated it from the reading's origin only", () => {
+    expect(toStatedAudience(reading({})).by).toBe("site");
+    expect(toStatedAudience(reading({ origin: "stated", label: "You said" })).by).toBe("you");
   });
 });

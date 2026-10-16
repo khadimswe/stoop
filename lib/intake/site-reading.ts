@@ -249,8 +249,11 @@ export async function readAudience(text: string, options: ReadAudienceOptions): 
  *     same way the examples read a stated customer (statedFromText). A site's ages are Claude's
  *     reading, with no band, since page copy is full of numbers that are not ages ("10 to 14 days").
  *   - The gender skew maps as is (balanced stays "balanced"); the place is the guarded place read.
+ *   - Who stated it comes from the reading's origin alone, so page copy is never labeled as the
+ *     founder's words.
  */
-export function toStatedAudience(reading: AudienceReading, by: StatedAudience["by"] = reading.origin === "site" ? "site" : "you"): StatedAudience {
+export function toStatedAudience(reading: AudienceReading): StatedAudience {
+  const by: StatedAudience["by"] = reading.origin === "site" ? "site" : "you";
   const written = by === "you" ? statedFromText(reading.text, by) : null;
   const readAges = reading.ageBands.map((band) => band.bucket);
   return {

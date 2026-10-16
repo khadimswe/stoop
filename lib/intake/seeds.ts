@@ -7,7 +7,8 @@
 //              lib/qloo/resolve.ts). The rest are dropped, never shown, and counted for the trace:
 //              "Dropped 2 suggestions Qloo couldn't match"
 // Each proposed seed carries the receipt of the lookup behind it; toReportSeed() turns it into the
-// Report's seed (lib/report/schema.ts), and `evidence` holds every receipt for AudienceRun.seedEvidence.
+// Report's seed (lib/report/schema.ts), and `evidence` holds those receipts for AudienceRun.seedEvidence.
+// Lookups that kept nothing leave no receipt there: a dropped suggestion's name is in its query.
 // A suggested seed is a hypothesis: Qloo confirms the entity exists, not that these customers love
 // it. Measuring that is the run's job. Page and product text reach Claude only as quoted data, and
 // every name from Claude or Qloo passes the guardrails or is dropped.
@@ -66,7 +67,7 @@ export function toReportSeed(seed: ProposedSeed): Seed {
 
 export const seedProposalSchema = z.strictObject({
   seeds: z.array(proposedSeedSchema),
-  /** Every receipt the proposal made, kept or dropped: hand these to AudienceRun.seedEvidence. */
+  /** The receipts the kept seeds cite, and no others: hand these to AudienceRun.seedEvidence. */
   evidence: z.array(evidenceSchema),
   /** Suggestions not kept: unmatched, against the guardrails, duplicates, the product's own brand, over the cap, failed lookups. */
   dropped: z.number().int().min(0),
@@ -187,18 +188,23 @@ export async function proposeSeeds(options: ProposeSeedsOptions): Promise<SeedPr
   for (const phrase of phrases) {
     try {
       const resolved = await resolveTag("general", phrase, lookup);
-      keep(resolved.evidence);
       const tag = resolved.tag;
-      if (!tag || !resolved.request || !resolved.evidence || seeds.some((seed) => seed.ref.id === tag.id)) {
+      // A tag without a full type (Qloo allows a null one) can't be a seed; drop it, never fail.
+      const seed =
+        tag && resolved.request && resolved.evidence && !seeds.some((kept) => kept.ref.id === tag.id)
+          ? proposedSeedSchema.safeParse({
+              ref: { kind: "tag", id: tag.id, name: tag.name, type: tag.type },
+              origin: "qloo",
+              evidenceIds: [resolved.evidence.id],
+              trace: { query: phrase, request: resolved.request, similarity: tag.similarity },
+            })
+          : undefined;
+      if (!seed?.success) {
         droppedTags++;
         continue;
       }
-      seeds.push({
-        ref: { kind: "tag", id: tag.id, name: tag.name, type: tag.type ?? "urn:tag" },
-        origin: "qloo",
-        evidenceIds: [resolved.evidence.id],
-        trace: { query: phrase, request: resolved.request, similarity: tag.similarity },
-      });
+      seeds.push(seed.data);
+      keep(resolved.evidence);
     } catch (error) {
       if (!recoverable(error)) throw error;
       droppedTags++;
@@ -233,7 +239,6 @@ export async function proposeSeeds(options: ProposeSeedsOptions): Promise<SeedPr
     }),
   );
   for (const result of resolved) {
-    keep(result?.evidence);
     if (!result) counts.failed++;
     else if (!result.entity) counts.unmatched++;
     else if (!passes(result.entity.name)) counts.blocked++;
@@ -247,6 +252,7 @@ export async function proposeSeeds(options: ProposeSeedsOptions): Promise<SeedPr
         evidenceIds: [result.evidence.id],
         trace: { query: result.query, request: result.request },
       });
+      keep(result.evidence);
     }
   }
   if (counts.unmatched) notes.push(`Dropped ${plural(counts.unmatched, "suggestion")} Qloo couldn't match`);
