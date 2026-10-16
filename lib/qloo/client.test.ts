@@ -96,8 +96,8 @@ describe("request and evidence", () => {
     expect((init?.headers as Record<string, string>)["X-Api-Key"]).toBe(KEY);
     expect(init?.redirect).toBe("error");
 
+    expect(evidence.id).toMatch(/^ev_[0-9a-f]{12}$/);
     expect(evidence).toMatchObject({
-      id: "run_test:1",
       endpoint: "/v2/insights",
       params: { "filter.type": "urn:entity:artist", "signal.interests.entities": ID },
       label: "Finding artists",
