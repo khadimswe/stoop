@@ -3,8 +3,8 @@
 //
 // Allowed params per type come from Qloo's official table
 // (github.com/qloo/docs-public, reference/available-parameters-by-entity-type.md), narrowed to the
-// params Stoop actually sends. Live behavior notes come from public 2026 hackathon repos and are
-// UNVERIFIED until our own fixtures are recorded (Slice 2).
+// params Stoop actually sends. Live behavior was checked against our own recordings (Gate 2, Oct 16,
+// 2026, fixtures/probe-*.json); each note names the fixture request that shows it.
 import { z } from "zod";
 import {
   AGE_BUCKETS,
@@ -19,7 +19,7 @@ import {
 import { QlooParamError } from "./errors";
 import type { QlooParams } from "./params";
 
-// UNVERIFIED: every entity id seen in public fixtures is a UUID. Loosen if Slice 2 shows otherwise.
+// Entity ids are UUIDs, sent by Qloo in upper case (fixtures/smoke.json); matching ignores case.
 const ENTITY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TAG_ID = /^urn:tag:[a-z0-9_.:-]+$/i;
 const TAG_TYPE = /^urn:tag:[a-z0-9_.:-]+$/i;
@@ -65,14 +65,16 @@ export function toWktPoint(coords: { lat: number; lon: number }): string {
   return `POINT(${coords.lon} ${coords.lat})`;
 }
 
-// Params the docs allow but Qloo is reported to ignore, plus common mistakes. These get a specific
-// message instead of the generic "unknown param" one.
+// Params the docs allow but Qloo ignores, plus common mistakes. These get a specific message instead
+// of the generic "unknown param" one. Confirmed by our own recordings where noted; the rest are
+// reports from other hackathon projects that Gate 2 did not re-check.
 const IGNORED_OR_WRONG: Record<string, string> = {
   "filter.location":
-    "filter.location is silently ignored for this type (reported for brand and artist). Use signal.location to re-rank instead",
-  "filter.location.query": "filter.location.query is silently ignored for this type. Use signal.location.query instead",
-  "filter.release_country": "filter.release_country is silently ignored for movie (reported by tastebridge)",
-  "bias.trends": "bias.trends is not used: trending data ends Sept 2025 and it is rejected for book and videogame",
+    "filter.location is silently ignored for this type (confirmed on brand: fixtures/probe-extra.json; reported for artist). Use signal.location to re-rank instead",
+  "filter.location.query":
+    "filter.location.query is silently ignored for this type (confirmed on brand: fixtures/probe-extra.json). Use signal.location.query instead",
+  "filter.release_country": "filter.release_country is silently ignored for movie (reported by another project, not re-checked)",
+  "bias.trends": "bias.trends is not used: Stoop does not use trending data, and it is rejected for book and videogame",
 };
 
 function unknownKeysMessage(keys: readonly PropertyKey[], notes: Record<string, string>): string {
@@ -98,7 +100,10 @@ const signalShape = {
   "signal.demographics.gender": z.enum(GENDERS).optional(),
 };
 
-// UNVERIFIED: not in the per-type table, but headliner and tasteplot report it re-ranks artist and brand results.
+// Not in Qloo's docs, but it works: signal.location.query re-ranks brand and artist results
+// (fixtures/probe-scoring.json: brand top-20 overlap with no location is 0.08 for Atlanta and 0.11
+// for Seattle; artist 0.25 and 0.54), while filter.location.query on brand changes nothing
+// (fixtures/probe-extra.json ignored-brand-filter-location: overlap 1.00).
 const signalLocationShape = {
   "signal.location": wktLocation.optional(),
   "signal.location.radius": radiusMeters.optional(),
@@ -138,6 +143,18 @@ function requireSignal(value: Signals, ctx: z.RefinementCtx) {
   }
 }
 
+/**
+ * Qloo returns 20 results when no `take` is sent (fixtures/probe-insights.json artist-default-take),
+ * so a scoring call with more ids than `take` would be cut silently. Scoring calls must ask for all.
+ */
+function requireTakeForResults(value: { take?: number }, ids: readonly string[] | undefined, ctx: z.RefinementCtx, param: string) {
+  if (!ids?.length) return;
+  const take = value.take ?? 20;
+  if (take < ids.length) {
+    ctx.addIssue({ code: "custom", message: `take (${take}) must be at least the number of ${param} (${ids.length}), or Qloo cuts the list` });
+  }
+}
+
 function entitySchema<T extends InsightEntityType>(type: T, extra: z.ZodRawShape = {}) {
   return strict({
     "filter.type": z.literal(`urn:entity:${type}` as const),
@@ -145,7 +162,10 @@ function entitySchema<T extends InsightEntityType>(type: T, extra: z.ZodRawShape
     ...signalLocationShape,
     ...entityFilterShape,
     ...extra,
-  }).superRefine((value, ctx) => requireSignal(value as Signals, ctx));
+  }).superRefine((value, ctx) => {
+    requireSignal(value as Signals, ctx);
+    requireTakeForResults(value as { take?: number }, value["filter.results.entities"] as string[] | undefined, ctx, "filter.results.entities");
+  });
 }
 
 const placeSchema = strict({
@@ -157,6 +177,7 @@ const placeSchema = strict({
   "filter.location.query": nonEmpty.optional(),
 }).superRefine((value, ctx) => {
   requireSignal(value as Signals, ctx);
+  requireTakeForResults(value as { take?: number }, value["filter.results.entities"] as string[] | undefined, ctx, "filter.results.entities");
   // Stoop rule: settings are always local to a segment, so a place query must be anchored.
   if (!value["filter.location"] && !value["filter.location.query"]) {
     ctx.addIssue({ code: "custom", message: "place queries need filter.location (WKT) or filter.location.query" });
@@ -171,8 +192,14 @@ const tagInsightsSchema = strict({
   "filter.parents.types": z.array(entityTypeUrn).min(1).optional(),
   "diversify.by": z.enum(["subtype"]).optional(),
   "diversify.take": take.optional(),
+  // Not in Qloo's docs, but it works: only these tags come back, each with its affinity for the
+  // signal (fixtures/probe-extra.json tags-results-tags). Used to score abstract creative choices.
+  "filter.results.tags": tagIds.optional(),
   take: take.optional(),
-}).superRefine((value, ctx) => requireSignal(value as Signals, ctx));
+}).superRefine((value, ctx) => {
+  requireSignal(value as Signals, ctx);
+  requireTakeForResults(value as { take?: number }, value["filter.results.tags"] as string[] | undefined, ctx, "filter.results.tags");
+});
 
 const demographicsSchema = strict({
   "filter.type": z.literal("urn:demographics"),

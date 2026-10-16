@@ -107,6 +107,9 @@ export const ETHNICITY_TERMS = [
   "chicano",
   "chicana",
   "blackface",
+  // Seen in kept Qloo style tags (Gate 2 fixtures): "Indigenous visual vernacular", "Afro-Indigenous Influenced".
+  "indigenous",
+  "afro-indigenous",
 ] as const;
 
 // Skin color named directly ("dark-skinned", "light skin") describes a person by ethnicity.

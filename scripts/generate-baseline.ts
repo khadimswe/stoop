@@ -19,6 +19,7 @@ import { stoopModel, stoopModelId } from "../lib/agent/model";
 import { conceptInputHash, conceptRunSchema, writeConcepts } from "../lib/stages/concepts";
 import { CANDIDATES, candidateBySlug, type Candidate } from "../lib/demo/candidates";
 import { redact } from "../lib/qloo/errors";
+import { loadLocalEnv } from "./env";
 
 const MAX_CALLS = 40;
 const MAX_RUNS = 10;
@@ -77,7 +78,7 @@ const tokens = (value: number | null) => (value === null ? "?" : value.toLocaleS
 async function main(): Promise<void> {
   const { candidates, runs, force, rerollControl } = parseArgs(process.argv.slice(2));
 
-  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+  loadLocalEnv();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) fail("ANTHROPIC_API_KEY missing. Add it to .env.local (never commit it), then rerun.");
 

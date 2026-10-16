@@ -1,13 +1,9 @@
 // Response schemas and normalized types.
 //
-// UNVERIFIED until fixtures are recorded (Slice 2). Shapes are taken from real responses recorded in
-// public 2026 hackathon repos:
-//   maloyan/tasteplot      fixtures/qloo/recorded/<brief>/*.json (search, tags, insights, heatmap, compare)
-//   mukeshkbj/transplant   server/test/fixtures/*.json (search, tags, places, heatmaps)
-//   rohanjain1648/ROADIE   docs/qloo-api-report.md (urn:tag, demographics)
-// Schemas are loose: they check only the fields Stoop reads, keep everything else, and normalize the
-// two quirks Qloo has: tags use `tag_id` in some responses and `id` in others, and entity results put
-// the real type in `subtype` (with `type` always "urn:entity").
+// Verified against our own recordings in fixtures/ (Gate 2, Oct 16, 2026); every schema is tested
+// against them in lib/qloo/types.test.ts. Schemas are loose: they check only the fields Stoop reads,
+// keep everything else, and normalize the two quirks Qloo has: tags use `tag_id` in some responses
+// and `id` in others, and entity results put the real type in `subtype` (with `type` "urn:entity").
 import { z } from "zod";
 
 const num = z.number();
@@ -211,6 +207,26 @@ export function slimHeatmapBody(body: unknown): unknown {
   };
 }
 
+/**
+ * The locality Qloo matched for `filter.location.query`, echoed at `query.localities.filter`
+ * (fixtures/pool-segments.json.gz: "Baton Rouge, LA" -> "East Baton Rouge Parish, Louisiana,
+ * United States"). Null when Qloo sent no echo (it omits it when several localities match).
+ */
+export const localityEcho = z
+  .looseObject({
+    query: z
+      .looseObject({
+        localities: z
+          .looseObject({ filter: z.array(z.looseObject({ name: z.string(), disambiguation: z.string().nullish() })).nullish() })
+          .nullish(),
+      })
+      .nullish(),
+  })
+  .transform((r) => {
+    const first = r.query?.localities?.filter?.[0];
+    return first ? { name: first.name, disambiguation: first.disambiguation ?? "" } : null;
+  });
+
 export interface CompareResult {
   /** Tags both audiences share, scored by Qloo. */
   shared: (QlooTag & { score: number | null })[];
@@ -244,3 +260,125 @@ export const compareResponse = z
       b: r.results.b ?? [],
     }),
   );
+
+// Slimming. Entity bodies are large (a 50-movie response is about 2 MB, mostly keyword tags, akas,
+// websites and plot text), so search and entity insights are slimmed before caching and before a
+// fixture is committed, the same way heatmaps are. Only fields are dropped; no value is changed.
+
+/** Entity properties Stoop reads: craft translation (film/TV style, music feel, brand aesthetics) and settings. */
+const KEPT_PROPERTIES = new Set([
+  // film and TV (content_rating lets visual references skip titles rated for children)
+  "release_year",
+  "content_rating",
+  "genres",
+  "genre_description",
+  "style_description",
+  "emotional_tone_description",
+  "situational_contexts",
+  // artists
+  "primary_genres",
+  "secondary_genres",
+  "adjectives_for_music",
+  "creative_and_specific_adjectives_for_music",
+  "instruments",
+  "start_year",
+  "obscurity_scale",
+  // brands
+  "aesthetic_properties",
+  "personal_style",
+  "emotional_tone",
+  "lifestyle",
+  "category_description",
+  "industries",
+  "price_range_usd_min",
+  "price_range_usd_max",
+  // places
+  "address",
+  "geocode",
+  "locality",
+  "neighborhood",
+  "primary_genre",
+  "price_level",
+  "business_rating",
+  "specialty_dishes",
+  "cuisine_description",
+  "ambience_description",
+  "physical_setting_description",
+  "neighborhood_description",
+  // people and podcasts
+  "short_description",
+  "known_for",
+]);
+// Not kept on purpose: audience_identity, target_demographics_description and
+// customer_demographics_description describe people by background or demographics. Stoop never
+// builds segments or prompts from text labels (segments come from affinities and skews only).
+
+/**
+ * Entity tag types Stoop reads: genre and style for craft translation (film/TV to visual language,
+ * artists to music feel), aesthetics and lifestyle for wardrobe, ambience and setting for places.
+ * Raw media keywords, Wikipedia categories, plot and character tags are most of the bytes and are
+ * dropped. The full bodies stay in the gitignored fixtures/raw/, so a later gate can re-slim with
+ * `fixtures:record -- <name> --reslim` without spending calls.
+ */
+const KEPT_TAG_TYPES = new Set([
+  "urn:tag:subgenre:qloo",
+  "urn:tag:style:qloo",
+  "urn:tag:theme:qloo",
+  "urn:tag:music:qloo",
+  "urn:tag:instrument:qloo",
+  "urn:tag:aesthetic_property:qloo",
+  "urn:tag:lifestyle:qloo",
+  "urn:tag:emotional_tone:qloo",
+  "urn:tag:interest_adjacency:qloo",
+  "urn:tag:ambience:qloo",
+  "urn:tag:setting:qloo",
+  "urn:tag:decor:qloo",
+  "urn:tag:neighborhood_characteristic:qloo",
+  "urn:tag:activity_type:qloo",
+  "urn:tag:specialty_dish:place",
+]);
+// Kept tag names can still describe people or imply minors ("Teen Pop", "Classroom centric"), so
+// Gate 4 runs the guardrails' checkText on every tag before craft translation uses it.
+const keepTag = (type: unknown) => typeof type === "string" && (type.startsWith("urn:tag:genre:") || KEPT_TAG_TYPES.has(type));
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function slimEntity(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const kept: Record<string, unknown> = {};
+  for (const key of ["entity_id", "name", "type", "subtype", "types", "popularity", "disambiguation", "location", "query"]) {
+    if (key in value) kept[key] = value[key];
+  }
+  if (isRecord(value.properties)) {
+    kept.properties = Object.fromEntries(Object.entries(value.properties).filter(([key]) => KEPT_PROPERTIES.has(key)));
+  }
+  if (Array.isArray(value.tags)) {
+    kept.tags = value.tags
+      .filter((t) => isRecord(t) && keepTag(t.type))
+      .map((t) => (isRecord(t) ? Object.fromEntries(["id", "tag_id", "name", "type"].filter((k) => k in t).map((k) => [k, t[k]])) : t));
+  }
+  return kept;
+}
+
+/** Slims `{results: [...]}` (search) and `{results: {entities: [...]}}` (entity insights). Other shapes pass through. */
+export function slimEntitiesBody(body: unknown): unknown {
+  if (!isRecord(body)) return body;
+  const { results } = body;
+  if (Array.isArray(results)) return { ...body, results: results.map(slimEntity) };
+  if (isRecord(results) && Array.isArray(results.entities)) {
+    return { ...body, results: { ...results, entities: results.entities.map(slimEntity) } };
+  }
+  return body;
+}
+
+/** The slimmer for a request, by endpoint and filter.type. Used by the client before caching and by the fixture recorder. */
+export function slimBody(endpoint: string, filterType: unknown, body: unknown): unknown {
+  if (filterType === "urn:heatmap") return slimHeatmapBody(body);
+  if (endpoint === "/search") return slimEntitiesBody(body);
+  if (endpoint === "/v2/insights" && typeof filterType === "string" && filterType.startsWith("urn:entity:")) {
+    return slimEntitiesBody(body);
+  }
+  return body;
+}

@@ -119,8 +119,8 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
   function retryDelay(attempt: number, headers: Headers): number {
     const retryAfter = Number(headers.get("retry-after"));
     if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000;
-    // UNVERIFIED unit: assumed to be seconds until the per-second window resets. Larger values could
-    // be an epoch timestamp, so they fall back to backoff until Slice 2 fixtures confirm the unit.
+    // Seconds until the per-second window resets: Qloo sends "1" with a limit of 5 per second
+    // (fixtures/smoke.json). Anything larger falls back to backoff.
     const reset = Number(headers.get("x-second-ratelimit-reset"));
     if (Number.isFinite(reset) && reset > 0 && reset <= 2) return reset * 1000;
     return backoff(attempt);
@@ -252,7 +252,7 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     validateParams(req.endpoint, req.params);
     const key = cacheKey(req.endpoint, req.params);
 
-    const hit = await cache?.get(key);
+    const hit = await cache?.get(key, `${req.endpoint}?${canonicalQuery(req.params)}`);
     if (hit) {
       const data = parse(req, hit);
       ctx.cachedCalls++;

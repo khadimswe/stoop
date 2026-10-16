@@ -1,6 +1,6 @@
 // Client behavior with a mocked fetch. Responses carry status codes, headers, and empty or trivial
-// bodies only: no Qloo-shaped data is invented here. Shape parsing against real responses is
-// tested in types.test.ts once fixtures exist (Slice 2).
+// bodies only: no Qloo-shaped data is invented here. Shape parsing against real recorded responses
+// is tested in types.test.ts.
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { MemoryCache } from "./cache";

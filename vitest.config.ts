@@ -11,5 +11,8 @@ export default defineConfig({
     environment: "node",
     include: ["lib/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["node_modules/**", "e2e/**", ".next/**"],
+    // Several test files replay the recorded Qloo fixtures (about 45 MB of JSON, parsed once per
+    // worker). Under a loaded machine or a CI runner that can pass the 5 s default.
+    testTimeout: 20_000,
   },
 });

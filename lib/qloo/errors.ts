@@ -47,6 +47,14 @@ export class QlooShapeError extends QlooError {
   }
 }
 
+/** Raised in fixtures mode (QLOO_MODE=fixtures) when a request was never recorded. No call is made. */
+export class QlooFixtureMissError extends QlooError {
+  override name = "QlooFixtureMissError";
+  constructor(readonly request: string) {
+    super(`No recorded Qloo fixture for ${request}. Record it with npm run fixtures:record -- <name>.`);
+  }
+}
+
 /** Removes a secret from any text before it can reach an error, log, or file. */
 export function redact(text: string, secret: string | undefined): string {
   if (!secret) return text;

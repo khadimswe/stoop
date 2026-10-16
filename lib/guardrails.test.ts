@@ -316,3 +316,14 @@ describe("place codes and allowed places", () => {
     expect(checkText("a Brooklyn rooftop", { names: ["Brooklyn"], allowedNames: ["Brooklynite Cafe"] })).toHaveLength(1);
   });
 });
+
+describe("Qloo tag names kept in the fixtures", () => {
+  // Real tag names from the Gate 2 recordings. Gate 4 runs checkText on every tag before craft
+  // translation uses it; these must be caught.
+  it.each(["Contemporary latinx aesthetic", "Indigenous visual vernacular", "Afro-Indigenous Influenced", "Teen Pop", "Classroom centric"])(
+    "flags %s",
+    (name) => {
+      expect(checkText(name).some((issue) => issue.rule === "ethnicity" || issue.rule === "minor")).toBe(true);
+    },
+  );
+});

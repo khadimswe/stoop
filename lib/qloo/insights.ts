@@ -7,6 +7,7 @@ import {
   heatmapResponse,
   insightsEntitiesResponse,
   insightsTagsResponse,
+  slimEntitiesBody,
   slimHeatmapBody,
   type DemographicsRow,
   type HeatmapCell,
@@ -28,6 +29,7 @@ export function insightsEntities<T extends EntityFilterType>(
     endpoint: ENDPOINTS.insights,
     params,
     schema: insightsEntitiesResponse,
+    slim: slimEntitiesBody,
     label: meta.label ?? `Asking Qloo which ${params["filter.type"].replace("urn:entity:", "")} entities this audience loves`,
     stage: meta.stage,
   });
