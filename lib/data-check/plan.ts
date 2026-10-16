@@ -151,6 +151,12 @@ export function audienceRequests(slug: string, seedIds: readonly string[]): Plan
 }
 
 export const segmentId = (slug: string, bucket: AgeBucket, type: string) => `${slug}--seg-${bucket}--${type}`;
+export const localityId = (city: string, state: string | null) => `locality--${slugOf(`${city} ${state ?? ""}`)}`;
+
+/** The typed locality search for a metro's principal city (accepted only with the right state, see acceptLocality). */
+export function localityRequest(city: string, state: string | null): PlannedRequest {
+  return { id: localityId(city, state), endpoint: ENDPOINTS.search, params: { query: city, types: ["urn:entity:locality"], take: 5 }, note: `Qloo locality for ${city}${state ? `, ${state}` : ""}.` };
+}
 export const placesId = (slug: string) => `${slug}--places`;
 
 /** Stage 3: up to two measured age segments (artist and brand each) and everyday places in the top-lift metro. */
@@ -158,7 +164,7 @@ export function segmentRequests(
   slug: string,
   seedIds: readonly string[],
   buckets: readonly AgeBucket[],
-  metroQuery: string,
+  anchor: { "filter.location": string; "filter.location.radius"?: number },
   placeTagIds: readonly string[],
 ): PlannedRequest[] {
   const signal = { "signal.interests.entities": [...seedIds] };
@@ -179,13 +185,13 @@ export function segmentRequests(
     params: {
       ...signal,
       "filter.type": "urn:entity:place",
-      "filter.location.query": metroQuery,
+      ...anchor,
       "filter.tags": [...placeTagIds],
       "operator.filter.tags": "union",
       "feature.explainability": true,
       take: 10,
     },
-    note: `Everyday places in ${metroQuery}, the top-lift metro, with explainability.`,
+    note: `Everyday places in the top-lift metro's principal city (Qloo locality ${anchor["filter.location"]}), with explainability.`,
   });
   return requests;
 }

@@ -151,6 +151,8 @@ export const baselineRunSchema = z.strictObject({
   attempts: z.number().int().min(1).max(BASELINE_MAX_ATTEMPTS),
   /** What the first answer got wrong when a repair was needed (guardrail or schema issues). */
   repairedFor: z.array(z.string()).optional(),
+  /** Why an existing run was regenerated (an input changed), so a regeneration is never a silent re-roll. */
+  regeneratedBecause: z.string().trim().min(10).optional(),
   usage: usageSchema,
   brief: baselineBriefSchema,
 });
@@ -349,6 +351,8 @@ export interface GenerateBaselineOptions {
   /** 1-based run number; the Control is generated several times to show its spread. */
   run: number;
   now?: () => Date;
+  /** Recorded on the run when it replaces an existing one. */
+  because?: string;
 }
 
 /** One LLM-only Control brief for a candidate: one call, plus one repair when the answer fails a check. */
@@ -384,6 +388,7 @@ export async function generateBaseline(candidate: Candidate, opts: GenerateBasel
         instructionsHash: instructionsHash(direction),
         attempts: attempt,
         ...(attempt > 1 ? { repairedFor: issues } : {}),
+        ...(opts.because ? { regeneratedBecause: opts.because } : {}),
         usage: sumUsage(usages),
         brief: check.brief,
       });

@@ -4,15 +4,13 @@
   "run": 3,
   "modelId": "claude-sonnet-5-5",
   "effort": "medium",
-  "generatedAt": "2026-10-16T15:37:24.483Z",
-  "instructionsHash": "ad91bb875047cf69c0150c447413641d066dc68d0e9e4db61dc21b9085544ed1",
-  "attempts": 2,
-  "repairedFor": [
-    "voice.avoid.1: \"best seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
-  ],
+  "generatedAt": "2026-10-16T20:39:26.918Z",
+  "instructionsHash": "a6e61966dfb6c7999e227e159ab1fe5c91eae3681b8cbb836755b47e411942fd",
+  "attempts": 1,
+  "regeneratedBecause": "Creative direction changed: the founder set look animation_3d for the pet hats example on Oct 16 (cast stays pet). Regenerated once; not a re-roll for score.",
   "usage": {
-    "inputTokens": 9192,
-    "outputTokens": 1996
+    "inputTokens": 4051,
+    "outputTokens": 1123
   },
   "brief": {
     "audience": {
@@ -22,46 +20,48 @@
         "35_to_44"
       ],
       "genderSkew": "female",
-      "description": "Adults who treat their cat or dog as family, share pet photos often, and plan small seasonal rituals around them. They like cozy, a little funny, well-made things, and want pet clothes that are soft, easy to put on and survive the wash."
+      "description": "Adults who treat their cat or dog like family. They plan seasonal photos, share pet moments with friends, and love small, cozy details. They want something soft, easy to wash, and cute enough to post, without a fuss at getting it on the pet."
     },
-    "productRole": "The mustard knit beanie and rust-red knit sweater are put on pets in real use: a dog's ears slip through the beanie openings and the strap is clicked snug, a cat is eased into the sweater and walks off unbothered. Final beat shows both pieces tossed into a washing machine drum, then the same pets wearing them again, to show stretch yarn, adjustable fit and washability.",
-    "mood": "Cozy, deadpan funny, warm",
+    "productRole": "The mustard knit beanie and rust-red knit sweater are the costume change in a tiny pet fashion reveal. A cat's ears pop through the two beanie openings, the adjustable strap clicks snug, then a dog wriggles into the sweater, the stretch yarn gives, and the fit settles. A quick wash-cycle shot shows the soft knit coming out fresh. Closing shot shows both pets side by side in their knits.",
+    "mood": "Cozy, playful, warm, a little mischievous",
     "music": {
-      "style": "Upbeat indie pop with a light shuffle, handclaps, warm acoustic guitar, glockenspiel and soft bass, with a cheeky little drum fill on the final reveal",
+      "style": "Upbeat indie pop with a handclap groove, plucky ukulele, soft glockenspiel, warm bass and a light shaker. Bright, modern, a little whimsical, with a small record-scratch pause on the reveal beat.",
       "tempo": "about 104 bpm"
     },
     "visual": {
-      "look": "Warm autumn grade with golden highlights and soft shadows, shot at pet eye level on a 35mm equivalent lens with gentle fine grain. Mostly locked-off and slow handheld frames, quick cuts on the beat (about 1 second each), one slow-motion ear-pop moment, and a tidy overhead flat lay of the product at the end."
+      "look": "Stylized 3D animation with a soft stop-motion feel: chunky rounded character models, visible knit stitch texture and fuzzy yarn fibers via subsurface shading, shallow depth of field with a macro lens feel. Warm autumn grade with mustard, rust and cream tones, soft window-light and gentle bounce light. Vertical 9:16 framing with the pets centered at eye level, snappy cuts every 1 to 1.5 seconds, squash and stretch on the pet reactions, and a final held hero frame."
     },
     "wardrobe": {
-      "styling": "Pets wear the mustard knit beanie with pom-pom and ear openings, the rust-red knit sweater, and a plain cream knit bandana. All pieces are unbranded with only a small paw-symbol fabric tag. No other clothing or logos."
+      "styling": "The cat wears the mustard yellow knit beanie with a small pom-pom and ear openings. The dog wears the rust-red knit sweater with a tiny fabric tag showing a simple paw symbol. A third pet, a small dog, wears a plain cream knit bandana. No logos, no text, no brand marks."
     },
     "setting": {
       "types": [
-        "sunlit living room with a worn sofa and knit throw",
-        "apartment entryway with a bench and coat hooks",
-        "small laundry nook"
+        "cozy living room with a knit throw blanket and window light",
+        "small laundry nook with a front-loading washer",
+        "warm autumn-toned pet photo corner with a simple backdrop"
       ]
     },
     "voice": {
-      "tone": "Warm, dry and playful, like a brand that adores pets and doesn't take itself seriously",
+      "tone": "Warm, witty and affectionate, like a proud friend who thinks your pet deserves a wardrobe",
       "use": [
-        "Speaks directly to the pet's family in short, friendly lines",
-        "Points out real features: soft stretch yarn, ear openings, adjustable straps, machine washable",
-        "Mentions sizes from small cats to large dogs and new colors each season",
-        "Ends with a simple invitation to dress them up for $24"
+        "Speaks to the pet's personality with light humor",
+        "Names the real product details: soft stretch yarn, adjustable straps, machine washable",
+        "Mentions the $24 price once, plainly",
+        "Mentions that new colors arrive each season",
+        "Ends with a short, friendly call to shop"
       ],
       "avoid": [
-        "Health or medical claims about warmth or protection",
-        "Ratings, review counts, popularity or sales claims",
+        "Health or comfort-treatment claims",
+        "Invented ratings, reviews or sales numbers",
         "Speaking as a customer who tried it",
-        "Brand names, slang or long dashes"
+        "Slang or long dashes",
+        "Pressure or fake urgency"
       ]
     },
     "hooks": [
-      "Your dog just found out about ear holes.",
-      "Some cats say no. This one said nothing.",
-      "Soft knit. Tiny sweater. Zero notice given."
+      "Your cat has a fashion opinion. Look at that face.",
+      "Wait for the ears to pop through.",
+      "Tiny knits for the family member who has everything."
     ],
     "talent": null,
     "references": {
@@ -81,7 +81,7 @@
     },
     "assumedCities": [
       "Los Angeles",
-      "Brooklyn"
+      "Austin"
     ]
   }
 }
