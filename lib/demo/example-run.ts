@@ -10,7 +10,7 @@ import { referenceSets } from "../geo/reference";
 import { OFFLINE_CAP } from "../qloo/budget";
 import { createQlooClient, type QlooClient } from "../qloo/client";
 import { createRunContext, type RunContext } from "../qloo/context";
-import { FixtureCache } from "../qloo/fixtures";
+import { FixtureCache, findFixture, readFixtureFile } from "../qloo/fixtures";
 import { matchResult } from "../qloo/match";
 import { searchEntities } from "../qloo/search";
 import type { Report, Seed } from "../report/schema";
@@ -69,8 +69,20 @@ export async function buildExampleRun(slug: ExampleSlug, client: QlooClient, ctx
   };
 }
 
-export function replayClient(dir = "fixtures"): QlooClient {
-  return createQlooClient({ cache: FixtureCache.fromDir(dir, { strict: true }) });
+/**
+ * The recordings the audience stages read for the examples: seed searches, the whole-audience and
+ * segment calls, Gate 2's scoring calls (the Reality Check's taste check) and the pet hats re-score.
+ * Loading only these (not every fixture, about 45 MB) keeps replays fast; a missing one still throws.
+ */
+export const AUDIENCE_FIXTURES = ["pool-resolve", "pool-audience", "pool-segments", "pool-scoring", "pool-refresh-2", "pool-refresh-3", "audience-segments"] as const;
+
+export function replayClient(names: readonly string[] = AUDIENCE_FIXTURES, dir = "fixtures"): QlooClient {
+  const fixtures = names.map((name) => {
+    const file = findFixture(name, dir);
+    if (!file) throw new Error(`No fixture named ${name} in ${dir}/.`);
+    return readFixtureFile(file);
+  });
+  return createQlooClient({ cache: new FixtureCache(fixtures, { strict: true }) });
 }
 
 /** Runs an example's audience stages on the fixtures and returns its events and the reduced report. */
