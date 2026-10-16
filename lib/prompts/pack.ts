@@ -3,18 +3,21 @@
 // Every asset and render job carries a promptHash; an approval in public/demo/approvals.json pins one.
 // Product assets come from the product and settings alone, so the Control and the culture-made packs
 // share them byte for byte.
+import { z } from "zod";
 import { AVOID_LIST_EXEMPT, checkText, FAMOUS_PLACES, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
-import { briefCueTexts, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "./brief";
-import { AI_DISCLOSURE_NOTE, checklistFor, HUMAN_REVIEW_CHECKLIST, type ChecklistItem } from "./critique-checklist";
+import { CASTS } from "../types";
+import { briefCueTexts, conceptSchema, packSettingsSchema, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "./brief";
+import { AI_DISCLOSURE_NOTE, CHECKLIST_CONDITIONS, CHECKLIST_STAGES, checklistFor, HUMAN_REVIEW_CHECKLIST, type ChecklistItem } from "./critique-checklist";
 import { renderDirectorGuide } from "./director-guide";
 import { renderLocationPlate, renderMultiShot, renderPackshot, renderProductSheet, renderTalentSheet } from "./higgsfield";
 import { FILES, negativeNouns, productFiles, resolveCast, sourcePhotos, usesSourcePhotos, type ResolvedCast } from "./lines";
 import { renderShotList } from "./master";
-import { getModel, renderLength, type ModelConfig, type ModelId } from "./models.config";
+import { getModel, MODEL_IDS, renderLength, type ModelConfig, type ModelId } from "./models.config";
 import { estimateTokens, renderScene } from "./veo";
 
-export type AssetKind = "packshot" | "product_sheet" | "talent_sheet" | "location";
+export const ASSET_KINDS = ["packshot", "product_sheet", "talent_sheet", "location"] as const;
+export type AssetKind = (typeof ASSET_KINDS)[number];
 
 export interface PackAsset {
   file: string;
@@ -67,6 +70,63 @@ export interface ProductionPack {
   reviewChecklist: readonly string[];
   disclosure: string;
 }
+
+const promptHash = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** The pack as the Report stores it, so a stored or streamed pack is validated like everything else. */
+export const productionPackSchema: z.ZodType<ProductionPack> = z.strictObject({
+  version: z.literal(1),
+  templateVersion: z.number().int().min(1),
+  productSlug: z.string().min(1),
+  segmentId: z.string().min(1),
+  segmentLabel: z.string().min(1),
+  cast: z.enum(CASTS).exclude(["auto"]),
+  settings: packSettingsSchema,
+  settingsHash: promptHash,
+  assets: z.array(
+    z.strictObject({
+      file: z.string().min(1),
+      kind: z.enum(ASSET_KINDS),
+      modelId: z.enum(MODEL_IDS),
+      aspect: z.string().min(1),
+      prompt: z.string().min(1),
+      refs: z.array(z.string().min(1)),
+      negative: z.string().nullable(),
+      promptHash,
+    }),
+  ),
+  concept: conceptSchema,
+  renders: z.array(
+    z.strictObject({
+      id: z.string().min(1),
+      kind: z.enum(["multi-shot", "scene"]),
+      modelId: z.enum(MODEL_IDS),
+      sceneIndexes: z.array(z.number().int().min(0)),
+      renderSeconds: z.number().positive(),
+      trimTo: z.number().positive(),
+      refs: z.array(z.string().min(1)),
+      prompt: z.string().min(1),
+      negative: z.string().nullable(),
+      promptHash,
+    }),
+  ),
+  shotList: z.string().min(1),
+  overlays: z.array(z.strictObject({ scene: z.number().int().min(0), text: z.string().min(1) })),
+  sourcePhotos: z.array(z.strictObject({ file: z.string().min(1), url: z.url() })),
+  musicForEdit: z.string().min(1),
+  checklist: z.array(
+    z.strictObject({
+      id: z.string().min(1),
+      text: z.string().min(1),
+      appliesTo: z.array(z.enum(CHECKLIST_STAGES)),
+      blocking: z.boolean(),
+      when: z.enum(CHECKLIST_CONDITIONS),
+    }),
+  ),
+  directorGuide: z.string().min(1),
+  reviewChecklist: z.array(z.string().min(1)),
+  disclosure: z.string().min(1),
+});
 
 const IMAGE_ASPECT = { packshot: "1:1", product_sheet: "16:9", talent_sheet: "16:9", location: "9:16" } as const;
 

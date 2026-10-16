@@ -5,8 +5,9 @@
 import { z } from "zod";
 import { evidenceSchema } from "../evidence";
 import { AGE_BUCKETS } from "../qloo/constants";
-import { briefSlotsSchema, productSpecSchema } from "../prompts/brief";
+import { productSpecSchema } from "../prompts/brief";
 import { creativeDirectionSchema } from "../types";
+import { comparisonSchema, controlSchema, worldSchema } from "./world";
 
 export const REPORT_VERSION = 1;
 
@@ -204,6 +205,8 @@ export const traceStepSchema = z.strictObject({
   reason: z.string().optional(),
   evidenceId: z.string().optional(),
   cached: z.boolean().optional(),
+  /** The concept world a step belongs to, when worlds run side by side. */
+  segmentId: z.string().regex(/^[a-z0-9-]+$/).optional(),
 });
 export type TraceStep = z.infer<typeof traceStepSchema>;
 
@@ -230,8 +233,11 @@ const reportShape = z.strictObject({
     gap: gapSchema.nullable(),
     segments: segmentsSchema.nullable(),
   }),
-  /** Filled by Gate 4 (Culture Brief per segment); widened there through its own contract change. */
-  worlds: z.array(z.strictObject({ segmentId: z.string(), brief: briefSlotsSchema })),
+  /** One concept world per segment (lib/report/world.ts), in segment order. */
+  worlds: z.array(worldSchema),
+  /** The LLM-only Control brief, scored against every world. */
+  control: controlSchema.nullable(),
+  comparison: comparisonSchema.nullable(),
   trace: z.array(traceStepSchema),
   stats: z.strictObject({ stages: z.partialRecord(stageSchema, stageStatsSchema) }),
   /** Set when the run stopped early; the report still shows what was measured. */
@@ -258,7 +264,8 @@ export function citedEvidence(value: unknown): string[] {
 /** A report is valid only when every receipt it cites is in its ledger. No evidence, no display. */
 export const reportSchema = reportShape.superRefine((report, ctx) => {
   const ledger = new Set(report.ledger.map((e) => e.id));
-  for (const id of citedEvidence({ inputs: report.inputs, audience: report.audience, worlds: report.worlds, trace: report.trace })) {
+  const cited = citedEvidence({ inputs: report.inputs, audience: report.audience, worlds: report.worlds, control: report.control, comparison: report.comparison, trace: report.trace });
+  for (const id of cited) {
     if (!ledger.has(id)) ctx.addIssue({ code: "custom", message: `cites ${id}, which is not in the ledger`, path: ["ledger"] });
   }
 });

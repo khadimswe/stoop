@@ -9,21 +9,23 @@ export const REVISE_CAP = 6;
 export const OFFLINE_CAP = 80;
 
 /**
- * Planned live calls per stage for a 2-segment run, recalibrated from Gate 2's recordings. Seeds are
- * resolved by autocomplete before the run starts, so Prove spends nothing on search. Gate 4
- * re-checks the culture and scoring rows.
+ * Planned live calls per budget row for a 2-segment run, recalibrated from Gates 2 and 3. Seeds are
+ * resolved at intake (its own budget) before the run starts, so Prove spends nothing on search. A
+ * live run passes this table as its context's rowCaps, so a request tagged with a row is refused
+ * once that row is spent (the culture agent's probes can never eat the scoring calls).
  */
 export const RUN_BUDGET = {
   prove: 4, // urn:demographics, urn:heatmap, music-genre tags, emotional-tone tags
   gap: 2, // stated taste tags scored against the tag panel (one call per kind named)
   segments: 6, // per segment: artist and brand (shared with Culture) and a heatmap
-  culture: 8, // per segment: movie, TV and places (6); person and podcast once (2)
-  resolve: 4, // /search for the LLM-only brief's named references (rarely beyond the seeds, Gate 2)
-  scoring: 12, // per segment: one filter.results call per scored type (artist, brand, movie, TV, music, tone)
-  critique: 4, // self-critique re-queries and thin-field probes
-  searchReserve: 6, // suggested-seed resolution and retries of ambiguous resolutions
+  culture: 8, // per world: movie, TV and places (6); person and podcast once for the audience (2)
+  localities: 2, // /search for each world's setting city as a Qloo locality (cached across runs)
+  scoring: 12, // per world: one filter.results call per scored type (artist, brand, movie, TV, music, tone)
+  probes: 4, // the culture agent's own tools (tag search, one-genre probes, panel scoring), shared by the worlds
+  resolve: 4, // /search for the LLM-only brief's named references
+  searchReserve: 2, // retries of ambiguous resolutions
 } as const;
-export type BudgetStage = keyof typeof RUN_BUDGET;
+export type BudgetRow = keyof typeof RUN_BUDGET;
 
 export const PLANNED_CALLS = Object.values(RUN_BUDGET).reduce((sum, calls) => sum + calls, 0);
 

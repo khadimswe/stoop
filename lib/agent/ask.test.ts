@@ -1,7 +1,7 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { askOnce, CLAUDE_TIMEOUT_MS } from "./claude";
+import { askOnce, cachedInstructions, CLAUDE_TIMEOUT_MS } from "./ask";
 
 // Claude is the AI SDK mock. A stalled call waits for its abort signal, like a real request.
 const schema = z.object({ ok: z.boolean() });
@@ -42,6 +42,16 @@ describe("askOnce", () => {
     const controller = new AbortController();
     setTimeout(() => controller.abort(new Error("left the page")), 20);
     await expect(askOnce(stalled(), { ...ask, abortSignal: controller.signal })).rejects.toThrow();
+  });
+
+  it("passes cached instructions as a system message with a cache breakpoint", async () => {
+    const model = new MockLanguageModelV4({ doGenerate: reply({ ok: true }) });
+    await askOnce(model, { ...ask, instructions: cachedInstructions("Answer.") });
+    expect(model.doGenerateCalls[0].prompt[0]).toMatchObject({
+      role: "system",
+      content: "Answer.",
+      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+    });
   });
 
   it("turns a malformed answer into a failure line", async () => {

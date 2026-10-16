@@ -267,6 +267,29 @@ describe("budget", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("refuses a call once its budget row is spent, while other rows and untagged calls go on", async () => {
+    const { client, fetchMock } = setup([ok(), ok(), ok()]);
+    const ctx = createRunContext({ runId: "run_rows", rowCaps: { probes: 1, scoring: 1 } });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything, budgetRow: "probes" }),
+    ).rejects.toThrow(new QlooBudgetError("Run run_rows spent its 1 probes calls"));
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything, budgetRow: "scoring" });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: { ...artistParams(ID), take: 5 }, schema: anything });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(ctx.rowCalls).toEqual({ probes: 1, scoring: 1 });
+  });
+
+  it("charges a retry to its row, so a row's retries never exceed its cap", async () => {
+    const { client, fetchMock } = setup([status(503), status(503)]);
+    const ctx = createRunContext({ runId: "run_row_retry", rowCaps: { probes: 2 } });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" }),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(ctx.rowCalls.probes).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("does not count cached calls against the cap", async () => {
     const { client } = setup([ok()]);
     const ctx = createRunContext({ runId: "run_one", cap: 1 });

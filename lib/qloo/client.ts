@@ -46,6 +46,8 @@ export interface QlooRequest<T> {
   /** Human label for the trace, e.g. "Resolving Olipop to a brand entity". */
   label?: string;
   stage?: string;
+  /** The budget row this call spends (lib/qloo/budget.ts). Refused once the run's cap for that row is reached. */
+  budgetRow?: string;
   /** Trims large bodies (heatmaps) before they are cached. */
   slim?: (body: unknown) => unknown;
   /** Returned when Qloo answers 404 (search with no match). Without it, a 404 throws. */
@@ -195,22 +197,27 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     }
   }
 
-  function budgetProblem(ctx: RunContext): string | null {
+  function budgetProblem(ctx: RunContext, row?: string): string | null {
     if (ctx.liveCalls >= ctx.cap) return `Run ${ctx.runId} reached its cap of ${ctx.cap} live Qloo calls`;
+    const rowCap = row === undefined ? undefined : ctx.rowCaps[row];
+    if (row !== undefined && rowCap !== undefined && (ctx.rowCalls[row] ?? 0) >= rowCap) {
+      return `Run ${ctx.runId} spent its ${rowCap} ${row} calls`;
+    }
     if (ctx.monthRemaining !== undefined && ctx.monthRemaining < ctx.monthlyFloor) {
       return `Qloo monthly quota is below the floor (${ctx.monthRemaining} calls left)`;
     }
     return null;
   }
 
-  function assertBudget(ctx: RunContext): void {
-    const problem = budgetProblem(ctx);
+  function assertBudget(ctx: RunContext, row?: string): void {
+    const problem = budgetProblem(ctx, row);
     if (problem) throw new QlooBudgetError(problem);
   }
 
-  function charge(ctx: RunContext, stage: string | undefined): void {
+  function charge(ctx: RunContext, stage: string | undefined, row: string | undefined): void {
     ctx.liveCalls++;
     if (stage) ctx.stageCalls[stage] = (ctx.stageCalls[stage] ?? 0) + 1;
+    if (row) ctx.rowCalls[row] = (ctx.rowCalls[row] ?? 0) + 1;
   }
 
   /** Turns a cached or fresh entry into typed data, or throws. */
@@ -268,13 +275,13 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     const flightKey = `${ctx.runId}:${key}`;
     const joining = limiter.inFlight(flightKey);
     if (!joining) {
-      assertBudget(ctx);
-      charge(ctx, req.stage);
+      assertBudget(ctx, req.budgetRow);
+      charge(ctx, req.stage, req.budgetRow);
     }
     const fetched = await limiter.run(flightKey, async () => {
       const response = await send(req.endpoint, canonicalQuery(req.params), () => {
-        if (budgetProblem(ctx)) return false;
-        charge(ctx, req.stage);
+        if (budgetProblem(ctx, req.budgetRow)) return false;
+        charge(ctx, req.stage, req.budgetRow);
         return true;
       });
 

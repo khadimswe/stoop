@@ -14,17 +14,26 @@ export interface StageEnv {
   reference: ReferenceSets;
   /** True when this audience is itself one of the reference audiences (the recorded candidates), so it is left out of the reference. */
   inReference: boolean;
+  /** Set on a world's own env (forWorld), so its trace steps group under that world. */
+  segmentId?: string;
 }
 
-/** One Qloo call through the real client, recorded as a receipt and a trace step. */
+/** The same env for one concept world: its trace steps carry the world's segment id. */
+export function forWorld(env: StageEnv, segmentId: string): StageEnv {
+  return { ...env, segmentId };
+}
+
+const worldOf = (env: StageEnv) => (env.segmentId ? { segmentId: env.segmentId } : {});
+
+/** One Qloo call through the real client, recorded as a receipt and a trace step. Pass `budgetRow` to spend a RUN_BUDGET row. */
 export async function qloo<T>(env: StageEnv, stage: Stage, label: string, request: Omit<QlooRequest<T>, "label" | "stage">): Promise<QlooResult<T>> {
   const result = await env.client.request(env.ctx, { ...request, label, stage });
   env.emit({ type: "evidence.added", evidence: result.evidence });
-  env.emit({ type: "trace.step", step: { stage, kind: "tool", label, evidenceId: result.evidence.id, cached: result.evidence.cached } });
+  env.emit({ type: "trace.step", step: { stage, kind: "tool", label, evidenceId: result.evidence.id, cached: result.evidence.cached, ...worldOf(env) } });
   return result;
 }
 
 /** An agent decision, shown in the trace with its reason. */
 export function decide(env: StageEnv, stage: Stage, label: string, reason?: string): void {
-  env.emit({ type: "trace.step", step: { stage, kind: "decision", label, ...(reason ? { reason } : {}) } });
+  env.emit({ type: "trace.step", step: { stage, kind: "decision", label, ...(reason ? { reason } : {}), ...worldOf(env) } });
 }
