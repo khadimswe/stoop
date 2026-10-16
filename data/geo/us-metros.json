@@ -1,0 +1,2757 @@
+{
+ "source": "US Census Bureau, 2024 Gazetteer Files, Core Based Statistical Areas (metropolitan areas only). Public domain. https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_cbsa_national.zip",
+ "retrieved": "2026-10-16",
+ "metros": [
+  {
+   "geoid": "10180",
+   "name": "Abilene, TX",
+   "lat": 32.452022,
+   "lon": -99.718743,
+   "landSqMi": 2743.515
+  },
+  {
+   "geoid": "10380",
+   "name": "Aguadilla, PR",
+   "lat": 18.391555,
+   "lon": -67.097202,
+   "landSqMi": 297.061
+  },
+  {
+   "geoid": "10420",
+   "name": "Akron, OH",
+   "lat": 41.146639,
+   "lon": -81.35011,
+   "landSqMi": 900.209
+  },
+  {
+   "geoid": "10540",
+   "name": "Albany, OR",
+   "lat": 44.488898,
+   "lon": -122.537208,
+   "landSqMi": 2289.508
+  },
+  {
+   "geoid": "10580",
+   "name": "Albany-Schenectady-Troy, NY",
+   "lat": 42.78792,
+   "lon": -73.942348,
+   "landSqMi": 2811.805
+  },
+  {
+   "geoid": "10740",
+   "name": "Albuquerque, NM",
+   "lat": 35.123496,
+   "lon": -106.458392,
+   "landSqMi": 9283.369
+  },
+  {
+   "geoid": "10900",
+   "name": "Allentown-Bethlehem-Easton, PA-NJ",
+   "lat": 40.789339,
+   "lon": -75.398158,
+   "landSqMi": 1453.019
+  },
+  {
+   "geoid": "11020",
+   "name": "Altoona, PA",
+   "lat": 40.498683,
+   "lon": -78.309597,
+   "landSqMi": 525.067
+  },
+  {
+   "geoid": "11100",
+   "name": "Amarillo, TX",
+   "lat": 35.247999,
+   "lon": -101.90867,
+   "landSqMi": 5150.984
+  },
+  {
+   "geoid": "11180",
+   "name": "Ames, IA",
+   "lat": 42.036128,
+   "lon": -93.698008,
+   "landSqMi": 1143.005
+  },
+  {
+   "geoid": "11200",
+   "name": "Amherst Town-Northampton, MA",
+   "lat": 42.339459,
+   "lon": -72.663694,
+   "landSqMi": 527.236
+  },
+  {
+   "geoid": "11460",
+   "name": "Ann Arbor, MI",
+   "lat": 42.252217,
+   "lon": -83.843423,
+   "landSqMi": 706.003
+  },
+  {
+   "geoid": "11540",
+   "name": "Appleton, WI",
+   "lat": 44.290603,
+   "lon": -88.372326,
+   "landSqMi": 955.807
+  },
+  {
+   "geoid": "11640",
+   "name": "Arecibo, PR",
+   "lat": 18.439224,
+   "lon": -66.759981,
+   "landSqMi": 236.885
+  },
+  {
+   "geoid": "11700",
+   "name": "Asheville, NC",
+   "lat": 35.61634,
+   "lon": -82.570683,
+   "landSqMi": 1479.053
+  },
+  {
+   "geoid": "12020",
+   "name": "Athens-Clarke County, GA",
+   "lat": 33.943984,
+   "lon": -83.213897,
+   "landSqMi": 1025.035
+  },
+  {
+   "geoid": "12060",
+   "name": "Atlanta-Sandy Springs-Roswell, GA",
+   "lat": 33.732402,
+   "lon": -84.392848,
+   "landSqMi": 8785.478
+  },
+  {
+   "geoid": "12100",
+   "name": "Atlantic City-Hammonton, NJ",
+   "lat": 39.286186,
+   "lon": -74.738311,
+   "landSqMi": 807.099
+  },
+  {
+   "geoid": "12220",
+   "name": "Auburn-Opelika, AL",
+   "lat": 32.492206,
+   "lon": -85.527127,
+   "landSqMi": 1216.221
+  },
+  {
+   "geoid": "12580",
+   "name": "Baltimore-Columbia-Towson, MD",
+   "lat": 39.304361,
+   "lon": -76.549501,
+   "landSqMi": 2601.47
+  },
+  {
+   "geoid": "12700",
+   "name": "Barnstable Town, MA",
+   "lat": 41.706123,
+   "lon": -70.164823,
+   "landSqMi": 394.2
+  },
+  {
+   "geoid": "12940",
+   "name": "Baton Rouge, LA",
+   "lat": 30.515242,
+   "lon": -91.126926,
+   "landSqMi": 4367.811
+  },
+  {
+   "geoid": "12980",
+   "name": "Battle Creek, MI",
+   "lat": 42.24299,
+   "lon": -85.012385,
+   "landSqMi": 706.259
+  },
+  {
+   "geoid": "13020",
+   "name": "Bay City, MI",
+   "lat": 43.699711,
+   "lon": -83.978701,
+   "landSqMi": 442.409
+  },
+  {
+   "geoid": "13820",
+   "name": "Birmingham, AL",
+   "lat": 33.462372,
+   "lon": -86.814338,
+   "landSqMi": 5279.85
+  },
+  {
+   "geoid": "14010",
+   "name": "Bloomington, IL",
+   "lat": 40.494559,
+   "lon": -88.844539,
+   "landSqMi": 1183.248
+  },
+  {
+   "geoid": "14020",
+   "name": "Bloomington, IN",
+   "lat": 39.241736,
+   "lon": -86.671754,
+   "landSqMi": 779.818
+  },
+  {
+   "geoid": "14260",
+   "name": "Boise City, ID",
+   "lat": 43.006648,
+   "lon": -116.141909,
+   "landSqMi": 11766.612
+  },
+  {
+   "geoid": "14460",
+   "name": "Boston-Cambridge-Newton, MA-NH",
+   "lat": 42.517606,
+   "lon": -71.021993,
+   "landSqMi": 3486.146
+  },
+  {
+   "geoid": "14500",
+   "name": "Boulder, CO",
+   "lat": 40.094971,
+   "lon": -105.39771,
+   "landSqMi": 726.408
+  },
+  {
+   "geoid": "14540",
+   "name": "Bowling Green, KY",
+   "lat": 37.046804,
+   "lon": -86.397398,
+   "landSqMi": 1614.371
+  },
+  {
+   "geoid": "14740",
+   "name": "Bremerton-Silverdale-Port Orchard, WA",
+   "lat": 47.639687,
+   "lon": -122.649636,
+   "landSqMi": 395.111
+  },
+  {
+   "geoid": "14860",
+   "name": "Bridgeport-Stamford-Danbury, CT",
+   "lat": 41.252442,
+   "lon": -73.393266,
+   "landSqMi": 672.31
+  },
+  {
+   "geoid": "15180",
+   "name": "Brownsville-Harlingen, TX",
+   "lat": 26.102923,
+   "lon": -97.478958,
+   "landSqMi": 891.721
+  },
+  {
+   "geoid": "15380",
+   "name": "Buffalo-Cheektowaga, NY",
+   "lat": 43.044371,
+   "lon": -78.777335,
+   "landSqMi": 1565.111
+  },
+  {
+   "geoid": "15500",
+   "name": "Burlington, NC",
+   "lat": 36.043954,
+   "lon": -79.400573,
+   "landSqMi": 423.463
+  },
+  {
+   "geoid": "15540",
+   "name": "Burlington-South Burlington, VT",
+   "lat": 44.689115,
+   "lon": -73.041175,
+   "landSqMi": 1249.58
+  },
+  {
+   "geoid": "15940",
+   "name": "Canton-Massillon, OH",
+   "lat": 40.711051,
+   "lon": -81.261468,
+   "landSqMi": 969.818
+  },
+  {
+   "geoid": "15980",
+   "name": "Cape Coral-Fort Myers, FL",
+   "lat": 26.563273,
+   "lon": -81.984182,
+   "landSqMi": 781.154
+  },
+  {
+   "geoid": "16020",
+   "name": "Cape Girardeau, MO-IL",
+   "lat": 37.325936,
+   "lon": -89.762639,
+   "landSqMi": 1431.815
+  },
+  {
+   "geoid": "16180",
+   "name": "Carson City, NV",
+   "lat": 39.15306,
+   "lon": -119.747368,
+   "landSqMi": 144.534
+  },
+  {
+   "geoid": "16300",
+   "name": "Cedar Rapids, IA",
+   "lat": 42.086289,
+   "lon": -91.631095,
+   "landSqMi": 2008.734
+  },
+  {
+   "geoid": "16540",
+   "name": "Chambersburg, PA",
+   "lat": 39.926772,
+   "lon": -77.724521,
+   "landSqMi": 772.279
+  },
+  {
+   "geoid": "16580",
+   "name": "Champaign-Urbana, IL",
+   "lat": 40.234489,
+   "lon": -88.298623,
+   "landSqMi": 1920.889
+  },
+  {
+   "geoid": "16620",
+   "name": "Charleston, WV",
+   "lat": 38.283213,
+   "lon": -81.492557,
+   "landSqMi": 1746.045
+  },
+  {
+   "geoid": "16740",
+   "name": "Charlotte-Concord-Gastonia, NC-SC",
+   "lat": 35.166342,
+   "lon": -80.797285,
+   "landSqMi": 5597.287
+  },
+  {
+   "geoid": "16860",
+   "name": "Chattanooga, TN-GA",
+   "lat": 35.049361,
+   "lon": -85.361158,
+   "landSqMi": 2092.718
+  },
+  {
+   "geoid": "16980",
+   "name": "Chicago-Naperville-Elgin, IL-IN",
+   "lat": 41.75878,
+   "lon": -87.841887,
+   "landSqMi": 6923.135
+  },
+  {
+   "geoid": "17140",
+   "name": "Cincinnati, OH-KY-IN",
+   "lat": 39.078595,
+   "lon": -84.463535,
+   "landSqMi": 4385.186
+  },
+  {
+   "geoid": "17410",
+   "name": "Cleveland, OH",
+   "lat": 41.667548,
+   "lon": -81.43052,
+   "landSqMi": 2701.449
+  },
+  {
+   "geoid": "17420",
+   "name": "Cleveland, TN",
+   "lat": 35.138117,
+   "lon": -84.655079,
+   "landSqMi": 763.367
+  },
+  {
+   "geoid": "17660",
+   "name": "Coeur d'Alene, ID",
+   "lat": 47.675957,
+   "lon": -116.695919,
+   "landSqMi": 1237.78
+  },
+  {
+   "geoid": "17860",
+   "name": "Columbia, MO",
+   "lat": 38.986523,
+   "lon": -92.585236,
+   "landSqMi": 1714.098
+  },
+  {
+   "geoid": "17900",
+   "name": "Columbia, SC",
+   "lat": 34.077585,
+   "lon": -81.037845,
+   "landSqMi": 3703.126
+  },
+  {
+   "geoid": "17980",
+   "name": "Columbus, GA-AL",
+   "lat": 32.419377,
+   "lon": -84.843709,
+   "landSqMi": 2786.101
+  },
+  {
+   "geoid": "18020",
+   "name": "Columbus, IN",
+   "lat": 39.205843,
+   "lon": -85.897999,
+   "landSqMi": 406.94
+  },
+  {
+   "geoid": "18140",
+   "name": "Columbus, OH",
+   "lat": 39.968562,
+   "lon": -82.835911,
+   "landSqMi": 4797.445
+  },
+  {
+   "geoid": "18580",
+   "name": "Corpus Christi, TX",
+   "lat": 27.894817,
+   "lon": -97.401668,
+   "landSqMi": 1784.677
+  },
+  {
+   "geoid": "18700",
+   "name": "Corvallis, OR",
+   "lat": 44.493882,
+   "lon": -123.424664,
+   "landSqMi": 675.208
+  },
+  {
+   "geoid": "19100",
+   "name": "Dallas-Fort Worth-Arlington, TX",
+   "lat": 32.849171,
+   "lon": -96.970489,
+   "landSqMi": 8675.986
+  },
+  {
+   "geoid": "19140",
+   "name": "Dalton, GA",
+   "lat": 34.796956,
+   "lon": -84.856279,
+   "landSqMi": 634.939
+  },
+  {
+   "geoid": "19300",
+   "name": "Daphne-Fairhope-Foley, AL",
+   "lat": 30.659218,
+   "lon": -87.746067,
+   "landSqMi": 1589.884
+  },
+  {
+   "geoid": "19340",
+   "name": "Davenport-Moline-Rock Island, IA-IL",
+   "lat": 41.39168,
+   "lon": -90.460076,
+   "landSqMi": 2269.898
+  },
+  {
+   "geoid": "19430",
+   "name": "Dayton-Kettering-Beavercreek, OH",
+   "lat": 39.829746,
+   "lon": -84.140992,
+   "landSqMi": 1281.565
+  },
+  {
+   "geoid": "19460",
+   "name": "Decatur, AL",
+   "lat": 34.489361,
+   "lon": -87.097147,
+   "landSqMi": 1270.359
+  },
+  {
+   "geoid": "19660",
+   "name": "Deltona-Daytona Beach-Ormond Beach, FL",
+   "lat": 29.1789,
+   "lon": -81.189023,
+   "landSqMi": 1587.308
+  },
+  {
+   "geoid": "19740",
+   "name": "Denver-Aurora-Centennial, CO",
+   "lat": 39.434789,
+   "lon": -104.901073,
+   "landSqMi": 8344.691
+  },
+  {
+   "geoid": "19780",
+   "name": "Des Moines-West Des Moines, IA",
+   "lat": 41.57705,
+   "lon": -93.759712,
+   "landSqMi": 3612.657
+  },
+  {
+   "geoid": "19820",
+   "name": "Detroit-Warren-Dearborn, MI",
+   "lat": 42.721848,
+   "lon": -83.200846,
+   "landSqMi": 3892.357
+  },
+  {
+   "geoid": "20020",
+   "name": "Dothan, AL",
+   "lat": 31.245528,
+   "lon": -85.46919,
+   "landSqMi": 1716.203
+  },
+  {
+   "geoid": "20100",
+   "name": "Dover, DE",
+   "lat": 39.097088,
+   "lon": -75.502982,
+   "landSqMi": 586.061
+  },
+  {
+   "geoid": "20260",
+   "name": "Duluth, MN-WI",
+   "lat": 47.329703,
+   "lon": -92.37627,
+   "landSqMi": 8413.584
+  },
+  {
+   "geoid": "20500",
+   "name": "Durham-Chapel Hill, NC",
+   "lat": 35.995536,
+   "lon": -79.09699,
+   "landSqMi": 1758.914
+  },
+  {
+   "geoid": "20740",
+   "name": "Eau Claire, WI",
+   "lat": 44.938672,
+   "lon": -91.284322,
+   "landSqMi": 1646.278
+  },
+  {
+   "geoid": "21060",
+   "name": "Elizabethtown, KY",
+   "lat": 37.651209,
+   "lon": -85.887598,
+   "landSqMi": 884.944
+  },
+  {
+   "geoid": "21140",
+   "name": "Elkhart-Goshen, IN",
+   "lat": 41.600693,
+   "lon": -85.863986,
+   "landSqMi": 463.158
+  },
+  {
+   "geoid": "21300",
+   "name": "Elmira, NY",
+   "lat": 42.148697,
+   "lon": -76.752471,
+   "landSqMi": 407.333
+  },
+  {
+   "geoid": "21340",
+   "name": "El Paso, TX",
+   "lat": 31.527394,
+   "lon": -105.521333,
+   "landSqMi": 5584.042
+  },
+  {
+   "geoid": "21500",
+   "name": "Erie, PA",
+   "lat": 42.117952,
+   "lon": -80.096386,
+   "landSqMi": 798.901
+  },
+  {
+   "geoid": "21780",
+   "name": "Evansville, IN",
+   "lat": 38.049142,
+   "lon": -87.584519,
+   "landSqMi": 1027.416
+  },
+  {
+   "geoid": "22020",
+   "name": "Fargo, ND-MN",
+   "lat": 46.914859,
+   "lon": -96.960183,
+   "landSqMi": 2810.111
+  },
+  {
+   "geoid": "22180",
+   "name": "Fayetteville, NC",
+   "lat": 35.037956,
+   "lon": -78.982209,
+   "landSqMi": 1042.719
+  },
+  {
+   "geoid": "22420",
+   "name": "Flint, MI",
+   "lat": 43.021077,
+   "lon": -83.706372,
+   "landSqMi": 636.944
+  },
+  {
+   "geoid": "22520",
+   "name": "Florence-Muscle Shoals, AL",
+   "lat": 34.799254,
+   "lon": -87.719388,
+   "landSqMi": 1260.97
+  },
+  {
+   "geoid": "23060",
+   "name": "Fort Wayne, IN",
+   "lat": 41.006999,
+   "lon": -85.216424,
+   "landSqMi": 1360.855
+  },
+  {
+   "geoid": "23420",
+   "name": "Fresno, CA",
+   "lat": 36.879404,
+   "lon": -119.668488,
+   "landSqMi": 8095.291
+  },
+  {
+   "geoid": "23540",
+   "name": "Gainesville, FL",
+   "lat": 29.453355,
+   "lon": -82.666257,
+   "landSqMi": 2343.596
+  },
+  {
+   "geoid": "23580",
+   "name": "Gainesville, GA",
+   "lat": 34.317569,
+   "lon": -83.8185,
+   "landSqMi": 392.469
+  },
+  {
+   "geoid": "23900",
+   "name": "Gettysburg, PA",
+   "lat": 39.869437,
+   "lon": -77.21775,
+   "landSqMi": 518.576
+  },
+  {
+   "geoid": "24020",
+   "name": "Glens Falls, NY",
+   "lat": 43.44045,
+   "lon": -73.636757,
+   "landSqMi": 1698.412
+  },
+  {
+   "geoid": "24340",
+   "name": "Grand Rapids-Wyoming-Kentwood, MI",
+   "lat": 42.979841,
+   "lon": -85.715614,
+   "landSqMi": 3242.204
+  },
+  {
+   "geoid": "24420",
+   "name": "Grants Pass, OR",
+   "lat": 42.386983,
+   "lon": -123.57162,
+   "landSqMi": 1638.649
+  },
+  {
+   "geoid": "24540",
+   "name": "Greeley, CO",
+   "lat": 40.555961,
+   "lon": -104.383666,
+   "landSqMi": 3984.958
+  },
+  {
+   "geoid": "24580",
+   "name": "Green Bay, WI",
+   "lat": 44.474024,
+   "lon": -87.99613,
+   "landSqMi": 1870.023
+  },
+  {
+   "geoid": "24660",
+   "name": "Greensboro-High Point, NC",
+   "lat": 36.025204,
+   "lon": -79.792633,
+   "landSqMi": 1993.965
+  },
+  {
+   "geoid": "24780",
+   "name": "Greenville, NC",
+   "lat": 35.59249,
+   "lon": -77.372739,
+   "landSqMi": 652.366
+  },
+  {
+   "geoid": "24860",
+   "name": "Greenville-Anderson-Greer, SC",
+   "lat": 34.683709,
+   "lon": -82.413423,
+   "landSqMi": 2709.598
+  },
+  {
+   "geoid": "25020",
+   "name": "Guayama, PR",
+   "lat": 17.979155,
+   "lon": -66.069473,
+   "landSqMi": 126.651
+  },
+  {
+   "geoid": "25180",
+   "name": "Hagerstown-Martinsburg, MD-WV",
+   "lat": 39.554433,
+   "lon": -77.984594,
+   "landSqMi": 1008.005
+  },
+  {
+   "geoid": "25220",
+   "name": "Hammond, LA",
+   "lat": 30.621348,
+   "lon": -90.40649,
+   "landSqMi": 791.18
+  },
+  {
+   "geoid": "25260",
+   "name": "Hanford-Corcoran, CA",
+   "lat": 36.072478,
+   "lon": -119.81553,
+   "landSqMi": 1390.972
+  },
+  {
+   "geoid": "25420",
+   "name": "Harrisburg-Carlisle, PA",
+   "lat": 40.335915,
+   "lon": -77.05049,
+   "landSqMi": 1621.802
+  },
+  {
+   "geoid": "25500",
+   "name": "Harrisonburg, VA",
+   "lat": 38.507612,
+   "lon": -78.885329,
+   "landSqMi": 867.132
+  },
+  {
+   "geoid": "25540",
+   "name": "Hartford-West Hartford-East Hartford, CT",
+   "lat": 41.688038,
+   "lon": -72.545112,
+   "landSqMi": 1451.472
+  },
+  {
+   "geoid": "25620",
+   "name": "Hattiesburg, MS",
+   "lat": 31.188441,
+   "lon": -89.232741,
+   "landSqMi": 1609.894
+  },
+  {
+   "geoid": "25860",
+   "name": "Hickory-Lenoir-Morganton, NC",
+   "lat": 35.814295,
+   "lon": -81.456584,
+   "landSqMi": 1639.484
+  },
+  {
+   "geoid": "25980",
+   "name": "Hinesville, GA",
+   "lat": 31.778788,
+   "lon": -81.57648,
+   "landSqMi": 916.862
+  },
+  {
+   "geoid": "26300",
+   "name": "Hot Springs, AR",
+   "lat": 34.578852,
+   "lon": -93.146932,
+   "landSqMi": 677.615
+  },
+  {
+   "geoid": "26420",
+   "name": "Houston-Pasadena-The Woodlands, TX",
+   "lat": 29.801005,
+   "lon": -95.34262,
+   "landSqMi": 8838.659
+  },
+  {
+   "geoid": "26580",
+   "name": "Huntington-Ashland, WV-KY-OH",
+   "lat": 38.357487,
+   "lon": -82.579994,
+   "landSqMi": 2915.516
+  },
+  {
+   "geoid": "26620",
+   "name": "Huntsville, AL",
+   "lat": 34.783262,
+   "lon": -86.734871,
+   "landSqMi": 1365.011
+  },
+  {
+   "geoid": "26820",
+   "name": "Idaho Falls, ID",
+   "lat": 43.620423,
+   "lon": -112.420919,
+   "landSqMi": 5196.128
+  },
+  {
+   "geoid": "26900",
+   "name": "Indianapolis-Carmel-Greenwood, IN",
+   "lat": 39.790533,
+   "lon": -86.12426,
+   "landSqMi": 4085.949
+  },
+  {
+   "geoid": "26980",
+   "name": "Iowa City, IA",
+   "lat": 41.517806,
+   "lon": -91.64793,
+   "landSqMi": 1181.826
+  },
+  {
+   "geoid": "27060",
+   "name": "Ithaca, NY",
+   "lat": 42.453006,
+   "lon": -76.473483,
+   "landSqMi": 474.644
+  },
+  {
+   "geoid": "27140",
+   "name": "Jackson, MS",
+   "lat": 32.426311,
+   "lon": -90.136422,
+   "landSqMi": 6014.249
+  },
+  {
+   "geoid": "27260",
+   "name": "Jacksonville, FL",
+   "lat": 30.234184,
+   "lon": -81.756033,
+   "landSqMi": 3201.776
+  },
+  {
+   "geoid": "27500",
+   "name": "Janesville-Beloit, WI",
+   "lat": 42.66988,
+   "lon": -89.075284,
+   "landSqMi": 718.168
+  },
+  {
+   "geoid": "27620",
+   "name": "Jefferson City, MO",
+   "lat": 38.636885,
+   "lon": -92.088876,
+   "landSqMi": 2247.71
+  },
+  {
+   "geoid": "27740",
+   "name": "Johnson City, TN",
+   "lat": 36.265822,
+   "lon": -82.332693,
+   "landSqMi": 853.87
+  },
+  {
+   "geoid": "27780",
+   "name": "Johnstown, PA",
+   "lat": 40.510209,
+   "lon": -78.710488,
+   "landSqMi": 687.963
+  },
+  {
+   "geoid": "27860",
+   "name": "Jonesboro, AR",
+   "lat": 35.696978,
+   "lon": -90.650175,
+   "landSqMi": 1465.461
+  },
+  {
+   "geoid": "27900",
+   "name": "Joplin, MO-KS",
+   "lat": 37.092135,
+   "lon": -94.500651,
+   "landSqMi": 1850.828
+  },
+  {
+   "geoid": "28020",
+   "name": "Kalamazoo-Portage, MI",
+   "lat": 42.246266,
+   "lon": -85.532854,
+   "landSqMi": 561.959
+  },
+  {
+   "geoid": "28100",
+   "name": "Kankakee, IL",
+   "lat": 41.13951,
+   "lon": -87.861117,
+   "landSqMi": 676.49
+  },
+  {
+   "geoid": "28140",
+   "name": "Kansas City, MO-KS",
+   "lat": 38.931857,
+   "lon": -94.443841,
+   "landSqMi": 7256.535
+  },
+  {
+   "geoid": "28420",
+   "name": "Kennewick-Richland, WA",
+   "lat": 46.364155,
+   "lon": -119.254927,
+   "landSqMi": 2941.723
+  },
+  {
+   "geoid": "28450",
+   "name": "Kenosha, WI",
+   "lat": 42.587526,
+   "lon": -87.879996,
+   "landSqMi": 271.833
+  },
+  {
+   "geoid": "28700",
+   "name": "Kingsport-Bristol, TN-VA",
+   "lat": 36.604161,
+   "lon": -82.440145,
+   "landSqMi": 2010.491
+  },
+  {
+   "geoid": "28740",
+   "name": "Kingston, NY",
+   "lat": 41.947212,
+   "lon": -74.265458,
+   "landSqMi": 1124.236
+  },
+  {
+   "geoid": "28880",
+   "name": "Kiryas Joel-Poughkeepsie-Newburgh, NY",
+   "lat": 41.575274,
+   "lon": -74.033873,
+   "landSqMi": 1607.68
+  },
+  {
+   "geoid": "28940",
+   "name": "Knoxville, TN",
+   "lat": 36.044462,
+   "lon": -84.136114,
+   "landSqMi": 3500.954
+  },
+  {
+   "geoid": "29020",
+   "name": "Kokomo, IN",
+   "lat": 40.483537,
+   "lon": -86.114118,
+   "landSqMi": 293.074
+  },
+  {
+   "geoid": "29100",
+   "name": "La Crosse-Onalaska, WI-MN",
+   "lat": 43.698264,
+   "lon": -91.11014,
+   "landSqMi": 1795.482
+  },
+  {
+   "geoid": "29180",
+   "name": "Lafayette, LA",
+   "lat": 30.012961,
+   "lon": -92.136552,
+   "landSqMi": 2833.674
+  },
+  {
+   "geoid": "29200",
+   "name": "Lafayette-West Lafayette, IN",
+   "lat": 40.482153,
+   "lon": -87.017112,
+   "landSqMi": 1642.23
+  },
+  {
+   "geoid": "29340",
+   "name": "Lake Charles, LA",
+   "lat": 30.038451,
+   "lon": -93.190093,
+   "landSqMi": 3000.244
+  },
+  {
+   "geoid": "29460",
+   "name": "Lakeland-Winter Haven, FL",
+   "lat": 27.953686,
+   "lon": -81.693493,
+   "landSqMi": 1798.235
+  },
+  {
+   "geoid": "29620",
+   "name": "Lansing-East Lansing, MI",
+   "lat": 42.713659,
+   "lon": -84.605372,
+   "landSqMi": 1698.639
+  },
+  {
+   "geoid": "29740",
+   "name": "Las Cruces, NM",
+   "lat": 32.349919,
+   "lon": -106.834968,
+   "landSqMi": 3808.179
+  },
+  {
+   "geoid": "29820",
+   "name": "Las Vegas-Henderson-North Las Vegas, NV",
+   "lat": 36.21413,
+   "lon": -115.014398,
+   "landSqMi": 7891.661
+  },
+  {
+   "geoid": "29940",
+   "name": "Lawrence, KS",
+   "lat": 38.896417,
+   "lon": -95.290947,
+   "landSqMi": 455.764
+  },
+  {
+   "geoid": "30020",
+   "name": "Lawton, OK",
+   "lat": 34.529113,
+   "lon": -98.430902,
+   "landSqMi": 1701.959
+  },
+  {
+   "geoid": "30140",
+   "name": "Lebanon, PA",
+   "lat": 40.371448,
+   "lon": -76.464819,
+   "landSqMi": 361.835
+  },
+  {
+   "geoid": "30340",
+   "name": "Lewiston-Auburn, ME",
+   "lat": 44.167681,
+   "lon": -70.207435,
+   "landSqMi": 467.954
+  },
+  {
+   "geoid": "30460",
+   "name": "Lexington-Fayette, KY",
+   "lat": 38.102876,
+   "lon": -84.438545,
+   "landSqMi": 1469.966
+  },
+  {
+   "geoid": "30500",
+   "name": "Lexington Park, MD",
+   "lat": 38.312696,
+   "lon": -76.527935,
+   "landSqMi": 571.754
+  },
+  {
+   "geoid": "30620",
+   "name": "Lima, OH",
+   "lat": 40.771627,
+   "lon": -84.106103,
+   "landSqMi": 402.545
+  },
+  {
+   "geoid": "30700",
+   "name": "Lincoln, NE",
+   "lat": 40.817429,
+   "lon": -96.868801,
+   "landSqMi": 1408.99
+  },
+  {
+   "geoid": "30780",
+   "name": "Little Rock-North Little Rock-Conway, AR",
+   "lat": 34.755773,
+   "lon": -92.400589,
+   "landSqMi": 4084.079
+  },
+  {
+   "geoid": "31020",
+   "name": "Longview-Kelso, WA",
+   "lat": 46.196785,
+   "lon": -122.67846,
+   "landSqMi": 1141.159
+  },
+  {
+   "geoid": "31080",
+   "name": "Los Angeles-Long Beach-Anaheim, CA",
+   "lat": 34.108703,
+   "lon": -118.182753,
+   "landSqMi": 4853.121
+  },
+  {
+   "geoid": "31140",
+   "name": "Louisville/Jefferson County, KY-IN",
+   "lat": 38.224363,
+   "lon": -85.701989,
+   "landSqMi": 3960.813
+  },
+  {
+   "geoid": "31180",
+   "name": "Lubbock, TX",
+   "lat": 33.469794,
+   "lon": -101.880412,
+   "landSqMi": 5264.56
+  },
+  {
+   "geoid": "31420",
+   "name": "Macon-Bibb County, GA",
+   "lat": 32.856216,
+   "lon": -83.714305,
+   "landSqMi": 1723.59
+  },
+  {
+   "geoid": "31540",
+   "name": "Madison, WI",
+   "lat": 43.083846,
+   "lon": -89.597745,
+   "landSqMi": 3308.839
+  },
+  {
+   "geoid": "31700",
+   "name": "Manchester-Nashua, NH",
+   "lat": 42.911532,
+   "lon": -71.723055,
+   "landSqMi": 876.537
+  },
+  {
+   "geoid": "31860",
+   "name": "Mankato, MN",
+   "lat": 44.15479,
+   "lon": -94.147798,
+   "landSqMi": 1196.34
+  },
+  {
+   "geoid": "31900",
+   "name": "Mansfield, OH",
+   "lat": 40.774159,
+   "lon": -82.542781,
+   "landSqMi": 495.227
+  },
+  {
+   "geoid": "32420",
+   "name": "Mayagüez, PR",
+   "lat": 18.01917,
+   "lon": -67.166597,
+   "landSqMi": 310.057
+  },
+  {
+   "geoid": "32580",
+   "name": "McAllen-Edinburg-Mission, TX",
+   "lat": 26.396384,
+   "lon": -98.18099,
+   "landSqMi": 1571.23
+  },
+  {
+   "geoid": "32780",
+   "name": "Medford, OR",
+   "lat": 42.411621,
+   "lon": -122.675611,
+   "landSqMi": 2783.251
+  },
+  {
+   "geoid": "32820",
+   "name": "Memphis, TN-MS-AR",
+   "lat": 35.010307,
+   "lon": -89.820503,
+   "landSqMi": 4972.408
+  },
+  {
+   "geoid": "32900",
+   "name": "Merced, CA",
+   "lat": 37.194806,
+   "lon": -120.722802,
+   "landSqMi": 1938.004
+  },
+  {
+   "geoid": "33100",
+   "name": "Miami-Fort Lauderdale-West Palm Beach, FL",
+   "lat": 26.101828,
+   "lon": -80.478755,
+   "landSqMi": 5067.173
+  },
+  {
+   "geoid": "33140",
+   "name": "Michigan City-La Porte, IN",
+   "lat": 41.549013,
+   "lon": -86.744739,
+   "landSqMi": 598.288
+  },
+  {
+   "geoid": "33220",
+   "name": "Midland, MI",
+   "lat": 43.648203,
+   "lon": -84.379414,
+   "landSqMi": 518.434
+  },
+  {
+   "geoid": "33260",
+   "name": "Midland, TX",
+   "lat": 32.092359,
+   "lon": -101.994539,
+   "landSqMi": 1815.313
+  },
+  {
+   "geoid": "33340",
+   "name": "Milwaukee-Waukesha, WI",
+   "lat": 42.912643,
+   "lon": -87.862312,
+   "landSqMi": 1454.837
+  },
+  {
+   "geoid": "33460",
+   "name": "Minneapolis-St. Paul-Bloomington, MN-WI",
+   "lat": 45.096664,
+   "lon": -93.275361,
+   "landSqMi": 7047.581
+  },
+  {
+   "geoid": "33660",
+   "name": "Mobile, AL",
+   "lat": 30.684572,
+   "lon": -88.196568,
+   "landSqMi": 1229.38
+  },
+  {
+   "geoid": "33700",
+   "name": "Modesto, CA",
+   "lat": 37.562316,
+   "lon": -121.002831,
+   "landSqMi": 1496.15
+  },
+  {
+   "geoid": "33740",
+   "name": "Monroe, LA",
+   "lat": 32.67396,
+   "lon": -92.058318,
+   "landSqMi": 2837.826
+  },
+  {
+   "geoid": "33780",
+   "name": "Monroe, MI",
+   "lat": 41.916097,
+   "lon": -83.487106,
+   "landSqMi": 549.362
+  },
+  {
+   "geoid": "33860",
+   "name": "Montgomery, AL",
+   "lat": 32.365631,
+   "lon": -86.404585,
+   "landSqMi": 2714.414
+  },
+  {
+   "geoid": "34100",
+   "name": "Morristown, TN",
+   "lat": 36.115484,
+   "lon": -83.376546,
+   "landSqMi": 436.343
+  },
+  {
+   "geoid": "34580",
+   "name": "Mount Vernon-Anacortes, WA",
+   "lat": 48.493292,
+   "lon": -121.81577,
+   "landSqMi": 1730.231
+  },
+  {
+   "geoid": "34620",
+   "name": "Muncie, IN",
+   "lat": 40.227543,
+   "lon": -85.399262,
+   "landSqMi": 392.109
+  },
+  {
+   "geoid": "34740",
+   "name": "Muskegon-Norton Shores, MI",
+   "lat": 43.428739,
+   "lon": -86.420908,
+   "landSqMi": 503.914
+  },
+  {
+   "geoid": "34820",
+   "name": "Myrtle Beach-Conway-North Myrtle Beach, SC",
+   "lat": 33.909269,
+   "lon": -78.976675,
+   "landSqMi": 1133.158
+  },
+  {
+   "geoid": "34900",
+   "name": "Napa, CA",
+   "lat": 38.5071,
+   "lon": -122.325904,
+   "landSqMi": 751.975
+  },
+  {
+   "geoid": "34940",
+   "name": "Naples-Marco Island, FL",
+   "lat": 26.118786,
+   "lon": -81.400955,
+   "landSqMi": 1996.995
+  },
+  {
+   "geoid": "34980",
+   "name": "Nashville-Davidson--Murfreesboro--Franklin, TN",
+   "lat": 36.091577,
+   "lon": -86.72298,
+   "landSqMi": 6301.898
+  },
+  {
+   "geoid": "35300",
+   "name": "New Haven, CT",
+   "lat": 41.290167,
+   "lon": -72.837024,
+   "landSqMi": 367.252
+  },
+  {
+   "geoid": "35380",
+   "name": "New Orleans-Metairie, LA",
+   "lat": 29.282447,
+   "lon": -89.576068,
+   "landSqMi": 2358.552
+  },
+  {
+   "geoid": "35620",
+   "name": "New York-Newark-Jersey City, NY-NJ",
+   "lat": 40.735425,
+   "lon": -73.80773,
+   "landSqMi": 6139.619
+  },
+  {
+   "geoid": "35660",
+   "name": "Niles, MI",
+   "lat": 41.791382,
+   "lon": -86.742543,
+   "landSqMi": 567.795
+  },
+  {
+   "geoid": "35840",
+   "name": "North Port-Bradenton-Sarasota, FL",
+   "lat": 27.329055,
+   "lon": -82.414533,
+   "landSqMi": 1298.788
+  },
+  {
+   "geoid": "35980",
+   "name": "Norwich-New London-Willimantic, CT",
+   "lat": 41.484769,
+   "lon": -72.101666,
+   "landSqMi": 598.139
+  },
+  {
+   "geoid": "36220",
+   "name": "Odessa, TX",
+   "lat": 31.865301,
+   "lon": -102.542507,
+   "landSqMi": 897.884
+  },
+  {
+   "geoid": "36260",
+   "name": "Ogden, UT",
+   "lat": 41.124342,
+   "lon": -111.866933,
+   "landSqMi": 1544.973
+  },
+  {
+   "geoid": "36420",
+   "name": "Oklahoma City, OK",
+   "lat": 35.430968,
+   "lon": -97.506966,
+   "landSqMi": 5511.75
+  },
+  {
+   "geoid": "36500",
+   "name": "Olympia-Lacey-Tumwater, WA",
+   "lat": 46.935822,
+   "lon": -122.830152,
+   "landSqMi": 722.501
+  },
+  {
+   "geoid": "36540",
+   "name": "Omaha, NE-IA",
+   "lat": 41.290459,
+   "lon": -95.99997,
+   "landSqMi": 4345.662
+  },
+  {
+   "geoid": "36740",
+   "name": "Orlando-Kissimmee-Sanford, FL",
+   "lat": 28.434398,
+   "lon": -81.35606,
+   "landSqMi": 3492.04
+  },
+  {
+   "geoid": "36780",
+   "name": "Oshkosh-Neenah, WI",
+   "lat": 44.085707,
+   "lon": -88.668149,
+   "landSqMi": 434.697
+  },
+  {
+   "geoid": "37100",
+   "name": "Oxnard-Thousand Oaks-Ventura, CA",
+   "lat": 34.358748,
+   "lon": -119.133145,
+   "landSqMi": 1840.78
+  },
+  {
+   "geoid": "37140",
+   "name": "Paducah, KY-IL",
+   "lat": 37.094234,
+   "lon": -88.71705,
+   "landSqMi": 1235.454
+  },
+  {
+   "geoid": "37620",
+   "name": "Parkersburg-Vienna, WV",
+   "lat": 39.141531,
+   "lon": -81.460402,
+   "landSqMi": 599.011
+  },
+  {
+   "geoid": "37900",
+   "name": "Peoria, IL",
+   "lat": 40.788069,
+   "lon": -89.514639,
+   "landSqMi": 2467.649
+  },
+  {
+   "geoid": "37980",
+   "name": "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD",
+   "lat": 39.894958,
+   "lon": -75.311982,
+   "landSqMi": 4603.223
+  },
+  {
+   "geoid": "38060",
+   "name": "Phoenix-Mesa-Chandler, AZ",
+   "lat": 33.185765,
+   "lon": -112.067862,
+   "landSqMi": 14568.693
+  },
+  {
+   "geoid": "38240",
+   "name": "Pinehurst-Southern Pines, NC",
+   "lat": 35.308273,
+   "lon": -79.492723,
+   "landSqMi": 697.627
+  },
+  {
+   "geoid": "38300",
+   "name": "Pittsburgh, PA",
+   "lat": 40.471332,
+   "lon": -79.863986,
+   "landSqMi": 5640.319
+  },
+  {
+   "geoid": "38660",
+   "name": "Ponce, PR",
+   "lat": 18.022864,
+   "lon": -66.645703,
+   "landSqMi": 365.501
+  },
+  {
+   "geoid": "38860",
+   "name": "Portland-South Portland, ME",
+   "lat": 43.651417,
+   "lon": -70.418375,
+   "landSqMi": 2081.372
+  },
+  {
+   "geoid": "38900",
+   "name": "Portland-Vancouver-Hillsboro, OR-WA",
+   "lat": 45.600622,
+   "lon": -122.484378,
+   "landSqMi": 6687.393
+  },
+  {
+   "geoid": "38940",
+   "name": "Port St. Lucie, FL",
+   "lat": 27.228046,
+   "lon": -80.425388,
+   "landSqMi": 1115.697
+  },
+  {
+   "geoid": "39300",
+   "name": "Providence-Warwick, RI-MA",
+   "lat": 41.70684,
+   "lon": -71.286687,
+   "landSqMi": 1587.005
+  },
+  {
+   "geoid": "39340",
+   "name": "Provo-Orem-Lehi, UT",
+   "lat": 39.872067,
+   "lon": -112.359059,
+   "landSqMi": 5396.273
+  },
+  {
+   "geoid": "39380",
+   "name": "Pueblo, CO",
+   "lat": 38.162765,
+   "lon": -104.484668,
+   "landSqMi": 2386.591
+  },
+  {
+   "geoid": "39460",
+   "name": "Punta Gorda, FL",
+   "lat": 26.906396,
+   "lon": -82.003657,
+   "landSqMi": 681.117
+  },
+  {
+   "geoid": "39540",
+   "name": "Racine-Mount Pleasant, WI",
+   "lat": 42.780392,
+   "lon": -87.771599,
+   "landSqMi": 332.611
+  },
+  {
+   "geoid": "39580",
+   "name": "Raleigh-Cary, NC",
+   "lat": 35.756746,
+   "lon": -78.460441,
+   "landSqMi": 2118.426
+  },
+  {
+   "geoid": "39660",
+   "name": "Rapid City, SD",
+   "lat": 44.195108,
+   "lon": -102.916612,
+   "landSqMi": 7804.642
+  },
+  {
+   "geoid": "39740",
+   "name": "Reading, PA",
+   "lat": 40.413957,
+   "lon": -75.92686,
+   "landSqMi": 856.404
+  },
+  {
+   "geoid": "39820",
+   "name": "Redding, CA",
+   "lat": 40.760514,
+   "lon": -122.043556,
+   "landSqMi": 3775.651
+  },
+  {
+   "geoid": "39900",
+   "name": "Reno, NV",
+   "lat": 40.251057,
+   "lon": -119.555507,
+   "landSqMi": 8582.727
+  },
+  {
+   "geoid": "40140",
+   "name": "Riverside-San Bernardino-Ontario, CA",
+   "lat": 34.538476,
+   "lon": -116.134541,
+   "landSqMi": 27277.421
+  },
+  {
+   "geoid": "40340",
+   "name": "Rochester, MN",
+   "lat": 43.94981,
+   "lon": -92.33066,
+   "landSqMi": 2477.172
+  },
+  {
+   "geoid": "40380",
+   "name": "Rochester, NY",
+   "lat": 43.184718,
+   "lon": -77.556558,
+   "landSqMi": 2927.766
+  },
+  {
+   "geoid": "40420",
+   "name": "Rockford, IL",
+   "lat": 42.331183,
+   "lon": -89.042914,
+   "landSqMi": 793.799
+  },
+  {
+   "geoid": "40580",
+   "name": "Rocky Mount, NC",
+   "lat": 35.941045,
+   "lon": -77.798549,
+   "landSqMi": 1045.88
+  },
+  {
+   "geoid": "40660",
+   "name": "Rome, GA",
+   "lat": 34.26369,
+   "lon": -85.213685,
+   "landSqMi": 509.833
+  },
+  {
+   "geoid": "40900",
+   "name": "Sacramento-Roseville-Folsom, CA",
+   "lat": 38.790272,
+   "lon": -121.005643,
+   "landSqMi": 5093.183
+  },
+  {
+   "geoid": "40980",
+   "name": "Saginaw, MI",
+   "lat": 43.328267,
+   "lon": -84.05541,
+   "landSqMi": 800.807
+  },
+  {
+   "geoid": "41060",
+   "name": "St. Cloud, MN",
+   "lat": 45.593031,
+   "lon": -94.488363,
+   "landSqMi": 1751.185
+  },
+  {
+   "geoid": "41140",
+   "name": "St. Joseph, MO-KS",
+   "lat": 39.834843,
+   "lon": -94.783754,
+   "landSqMi": 1655.717
+  },
+  {
+   "geoid": "41180",
+   "name": "St. Louis, MO-IL",
+   "lat": 38.740211,
+   "lon": -90.345825,
+   "landSqMi": 7863.524
+  },
+  {
+   "geoid": "41420",
+   "name": "Salem, OR",
+   "lat": 44.903385,
+   "lon": -122.901757,
+   "landSqMi": 1921.764
+  },
+  {
+   "geoid": "41540",
+   "name": "Salisbury, MD",
+   "lat": 38.197279,
+   "lon": -75.769252,
+   "landSqMi": 694.176
+  },
+  {
+   "geoid": "41620",
+   "name": "Salt Lake City-Murray, UT",
+   "lat": 40.572887,
+   "lon": -112.953253,
+   "landSqMi": 7793.122
+  },
+  {
+   "geoid": "41700",
+   "name": "San Antonio-New Braunfels, TX",
+   "lat": 29.43306,
+   "lon": -98.606973,
+   "landSqMi": 7313.235
+  },
+  {
+   "geoid": "41780",
+   "name": "Sandusky, OH",
+   "lat": 41.519606,
+   "lon": -82.794568,
+   "landSqMi": 505.99
+  },
+  {
+   "geoid": "41860",
+   "name": "San Francisco-Oakland-Fremont, CA",
+   "lat": 37.773718,
+   "lon": -122.274432,
+   "landSqMi": 2469.803
+  },
+  {
+   "geoid": "41940",
+   "name": "San Jose-Sunnyvale-Santa Clara, CA",
+   "lat": 36.908472,
+   "lon": -121.371372,
+   "landSqMi": 2679.735
+  },
+  {
+   "geoid": "41980",
+   "name": "San Juan-Bayamón-Caguas, PR",
+   "lat": 18.294453,
+   "lon": -66.036844,
+   "landSqMi": 1438.219
+  },
+  {
+   "geoid": "42100",
+   "name": "Santa Cruz-Watsonville, CA",
+   "lat": 37.012347,
+   "lon": -122.007789,
+   "landSqMi": 445.106
+  },
+  {
+   "geoid": "42140",
+   "name": "Santa Fe, NM",
+   "lat": 35.514531,
+   "lon": -105.963972,
+   "landSqMi": 1910.38
+  },
+  {
+   "geoid": "42340",
+   "name": "Savannah, GA",
+   "lat": 32.109256,
+   "lon": -81.273287,
+   "landSqMi": 1349.112
+  },
+  {
+   "geoid": "42660",
+   "name": "Seattle-Tacoma-Bellevue, WA",
+   "lat": 47.490552,
+   "lon": -121.833977,
+   "landSqMi": 5870.215
+  },
+  {
+   "geoid": "42680",
+   "name": "Sebastian-Vero Beach-West Vero Corridor, FL",
+   "lat": 27.700528,
+   "lon": -80.574789,
+   "landSqMi": 502.553
+  },
+  {
+   "geoid": "43300",
+   "name": "Sherman-Denison, TX",
+   "lat": 33.624548,
+   "lon": -96.675777,
+   "landSqMi": 932.832
+  },
+  {
+   "geoid": "43340",
+   "name": "Shreveport-Bossier City, LA",
+   "lat": 32.437682,
+   "lon": -93.744884,
+   "landSqMi": 2595.604
+  },
+  {
+   "geoid": "43580",
+   "name": "Sioux City, IA-NE-SD",
+   "lat": 42.508037,
+   "lon": -96.311314,
+   "landSqMi": 1597.929
+  },
+  {
+   "geoid": "43640",
+   "name": "Slidell-Mandeville-Covington, LA",
+   "lat": 30.410022,
+   "lon": -89.951962,
+   "landSqMi": 845.267
+  },
+  {
+   "geoid": "43780",
+   "name": "South Bend-Mishawaka, IN-MI",
+   "lat": 41.774981,
+   "lon": -86.123014,
+   "landSqMi": 947.906
+  },
+  {
+   "geoid": "43900",
+   "name": "Spartanburg, SC",
+   "lat": 34.83462,
+   "lon": -81.842401,
+   "landSqMi": 1322.011
+  },
+  {
+   "geoid": "44060",
+   "name": "Spokane-Spokane Valley, WA",
+   "lat": 48.091618,
+   "lon": -117.663472,
+   "landSqMi": 4241.327
+  },
+  {
+   "geoid": "44100",
+   "name": "Springfield, IL",
+   "lat": 39.828621,
+   "lon": -89.696067,
+   "landSqMi": 1182.621
+  },
+  {
+   "geoid": "44140",
+   "name": "Springfield, MA",
+   "lat": 42.136198,
+   "lon": -72.635648,
+   "landSqMi": 617.005
+  },
+  {
+   "geoid": "44220",
+   "name": "Springfield, OH",
+   "lat": 39.917032,
+   "lon": -83.783676,
+   "landSqMi": 395.879
+  },
+  {
+   "geoid": "44300",
+   "name": "State College, PA",
+   "lat": 40.909322,
+   "lon": -77.847667,
+   "landSqMi": 1107.259
+  },
+  {
+   "geoid": "44420",
+   "name": "Staunton-Stuarts Draft, VA",
+   "lat": 38.160958,
+   "lon": -79.127632,
+   "landSqMi": 1001.964
+  },
+  {
+   "geoid": "44700",
+   "name": "Stockton-Lodi, CA",
+   "lat": 37.934982,
+   "lon": -121.272244,
+   "landSqMi": 1392.238
+  },
+  {
+   "geoid": "44940",
+   "name": "Sumter, SC",
+   "lat": 33.91614,
+   "lon": -80.382376,
+   "landSqMi": 665.078
+  },
+  {
+   "geoid": "45060",
+   "name": "Syracuse, NY",
+   "lat": 43.006516,
+   "lon": -76.196134,
+   "landSqMi": 2384.863
+  },
+  {
+   "geoid": "45220",
+   "name": "Tallahassee, FL",
+   "lat": 30.346366,
+   "lon": -84.267001,
+   "landSqMi": 2389.3
+  },
+  {
+   "geoid": "45940",
+   "name": "Trenton-Princeton, NJ",
+   "lat": 40.282503,
+   "lon": -74.703724,
+   "landSqMi": 224.482
+  },
+  {
+   "geoid": "46060",
+   "name": "Tucson, AZ",
+   "lat": 32.128038,
+   "lon": -111.783657,
+   "landSqMi": 9188.683
+  },
+  {
+   "geoid": "46140",
+   "name": "Tulsa, OK",
+   "lat": 36.254442,
+   "lon": -96.177298,
+   "landSqMi": 6270.277
+  },
+  {
+   "geoid": "46340",
+   "name": "Tyler, TX",
+   "lat": 32.375105,
+   "lon": -95.268939,
+   "landSqMi": 921.485
+  },
+  {
+   "geoid": "46700",
+   "name": "Vallejo, CA",
+   "lat": 38.267226,
+   "lon": -121.939594,
+   "landSqMi": 821.736
+  },
+  {
+   "geoid": "47020",
+   "name": "Victoria, TX",
+   "lat": 28.731455,
+   "lon": -97.196993,
+   "landSqMi": 1734.098
+  },
+  {
+   "geoid": "47220",
+   "name": "Vineland, NJ",
+   "lat": 39.328434,
+   "lon": -75.121628,
+   "landSqMi": 483.38
+  },
+  {
+   "geoid": "47260",
+   "name": "Virginia Beach-Chesapeake-Norfolk, VA-NC",
+   "lat": 36.837289,
+   "lon": -76.391849,
+   "landSqMi": 3201.874
+  },
+  {
+   "geoid": "47460",
+   "name": "Walla Walla, WA",
+   "lat": 46.254606,
+   "lon": -118.48037,
+   "landSqMi": 1270.033
+  },
+  {
+   "geoid": "47580",
+   "name": "Warner Robins, GA",
+   "lat": 32.492806,
+   "lon": -83.711084,
+   "landSqMi": 526.439
+  },
+  {
+   "geoid": "47900",
+   "name": "Washington-Arlington-Alexandria, DC-VA-MD-WV",
+   "lat": 38.829787,
+   "lon": -77.495684,
+   "landSqMi": 6033.706
+  },
+  {
+   "geoid": "47930",
+   "name": "Waterbury-Shelton, CT",
+   "lat": 41.518931,
+   "lon": -73.087906,
+   "landSqMi": 412.784
+  },
+  {
+   "geoid": "48140",
+   "name": "Wausau, WI",
+   "lat": 44.898036,
+   "lon": -89.757823,
+   "landSqMi": 1545.238
+  },
+  {
+   "geoid": "48260",
+   "name": "Weirton-Steubenville, WV-OH",
+   "lat": 40.388914,
+   "lon": -80.701966,
+   "landSqMi": 579.93
+  },
+  {
+   "geoid": "48620",
+   "name": "Wichita, KS",
+   "lat": 37.637896,
+   "lon": -97.246287,
+   "landSqMi": 4148.141
+  },
+  {
+   "geoid": "48680",
+   "name": "Wildwood-The Villages, FL",
+   "lat": 28.713326,
+   "lon": -82.069522,
+   "landSqMi": 557.144
+  },
+  {
+   "geoid": "48700",
+   "name": "Williamsport, PA",
+   "lat": 41.343882,
+   "lon": -77.055262,
+   "landSqMi": 1228.92
+  },
+  {
+   "geoid": "49020",
+   "name": "Winchester, VA-WV",
+   "lat": 39.272974,
+   "lon": -78.471828,
+   "landSqMi": 1062.73
+  },
+  {
+   "geoid": "49180",
+   "name": "Winston-Salem, NC",
+   "lat": 36.078852,
+   "lon": -80.345064,
+   "landSqMi": 2009.006
+  },
+  {
+   "geoid": "49340",
+   "name": "Worcester, MA",
+   "lat": 42.311693,
+   "lon": -71.940282,
+   "landSqMi": 1510.678
+  },
+  {
+   "geoid": "49620",
+   "name": "York-Hanover, PA",
+   "lat": 39.921751,
+   "lon": -76.728889,
+   "landSqMi": 904.352
+  },
+  {
+   "geoid": "49660",
+   "name": "Youngstown-Warren, OH",
+   "lat": 41.195092,
+   "lon": -80.76508,
+   "landSqMi": 1029.078
+  },
+  {
+   "geoid": "49700",
+   "name": "Yuba City, CA",
+   "lat": 39.160969,
+   "lon": -121.511833,
+   "landSqMi": 1234.702
+  },
+  {
+   "geoid": "17020",
+   "name": "Chico, CA",
+   "lat": 39.665336,
+   "lon": -121.603209,
+   "landSqMi": 1636.512
+  },
+  {
+   "geoid": "42020",
+   "name": "San Luis Obispo-Paso Robles, CA",
+   "lat": 35.388189,
+   "lon": -120.448897,
+   "landSqMi": 3300.842
+  },
+  {
+   "geoid": "25060",
+   "name": "Gulfport-Biloxi, MS",
+   "lat": 30.480153,
+   "lon": -88.999297,
+   "landSqMi": 2215.911
+  },
+  {
+   "geoid": "34060",
+   "name": "Morgantown, WV",
+   "lat": 39.525155,
+   "lon": -79.801912,
+   "landSqMi": 1008.907
+  },
+  {
+   "geoid": "40060",
+   "name": "Richmond, VA",
+   "lat": 37.412237,
+   "lon": -77.44372,
+   "landSqMi": 4364.346
+  },
+  {
+   "geoid": "48060",
+   "name": "Watertown-Fort Drum, NY",
+   "lat": 43.996389,
+   "lon": -76.052968,
+   "landSqMi": 1267.93
+  },
+  {
+   "geoid": "27100",
+   "name": "Jackson, MI",
+   "lat": 42.248474,
+   "lon": -84.420868,
+   "landSqMi": 701.903
+  },
+  {
+   "geoid": "36100",
+   "name": "Ocala, FL",
+   "lat": 29.202805,
+   "lon": -82.0431,
+   "landSqMi": 1588.434
+  },
+  {
+   "geoid": "41100",
+   "name": "St. George, UT",
+   "lat": 37.262531,
+   "lon": -113.4878,
+   "landSqMi": 2427.589
+  },
+  {
+   "geoid": "43100",
+   "name": "Sheboygan, WI",
+   "lat": 43.738713,
+   "lon": -87.731531,
+   "landSqMi": 511.519
+  },
+  {
+   "geoid": "13140",
+   "name": "Beaumont-Port Arthur, TX",
+   "lat": 30.075928,
+   "lon": -94.202705,
+   "landSqMi": 2101.107
+  },
+  {
+   "geoid": "22140",
+   "name": "Farmington, NM",
+   "lat": 36.511624,
+   "lon": -108.324578,
+   "landSqMi": 5517.232
+  },
+  {
+   "geoid": "24140",
+   "name": "Goldsboro, NC",
+   "lat": 35.35419,
+   "lon": -78.00867,
+   "landSqMi": 553.922
+  },
+  {
+   "geoid": "26140",
+   "name": "Homosassa Springs, FL",
+   "lat": 28.850292,
+   "lon": -82.595552,
+   "landSqMi": 581.934
+  },
+  {
+   "geoid": "39150",
+   "name": "Prescott Valley-Prescott, AZ",
+   "lat": 34.631071,
+   "lon": -112.577225,
+   "landSqMi": 8122.932
+  },
+  {
+   "geoid": "27180",
+   "name": "Jackson, TN",
+   "lat": 35.753215,
+   "lon": -88.882692,
+   "landSqMi": 1711.184
+  },
+  {
+   "geoid": "44180",
+   "name": "Springfield, MO",
+   "lat": 37.36087,
+   "lon": -93.180262,
+   "landSqMi": 3006.973
+  },
+  {
+   "geoid": "42200",
+   "name": "Santa Maria-Santa Barbara, CA",
+   "lat": 34.536677,
+   "lon": -120.038364,
+   "landSqMi": 2733.941
+  },
+  {
+   "geoid": "13220",
+   "name": "Beckley, WV",
+   "lat": 37.905659,
+   "lon": -81.163748,
+   "landSqMi": 1266.924
+  },
+  {
+   "geoid": "16220",
+   "name": "Casper, WY",
+   "lat": 42.977645,
+   "lon": -106.768219,
+   "landSqMi": 5340.537
+  },
+  {
+   "geoid": "20220",
+   "name": "Dubuque, IA",
+   "lat": 42.463481,
+   "lon": -90.878771,
+   "landSqMi": 608.299
+  },
+  {
+   "geoid": "22220",
+   "name": "Fayetteville-Springdale-Rogers, AR",
+   "lat": 36.116394,
+   "lon": -94.079545,
+   "landSqMi": 2623.433
+  },
+  {
+   "geoid": "24220",
+   "name": "Grand Forks, ND-MN",
+   "lat": 47.835929,
+   "lon": -96.842681,
+   "landSqMi": 3407.215
+  },
+  {
+   "geoid": "40220",
+   "name": "Roanoke, VA",
+   "lat": 37.286226,
+   "lon": -79.946935,
+   "landSqMi": 1867.572
+  },
+  {
+   "geoid": "42220",
+   "name": "Santa Rosa-Petaluma, CA",
+   "lat": 38.525182,
+   "lon": -122.92611,
+   "landSqMi": 1575.337
+  },
+  {
+   "geoid": "46220",
+   "name": "Tuscaloosa, AL",
+   "lat": 33.097877,
+   "lon": -87.799147,
+   "landSqMi": 3493.279
+  },
+  {
+   "geoid": "12260",
+   "name": "Augusta-Richmond County, GA-SC",
+   "lat": 33.460371,
+   "lon": -81.982833,
+   "landSqMi": 3480.699
+  },
+  {
+   "geoid": "11260",
+   "name": "Anchorage, AK",
+   "lat": 62.212784,
+   "lon": -149.678222,
+   "landSqMi": 26414.402
+  },
+  {
+   "geoid": "15260",
+   "name": "Brunswick-St. Simons, GA",
+   "lat": 31.301739,
+   "lon": -81.588909,
+   "landSqMi": 1294.205
+  },
+  {
+   "geoid": "24260",
+   "name": "Grand Island, NE",
+   "lat": 41.083926,
+   "lon": -98.374218,
+   "landSqMi": 1603.593
+  },
+  {
+   "geoid": "17300",
+   "name": "Clarksville, TN-KY",
+   "lat": 36.69571,
+   "lon": -87.624307,
+   "landSqMi": 2158.038
+  },
+  {
+   "geoid": "24300",
+   "name": "Grand Junction, CO",
+   "lat": 39.019524,
+   "lon": -108.460571,
+   "landSqMi": 3328.721
+  },
+  {
+   "geoid": "30300",
+   "name": "Lewiston, ID-WA",
+   "lat": 46.251696,
+   "lon": -116.925017,
+   "landSqMi": 1484.396
+  },
+  {
+   "geoid": "46300",
+   "name": "Twin Falls, ID",
+   "lat": 42.440397,
+   "lon": -114.568729,
+   "landSqMi": 2519.257
+  },
+  {
+   "geoid": "45300",
+   "name": "Tampa-St. Petersburg-Clearwater, FL",
+   "lat": 28.120541,
+   "lon": -82.525188,
+   "landSqMi": 2515.9
+  },
+  {
+   "geoid": "47300",
+   "name": "Visalia, CA",
+   "lat": 36.228834,
+   "lon": -118.781055,
+   "landSqMi": 4823.9
+  },
+  {
+   "geoid": "48300",
+   "name": "Wenatchee-East Wenatchee, WA",
+   "lat": 47.76611,
+   "lon": -120.270197,
+   "landSqMi": 4740.422
+  },
+  {
+   "geoid": "27340",
+   "name": "Jacksonville, NC",
+   "lat": 34.763109,
+   "lon": -77.499469,
+   "landSqMi": 762.085
+  },
+  {
+   "geoid": "31340",
+   "name": "Lynchburg, VA",
+   "lat": 37.364926,
+   "lon": -79.216689,
+   "landSqMi": 2120.476
+  },
+  {
+   "geoid": "38340",
+   "name": "Pittsfield, MA",
+   "lat": 42.371493,
+   "lon": -73.217928,
+   "landSqMi": 926.874
+  },
+  {
+   "geoid": "37340",
+   "name": "Palm Bay-Melbourne-Titusville, FL",
+   "lat": 28.298311,
+   "lon": -80.700333,
+   "landSqMi": 1014.967
+  },
+  {
+   "geoid": "13380",
+   "name": "Bellingham, WA",
+   "lat": 48.842653,
+   "lon": -121.836432,
+   "landSqMi": 2107.949
+  },
+  {
+   "geoid": "22380",
+   "name": "Flagstaff, AZ",
+   "lat": 35.829692,
+   "lon": -111.773728,
+   "landSqMi": 18616.352
+  },
+  {
+   "geoid": "26380",
+   "name": "Houma-Bayou Cane-Thibodaux, LA",
+   "lat": 29.33413,
+   "lon": -90.843674,
+   "landSqMi": 2297.681
+  },
+  {
+   "geoid": "47380",
+   "name": "Waco, TX",
+   "lat": 31.5921,
+   "lon": -97.286018,
+   "landSqMi": 2785.157
+  },
+  {
+   "geoid": "12420",
+   "name": "Austin-Round Rock-San Marcos, TX",
+   "lat": 30.249744,
+   "lon": -97.649842,
+   "landSqMi": 4219.781
+  },
+  {
+   "geoid": "21420",
+   "name": "Enid, OK",
+   "lat": 36.378132,
+   "lon": -97.788741,
+   "landSqMi": 1058.507
+  },
+  {
+   "geoid": "29420",
+   "name": "Lake Havasu City-Kingman, AZ",
+   "lat": 35.717705,
+   "lon": -113.749689,
+   "landSqMi": 13332.117
+  },
+  {
+   "geoid": "43420",
+   "name": "Sierra Vista-Douglas, AZ",
+   "lat": 31.840129,
+   "lon": -109.775163,
+   "landSqMi": 6209.863
+  },
+  {
+   "geoid": "49420",
+   "name": "Yakima, WA",
+   "lat": 46.456558,
+   "lon": -120.740145,
+   "landSqMi": 4294.512
+  },
+  {
+   "geoid": "13460",
+   "name": "Bend, OR",
+   "lat": 44.153837,
+   "lon": -120.887072,
+   "landSqMi": 7778.235
+  },
+  {
+   "geoid": "23460",
+   "name": "Gadsden, AL",
+   "lat": 34.047641,
+   "lon": -86.034263,
+   "landSqMi": 535.144
+  },
+  {
+   "geoid": "37460",
+   "name": "Panama City-Panama City Beach, FL",
+   "lat": 30.273241,
+   "lon": -85.642089,
+   "landSqMi": 1343.299
+  },
+  {
+   "geoid": "45460",
+   "name": "Terre Haute, IN",
+   "lat": 39.392389,
+   "lon": -87.347096,
+   "landSqMi": 1465.322
+  },
+  {
+   "geoid": "11500",
+   "name": "Anniston-Oxford, AL",
+   "lat": 33.770516,
+   "lon": -85.827909,
+   "landSqMi": 605.893
+  },
+  {
+   "geoid": "10500",
+   "name": "Albany, GA",
+   "lat": 31.644686,
+   "lon": -84.110718,
+   "landSqMi": 1590.971
+  },
+  {
+   "geoid": "19500",
+   "name": "Decatur, IL",
+   "lat": 39.860237,
+   "lon": -88.961529,
+   "landSqMi": 580.548
+  },
+  {
+   "geoid": "22500",
+   "name": "Florence, SC",
+   "lat": 34.153574,
+   "lon": -79.806164,
+   "landSqMi": 1361.137
+  },
+  {
+   "geoid": "24500",
+   "name": "Great Falls, MT",
+   "lat": 47.316575,
+   "lon": -111.350262,
+   "landSqMi": 2698.206
+  },
+  {
+   "geoid": "33500",
+   "name": "Minot, ND",
+   "lat": 48.320242,
+   "lon": -101.19801,
+   "landSqMi": 4764.215
+  },
+  {
+   "geoid": "41500",
+   "name": "Salinas, CA",
+   "lat": 36.240104,
+   "lon": -121.315578,
+   "landSqMi": 3281.718
+  },
+  {
+   "geoid": "45500",
+   "name": "Texarkana, TX-AR",
+   "lat": 33.478373,
+   "lon": -94.207162,
+   "landSqMi": 2040.234
+  },
+  {
+   "geoid": "46520",
+   "name": "Urban Honolulu, HI",
+   "lat": 21.461365,
+   "lon": -158.201974,
+   "landSqMi": 600.786
+  },
+  {
+   "geoid": "12540",
+   "name": "Bakersfield-Delano, CA",
+   "lat": 35.346629,
+   "lon": -118.729506,
+   "landSqMi": 8134.673
+  },
+  {
+   "geoid": "22540",
+   "name": "Fond du Lac, WI",
+   "lat": 43.754722,
+   "lon": -88.493284,
+   "landSqMi": 719.566
+  },
+  {
+   "geoid": "29540",
+   "name": "Lancaster, PA",
+   "lat": 40.041992,
+   "lon": -76.250198,
+   "landSqMi": 943.924
+  },
+  {
+   "geoid": "33540",
+   "name": "Missoula, MT",
+   "lat": 47.069545,
+   "lon": -114.262668,
+   "landSqMi": 3812.63
+  },
+  {
+   "geoid": "38540",
+   "name": "Pocatello, ID",
+   "lat": 42.692921,
+   "lon": -112.228982,
+   "landSqMi": 1112.489
+  },
+  {
+   "geoid": "42540",
+   "name": "Scranton--Wilkes-Barre, PA",
+   "lat": 41.322881,
+   "lon": -75.898188,
+   "landSqMi": 1745.951
+  },
+  {
+   "geoid": "46540",
+   "name": "Utica-Rome, NY",
+   "lat": 43.33228,
+   "lon": -75.173189,
+   "landSqMi": 2623.028
+  },
+  {
+   "geoid": "48540",
+   "name": "Wheeling, WV-OH",
+   "lat": 39.977687,
+   "lon": -80.854826,
+   "landSqMi": 943.388
+  },
+  {
+   "geoid": "14580",
+   "name": "Bozeman, MT",
+   "lat": 45.518054,
+   "lon": -111.163921,
+   "landSqMi": 2605.354
+  },
+  {
+   "geoid": "20580",
+   "name": "Eagle Pass, TX",
+   "lat": 28.729787,
+   "lon": -100.316678,
+   "landSqMi": 1279.476
+  },
+  {
+   "geoid": "12620",
+   "name": "Bangor, ME",
+   "lat": 45.409284,
+   "lon": -68.666616,
+   "landSqMi": 3397.186
+  },
+  {
+   "geoid": "43620",
+   "name": "Sioux Falls, SD-MN",
+   "lat": 43.525658,
+   "lon": -96.875416,
+   "landSqMi": 3057.869
+  },
+  {
+   "geoid": "21660",
+   "name": "Eugene-Springfield, OR",
+   "lat": 43.928334,
+   "lon": -122.897581,
+   "landSqMi": 4554.092
+  },
+  {
+   "geoid": "22660",
+   "name": "Fort Collins-Loveland, CO",
+   "lat": 40.658093,
+   "lon": -105.486764,
+   "landSqMi": 2595.746
+  },
+  {
+   "geoid": "28660",
+   "name": "Killeen-Temple, TX",
+   "lat": 31.20273,
+   "lon": -97.789638,
+   "landSqMi": 2818.612
+  },
+  {
+   "geoid": "41660",
+   "name": "San Angelo, TX",
+   "lat": 31.36531,
+   "lon": -100.659418,
+   "landSqMi": 2573.864
+  },
+  {
+   "geoid": "46660",
+   "name": "Valdosta, GA",
+   "lat": 30.827158,
+   "lon": -83.243555,
+   "landSqMi": 1607.38
+  },
+  {
+   "geoid": "48660",
+   "name": "Wichita Falls, TX",
+   "lat": 33.776144,
+   "lon": -98.501907,
+   "landSqMi": 2619.642
+  },
+  {
+   "geoid": "16700",
+   "name": "Charleston-North Charleston, SC",
+   "lat": 33.01754,
+   "lon": -80.009947,
+   "landSqMi": 2590.167
+  },
+  {
+   "geoid": "29700",
+   "name": "Laredo, TX",
+   "lat": 27.760799,
+   "lon": -99.340752,
+   "landSqMi": 3361.498
+  },
+  {
+   "geoid": "42700",
+   "name": "Sebring, FL",
+   "lat": 27.34108,
+   "lon": -81.342353,
+   "landSqMi": 1017.664
+  },
+  {
+   "geoid": "13740",
+   "name": "Billings, MT",
+   "lat": 45.63714,
+   "lon": -108.832361,
+   "landSqMi": 6477.82
+  },
+  {
+   "geoid": "25740",
+   "name": "Helena, MT",
+   "lat": 46.715671,
+   "lon": -112.1352,
+   "landSqMi": 6307.737
+  },
+  {
+   "geoid": "31740",
+   "name": "Manhattan, KS",
+   "lat": 39.268424,
+   "lon": -96.562242,
+   "landSqMi": 1835.046
+  },
+  {
+   "geoid": "41740",
+   "name": "San Diego-Chula Vista-Carlsbad, CA",
+   "lat": 33.023604,
+   "lon": -116.776117,
+   "landSqMi": 4210.462
+  },
+  {
+   "geoid": "49740",
+   "name": "Yuma, AZ",
+   "lat": 32.773942,
+   "lon": -113.910905,
+   "landSqMi": 5513.82
+  },
+  {
+   "geoid": "10780",
+   "name": "Alexandria, LA",
+   "lat": 31.325348,
+   "lon": -92.546803,
+   "landSqMi": 1967.86
+  },
+  {
+   "geoid": "13780",
+   "name": "Binghamton, NY",
+   "lat": 42.163928,
+   "lon": -76.022943,
+   "landSqMi": 1224.417
+  },
+  {
+   "geoid": "17780",
+   "name": "College Station-Bryan, TX",
+   "lat": 30.754392,
+   "lon": -96.488537,
+   "landSqMi": 2100.375
+  },
+  {
+   "geoid": "45780",
+   "name": "Toledo, OH",
+   "lat": 41.544357,
+   "lon": -83.690777,
+   "landSqMi": 1362.279
+  },
+  {
+   "geoid": "16820",
+   "name": "Charlottesville, VA",
+   "lat": 37.949084,
+   "lon": -78.593206,
+   "landSqMi": 1644.532
+  },
+  {
+   "geoid": "17820",
+   "name": "Colorado Springs, CO",
+   "lat": 38.845507,
+   "lon": -104.638728,
+   "landSqMi": 2683.557
+  },
+  {
+   "geoid": "21820",
+   "name": "Fairbanks-College, AK",
+   "lat": 64.670454,
+   "lon": -146.496061,
+   "landSqMi": 7334.824
+  },
+  {
+   "geoid": "45820",
+   "name": "Topeka, KS",
+   "lat": 39.041389,
+   "lon": -95.802639,
+   "landSqMi": 3232.699
+  },
+  {
+   "geoid": "30860",
+   "name": "Logan, UT-ID",
+   "lat": 41.88902,
+   "lon": -111.787438,
+   "landSqMi": 1827.706
+  },
+  {
+   "geoid": "37860",
+   "name": "Pensacola-Ferry Pass-Brent, FL",
+   "lat": 30.608557,
+   "lon": -87.158547,
+   "landSqMi": 1669.399
+  },
+  {
+   "geoid": "18880",
+   "name": "Crestview-Fort Walton Beach-Destin, FL",
+   "lat": 30.594941,
+   "lon": -86.358164,
+   "landSqMi": 1968.129
+  },
+  {
+   "geoid": "13900",
+   "name": "Bismarck, ND",
+   "lat": 46.887031,
+   "lon": -100.979592,
+   "landSqMi": 4280.986
+  },
+  {
+   "geoid": "22900",
+   "name": "Fort Smith, AR-OK",
+   "lat": 35.429088,
+   "lon": -94.448349,
+   "landSqMi": 1800.03
+  },
+  {
+   "geoid": "45900",
+   "name": "Traverse City, MI",
+   "lat": 44.952324,
+   "lon": -85.90832,
+   "landSqMi": 1690.977
+  },
+  {
+   "geoid": "48900",
+   "name": "Wilmington, NC",
+   "lat": 34.253691,
+   "lon": -78.041674,
+   "landSqMi": 1913.594
+  },
+  {
+   "geoid": "16940",
+   "name": "Cheyenne, WY",
+   "lat": 41.29283,
+   "lon": -104.660395,
+   "landSqMi": 2685.864
+  },
+  {
+   "geoid": "20940",
+   "name": "El Centro, CA",
+   "lat": 33.040814,
+   "lon": -115.3554,
+   "landSqMi": 4175.528
+  },
+  {
+   "geoid": "25940",
+   "name": "Hilton Head Island-Bluffton-Port Royal, SC",
+   "lat": 32.386792,
+   "lon": -80.830877,
+   "landSqMi": 1231.156
+  },
+  {
+   "geoid": "47940",
+   "name": "Waterloo-Cedar Falls, IA",
+   "lat": 42.536796,
+   "lon": -92.471608,
+   "landSqMi": 1503.108
+  },
+  {
+   "geoid": "13980",
+   "name": "Blacksburg-Christiansburg-Radford, VA",
+   "lat": 37.121364,
+   "lon": -80.531517,
+   "landSqMi": 1454.512
+  },
+  {
+   "geoid": "27980",
+   "name": "Kahului-Wailuku, HI",
+   "lat": 20.855931,
+   "lon": -156.60155,
+   "landSqMi": 1173.531
+  },
+  {
+   "geoid": "30980",
+   "name": "Longview, TX",
+   "lat": 32.431646,
+   "lon": -94.684833,
+   "landSqMi": 2680.618
+  },
+  {
+   "geoid": "36980",
+   "name": "Owensboro, KY",
+   "lat": 37.664375,
+   "lon": -87.147386,
+   "landSqMi": 710.923
+  }
+ ]
+}
