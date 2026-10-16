@@ -2,14 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Recipe } from "../data-check/plan";
 import { createQlooClient } from "../qloo/client";
-import { createRunContext } from "../qloo/context";
 import { FixtureCache } from "../qloo/fixtures";
-import { clientLookup } from "../qloo/resolve";
 import { looksLikeInstructions } from "./claude";
+import { intakeQloo } from "./qloo";
 import { resolveTag, tagPhrase, tagRequest } from "./tags";
 
-// Strict replay of the real recordings: an unrecorded request throws instead of going live.
-const lookup = () => clientLookup(createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) }), createRunContext({ runId: "test", cap: 0 }));
+// Strict replay of the real recordings through the intake's lookup: an unrecorded request throws.
+const lookup = () => intakeQloo(createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) }), "test").lookup;
 const recipe = (name: string) => JSON.parse(readFileSync(`fixtures/recipes/${name}.json`, "utf8")) as Recipe;
 
 describe("tagRequest", () => {
@@ -19,6 +18,7 @@ describe("tagRequest", () => {
       id: "tags--music--lo-fi-hip-hop",
       endpoint: "/v2/tags",
       params: { "filter.query": "lo fi hip hop", "filter.tag.types": ["urn:tag:genre:music"], take: 10 },
+      label: 'Finding a Qloo music genre tag for "Lo-fi hip hop"',
     });
     expect(recipe("pool-resolve").requests.find((r) => r.id === music?.id)?.params).toEqual(music?.params);
     const general = tagRequest("general", "Hot sauce");

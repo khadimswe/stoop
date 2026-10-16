@@ -4,10 +4,11 @@
 // lib/qloo/match.ts); otherwise the phrase is unresolved and dropped. Tag names Qloo returns pass
 // the guardrails or are skipped ("Teen Pop" is never a seed). The params follow the Gate 2
 // recordings (take 10; music and place genres typed, anything else untyped), so replays hit.
+import type { Evidence } from "../evidence";
 import { checkText } from "../guardrails";
 import { ENDPOINTS } from "../qloo/constants";
 import { bestTag, normalizeName } from "../qloo/match";
-import type { Lookup, PlannedRequest } from "../qloo/resolve";
+import type { LabeledRequest, ReceiptLookup } from "../qloo/resolve";
 import { tagsResponse } from "../qloo/types";
 
 /**
@@ -34,7 +35,9 @@ export function tagPhrase(phrase: string): string | null {
   return normalized;
 }
 
-export function tagRequest(kind: TasteTagKind, phrase: string): PlannedRequest | null {
+const KIND_LABELS: Record<TasteTagKind, string> = { music: "a Qloo music genre tag", place: "a Qloo place type tag", general: "a Qloo tag" };
+
+export function tagRequest(kind: TasteTagKind, phrase: string): LabeledRequest | null {
   const query = tagPhrase(phrase);
   if (!query) return null;
   const type = TASTE_TAG_KINDS[kind];
@@ -42,28 +45,33 @@ export function tagRequest(kind: TasteTagKind, phrase: string): PlannedRequest |
     id: `tags--${kind}--${query.replace(/ /g, "-")}`,
     endpoint: ENDPOINTS.tags,
     params: { "filter.query": query, ...(type ? { "filter.tag.types": [type] } : {}), take: TAG_TAKE },
+    label: `Finding ${KIND_LABELS[kind]} for "${collapsePhrase(phrase)}"`,
   };
 }
+
+const collapsePhrase = (phrase: string) => phrase.replace(/\s+/g, " ").trim().slice(0, MAX_PHRASE_CHARS);
 
 export interface ResolvedTag {
   /** The phrase as offered. */
   query: string;
   kind: TasteTagKind;
-  /** The /v2/tags request behind the answer (the receipt), or null when the phrase was unusable. */
+  /** The /v2/tags request id behind the answer, or null when the phrase was unusable (no call). */
   request: string | null;
+  /** The receipt for that call. */
+  evidence?: Evidence;
   tag?: { id: string; name: string; type: string | null; similarity: number };
   /** Why there is no tag. */
   miss?: "unusable-phrase" | "no-match";
 }
 
 /** One /v2/tags call (none for an unusable phrase). The best matching tag of the kind, or a miss. */
-export async function resolveTag(kind: TasteTagKind, phrase: string, lookup: Lookup): Promise<ResolvedTag> {
+export async function resolveTag(kind: TasteTagKind, phrase: string, lookup: ReceiptLookup): Promise<ResolvedTag> {
   const request = tagRequest(kind, phrase);
   if (!request) return { query: phrase, kind, request: null, miss: "unusable-phrase" };
-  const tags = await lookup(request, tagsResponse);
+  const { data: tags, evidence } = await lookup(request, tagsResponse);
   const type = TASTE_TAG_KINDS[kind];
   const candidates = tags.filter((tag) => (type === null || tag.type === type) && checkText(tag.name).length === 0);
   const best = bestTag(phrase, candidates);
-  if (!best) return { query: phrase, kind, request: request.id, miss: "no-match" };
-  return { query: phrase, kind, request: request.id, tag: { id: best.tag.id, name: best.tag.name, type: best.tag.type, similarity: best.similarity } };
+  if (!best) return { query: phrase, kind, request: request.id, evidence, miss: "no-match" };
+  return { query: phrase, kind, request: request.id, evidence, tag: { id: best.tag.id, name: best.tag.name, type: best.tag.type, similarity: best.similarity } };
 }
