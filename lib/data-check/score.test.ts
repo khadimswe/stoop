@@ -74,6 +74,11 @@ describe("demographics", () => {
     expect(bucketsForBand("College students and young adults, 18 to 24, who want basics")).toEqual(["24_and_younger"]);
     expect(bucketsForBand("Home cooks, 25 to 40.")).toEqual(["25_to_29", "30_to_34", "35_to_44"]);
     expect(bucketsForBand("no band")).toEqual([]);
+    // Touching a bucket by a year or two doesn't state it; a very narrow band states the bucket it falls in.
+    expect(bucketsForBand("Commuters, 25 to 45")).toEqual(["25_to_29", "30_to_34", "35_to_44"]);
+    expect(bucketsForBand("Remote workers, 28 to 45")).toEqual(["30_to_34", "35_to_44"]);
+    expect(bucketsForBand("Grad students, 21 to 22")).toEqual(["24_and_younger"]);
+    expect(bucketsForBand("Early-career, 29 to 30")).toEqual(["25_to_29", "30_to_34"]);
   });
 });
 

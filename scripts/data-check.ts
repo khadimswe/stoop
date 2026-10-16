@@ -2,7 +2,7 @@
 // reference panels, and analyzes the recordings in replay mode (QLOO_MODE=fixtures semantics: every
 // read goes through the real client and a FixtureCache; a missing recording throws, nothing goes live).
 //
-//   npm run data-check -- plan resolve|audience|segments|scoring|missing
+//   npm run data-check -- plan resolve|audience|segments|scoring|missing|reference
 //   npm run data-check -- panels
 //   npm run data-check -- analyze
 import { existsSync } from "node:fs";
@@ -17,17 +17,21 @@ import { cacheKey } from "../lib/qloo/params";
 import { seedType } from "../lib/demo/seed-types";
 import {
   buildReferenceHeatmap,
-  liftByMetro,
-  localityEcho,
-  localityMatch,
+  COVERAGE_FLOOR,
+  gridCoverage,
+  rankCities,
+  type RankedCity,
+  type ReferenceSets,
+  acceptLocality,
+  localityName,
   METROS,
+  placeAnchor,
   shortMetroName,
   type HeatmapPoint,
-  type MetroLift,
   type ReferenceHeatmap,
 } from "../lib/geo/metros";
 import type { AgeBucket } from "../lib/qloo/constants";
-import { demographicsResponse, heatmapResponse, insightsEntitiesResponse, insightsTagsResponse, type QlooEntity, type QlooTag } from "../lib/qloo/types";
+import { demographicsResponse, heatmapResponse, insightsEntitiesResponse, insightsTagsResponse, searchResponse, type QlooEntity, type QlooTag } from "../lib/qloo/types";
 import {
   ageBandLabel,
   ageGap,
@@ -51,6 +55,7 @@ import {
   segmentId,
   audienceId,
   audienceRequests,
+  localityRequest,
   ENTITY_TYPES_SCORED,
   scoringRequests,
   segmentRequests,
@@ -68,6 +73,7 @@ import {
   type ControlText,
   type Lookup,
   type MappedTag,
+  type PlannedRequest,
   type Recipe,
   type Resolved,
 } from "../lib/data-check/plan";
@@ -148,7 +154,8 @@ export interface Audience {
   seedIds: string[];
   skew: ReturnType<typeof meanSkew>;
   buckets: AgeBucket[];
-  metros: MetroLift[];
+  metros: RankedCity[];
+  smallSetOnly: ReturnType<typeof rankCities>["smallSetOnly"];
   cells: HeatmapPoint[];
   entities: Record<ScoredType, QlooEntity[]>;
   tags: Record<TagKind, QlooTag[]>;
@@ -160,37 +167,102 @@ function audienceRequest(resolution: Resolution, what: string) {
   return request;
 }
 
-async function readAudience(resolution: Resolution, cells: HeatmapPoint[], reference: ReferenceHeatmap, lookup: Lookup): Promise<Audience> {
+async function readAudience(resolution: Resolution, cells: HeatmapPoint[], sets: ReferenceSets, lookup: Lookup): Promise<Audience> {
   const skew = meanSkew(await lookup(audienceRequest(resolution, "demographics"), demographicsResponse));
   const entities = {} as Record<ScoredType, QlooEntity[]>;
   for (const type of ENTITY_TYPES_SCORED) entities[type] = await lookup(audienceRequest(resolution, type), insightsEntitiesResponse);
   const tags = {} as Record<TagKind, QlooTag[]>;
   for (const kind of Object.keys(TAG_KINDS) as TagKind[]) tags[kind] = await lookup(audienceRequest(resolution, `tags-${kind}`), insightsTagsResponse);
-  // This audience is one of the 9 reference audiences, so its own cells are left out of the reference.
-  const metros = liftByMetro(cells, reference, { own: true });
-  return { resolution, seedIds: seedIds(resolution), skew, buckets: pickSegmentBuckets(skew.age), metros, cells, entities, tags };
+  // This audience is one of the reference audiences, so its own cells are left out (leave-one-out).
+  const { cities, smallSetOnly } = rankCities(cells, sets, { own: true });
+  return { resolution, seedIds: seedIds(resolution), skew, buckets: pickSegmentBuckets(skew.age), metros: cities, smallSetOnly, cells, entities, tags };
 }
 
-async function readAllAudiences(): Promise<{ audiences: Audience[]; placeGenres: MappedTag[]; reference: Map<string, { sum: number; n: number }> }> {
+/** Every recorded reference-audience request (both batches), rebuilt from code so replay keys match. */
+function referenceRequests(panels: PanelModule): PlannedRequest[] {
+  const heatmap = (signal: Record<string, string[]>) => ({ "filter.type": "urn:heatmap", ...signal, "filter.location.query": "United States" });
+  const entities = ENTITY_TYPES_SCORED.flatMap((type) =>
+    spread(panels.ENTITY_PANELS[type], REFERENCE_PICKS[type]).map((entry) => ({
+      id: referenceAudienceId(type, entry.id),
+      endpoint: "/v2/insights" as const,
+      params: heatmap({ "signal.interests.entities": [entry.id] }),
+      note: `Reference audience: fans of ${entry.name} (${type}, popularity ${entry.popularity.toFixed(2)}).`,
+    })),
+  );
+  const tags = spread(panels.TAG_PANELS.music, REFERENCE_TAG_PICKS).map((entry) => ({
+    id: referenceAudienceId("music-tag", entry.id.replace(/[^a-z0-9]+/gi, "-")),
+    endpoint: "/v2/insights" as const,
+    params: heatmap({ "signal.interests.tags": [entry.id] }),
+    note: `Reference audience: listeners of ${entry.name} (music tag).`,
+  }));
+  return [...entities, ...tags];
+}
+
+/**
+ * The two reference sets for city ranking: the 9 candidates on their shared grid, and the full set
+ * (the candidates plus every recorded reference audience that covers at least COVERAGE_FLOOR of
+ * that grid; sparser ones would mostly add bottom-tied cells, which is noise).
+ */
+async function buildReferenceSets(candidateHeatmaps: HeatmapPoint[][], lookup: Lookup): Promise<{ sets: ReferenceSets; dense: string[]; sparse: string[] }> {
+  const candidates = buildReferenceHeatmap(candidateHeatmaps);
+  const grid = new Set(candidates.keys());
+  const panels = await loadPanels();
+  const dense: { id: string; cells: HeatmapPoint[] }[] = [];
+  const sparse: string[] = [];
+  for (const request of referenceRequests(panels)) {
+    const cells = await lookup(request, heatmapResponse);
+    if (gridCoverage(cells, grid) >= COVERAGE_FLOOR) dense.push({ id: request.id, cells });
+    else sparse.push(request.id);
+  }
+  const full = buildReferenceHeatmap([...candidateHeatmaps, ...dense.map((d) => d.cells)], grid);
+  const candidateIds = CANDIDATES.map((c) => `candidate--${c.slug}`);
+  return {
+    sets: {
+      candidates: { audiences: candidateHeatmaps.length, members: candidateIds, cells: candidates },
+      full: { audiences: candidateHeatmaps.length + dense.length, members: [...candidateIds, ...dense.map((d) => d.id)], cells: full },
+    },
+    dense: dense.map((d) => d.id),
+    sparse,
+  };
+}
+
+async function readAllAudiences(): Promise<{ audiences: Audience[]; placeGenres: MappedTag[]; sets: ReferenceSets; dense: string[]; sparse: string[] }> {
   const lookup = replayLookup();
   const { resolutions, placeGenres } = await resolveAll(lookup);
   const heatmaps: HeatmapPoint[][] = [];
   for (const resolution of resolutions) heatmaps.push(await lookup(audienceRequest(resolution, "heatmap"), heatmapResponse));
-  const reference = buildReferenceHeatmap(heatmaps);
+  const { sets, dense, sparse } = await buildReferenceSets(heatmaps, lookup);
   const audiences: Audience[] = [];
-  for (const [index, resolution] of resolutions.entries()) audiences.push(await readAudience(resolution, heatmaps[index], reference, lookup));
-  return { audiences, placeGenres, reference };
+  for (const [index, resolution] of resolutions.entries()) audiences.push(await readAudience(resolution, heatmaps[index], sets, lookup));
+  return { audiences, placeGenres, sets, dense, sparse };
+}
+
+/** The metro's principal city as a verified Qloo locality, or null when no result has the right name and state. */
+async function topLocality(a: Audience, lookup: Lookup) {
+  const metro = a.metros[0].metro;
+  const { city, state } = localityName(metro);
+  const results = await lookup(localityRequest(city, state), searchResponse, []);
+  const hit = acceptLocality(results, metro);
+  return hit ? { id: hit.id, name: hit.name, disambiguation: hit.disambiguation ?? "" } : null;
+}
+
+/** Place queries go to the verified locality; with none, to the metro's densest cell (point and radius). */
+async function placeAnchorFor(a: Audience, lookup: Lookup) {
+  const locality = await topLocality(a, lookup);
+  return { locality, anchor: locality ? { "filter.location": locality.id } : placeAnchor(a.metros[0]) };
 }
 
 async function planSegments(): Promise<void> {
   const { audiences, placeGenres } = await readAllAudiences();
+  const lookup = replayLookup();
   const placeTags = placeGenres.flatMap((g) => (g.tag ? [g.tag.id] : []));
-  const requests = audiences.flatMap((a) => {
-    const top = a.metros[0];
-    if (!top) fail(`${a.resolution.candidate.slug} has no dense metro in its heatmap.`);
+  const requests: PlannedRequest[] = [];
+  for (const a of audiences) {
+    if (!a.metros[0]) fail(`${a.resolution.candidate.slug} has no dense metro in its heatmap.`);
     console.log(`${a.resolution.candidate.slug.padEnd(18)} segments ${a.buckets.join(" + ")} | top metros ${a.metros.slice(0, 5).map((m) => shortMetroName(m.metro)).join(", ")}`);
-    return segmentRequests(a.resolution.candidate.slug, a.seedIds, a.buckets, shortMetroName(top.metro), placeTags);
-  });
+    const { anchor } = await placeAnchorFor(a, lookup);
+    requests.push(...segmentRequests(a.resolution.candidate.slug, a.seedIds, a.buckets, anchor, placeTags));
+  }
   await writeRecipe("pool-segments", {
     description: "Gate 2 stage 3: two measured age segments per candidate (artist and brand affinities each) and everyday places in the candidate's top-lift metro, with explainability.",
     requests,
@@ -232,26 +304,37 @@ const tsLiteral = (value: unknown) => JSON.stringify(value, null, 2).replace(/\u
 const REFERENCE_FILE = path.join("data", "geo", "reference-heatmap.json");
 
 /**
- * The frozen reference audiences for city ranking (lib/geo/metros.ts): for each cell of the shared
- * grid (the cells all 9 recorded candidate heatmaps have), the sum and count of each audience's
- * percentile on that grid. A live run ranks its cells against the mean; the candidates themselves
- * use a leave-one-out mean. Derived data, frozen with the panels.
+ * The frozen reference sets for city ranking (lib/geo/metros.ts), on the shared grid of cells all 9
+ * candidate heatmaps have: per cell, the sum and count of each audience's percentile. "candidates"
+ * holds the 9 candidates; "full" adds every dense recorded reference audience. A live run ranks
+ * against "full"; the candidates themselves use leave-one-out means. Derived data, frozen.
  */
-async function writeReferenceHeatmap(reference: ReadonlyMap<string, { sum: number; n: number }>): Promise<void> {
-  const cells = Object.fromEntries([...reference].sort(([a], [b]) => a.localeCompare(b)).map(([hash, { sum, n }]) => [hash, [Number(sum.toFixed(6)), n]]));
+async function writeReferenceHeatmap(sets: ReferenceSets): Promise<void> {
+  const cells = (map: ReferenceHeatmap) =>
+    Object.fromEntries([...map].sort(([a], [b]) => a.localeCompare(b)).map(([hash, { sum, n }]) => [hash, [Number(sum.toFixed(6)), n]]));
   const file = {
-    source: "For each geohash cell that all 9 recorded candidate heatmaps share (fixtures/pool-audience.json.gz), the sum and count of each audience's affinity percentile on that shared grid. Generated by npm run data-check -- panels.",
+    source:
+      "Per geohash cell of the grid all 9 recorded candidate heatmaps share (fixtures/pool-audience.json.gz), the sum and count of each audience's affinity percentile on that grid. 'full' adds the recorded reference audiences (fixtures/reference-audiences*.json.gz) that cover at least 95% of the grid. Generated by npm run data-check -- reference.",
     built: new Date().toISOString().slice(0, 10),
-    audiences: CANDIDATES.length,
-    cells,
+    sets: {
+      candidates: { audiences: sets.candidates.audiences, members: sets.candidates.members, cells: cells(sets.candidates.cells) },
+      full: { audiences: sets.full.audiences, members: sets.full.members, cells: cells(sets.full.cells) },
+    },
   };
   await writeFile(REFERENCE_FILE, `${JSON.stringify(file)}\n`);
-  console.log(`Wrote ${REFERENCE_FILE} (${reference.size} cells).`);
+  console.log(`Wrote ${REFERENCE_FILE}: ${sets.candidates.cells.size} grid cells, ${sets.candidates.audiences} candidate audiences, ${sets.full.audiences} in the full set.`);
+}
+
+async function writeReference(): Promise<void> {
+  const { sets, dense, sparse } = await readAllAudiences();
+  await writeReferenceHeatmap(sets);
+  console.log(`Dense reference audiences (${dense.length}): ${dense.join(", ")}`);
+  console.log(`Left out as too sparse for the grid (${sparse.length}): ${sparse.join(", ")}`);
 }
 
 async function writePanels(force: boolean): Promise<void> {
   if (existsSync(PANELS_FILE) && !force) fail(`${PANELS_FILE} is frozen. Pass --force only before any scoring call has used it.`);
-  const { audiences, reference } = await readAllAudiences();
+  const { audiences, sets } = await readAllAudiences();
   const exclude = excludedIds(audiences);
   // Panel names appear in receipts, so they pass the same minor and ethnicity guardrails as generated text.
   const guarded = (pool: PanelCandidate[]) => {
@@ -286,7 +369,7 @@ export const TAG_PANELS = ${tsLiteral(tag)} as const satisfies Record<"music" | 
 `;
   await mkdir(path.dirname(PANELS_FILE), { recursive: true });
   await writeFile(PANELS_FILE, text);
-  await writeReferenceHeatmap(reference);
+  await writeReferenceHeatmap(sets);
   for (const [type, panel] of Object.entries({ ...entity, ...tag })) {
     const pops = (panel as { popularity: number }[]).map((p) => p.popularity);
     console.log(`${type.padEnd(8)} 25 entries, popularity ${Math.min(...pops).toFixed(3)} to ${Math.max(...pops).toFixed(3)}`);
@@ -297,8 +380,8 @@ export const TAG_PANELS = ${tsLiteral(tag)} as const satisfies Record<"music" | 
 // --- Stage 4: scoring ---------------------------------------------------------------------------
 
 interface PanelModule {
-  ENTITY_PANELS: Record<ScoredType, readonly { id: string; name: string }[]>;
-  TAG_PANELS: Record<TagKind, readonly { id: string; name: string }[]>;
+  ENTITY_PANELS: Record<ScoredType, readonly { id: string; name: string; popularity: number }[]>;
+  TAG_PANELS: Record<TagKind, readonly { id: string; name: string; popularity: number }[]>;
 }
 
 /** Loaded at runtime: the panels file is generated by this script, so it may not exist at compile time. */
@@ -346,7 +429,8 @@ async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule,
   const slug = a.resolution.candidate.slug;
   const { entityIds, tagIds } = scoringInputs(a, panels);
   const scoring = new Map(scoringRequests(slug, a.seedIds, entityIds, tagIds).map((r) => [r.id, r]));
-  const segments = new Map(segmentRequests(slug, a.seedIds, a.buckets, shortMetroName(a.metros[0].metro), placeTags).map((r) => [r.id, r]));
+  const { locality, anchor } = await placeAnchorFor(a, lookup);
+  const segments = new Map(segmentRequests(slug, a.seedIds, a.buckets, anchor, placeTags).map((r) => [r.id, r]));
   const get = <T>(map: Map<string, import("../lib/data-check/plan").PlannedRequest>, id: string, schema: import("zod").ZodType<T>) => {
     const request = map.get(id);
     if (!request) throw new Error(`no request ${id}`);
@@ -384,10 +468,8 @@ async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule,
   // Distinct names: a chain listed four times counts once. It is not a chain check (one Starbucks still counts).
   const distinctNames = nameCounts.size;
   const settingLevel: SignalLevel = explained.length >= 3 && distinctNames >= 3 ? "rich" : explained.length >= 1 ? "thin" : "none";
-  // Qloo echoes the locality it matched; check it is the metro that was asked for.
-  const echo = await get(segments, placesId(slug), localityEcho);
+  // Places go to the top metro's principal city as a verified Qloo locality (name and state checked).
   const asked = shortMetroName(a.metros[0].metro);
-  const locality = echo ? localityMatch(echo, asked) : "mismatch";
 
   const levels = {
     music: entityField.artist.level,
@@ -459,9 +541,18 @@ async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule,
       controlGender: control.genderSkew,
     },
     cities: {
-      qloo: a.metros.slice(0, 5).map((m) => ({ name: shortMetroName(m.metro), lift: round(m.lift), cells: m.cells, topCell: m.topCell.geohash })),
+      qloo: a.metros.slice(0, 5).map((m) => ({
+        name: shortMetroName(m.metro),
+        lift: round(m.lift),
+        cells: m.cells,
+        topCell: m.topCell.geohash,
+        comparedWith: m.comparedWith,
+        candidateSetRank: m.candidateSetRank,
+      })),
       rankedMetros: a.metros.length,
       control: controlCities,
+      /** Cities in the top 5 against the 9 candidates alone that fall outside the top 10 against the full set. */
+      smallSetOnly: a.smallSetOnly.map((m) => ({ name: shortMetroName(m.metro), candidateSetRank: m.candidateSetRank, fullRank: m.fullRank })),
     },
     segments: segmentSummaries,
     distinctness: overlap === null ? null : round(1 - overlap, 2),
@@ -479,7 +570,7 @@ async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule,
     },
     panelReturned: Object.fromEntries([...Object.entries(entityField), ...Object.entries(tagField)].map(([k, v]) => [k, v.panelReturned])),
     topPickBeats: Object.fromEntries([...Object.entries(entityField), ...Object.entries(tagField)].map(([k, v]) => [k, v.beats])),
-    places: { metro: asked, locality: echo ? `${echo.name} (${echo.disambiguation})` : null, localityMatch: locality, returned: places.length, explained: explained.length, distinctNames, top: places.slice(0, 5).map((p) => p.name) },
+    places: { metro: asked, locality: locality ? `${locality.name} (${locality.disambiguation})` : `no verified locality; ${anchor["filter.location"]}`, returned: places.length, explained: explained.length, distinctNames, top: places.slice(0, 5).map((p) => p.name) },
     control: {
       music: { style: control.music, term: control.musicTerm, tag: musicTag?.name ?? null, similarity: a.resolution.music.similarity ?? null, position: musicPosition },
       qlooTopMusic: qlooTopMusic ? { tag: qlooTopMusic.name.trim(), position: qlooTopMusicPosition } : null,
@@ -507,11 +598,12 @@ async function analyze(): Promise<void> {
     console.log(`\n## ${c.slug} (${c.lane})`);
     console.log(`seeds ${c.seeds.resolved.length}/${c.seeds.resolved.length + c.seeds.dropped.length}${c.seeds.dropped.length ? ` dropped ${c.seeds.dropped.join(", ")}` : ""}`);
     console.log(`age: stated "${c.age.statedBuckets.join(",")}" | Control ${c.age.controlGuess.join(",")} | Qloo top ${c.age.measuredTopLabel} | skew ${JSON.stringify(c.age.skew)} | gender ${JSON.stringify(c.age.gender)} vs Control ${c.age.controlGender}`);
-    console.log(`cities: Qloo ${c.cities.qloo.map((m) => `${m.name} (+${m.lift}, ${m.cells})`).join("; ")} | Control ${c.cities.control.map((x) => `${x.city} #${x.rank ?? "-"}`).join(", ")} of ${c.cities.rankedMetros}`);
+    console.log(`cities (vs ${c.cities.qloo[0]?.comparedWith} audiences): Qloo ${c.cities.qloo.map((m) => `${m.name} (+${m.lift}, ${m.cells}, small-set #${m.candidateSetRank ?? "-"})`).join("; ")} | Control ${c.cities.control.map((x) => `${x.city} #${x.rank ?? "-"}`).join(", ")} of ${c.cities.rankedMetros}`);
+    if (c.cities.smallSetOnly.length) console.log(`  held only against the 9 candidates: ${c.cities.smallSetOnly.map((m) => `${m.name} (small #${m.candidateSetRank}, full #${m.fullRank ?? "-"})`).join("; ")}`);
     for (const sg of c.segments) console.log(`segment ${sg.label} (${sg.skew}): ${sg.artists.join(", ")} | ${sg.brands.join(", ")}`);
     console.log(`distinctness ${c.distinctness} | flags ${c.descriptorFlags.join("; ") || "none"}`);
     console.log(`fields ${JSON.stringify(c.fields)} | strong ${JSON.stringify(c.strongPicks)} | panel returned ${JSON.stringify(c.panelReturned)}`);
-    console.log(`places in ${c.places.metro} (Qloo matched ${c.places.locality}: ${c.places.localityMatch}): ${c.places.returned} returned, ${c.places.explained} explained, ${c.places.distinctNames} distinct names: ${c.places.top.join("; ")}`);
+    console.log(`places in ${c.places.metro} (${c.places.locality}): ${c.places.returned} returned, ${c.places.explained} explained, ${c.places.distinctNames} distinct names: ${c.places.top.join("; ")}`);
     const pos = (p: { beats: number; of: number } | null) => (p ? `beats ${p.beats} of ${p.of}` : "not returned");
     console.log(`Control music "${c.control.music.term}" -> ${c.control.music.tag ?? "unverifiable"} ${c.control.music.tag ? pos(c.control.music.position) : ""} | Qloo top music ${c.control.qlooTopMusic?.tag} ${pos(c.control.qlooTopMusic?.position ?? null)} | Control mood ${c.control.mood.term} ${pos(c.control.mood.position)}`);
     if (c.control.references.length) console.log(`Control refs: ${c.control.references.map((r) => `${r.name} ${pos(r.position)}`).join("; ")}`);
@@ -525,29 +617,77 @@ async function analyze(): Promise<void> {
  * holds yet, so a method change never re-spends recorded calls.
  */
 async function planMissing(): Promise<void> {
+  const cache = FixtureCache.fromDir("fixtures");
+  const missingFrom = async (requests: readonly PlannedRequest[]) => {
+    const missing: PlannedRequest[] = [];
+    for (const request of requests) if (!(await cache.get(cacheKey(request.endpoint, request.params)))) missing.push(request);
+    return missing;
+  };
+  // Stage 1 first: later stages read its results, so they can only be planned once it is recorded.
+  const stage1 = await missingFrom(resolveRecipe(CANDIDATES, controls()).requests);
+  if (stage1.length > 0) {
+    await writeTopUp(stage1, "stage 1 (resolve) requests the current code needs; record them, then run plan missing again");
+    return;
+  }
   const panels = await loadPanels();
   const { audiences, placeGenres } = await readAllAudiences();
+  // Localities next: place queries need the verified locality id.
+  const localities = await missingFrom(audiences.map((a) => {
+    const { city, state } = localityName(a.metros[0].metro);
+    return localityRequest(city, state);
+  }));
+  if (localities.length > 0) {
+    await writeTopUp(localities, "locality searches for each candidate's top metro; record them, then run plan missing again");
+    return;
+  }
+  const lookup = replayLookup();
   const placeTags = placeGenres.flatMap((g) => (g.tag ? [g.tag.id] : []));
-  const cache = FixtureCache.fromDir("fixtures");
-  const wanted = audiences.flatMap((a) => {
+  const wanted: PlannedRequest[] = [];
+  for (const a of audiences) {
     const { entityIds, tagIds } = scoringInputs(a, panels);
-    return [
-      ...segmentRequests(a.resolution.candidate.slug, a.seedIds, a.buckets, shortMetroName(a.metros[0].metro), placeTags),
+    const { anchor } = await placeAnchorFor(a, lookup);
+    wanted.push(
+      ...segmentRequests(a.resolution.candidate.slug, a.seedIds, a.buckets, anchor, placeTags),
       ...scoringRequests(a.resolution.candidate.slug, a.seedIds, entityIds, tagIds),
-    ];
-  });
-  const missing = [];
-  for (const request of wanted) if (!(await cache.get(cacheKey(request.endpoint, request.params)))) missing.push(request);
+    );
+  }
+  const missing = await missingFrom(wanted);
   if (missing.length === 0) {
     console.log("Every request the code needs is recorded.");
     return;
   }
-  // Never reuse a name: re-recording an existing top-up would need --force and drop calls already made.
+  await writeTopUp(missing, "stage 3 and 4 requests the current code needs that no fixture holds yet");
+}
+
+/** Writes a top-up recipe under the next free name, never an existing fixture or recipe. */
+async function writeTopUp(all: PlannedRequest[], why: string): Promise<void> {
+  const requests = [...new Map(all.map((r) => [r.id, r])).values()];
   let name = "pool-refresh";
   for (let n = 2; findFixture(name) || existsSync(path.join("fixtures", "recipes", `${name}.json`)); n++) name = `pool-refresh-${n}`;
-  await writeRecipe(name, {
-    description: "Gate 2 top-up: requests the current code needs that were not recorded yet (after the city ranking moved to a shared grid, one candidate's top metro changed).",
-    requests: missing,
+  await writeRecipe(name, { description: `Top-up: ${why}.`, requests });
+}
+
+// --- Reference audiences for city ranking ------------------------------------------------------
+
+/** How many single-entity reference audiences come from each panel (21; only the dense ones join the full set). */
+export const REFERENCE_PICKS: Readonly<Record<ScoredType, number>> = { artist: 6, brand: 5, movie: 5, tv_show: 5 };
+export const REFERENCE_TAG_PICKS = 14;
+
+/** Evenly spaced picks across a panel (panels are sorted by popularity, lowest first). */
+function spread<T>(items: readonly T[], count: number): T[] {
+  return Array.from({ length: count }, (_, i) => items[Math.round((i * (items.length - 1)) / Math.max(count - 1, 1))]);
+}
+
+export const referenceAudienceId = (type: string, id: string) => `reference--${type}--${id.toLowerCase()}`;
+
+async function planReference(): Promise<void> {
+  const requests = referenceRequests(await loadPanels());
+  const tags = process.argv.includes("--tags");
+  await writeRecipe(tags ? "reference-audiences-2" : "reference-audiences", {
+    description: tags
+      ? "Gate 3: 14 more reference audiences for city ranking, from broad music-genre tags in the frozen music tag panel (evenly spread), because most single-entity heatmaps were too sparse for the shared grid."
+      : "Gate 3: 21 single-entity reference audiences for city ranking, picked evenly across popularity from the frozen artist, brand, movie and TV panels (never a candidate's seed). Each is a US heatmap.",
+    requests: requests.filter((r) => r.id.startsWith("reference--music-tag--") === tags),
   });
 }
 
@@ -560,7 +700,9 @@ async function main(): Promise<void> {
   if (command === "plan" && stage === "scoring") return planScoring();
   if (command === "analyze") return analyze();
   if (command === "plan" && stage === "missing") return planMissing();
-  fail("Usage: npm run data-check -- plan resolve|audience|segments|scoring|missing | panels [--force] | analyze");
+  if (command === "plan" && stage === "reference") return planReference();
+  if (command === "reference") return writeReference();
+  fail("Usage: npm run data-check -- plan resolve|audience|segments|scoring|missing|reference | panels [--force] | analyze");
 }
 
 main().catch((error: unknown) => fail(error instanceof Error ? error.stack ?? error.message : String(error)));

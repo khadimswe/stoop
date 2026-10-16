@@ -28,6 +28,8 @@ const eslintConfig = defineConfig([
     "test-results/**",
     ".cache/**",
     ".playwright-mcp/**",
+    // Any other top-level dot folder (editor, tool and agent working copies).
+    ".*/**",
     "stoop-setup/**",
   ]),
 ]);

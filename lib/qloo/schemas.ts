@@ -60,6 +60,12 @@ const wktLocation = z.string().superRefine((value, ctx) => {
   checkPoint(value, ctx);
 });
 
+/** For place queries: a WKT point or area, or the id of a named urn:entity:locality. */
+const placeLocation = z.string().superRefine((value, ctx) => {
+  if (ENTITY_ID.test(value) || WKT_AREA.test(value)) return;
+  checkPoint(value, ctx);
+});
+
 /** Builds a WKT point in the order Qloo expects. Prefer this over hand-written strings. */
 export function toWktPoint(coords: { lat: number; lon: number }): string {
   return `POINT(${coords.lon} ${coords.lat})`;
@@ -172,7 +178,9 @@ const placeSchema = strict({
   "filter.type": z.literal("urn:entity:place"),
   ...signalShape,
   ...entityFilterShape,
-  "filter.location": wktLocation.optional(),
+  // A WKT point or area, or the id of a named urn:entity:locality (Qloo docs, filter.location),
+  // which Stoop resolves and checks by state first, so no fuzzy name match can land in another town.
+  "filter.location": placeLocation.optional(),
   "filter.location.radius": radiusMeters.optional(),
   "filter.location.query": nonEmpty.optional(),
 }).superRefine((value, ctx) => {
