@@ -1,26 +1,244 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Stoop design tokens. Daylight pages (paper) with dark "screens" as inset objects.
+ * Full rules: docs/design-notes.md. Every color pair is checked by `npm run check:contrast`.
+ * There is no OS dark-mode switch: the paper stays paper.
+ */
+
+/* `dark:` only applies under an explicit .dark class (never set), so OS dark mode changes nothing. */
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* next/font sets these variables on <html> (app/layout.tsx). */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+
+  /* shadcn semantic tokens, mapped to the Stoop palette below. */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* Daylight surfaces */
+  --color-paper: #fbf5ec;
+  --color-paper-raised: #fffaf3;
+  --color-sand: #f1e4cf;
+  --color-ink: #1d1a2b;
+  --color-ink-soft: #4b4660;
+
+  /* App register (daily-use screens): white cards on paper, decorative hairlines, quiet fills. */
+  --color-surface: #ffffff;
+  --color-hairline: #ebe2d5;
+  --color-fill: #f4ece0;
+
+  /* Screening-room surfaces (dark objects on the page) */
+  --color-screen: #14121f;
+  --color-screen-raised: #1f1b2e;
+  --color-paper-dim: #b9b3c9;
+
+  /* Action and decoration (no meaning) */
+  --color-brick: #e8572e;
+  --color-brick-soft: #ffdccb;
+  --color-sun: #ffc23d;
+  --color-sun-soft: #ffe7a8;
+
+  /* Meaning 1: Qloo decided this */
+  --color-dusk: #5b45e0;
+  --color-dusk-light: #a99bff;
+  --color-dusk-soft: #e4dffd;
+
+  /* Meaning 2: not from Qloo (the generic Control, creative suggestions) */
+  --color-concrete: #ddd6ca;
+  --color-concrete-line: #7d786f;
+  --color-concrete-screen: #9c968c;
+
+  /* Meaning 3: flagged (cliche, unsupported) */
+  --color-rose-deep: #c2255c;
+  --color-rose-light: #ff7aa2;
+  --color-rose-soft: #ffe0ea;
+
+  --radius-section: 3rem;
+  --radius-card: 1.5rem;
+  --radius-pill: 999px;
+
+  /* "Shading": hard sticker shadows on screens and stamps only; soft float on tiles. */
+  --shadow-sticker: 5px 6px 0 #1d1a2b;
+  --shadow-sticker-sm: 3px 4px 0 #1d1a2b;
+  --shadow-pop: 0 2px 0 #1d1a2b;
+  --shadow-float: 0 18px 32px -14px rgb(29 26 43 / 0.4);
+  /* App register elevation: none on resting cards, l1 on the composer, l2 on popovers, panels and sticky bars. */
+  --shadow-l1: 0 1px 2px rgb(28 25 21 / 0.04), 0 2px 8px rgb(28 25 21 / 0.06);
+  --shadow-l2: 0 12px 32px rgb(28 25 21 / 0.1), 0 2px 6px rgb(28 25 21 / 0.04);
+
+  --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-stamp: stamp 640ms var(--ease-pop) both;
+  --animate-rise: rise 520ms var(--ease-smooth) both;
+
+  @keyframes stamp {
+    from {
+      opacity: 0;
+      transform: scale(0.2) rotate(-20deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(-6deg);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --background: #fbf5ec;
+  --foreground: #1d1a2b;
+  --card: #fffaf3;
+  --card-foreground: #1d1a2b;
+  --popover: #ffffff;
+  --popover-foreground: #1d1a2b;
+  --primary: #e8572e;
+  --primary-foreground: #1d1a2b;
+  --secondary: #f1e4cf;
+  --secondary-foreground: #1d1a2b;
+  --muted: #f1e4cf;
+  --muted-foreground: #4b4660;
+  --accent: #e4dffd;
+  --accent-foreground: #1d1a2b;
+  --destructive: #c2255c;
+  --border: #e2d6c2;
+  --input: #7d786f;
+  --ring: #5b45e0;
+  --radius: 1rem;
+}
+
+/* Components placed inside a dark screen pick up screen-appropriate semantic colors. */
+[data-surface="screen"] {
+  --background: #14121f;
+  --foreground: #fbf5ec;
+  --card: #1f1b2e;
+  --card-foreground: #fbf5ec;
+  --popover: #1f1b2e;
+  --popover-foreground: #fbf5ec;
+  --muted: #1f1b2e;
+  --muted-foreground: #b9b3c9;
+  --border: rgb(251 245 236 / 0.14);
+  --input: #9c968c;
+  --ring: #a99bff;
+}
+
+/* Display type: Bricolage set narrow so it reads like a film title. */
+@utility type-hero {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  font-stretch: 80%;
+  font-size: clamp(2.6rem, 6.2vw, 5.75rem);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+}
+
+@utility type-h2 {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  font-stretch: 82%;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+}
+
+@utility type-h3 {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-stretch: 90%;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+@utility type-kicker {
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@utility type-lead {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* A faint paper grain for warmth on daylight sections. */
+@utility paper-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.11 0 0 0 0 0.1 0 0 0 0 0.17 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-paper text-ink;
+  }
+  ::selection {
+    background: var(--color-sun);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
