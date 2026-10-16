@@ -2,13 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Recipe } from "../data-check/plan";
 import { createQlooClient } from "../qloo/client";
-import { FixtureCache } from "../qloo/fixtures";
+import { FixtureCache, readFixtureFile } from "../qloo/fixtures";
 import { looksLikeInstructions } from "./claude";
 import { intakeQloo } from "./qloo";
 import { resolveTag, tagPhrase, tagRequest } from "./tags";
 
 // Strict replay of the real recordings through the intake's lookup: an unrecorded request throws.
-const lookup = () => intakeQloo(createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) }), "test").lookup;
+// Only the two recordings these requests live in are loaded, not every fixture.
+const replayCache = () => new FixtureCache(["pool-resolve", "probe-search"].map((name) => readFixtureFile(`fixtures/${name}.json`)), { strict: true });
+const lookup = () => intakeQloo(createQlooClient({ cache: replayCache() }), "test").lookup;
 const recipe = (name: string) => JSON.parse(readFileSync(`fixtures/recipes/${name}.json`, "utf8")) as Recipe;
 
 describe("tagRequest", () => {

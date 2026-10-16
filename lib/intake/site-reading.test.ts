@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GUARDRAIL_INSTRUCTIONS } from "../agent/instructions";
 import { createQlooClient } from "../qloo/client";
 import { QlooHttpError } from "../qloo/errors";
-import { FixtureCache } from "../qloo/fixtures";
+import { FixtureCache, readFixtureFile } from "../qloo/fixtures";
 import type { ReceiptLookup } from "../qloo/resolve";
 import type { StatedAudience } from "../stages/gap";
 import { intakeQloo } from "./qloo";
@@ -19,7 +19,9 @@ import {
   type AudienceReading,
 } from "./site-reading";
 
-// Claude is the AI SDK mock; Qloo tag lookups replay the real recordings in strict mode.
+// Claude is the AI SDK mock; Qloo tag lookups replay the real recordings in strict mode. Only the two
+// recordings these requests live in are loaded (no other fixture records them), not every fixture.
+const replayCache = () => new FixtureCache(["pool-resolve", "probe-search"].map((name) => readFixtureFile(`fixtures/${name}.json`)), { strict: true });
 const reply = (value: unknown) => ({
   content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value) }],
   finishReason: { unified: "stop" as const, raw: undefined },
@@ -33,7 +35,7 @@ const mock = (value: unknown) => new MockLanguageModelV4({ doGenerate: reply(val
 
 /** The intake's real lookup over the fixtures, plus every request id it was asked for, in order. */
 function replay(): { lookup: ReceiptLookup; asked: string[] } {
-  const inner = intakeQloo(createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) }), "test").lookup;
+  const inner = intakeQloo(createQlooClient({ cache: replayCache() }), "test").lookup;
   const asked: string[] = [];
   return {
     asked,

@@ -7,9 +7,12 @@ import { tagsResponse } from "../qloo/types";
 import { INTAKE_STAGE, intakeQloo } from "./qloo";
 import { tagRequest } from "./tags";
 
+// The one recording these requests live in, not every fixture.
+const replayCache = () => new FixtureCache([readFixtureFile("fixtures/probe-search.json")], { strict: true });
+
 describe("intakeQloo", () => {
   it("gives an intake its own context, capped at INTAKE_CAP, labeled under the intake stage", async () => {
-    const { ctx, lookup } = intakeQloo(createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) }), "intake-test");
+    const { ctx, lookup } = intakeQloo(createQlooClient({ cache: replayCache() }), "intake-test");
     expect(ctx.cap).toBe(INTAKE_CAP);
     const request = tagRequest("general", "hot sauce");
     if (!request) throw new Error("no request");
