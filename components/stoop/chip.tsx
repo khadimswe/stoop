@@ -1,20 +1,23 @@
 import { BadgeCheck, Flag, Lightbulb, PenLine, UserRound, Waypoints, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "cn";
+import type { CueOrigin } from "@/lib/types";
 
 /**
  * Evidence chips. Color is never the only signal: every origin also has an icon and a spoken label.
  *   qloo         Qloo returned this for this audience (solid dusk)
  *   interpreted  LLM wording that cites Qloo items (outlined dusk)
  *   creative     Not from Qloo: a creative suggestion (dashed concrete)
+ *   yours        The user chose it (outlined ink: no new color meaning)
  *   flagged      Cliche or unsupported (rose)
  */
-export type ChipOrigin = "qloo" | "interpreted" | "creative" | "flagged";
+export type ChipOrigin = CueOrigin | "flagged";
 
 const ORIGIN = {
   qloo: { icon: BadgeCheck, spoken: "From Qloo", tag: "Qloo" },
   interpreted: { icon: Waypoints, spoken: "Interpreted from Qloo data", tag: "From Qloo" },
   creative: { icon: PenLine, spoken: "Creative suggestion, not from Qloo", tag: "Not from Qloo" },
+  yours: { icon: UserRound, spoken: "Your choice", tag: "Your choice" },
   flagged: { icon: Flag, spoken: "Flagged: not supported by Qloo", tag: "Flagged" },
 } as const;
 
@@ -23,12 +26,14 @@ const STYLE = {
     qloo: "border-dusk bg-dusk text-paper",
     interpreted: "border-dusk bg-paper-raised text-dusk",
     creative: "border-dashed border-concrete-line bg-paper-raised text-ink-soft",
+    yours: "border-ink bg-paper-raised text-ink",
     flagged: "border-rose-deep bg-rose-soft text-rose-deep",
   },
   screen: {
     qloo: "border-dusk-light bg-dusk-light text-screen",
     interpreted: "border-dusk-light bg-transparent text-dusk-light",
     creative: "border-dashed border-concrete-screen bg-transparent text-concrete-screen",
+    yours: "border-paper bg-transparent text-paper",
     flagged: "border-rose-light bg-transparent text-rose-light",
   },
 } as const;
