@@ -34,10 +34,11 @@ export const PLANNED_CALLS = Object.values(RUN_BUDGET).reduce((sum, calls) => su
  */
 export const INTAKE_BUDGET = {
   readingTags: 2, // /v2/tags for the site reading's taste tags
+  statedTags: 2, // /v2/tags for the stated customer's taste tags (the same reading, run on the founder's words)
   categoryTags: 2, // /v2/tags for the Qloo category seeds
   suggestionSearches: 8, // /search for Claude's suggested seeds
 } as const;
 export type IntakeBudgetRow = keyof typeof INTAKE_BUDGET;
 
 /** Hard cap for one intake. */
-export const INTAKE_CAP = 12;
+export const INTAKE_CAP = 14;

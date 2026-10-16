@@ -10,8 +10,11 @@ import { STOOP_PROVIDER_OPTIONS } from "../agent/model";
 
 // Thinking always runs on this model and counts toward the limit, so leave room beyond the JSON.
 const MAX_OUTPUT_TOKENS = 16_000;
-/** Longest wait for one intake answer, retries included. The /start screen is waiting on it. */
-export const CLAUDE_TIMEOUT_MS = 20_000;
+/**
+ * Longest wait for one intake answer, retries included. The /start screen is waiting on it, and the
+ * seed-suggestion call thinks at medium effort, so this leaves room for one retry.
+ */
+export const CLAUDE_TIMEOUT_MS = 45_000;
 /** One retry on a retryable provider error (overloaded, rate limited), inside the same timeout. */
 export const CLAUDE_MAX_RETRIES = 1;
 

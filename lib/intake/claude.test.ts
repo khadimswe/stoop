@@ -30,7 +30,7 @@ describe("askOnce", () => {
     const model = new MockLanguageModelV4({ doGenerate: reply({ ok: true }) });
     expect(await askOnce(model, ask)).toEqual({ output: { ok: true }, usage: { inputTokens: 10, outputTokens: 5 } });
     expect(model.doGenerateCalls[0].abortSignal).toBeInstanceOf(AbortSignal);
-    expect(CLAUDE_TIMEOUT_MS).toBe(20_000);
+    expect(CLAUDE_TIMEOUT_MS).toBe(45_000);
   });
 
   it("turns a timed-out call into a failure line", async () => {

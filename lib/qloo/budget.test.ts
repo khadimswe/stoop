@@ -19,7 +19,7 @@ describe("run budget", () => {
 describe("intake budget", () => {
   it("caps an intake at exactly its planned calls, apart from the run cap", () => {
     expect(Object.values(INTAKE_BUDGET).reduce((sum, calls) => sum + calls, 0)).toBe(INTAKE_CAP);
-    expect(INTAKE_BUDGET).toEqual({ readingTags: 2, categoryTags: 2, suggestionSearches: 8 });
+    expect(INTAKE_BUDGET).toEqual({ readingTags: 2, statedTags: 2, categoryTags: 2, suggestionSearches: 8 });
     expect(INTAKE_CAP).toBeLessThan(RUN_CAP);
   });
 });
