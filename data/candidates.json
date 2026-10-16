@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "slug": "apparel-everyday",
+      "lane": "apparel",
+      "workingName": "Candidate: everyday streetwear basics",
+      "product": {
+        "name": "heavyweight tees and hoodies",
+        "description": "Boxy heavyweight cotton tees and brushed fleece hoodies in a small set of washed colors. Cut and sewn in small runs, made to keep their shape after many washes. Plain fronts with a small embroidered symbol on the chest.",
+        "price": "$38 tee, $78 hoodie",
+        "category": "apparel",
+        "lookDescription": "A folded heavyweight tee stacked on a folded hoodie, both in washed charcoal cotton with a matte, slightly textured finish. A small embroidered circle-and-line symbol sits on the chest in off-white thread. No wordmark, no readable text, no tags showing."
+      },
+      "seeds": ["Carhartt", "Champion", "Tyler, the Creator", "Rick and Morty"],
+      "statedCustomer": "College students and young adults, 18 to 24, who want plain basics that still look good.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16",
+      "direction": { "look": "animation_3d" }
+    },
+    {
+      "slug": "food-hot-sauce",
+      "lane": "food",
+      "workingName": "Candidate: small-batch hot sauce",
+      "product": {
+        "name": "small-batch hot sauce",
+        "description": "A fermented red chile hot sauce made in small batches with garlic and a little fruit for sweetness. Medium heat that builds slowly instead of burning right away. Comes in a 5 oz glass bottle.",
+        "price": "$14",
+        "category": "condiments",
+        "lookDescription": "A slim 5 oz glass bottle filled with deep red sauce, a matte charcoal screw cap and a kraft paper label printed with a simple flame-shaped symbol in red ink. No wordmark, no readable text."
+      },
+      "seeds": ["Hot Ones", "Trader Joe's", "Parts Unknown", "Tabasco"],
+      "statedCustomer": "Home cooks who put hot sauce on almost everything, 25 to 40.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "food-coffee",
+      "lane": "food",
+      "workingName": "Candidate: small-roaster specialty coffee",
+      "product": {
+        "name": "whole bean specialty coffee",
+        "description": "Whole bean coffee from a small roaster, roasted each week in small batches and shipped within days of roasting. Single-origin light and medium roasts with plain tasting notes on every bag. Comes in 12 oz bags or as a monthly subscription.",
+        "price": "$22",
+        "category": "coffee",
+        "lookDescription": "A matte cream 12 oz stand-up coffee bag with a one-way valve and a folded top, printed with a simple mountain-and-sun symbol in rust orange. A small pile of glossy medium-roast beans sits in front. No wordmark, no readable text."
+      },
+      "seeds": ["Blue Bottle Coffee", "Chemex", "The Bear", "Radiolab"],
+      "statedCustomer": "Remote workers and home brewers who care where their coffee comes from, 28 to 45.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "startup-ai-video",
+      "lane": "startup",
+      "workingName": "Candidate: AI video editing app",
+      "product": {
+        "name": "AI video editing app",
+        "description": "A phone app that turns raw clips from your camera roll into an edited short video, with cuts, captions and pacing done for you. You pick the clips and a length, then fine-tune the edit before you post. It edits your own footage and never generates people or writes ads.",
+        "price": "$9.99 a month",
+        "category": "mobile app",
+        "lookDescription": "A modern phone in a matte sage green case, standing upright, its screen showing an abstract editing timeline of colored clip blocks and a play button. The app icon is a rounded square with a simple scissors-and-spark symbol. No wordmark, no readable text, no real interface copy."
+      },
+      "seeds": ["CapCut", "Canva", "Casey Neistat", "The Diary of a CEO"],
+      "statedCustomer": "Solo creators and small business owners who post short videos every week, 22 to 35.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "startup-bike-light",
+      "lane": "startup",
+      "workingName": "Candidate: smart bike light",
+      "product": {
+        "name": "smart bike light",
+        "description": "A rechargeable rear bike light that glows brighter when you brake and changes its flash pattern as daylight fades. It charges over USB-C and pairs with a phone app that shows battery level. It mounts to most seat posts in seconds, without tools.",
+        "price": "$89",
+        "category": "cycling gear",
+        "lookDescription": "A compact rear bike light: a rounded rectangle of matte graphite aluminum with a frosted red lens and a rubber strap mount. A small embossed triangle symbol sits on the top edge. No wordmark, no readable text."
+      },
+      "seeds": ["Strava", "Rapha", "GoPro", "Freakonomics Radio"],
+      "statedCustomer": "Commuters who ride to work most of the year, 25 to 45.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "pets-outfits",
+      "lane": "pets",
+      "workingName": "Candidate: pet hats and outfits",
+      "product": {
+        "name": "hats and outfits for cats and dogs",
+        "description": "Knit hats, bandanas and small sweaters for cats and dogs, made from soft stretch yarn with adjustable straps. Sizes run from small cats to large dogs, and everything is machine washable. New colors arrive each season.",
+        "price": "$24",
+        "category": "pet accessories",
+        "lookDescription": "A soft knit pet beanie in mustard yellow with a small pom-pom and two ear openings, next to a folded rust-red knit pet sweater. A small fabric tag shows a simple paw symbol. No wordmark, no readable text."
+      },
+      "seeds": ["BarkBox", "Chewy", "Taylor Swift", "Schitt's Creek"],
+      "statedCustomer": "Pet owners who treat their cat or dog like family and love dressing them up, 25 to 40.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16",
+      "direction": { "cast": "pet" }
+    },
+    {
+      "slug": "care-moisturizer",
+      "lane": "care",
+      "workingName": "Candidate: daily face moisturizer",
+      "product": {
+        "name": "daily face moisturizer",
+        "description": "A light, unscented gel-cream face moisturizer made with glycerin and squalane. It sinks in fast and leaves skin feeling soft, so it works under makeup or on its own. A plain everyday moisturizer with no sunscreen.",
+        "price": "$32",
+        "category": "skincare",
+        "lookDescription": "A 50 ml frosted glass jar with a smooth cream-colored lid, holding a pale, glossy gel-cream. A small debossed circle symbol sits on the lid. No wordmark, no readable text."
+      },
+      "seeds": ["CeraVe", "Glossier", "The Ordinary", "Emma Chamberlain"],
+      "statedCustomer": "Busy adults who want a simple skincare routine without ten steps, 25 to 40.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "home-candles",
+      "lane": "home",
+      "workingName": "Candidate: hand-poured soy candles",
+      "product": {
+        "name": "hand-poured soy candles",
+        "description": "Soy wax candles poured by hand in small batches, with cotton wicks and scents like cedar, fig and black tea. Each one burns for about 50 hours in a reusable glass jar. Made to make a room feel calm after a long day.",
+        "price": "$36",
+        "category": "home fragrance",
+        "lookDescription": "An amber glass tumbler candle with creamy soy wax and a single cotton wick, a matte charcoal lid leaning against it. A small round label shows a simple leaf symbol. No wordmark, no readable text."
+      },
+      "seeds": ["Bath & Body Works", "Anthropologie", "Phoebe Bridgers", "Bridgerton"],
+      "statedCustomer": "Adults who like to make their home feel calm after work, 28 to 45.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    },
+    {
+      "slug": "care-kit-sneakers",
+      "lane": "care-kit",
+      "workingName": "Candidate: sneaker cleaning kit",
+      "product": {
+        "name": "sneaker cleaning kit",
+        "description": "A sneaker cleaning kit with a plant-based foaming cleaner, a stiff brush for soles, a soft brush for uppers and a microfiber towel. It cleans leather, canvas and knit without bleaching colors. Everything fits in a small zip pouch.",
+        "price": "$28",
+        "category": "sneaker care",
+        "lookDescription": "A clear zip pouch holding a slim frosted bottle of foaming cleaner, a wooden brush with stiff bristles, a smaller soft brush and a folded gray microfiber towel. Each piece carries a simple shoe-sole symbol. No wordmark, no readable text."
+      },
+      "seeds": ["Nike", "StockX", "Jason Markk", "Travis Scott"],
+      "statedCustomer": "Sneaker collectors who keep their pairs looking new, 18 to 30.",
+      "region": "United States",
+      "platforms": "reels-tiktok-9x16"
+    }
+  ]
+}

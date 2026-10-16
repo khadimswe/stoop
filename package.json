@@ -17,9 +17,13 @@
     "check:dashes": "node scripts/check-dashes.mjs",
     "check": "npm run typecheck && npm run lint && npm run test && npm run check:dashes && npm run check:contrast",
     "fixtures:record": "tsx scripts/record-fixture.ts",
+    "baseline": "tsx scripts/generate-baseline.ts",
+    "prompts:export": "tsx scripts/export-pack.ts",
     "check:contrast": "tsx scripts/check-contrast.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.81",
+    "ai": "^7.0.142",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.57.0",
