@@ -8,8 +8,9 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { EXAMPLES, type ExampleSlug } from "../lib/demo/examples";
-import { buildExampleRun, recordExampleAudience, replayClient } from "../lib/demo/example-run";
+import { buildExampleRun, recordExampleAudience } from "../lib/demo/example-run";
 import { OFFLINE_CAP } from "../lib/qloo/budget";
+import { createQlooClient } from "../lib/qloo/client";
 import { ENDPOINTS } from "../lib/qloo/constants";
 import { createRunContext } from "../lib/qloo/context";
 import { FixtureCache, findFixture } from "../lib/qloo/fixtures";
@@ -30,7 +31,7 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\u20
 export const runDir = (slug: string) => path.join("data", "runs", slug);
 
 async function record(slug: ExampleSlug): Promise<void> {
-  const { events, report } = await recordExampleAudience(slug);
+  const { events, report } = await recordExampleAudience(slug, everyFixture());
   await mkdir(runDir(slug), { recursive: true });
   await writeFile(path.join(runDir(slug), "audience.events.json"), json(events));
   await writeFile(path.join(runDir(slug), "audience.report.json"), json(report));
@@ -44,8 +45,16 @@ async function record(slug: ExampleSlug): Promise<void> {
   );
 }
 
+/**
+ * Strict replay over every recording, so a new fixture works here before it joins
+ * AUDIENCE_FIXTURES (the golden test, which loads only that list, then says what is missing).
+ */
+function everyFixture() {
+  return createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) });
+}
+
 async function planMissing(): Promise<void> {
-  const client = replayClient();
+  const client = everyFixture();
   const cache = FixtureCache.fromDir("fixtures");
   const missing: { id: string; endpoint: string; params: QlooParams; note: string }[] = [];
   for (const { slug } of EXAMPLES) {

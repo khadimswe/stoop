@@ -26,3 +26,19 @@ export const RUN_BUDGET = {
 export type BudgetStage = keyof typeof RUN_BUDGET;
 
 export const PLANNED_CALLS = Object.values(RUN_BUDGET).reduce((sum, calls) => sum + calls, 0);
+
+/**
+ * Planned live calls for one intake: the /start read of a link before the founder confirms seeds.
+ * Intake is its own request with its own RunContext capped at INTAKE_CAP, before any run exists, so
+ * it never spends from a run's RUN_CAP; the daily caps (QLOO_DAILY_CAP) still bound it.
+ */
+export const INTAKE_BUDGET = {
+  readingTags: 2, // /v2/tags for the site reading's taste tags
+  statedTags: 2, // /v2/tags for the stated customer's taste tags (the same reading, run on the founder's words)
+  categoryTags: 2, // /v2/tags for the Qloo category seeds
+  suggestionSearches: 8, // /search for Claude's suggested seeds
+} as const;
+export type IntakeBudgetRow = keyof typeof INTAKE_BUDGET;
+
+/** Hard cap for one intake. */
+export const INTAKE_CAP = 14;

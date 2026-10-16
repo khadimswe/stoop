@@ -1,0 +1,121 @@
+// Typed name resolution, shared by the Gate 2 data check and the intake's suggested seeds. One
+// /search call per name (types always set), and the hit counts only when its name matches what was
+// asked for (lib/qloo/match.ts), because /search returns its best guess for any query. Both callers
+// build the request here, so they send identical params and replay the same recordings.
+// Two lookups: the data check's `Lookup` returns data only; the intake's `ReceiptLookup` also
+// returns the Evidence receipt, with a human label and a stage for the trace.
+import type { z } from "zod";
+import type { Evidence } from "../evidence";
+import type { QlooClient } from "./client";
+import { ENDPOINTS, type Endpoint, type EntityType } from "./constants";
+import type { RunContext } from "./context";
+import { matchResult, normalizeName, type MatchKind } from "./match";
+import type { QlooParams } from "./params";
+import { searchResponse, slimBody, type QlooEntity } from "./types";
+
+/** One Qloo request with a stable id. The id is the receipt key and the recipe id. */
+export interface PlannedRequest {
+  id: string;
+  endpoint: Endpoint;
+  params: QlooParams;
+  note?: string;
+}
+
+/** Reads one planned request and returns its typed data. A 404 returns `notFound` when given. */
+export type Lookup = <T>(request: PlannedRequest, schema: z.ZodType<T>, notFound?: T) => Promise<T>;
+
+/** Reads a planned request through the real client (fixtures mode: a miss throws, nothing goes live). */
+export function clientLookup(client: QlooClient, ctx: RunContext): Lookup {
+  return async (request, schema, notFound) =>
+    (await client.request(ctx, { endpoint: request.endpoint, params: request.params, schema, label: request.id, onNotFound: notFound })).data;
+}
+
+/** A planned request with its trace label, e.g. "Resolving Hot Ones to a TV show". */
+export interface LabeledRequest extends PlannedRequest {
+  label: string;
+}
+
+/** Reads a labeled request and returns its data with the receipt the client recorded in the ledger. */
+export type ReceiptLookup = <T>(request: LabeledRequest, schema: z.ZodType<T>, notFound?: T) => Promise<{ data: T; evidence: Evidence }>;
+
+/**
+ * The intake's lookup: the real client (cached, paced, budgeted by `ctx`), the request's own label,
+ * the given stage, and bodies slimmed before caching like every other Stoop call.
+ */
+export function receiptLookup(client: QlooClient, ctx: RunContext, options: { stage?: string } = {}): ReceiptLookup {
+  return async (request, schema, notFound) => {
+    const result = await client.request(ctx, {
+      endpoint: request.endpoint,
+      params: request.params,
+      schema,
+      label: request.label,
+      ...(options.stage ? { stage: options.stage } : {}),
+      onNotFound: notFound,
+      slim: (body) => slimBody(request.endpoint, request.params["filter.type"], body),
+    });
+    return { data: result.data, evidence: result.evidence };
+  };
+}
+
+const TYPE_NAMES: Record<EntityType, string> = {
+  artist: "an artist",
+  book: "a book",
+  brand: "a brand",
+  destination: "a destination",
+  locality: "a locality",
+  movie: "a film",
+  person: "a person",
+  place: "a place",
+  podcast: "a podcast",
+  tv_show: "a TV show",
+  videogame: "a video game",
+};
+
+/** The trace label for a typed search. */
+export const resolveLabel = (name: string, type: EntityType) => `Resolving ${name} to ${TYPE_NAMES[type]}`;
+
+/** Results per search. Recorded Gate 2 searches all used 5 (fixtures/pool-resolve.json). */
+export const SEARCH_TAKE = 5;
+
+export const searchId = (name: string, type: EntityType) => `search--${normalizeName(name).replace(/ /g, "-")}--${type}`;
+
+export function searchRequest(name: string, type: EntityType, note?: string): PlannedRequest {
+  return {
+    id: searchId(name, type),
+    endpoint: ENDPOINTS.search,
+    params: { query: name, types: [`urn:entity:${type}`], take: SEARCH_TAKE },
+    ...(note === undefined ? {} : { note }),
+  };
+}
+
+export interface ResolvedEntity {
+  query: string;
+  type: EntityType;
+  /** Id of the /search request behind the answer (the receipt). */
+  request: string;
+  /** Set when a search hit's name matched the query; otherwise the name was dropped. */
+  entity?: { id: string; name: string; popularity: number | null; match: MatchKind };
+}
+
+function resolved(name: string, type: EntityType, request: PlannedRequest, results: readonly QlooEntity[]): ResolvedEntity {
+  const hit = matchResult(name, results);
+  return {
+    query: name,
+    type,
+    request: request.id,
+    entity: hit ? { id: hit.result.id, name: hit.result.name, popularity: hit.result.popularity, match: hit.match } : undefined,
+  };
+}
+
+/** Resolves one name of a known type. A miss (no hit, or no hit with a matching name) leaves `entity` unset. */
+export async function resolveEntity(name: string, type: EntityType, lookup: Lookup): Promise<ResolvedEntity> {
+  const request = searchRequest(name, type);
+  return resolved(name, type, request, await lookup(request, searchResponse, []));
+}
+
+/** resolveEntity with the search's receipt (for a seed's evidenceIds), labeled for the trace. */
+export async function resolveEntityWithReceipt(name: string, type: EntityType, lookup: ReceiptLookup): Promise<ResolvedEntity & { evidence: Evidence }> {
+  const request = searchRequest(name, type);
+  const { data, evidence } = await lookup({ ...request, label: resolveLabel(name, type) }, searchResponse, []);
+  return { ...resolved(name, type, request, data), evidence };
+}
