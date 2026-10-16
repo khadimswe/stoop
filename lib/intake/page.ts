@@ -13,7 +13,7 @@ import { z } from "zod";
 import { checkText, stripEmDashes, type GuardRule } from "../guardrails";
 import { PageBudget, type FetchFailure, type GuardedFetchOptions, type PageContentType, type PageFetch } from "./guarded-fetch";
 import { capText, collapse, findProductNode, firstHeading, jsonLdBlocks, metaTags, plainText, titleOf, visibleText } from "./html";
-import { checkUrl } from "./address";
+import { checkUrl, MAX_URL_LENGTH } from "./address";
 
 export const COPY_MAX = 6_000;
 const NAME_MAX = 200;
@@ -56,7 +56,7 @@ export const pageFlagSchema = z.strictObject({
 export type PageFlag = z.infer<typeof pageFlagSchema>;
 
 export const fetchLogSchema = z.strictObject({
-  url: z.string(),
+  url: z.string().max(MAX_URL_LENGTH),
   ok: z.boolean(),
   status: z.number().int().optional(),
   reason: z.string().optional(),
@@ -64,9 +64,9 @@ export const fetchLogSchema = z.strictObject({
 
 export const pageReadSchema = z.strictObject({
   /** The link as given. */
-  url: z.string(),
+  url: z.string().max(MAX_URL_LENGTH),
   /** Where the product was read from, after redirects. */
-  finalUrl: z.string().optional(),
+  finalUrl: z.string().max(MAX_URL_LENGTH).optional(),
   /** Which source gave the product. Null when nothing readable was found. */
   source: z.enum(PAGE_SOURCES).nullable(),
   product: productReadSchema.nullable(),
@@ -103,18 +103,23 @@ interface RawRead {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
-/** A JSON-LD value as text: a string, a number, the first string of an array, or an object's name. */
-function textOf(value: unknown): string | undefined {
+/** How deep textOf and firstOffer follow arrays, names and variants. Real pages need 2. */
+const MAX_JSON_LD_DEPTH = 3;
+const MAX_JSON_LD_ITEMS = 10;
+
+/** A JSON-LD value as text: a string, a number, the first string of an array, or an object's name (bounded depth). */
+function textOf(value: unknown, depth = 0): string | undefined {
   if (typeof value === "string") return plainText(value) || undefined;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (depth >= MAX_JSON_LD_DEPTH) return undefined;
   if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = textOf(item);
+    for (const item of value.slice(0, MAX_JSON_LD_ITEMS)) {
+      const found = textOf(item, depth + 1);
       if (found) return found;
     }
     return undefined;
   }
-  if (isRecord(value)) return textOf(value.name);
+  if (isRecord(value)) return textOf(value.name, depth + 1);
   return undefined;
 }
 
@@ -125,16 +130,21 @@ export function normalizePrice(value: unknown): string | undefined {
 
 const normalizeCurrency = (value: unknown) => (typeof value === "string" && /^[A-Za-z]{3}$/.test(value.trim()) ? value.trim().toUpperCase() : undefined);
 
-/** Only https images, resolved against the page; protocol-relative links become https. */
+/**
+ * Only https images on a public host and a storefront port, resolved against the page;
+ * protocol-relative links become https. A later step may fetch them, so a link to a private or
+ * metadata address (https://169.254.169.254/, https://localhost:6379/) is dropped here.
+ */
 function httpsImage(src: unknown, base: string): string | undefined {
   if (typeof src !== "string" || !src.trim()) return undefined;
   const trimmed = src.trim();
+  let url: URL;
   try {
-    const url = new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed, base);
-    return url.protocol === "https:" ? url.href : undefined;
+    url = new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed, base);
   } catch {
     return undefined;
   }
+  return url.protocol === "https:" && checkUrl(url.href).ok ? url.href : undefined;
 }
 
 function addImage(images: RawProduct["images"], src: unknown, base: string, alt?: unknown) {
@@ -191,11 +201,12 @@ export function readShopifyJson(body: string, base: string): RawProduct | null {
 
 // --- HTML ----------------------------------------------------------------------------------------
 
-function firstOffer(node: Record<string, unknown>): Record<string, unknown> | undefined {
+function firstOffer(node: Record<string, unknown>, depth = 0): Record<string, unknown> | undefined {
   const offers = Array.isArray(node.offers) ? node.offers[0] : node.offers;
   if (isRecord(offers)) return offers;
-  const variants = Array.isArray(node.hasVariant) ? node.hasVariant : [];
-  for (const variant of variants) if (isRecord(variant)) return firstOffer(variant);
+  if (depth >= MAX_JSON_LD_DEPTH) return undefined;
+  const variants = Array.isArray(node.hasVariant) ? node.hasVariant.slice(0, MAX_JSON_LD_ITEMS) : [];
+  for (const variant of variants) if (isRecord(variant)) return firstOffer(variant, depth + 1);
   return undefined;
 }
 
@@ -278,11 +289,12 @@ export function readHtml(html: string, base: string): RawRead {
   if (fromJsonLd) return { source: "jsonld", product: merge(fromJsonLd, fromMeta), copy };
   if (fromMeta) return { source: "meta", product: fromMeta, copy };
 
+  // A JavaScript-only shell has a title ("Loading") but no product: say so, and keep its little copy.
+  if (copy.length < MIN_READABLE_COPY) {
+    return { source: null, product: null, copy, blocked: { reason: "The page needs JavaScript to show the product, so there was little to read." } };
+  }
   const name = firstHeading(html) ?? title;
   const product: RawProduct | null = name ? { name, description: meta.description?.[0], tags: [], images: [] } : null;
-  if (copy.length < MIN_READABLE_COPY) {
-    return { source: product ? "text" : null, product, copy, blocked: { reason: "The page needs JavaScript to show the product, so there was little to read." } };
-  }
   return { source: "text", product, copy };
 }
 
@@ -340,11 +352,14 @@ function guard(raw: RawRead): Pick<PageRead, "product" | "copy" | "flags"> {
   return { product, copy, flags };
 }
 
+/** Links are stored at most MAX_URL_LENGTH long (an overlong one was refused, but is still echoed). */
+const capUrl = (url: string) => url.slice(0, MAX_URL_LENGTH);
+
 function finish(url: string, raw: RawRead, fetches: PageRead["fetches"], finalUrl?: string): PageRead {
   const guarded = guard(raw);
   return pageReadSchema.parse({
-    url,
-    ...(finalUrl ? { finalUrl } : {}),
+    url: capUrl(url),
+    ...(finalUrl ? { finalUrl: capUrl(finalUrl) } : {}),
     source: guarded.product ? raw.source : null,
     ...guarded,
     ...(raw.blocked ? { blocked: raw.blocked } : {}),
@@ -401,13 +416,25 @@ export interface ReadPageOptions {
 }
 
 const logOf = (result: PageFetch): PageRead["fetches"][number] =>
-  result.ok ? { url: result.url, ok: true, status: result.status } : { url: result.url, ok: false, reason: result.reason, ...(result.status ? { status: result.status } : {}) };
+  result.ok
+    ? { url: capUrl(result.url), ok: true, status: result.status }
+    : { url: capUrl(result.url), ok: false, reason: result.reason, ...(result.status ? { status: result.status } : {}) };
 
-/** Reads one product link. Never throws for anything the site does; a blocked read says why. */
+const nothing = (reason: string): RawRead => ({ source: null, product: null, copy: "", blocked: { reason } });
+
+/** Reads one product link. Never throws for anything a site does; a blocked read says why. */
 export async function readPage(input: string, options: ReadPageOptions = {}): Promise<PageRead> {
   const fetches: PageRead["fetches"] = [];
-  const nothing = (reason: string): RawRead => ({ source: null, product: null, copy: "", blocked: { reason } });
-  const checked = checkUrl(input, options.fetch?.policy);
+  try {
+    return await readLink(input, options, fetches);
+  } catch {
+    // A parser surprise (a page built to break it) becomes a blocked read, never a failed intake.
+    return finish(input, nothing("Stoop could not read the page."), fetches);
+  }
+}
+
+async function readLink(input: string, options: ReadPageOptions, fetches: PageRead["fetches"]): Promise<PageRead> {
+  const checked = checkUrl(input, options.fetch?.policy, options.fetch?.ports);
   if (!checked.ok) return finish(input, nothing(blockedReason(checked.reason, checked.detail)), fetches);
 
   const budget = options.budget ?? new PageBudget(input);

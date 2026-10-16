@@ -2,6 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { publicAddress, type AddressPolicy } from "./address";
+import type { PageBudget } from "./guarded-fetch";
 import { MIN_READABLE_COPY, normalizePrice, pageReadSchema, readHtml, readPage, readShopifyJson } from "./page";
 
 // Synthetic pages and store JSON (not Qloo data): the shapes product pages commonly use.
@@ -113,10 +114,33 @@ describe("readHtml", () => {
     expect(read.copy.length).toBeGreaterThan(MIN_READABLE_COPY);
   });
 
-  it("calls a JavaScript-only shell blocked, keeping what it read", () => {
+  it("calls a JavaScript-only shell blocked, with no product", () => {
     const read = readHtml(jsShell, BASE);
     expect(read.blocked?.reason).toMatch(/needs JavaScript/);
-    expect(read.product?.name).toBe("Loading");
+    expect(read).toMatchObject({ source: null, product: null });
+  });
+
+  it("survives deeply nested JSON-LD names and variants", () => {
+    const deep = 20_000;
+    const arrays = `{"@type":"Product","name":${"[".repeat(deep)}"x"${"]".repeat(deep)}}`;
+    const names = `{"@type":"Product","name":${'{"name":'.repeat(deep)}"x"${"}".repeat(deep)}}`;
+    // Half as deep, so the block stays under the 200 KB JSON-LD cap and is really parsed.
+    const variants = `{"@type":"ProductGroup","name":"Mug","hasVariant":${'[{"hasVariant":'.repeat(deep / 2)}[]${"}]".repeat(deep / 2)}}`;
+    for (const block of [arrays, names, variants]) {
+      const html = `<script type="application/ld+json">${block}</script><h1>Mug</h1><p>${longCopy}</p>`;
+      expect(() => readHtml(html, BASE)).not.toThrow();
+    }
+    expect(readHtml(`<script type="application/ld+json">${variants}</script>`, BASE).product).toMatchObject({ name: "Mug" });
+  });
+
+  it("drops image links to private, metadata or non-storefront addresses", () => {
+    const page = `<html><head><meta property="og:title" content="Mug">
+      <meta property="og:image" content="https://169.254.169.254/latest/meta-data/">
+      <meta property="og:image" content="https://localhost:6379/x">
+      <meta property="og:image" content="https://cdn.example.com:6379/x.jpg">
+      <meta property="og:image" content="https://[::1]/x.jpg">
+      <meta property="og:image" content="https://cdn.example.com/mug.jpg"></head></html>`;
+    expect(readHtml(page, BASE).product?.images).toEqual([{ url: "https://cdn.example.com/mug.jpg" }]);
   });
 
   it("calls a bot check blocked", () => {
@@ -144,6 +168,7 @@ describe("normalizePrice", () => {
 const loopbackToo: AddressPolicy = (address) => (address === "127.0.0.1" ? { allowed: true, address, family: 4 } : publicAddress(address));
 let server: http.Server;
 let base = "";
+let port = 0;
 const paths: string[] = [];
 
 beforeAll(async () => {
@@ -164,7 +189,8 @@ beforeAll(async () => {
     return send(404, "text/html", "Not found");
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  port = (server.address() as AddressInfo).port;
+  base = `http://127.0.0.1:${port}`;
 });
 
 afterAll(async () => {
@@ -172,7 +198,7 @@ afterAll(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-const read = (path: string, timeoutMs?: number) => readPage(`${base}${path}`, { fetch: { policy: loopbackToo, ...(timeoutMs ? { timeoutMs } : {}) } });
+const read = (path: string, timeoutMs?: number) => readPage(`${base}${path}`, { fetch: { policy: loopbackToo, ports: [port], ...(timeoutMs ? { timeoutMs } : {}) } });
 
 describe("readPage", () => {
   it("reads a Shopify product from its JSON, cleans long dashes and applies the guardrails", async () => {
@@ -225,6 +251,25 @@ describe("readPage", () => {
     const bad = await readPage("ftp://shop.example.com/x");
     expect(bad.blocked?.reason).toBe("Only http and https links can be read.");
     expect(paths.length).toBe(before);
+  });
+
+  it("stores an overlong link truncated", async () => {
+    const page = await readPage(`https://shop.example.com/products/${"a".repeat(5_000)}`);
+    expect(page.blocked?.reason).toMatch(/longer than 2048/);
+    expect(page.url.length).toBe(2_048);
+    expect(pageReadSchema.parse(page)).toEqual(page);
+  });
+
+  it("never throws, even when reading itself breaks", async () => {
+    const broken = {
+      pageUrl: `${base}/about`,
+      jsonUrl: null,
+      fetch: async () => {
+        throw new Error("unexpected");
+      },
+    } as unknown as PageBudget;
+    const page = await readPage(`${base}/about`, { budget: broken, fetch: { policy: loopbackToo, ports: [port] } });
+    expect(page).toMatchObject({ source: null, product: null, blocked: { reason: "Stoop could not read the page." } });
   });
 
   it("flags guardrail hits in the copy but keeps the copy, instructions included, as data", async () => {
