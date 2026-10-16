@@ -3,25 +3,20 @@
 // from the same functions, so the params are identical by construction.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { z } from "zod";
 import { baselineRunSchema, REFERENCE_TYPES, type BaselineRun, type ReferenceType } from "../agent/baseline";
 import { CONTROL_RUN } from "../agent/baseline-brief";
 import type { Candidate } from "../demo/candidates";
 import { seedType } from "../demo/seed-types";
-import type { QlooClient } from "../qloo/client";
-import { ENDPOINTS, type AgeBucket, type EntityType, type Endpoint } from "../qloo/constants";
-import type { RunContext } from "../qloo/context";
-import { bestTag, matchResult, type MatchKind } from "../qloo/match";
+import { ENDPOINTS, type AgeBucket, type EntityType } from "../qloo/constants";
+import { bestTag } from "../qloo/match";
 import type { QlooParams } from "../qloo/params";
-import { searchResponse, tagsResponse } from "../qloo/types";
+import { resolveEntity, searchRequest, type Lookup, type PlannedRequest, type ResolvedEntity } from "../qloo/resolve";
+import { tagsResponse } from "../qloo/types";
 import { moodTerm, musicTerm, slugOf } from "./score";
 
-export interface PlannedRequest {
-  id: string;
-  endpoint: Endpoint;
-  params: QlooParams;
-  note?: string;
-}
+// Typed name resolution lives in lib/qloo/resolve.ts (the intake uses it too) and is re-exported here.
+export { clientLookup, searchId } from "../qloo/resolve";
+export type { Lookup, PlannedRequest };
 
 export interface Recipe {
   description: string;
@@ -97,11 +92,10 @@ export function controlText(candidate: Candidate, runs: readonly BaselineRun[]):
 
 // --- Request ids and builders -----------------------------------------------------------------
 
-export const searchId = (name: string, type: EntityType) => `search--${slugOf(name)}--${type}`;
 export const tagQueryId = (kind: TagKind | "place", term: string) => `tags--${kind}--${slugOf(term)}`;
 
 function search(name: string, type: EntityType, note: string): PlannedRequest {
-  return { id: searchId(name, type), endpoint: ENDPOINTS.search, params: { query: name, types: [`urn:entity:${type}`], take: 5 }, note };
+  return searchRequest(name, type, note);
 }
 
 /** The query is the normalized term ("Lo-fi hip hop" and "lo-fi hip-hop" both send "lo fi hip hop"), so one id is one request. */
@@ -231,32 +225,10 @@ export function scoringRequests(
 
 // --- Reading recorded responses back -----------------------------------------------------------
 
-export type Lookup = <T>(request: PlannedRequest, schema: z.ZodType<T>, notFound?: T) => Promise<T>;
-
-/** Reads a planned request through the real client (fixtures mode: a miss throws, nothing goes live). */
-export function clientLookup(client: QlooClient, ctx: RunContext): Lookup {
-  return async (request, schema, notFound) =>
-    (await client.request(ctx, { endpoint: request.endpoint, params: request.params, schema, label: request.id, onNotFound: notFound })).data;
-}
-
-export interface Resolved {
-  query: string;
-  type: EntityType;
-  request: string;
-  /** Set when a search hit's name matched the query; otherwise the name was dropped. */
-  entity?: { id: string; name: string; popularity: number | null; match: MatchKind };
-}
+export type Resolved = ResolvedEntity;
 
 export async function resolveName(name: string, type: EntityType, lookup: Lookup): Promise<Resolved> {
-  const request = search(name, type, "");
-  const results = await lookup(request, searchResponse, []);
-  const hit = matchResult(name, results);
-  return {
-    query: name,
-    type,
-    request: request.id,
-    entity: hit ? { id: hit.result.id, name: hit.result.name, popularity: hit.result.popularity, match: hit.match } : undefined,
-  };
+  return resolveEntity(name, type, lookup);
 }
 
 export interface MappedTag {
