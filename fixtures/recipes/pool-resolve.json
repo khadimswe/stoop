@@ -1,0 +1,653 @@
+{
+  "description": "Gate 2 stage 1: resolve the pool's seeds and the Controls' non-seed references by name, map each Control's music style and mood to a Qloo tag, and find everyday place genre tags.",
+  "requests": [
+    {
+      "id": "search--carhartt--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Carhartt",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for apparel-everyday."
+    },
+    {
+      "id": "search--champion--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Champion",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for apparel-everyday."
+    },
+    {
+      "id": "search--tyler-the-creator--artist",
+      "endpoint": "/search",
+      "params": {
+        "query": "Tyler, the Creator",
+        "types": [
+          "urn:entity:artist"
+        ],
+        "take": 5
+      },
+      "note": "Seed for apparel-everyday."
+    },
+    {
+      "id": "search--rick-and-morty--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "Rick and Morty",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for apparel-everyday."
+    },
+    {
+      "id": "search--hot-ones--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "Hot Ones",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-hot-sauce."
+    },
+    {
+      "id": "search--trader-joes--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Trader Joe's",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-hot-sauce."
+    },
+    {
+      "id": "search--parts-unknown--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "Parts Unknown",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-hot-sauce."
+    },
+    {
+      "id": "search--tabasco--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Tabasco",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-hot-sauce."
+    },
+    {
+      "id": "search--blue-bottle-coffee--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Blue Bottle Coffee",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-coffee."
+    },
+    {
+      "id": "search--chemex--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Chemex",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-coffee."
+    },
+    {
+      "id": "search--bear--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "The Bear",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-coffee."
+    },
+    {
+      "id": "search--radiolab--podcast",
+      "endpoint": "/search",
+      "params": {
+        "query": "Radiolab",
+        "types": [
+          "urn:entity:podcast"
+        ],
+        "take": 5
+      },
+      "note": "Seed for food-coffee."
+    },
+    {
+      "id": "search--capcut--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "CapCut",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-ai-video."
+    },
+    {
+      "id": "search--canva--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Canva",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-ai-video."
+    },
+    {
+      "id": "search--casey-neistat--person",
+      "endpoint": "/search",
+      "params": {
+        "query": "Casey Neistat",
+        "types": [
+          "urn:entity:person"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-ai-video."
+    },
+    {
+      "id": "search--diary-of-a-ceo--podcast",
+      "endpoint": "/search",
+      "params": {
+        "query": "The Diary of a CEO",
+        "types": [
+          "urn:entity:podcast"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-ai-video."
+    },
+    {
+      "id": "search--strava--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Strava",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-bike-light."
+    },
+    {
+      "id": "search--rapha--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Rapha",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-bike-light."
+    },
+    {
+      "id": "search--gopro--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "GoPro",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-bike-light."
+    },
+    {
+      "id": "search--freakonomics-radio--podcast",
+      "endpoint": "/search",
+      "params": {
+        "query": "Freakonomics Radio",
+        "types": [
+          "urn:entity:podcast"
+        ],
+        "take": 5
+      },
+      "note": "Seed for startup-bike-light."
+    },
+    {
+      "id": "search--barkbox--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "BarkBox",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for pets-outfits."
+    },
+    {
+      "id": "search--chewy--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Chewy",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for pets-outfits."
+    },
+    {
+      "id": "search--taylor-swift--artist",
+      "endpoint": "/search",
+      "params": {
+        "query": "Taylor Swift",
+        "types": [
+          "urn:entity:artist"
+        ],
+        "take": 5
+      },
+      "note": "Seed for pets-outfits."
+    },
+    {
+      "id": "search--schitts-creek--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "Schitt's Creek",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for pets-outfits."
+    },
+    {
+      "id": "search--cerave--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "CeraVe",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-moisturizer."
+    },
+    {
+      "id": "search--glossier--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Glossier",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-moisturizer."
+    },
+    {
+      "id": "search--ordinary--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "The Ordinary",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-moisturizer."
+    },
+    {
+      "id": "search--emma-chamberlain--person",
+      "endpoint": "/search",
+      "params": {
+        "query": "Emma Chamberlain",
+        "types": [
+          "urn:entity:person"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-moisturizer."
+    },
+    {
+      "id": "search--bath-and-body-works--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Bath & Body Works",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for home-candles."
+    },
+    {
+      "id": "search--anthropologie--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Anthropologie",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for home-candles."
+    },
+    {
+      "id": "search--phoebe-bridgers--artist",
+      "endpoint": "/search",
+      "params": {
+        "query": "Phoebe Bridgers",
+        "types": [
+          "urn:entity:artist"
+        ],
+        "take": 5
+      },
+      "note": "Seed for home-candles."
+    },
+    {
+      "id": "search--bridgerton--tv_show",
+      "endpoint": "/search",
+      "params": {
+        "query": "Bridgerton",
+        "types": [
+          "urn:entity:tv_show"
+        ],
+        "take": 5
+      },
+      "note": "Seed for home-candles."
+    },
+    {
+      "id": "search--nike--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Nike",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-kit-sneakers."
+    },
+    {
+      "id": "search--stockx--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "StockX",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-kit-sneakers."
+    },
+    {
+      "id": "search--jason-markk--brand",
+      "endpoint": "/search",
+      "params": {
+        "query": "Jason Markk",
+        "types": [
+          "urn:entity:brand"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-kit-sneakers."
+    },
+    {
+      "id": "search--travis-scott--artist",
+      "endpoint": "/search",
+      "params": {
+        "query": "Travis Scott",
+        "types": [
+          "urn:entity:artist"
+        ],
+        "take": 5
+      },
+      "note": "Seed for care-kit-sneakers."
+    },
+    {
+      "id": "search--nujabes--artist",
+      "endpoint": "/search",
+      "params": {
+        "query": "Nujabes",
+        "types": [
+          "urn:entity:artist"
+        ],
+        "take": 5
+      },
+      "note": "Control reference for apparel-everyday (runs 1)."
+    },
+    {
+      "id": "tags--music--lo-fi-hip-hop",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "lo fi hip hop",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for apparel-everyday: \"Lo-fi hip hop with warm dusty drums, soft electric piano cho\"."
+    },
+    {
+      "id": "tags--tone--calm",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "calm",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for apparel-everyday: \"Calm, confident, tactile, quietly satisfying\"."
+    },
+    {
+      "id": "tags--music--funk-soul",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "funk soul",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for food-hot-sauce: \"Upbeat funk-soul groove with a tight drum break, slap bass, \"."
+    },
+    {
+      "id": "tags--tone--warm",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "warm",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for food-hot-sauce: \"Warm, confident, appetizing, a little playful\"."
+    },
+    {
+      "id": "tags--music--acoustic-indie-folk",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "acoustic indie folk",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for food-coffee: \"Soft acoustic indie folk with fingerpicked guitar, light bru\"."
+    },
+    {
+      "id": "tags--music--indie-electronic-pop",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "indie electronic pop",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for startup-ai-video: \"Upbeat indie electronic pop with a light finger-snap groove,\"."
+    },
+    {
+      "id": "tags--tone--relieved",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "relieved",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for startup-ai-video: \"Relieved, quick, quietly satisfying, a little playful\"."
+    },
+    {
+      "id": "tags--music--downtempo-electronic",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "downtempo electronic",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for startup-bike-light: \"Modern downtempo electronic with a warm analog bassline, sof\"."
+    },
+    {
+      "id": "tags--music--indie-pop",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "indie pop",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for pets-outfits: \"Upbeat indie pop with a warm, bouncy feel: plucked acoustic \"."
+    },
+    {
+      "id": "tags--tone--cozy",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "cozy",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for pets-outfits: \"Cozy, funny, heartwarming, with a little mock-serious fashion confidence\"."
+    },
+    {
+      "id": "tags--music--indie-folk",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "indie folk",
+        "filter.tag.types": [
+          "urn:tag:genre:music"
+        ],
+        "take": 10
+      },
+      "note": "Control music for home-candles: \"Intimate indie folk with fingerpicked acoustic guitar, soft \"."
+    },
+    {
+      "id": "tags--tone--quiet-relief",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "quiet relief",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for home-candles: \"Quiet relief, warm, unhurried, softly cozy\"."
+    },
+    {
+      "id": "tags--tone--satisfying",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "satisfying",
+        "filter.tag.types": [
+          "urn:tag:emotional_tone:qloo"
+        ],
+        "take": 10
+      },
+      "note": "Control mood for care-kit-sneakers: \"Satisfying, confident, crisp, a little obsessive\"."
+    },
+    {
+      "id": "tags--place--coffee-shop",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "coffee shop",
+        "filter.tag.types": [
+          "urn:tag:genre:place"
+        ],
+        "take": 10
+      },
+      "note": "Everyday place genre for setting queries."
+    },
+    {
+      "id": "tags--place--park",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "park",
+        "filter.tag.types": [
+          "urn:tag:genre:place"
+        ],
+        "take": 10
+      },
+      "note": "Everyday place genre for setting queries."
+    },
+    {
+      "id": "tags--place--boutique",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "boutique",
+        "filter.tag.types": [
+          "urn:tag:genre:place"
+        ],
+        "take": 10
+      },
+      "note": "Everyday place genre for setting queries."
+    },
+    {
+      "id": "tags--place--record-store",
+      "endpoint": "/v2/tags",
+      "params": {
+        "filter.query": "record store",
+        "filter.tag.types": [
+          "urn:tag:genre:place"
+        ],
+        "take": 10
+      },
+      "note": "Everyday place genre for setting queries."
+    }
+  ]
+}

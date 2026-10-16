@@ -1,0 +1,14 @@
+{
+  "description": "Gate 2 probe 1: search and tag response shapes per entity type, multi-type search, and how much filler follows the real match.",
+  "requests": [
+    { "id": "search-brand-carhartt", "endpoint": "/search", "params": { "query": "Carhartt", "types": ["urn:entity:brand"], "take": 5 }, "note": "Brand shape; does filler follow the exact match?" },
+    { "id": "search-artist-tyler", "endpoint": "/search", "params": { "query": "Tyler, the Creator", "types": ["urn:entity:artist"], "take": 5 }, "note": "Artist shape; punctuation in the name." },
+    { "id": "search-tv-rick-and-morty", "endpoint": "/search", "params": { "query": "Rick and Morty", "types": ["urn:entity:tv_show"], "take": 3 }, "note": "TV show shape." },
+    { "id": "search-podcast-radiolab", "endpoint": "/search", "params": { "query": "Radiolab", "types": ["urn:entity:podcast"], "take": 3 }, "note": "Podcast shape." },
+    { "id": "search-person-casey-neistat", "endpoint": "/search", "params": { "query": "Casey Neistat", "types": ["urn:entity:person"], "take": 3 }, "note": "Person shape." },
+    { "id": "search-movie-chef", "endpoint": "/search", "params": { "query": "Chef", "types": ["urn:entity:movie"], "take": 3 }, "note": "Movie shape; an ambiguous one-word title." },
+    { "id": "search-multi-hot-ones", "endpoint": "/search", "params": { "query": "Hot Ones", "types": ["urn:entity:tv_show", "urn:entity:podcast", "urn:entity:brand"], "take": 5 }, "note": "Multi-type search for a seed whose type the founder did not say." },
+    { "id": "tags-hot-sauce", "endpoint": "/v2/tags", "params": { "filter.query": "hot sauce", "take": 10 }, "note": "Tag search shape (id field name)." },
+    { "id": "tags-streetwear", "endpoint": "/v2/tags", "params": { "filter.query": "streetwear", "take": 10 }, "note": "Tag search for an abstract style choice." }
+  ]
+}
