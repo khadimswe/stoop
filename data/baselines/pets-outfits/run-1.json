@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "pets-outfits",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:48:56.867Z",
+  "instructionsHash": "ad91bb875047cf69c0150c447413641d066dc68d0e9e4db61dc21b9085544ed1",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4033,
+    "outputTokens": 1133
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Adults who treat their cat or dog as family. They share pet photos constantly, plan seasonal pet outfits the way they plan their own, and want cozy, well-made pieces that look good on camera and survive the wash. They enjoy humor, warmth and small everyday rituals with their animals."
+    },
+    "productRole": "The mustard knit beanie and rust-red sweater are put on pets on screen. A hand eases the beanie over a dog's head and through the ear openings, then clicks the adjustable strap. A cat steps calmly into the sweater. The pets then go about their day (trotting, sitting in a window, curling up), showing the stretch yarn moving with them. The last beat shows the sweater going into a washing machine drum, then the folded pieces next to the pom-pom beanie.",
+    "mood": "Cozy, funny, heartwarming, with a little mock-serious fashion confidence",
+    "music": {
+      "style": "Upbeat indie pop with a warm, bouncy feel: plucked acoustic guitar, soft hand claps, light glockenspiel, and a gentle bass groove with a small whistle hook. Add a playful record-scratch-free pause on the reveal.",
+      "tempo": "about 104 bpm"
+    },
+    "visual": {
+      "look": "Warm autumn grade with golden highlights and soft creamy shadows, light film grain. Shot at pet eye level with a 35mm-style lens, shallow depth of field, and occasional macro close-ups of the knit texture and pom-pom. Handheld but steady. Quick cuts of about 1 to 1.5 seconds, a slow-motion beat on the pom-pom bounce, and a final locked-off frame of the product on a wooden surface."
+    },
+    "wardrobe": {
+      "styling": "Pets wear the product: a mustard knit beanie with pom-pom and ear openings on a medium dog, the rust-red knit sweater on a short-haired cat, plus a matching knit bandana on a small dog. No logos, no text. Only a small fabric tag with a paw symbol shows."
+    },
+    "setting": {
+      "types": [
+        "sunlit apartment living room with a wide window seat",
+        "autumn sidewalk park path with fallen leaves",
+        "small laundry nook with a front-loading washer"
+      ]
+    },
+    "voice": {
+      "tone": "Warm, dry-witted and affectionate, like a proud pet parent who also runs a fashion house",
+      "use": [
+        "Speak as the brand with short, playful lines",
+        "Treat the pets as the stars with mock-runway confidence",
+        "Mention soft stretch yarn, adjustable straps, machine washable, and new colors each season",
+        "Mention the $24 price once, plainly",
+        "End with a simple invitation to shop"
+      ],
+      "avoid": [
+        "Health, warmth-as-treatment or protection claims",
+        "Ratings, review counts or best seller language",
+        "Speaking as a customer who tried it",
+        "Long dashes",
+        "Slang tied to a specific community"
+      ]
+    },
+    "hooks": [
+      "Your dog called. He wants a sweater.",
+      "Meet the most dressed one in the house.",
+      "Cat in a sweater: zero regrets, full confidence."
+    ],
+    "talent": null,
+    "references": {
+      "artist": [
+        "Taylor Swift"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Schitt's Creek"
+      ],
+      "brand": [
+        "BarkBox",
+        "Chewy"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Brooklyn"
+    ]
+  }
+}

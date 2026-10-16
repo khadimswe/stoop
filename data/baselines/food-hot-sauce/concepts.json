@@ -1,0 +1,345 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "5889ab962355e7d1949128275cc94c809347c3c00565ebd3d8ee60a744c1a544",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:48:45.754Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5214,
+    "outputTokens": 4423
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Four Meals, One Bottle",
+        "hook": "Tight macro on a hand shaking the deep red bottle over a cast iron pan of fried eggs, overlay: Your eggs called.",
+        "emotion": "Appetite",
+        "surpriseBeat": "After four fast drizzles on the beat, the final spoon bite shows a calm face that slowly turns into a raised-eyebrow smile as the heat arrives a beat later.",
+        "locations": [
+          {
+            "slug": "home-kitchen",
+            "description": "Lived-in home kitchen with butcher block counter and stovetop with a cast iron pan",
+            "timeOfDay": "morning",
+            "lighting": "Warm natural window light with deep shadows"
+          },
+          {
+            "slug": "window-dining-table",
+            "description": "Small dining table beside a sunny window",
+            "timeOfDay": "midday",
+            "lighting": "Sunny side light, rich reds, soft film grain"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A woman in a rolled-sleeve cream linen shirt shakes the bottle, then drizzles deep red sauce over two fried eggs in a cast iron pan.",
+            "camera": "handheld",
+            "framing": "Tight macro-leaning food framing, bottle and eggs in frame",
+            "motion": "Bottle tilts and shakes once, hand exits quickly, label stays facing camera",
+            "lighting": "Warm window light, deep shadows",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": "Your eggs called.",
+            "dialogue": "Your eggs called. They want a better hot sauce.",
+            "sound": "Pan sizzle, bottle shake, tight drum break begins"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "A man in an olive knit sweater finishes a taco with a quick red drizzle, then a rust-toned bowl of noodles gets the same, seen from above.",
+            "camera": "overhead_top_down",
+            "framing": "Overhead on the counter, taco then noodle bowl, bottle edge entering the frame",
+            "motion": "Bottle swings in and out, red lines land on the food",
+            "lighting": "Soft natural light from the window",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": "Garlic. Fermented chile. A little fruit.",
+            "dialogue": null,
+            "sound": "Slap bass groove, muted guitar chicks, quick cuts on the beat"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The woman in a heather tee under a dark apron drizzles a slice of pizza on the butcher block counter, and the man grins at the colour.",
+            "camera": "handheld",
+            "framing": "Close on the pizza slice, bottle held above, faces soft in the background",
+            "motion": "Slow lean in, sauce falls in a ribbon, both cooks relax",
+            "lighting": "Warm golden light with rich reds",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": null,
+            "dialogue": "Garlic, fermented chile, a little fruit.",
+            "sound": "Soft kitchen ambience, funk groove continues"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Slow-motion drizzle: sauce falls from the bottle tip in a thick strand onto a spoon at the table by the window, then the man lifts the spoon.",
+            "camera": "push_in_slow",
+            "framing": "Bottle tip and spoon, shallow depth of field, label facing camera",
+            "motion": "Single slow drip stretches and lands, spoon steady",
+            "lighting": "Sunny window side light",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Music dips to a low hum, soft drip sound"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "He takes a bite and looks calm for a beat, then raises an eyebrow and smiles. Cut to the bottle centered, label facing camera, for the final hold.",
+            "camera": "static",
+            "framing": "Medium close on his face, then centered bottle on the table",
+            "motion": "Face shifts from calm to a raised-eyebrow smile, bottle stays still",
+            "lighting": "Warm window light, light film grain",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": "Heat that waits a second. Try the bottle.",
+            "dialogue": "Heat that waits a second. Try the bottle.",
+            "sound": "Short horn stab on the bottle shot, groove resolves"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Follows the brief's structure closely with strong food specificity and clear product use. The delayed-heat reaction is a quiet surprise rather than a big one."
+      }
+    },
+    {
+      "concept": {
+        "title": "The Wait",
+        "hook": "Extreme close on a spoon with one red drip about to fall, overlay: Wait for it.",
+        "emotion": "Anticipation",
+        "surpriseBeat": "The bite lands and nothing seems to happen, then the cook's raised-eyebrow smile arrives a full beat later, cut against a drum fill.",
+        "locations": [
+          {
+            "slug": "window-dining-table",
+            "description": "Small dining table by a sunny window with a bowl and spoon",
+            "timeOfDay": "late morning",
+            "lighting": "Sunny natural light, deep shadows"
+          },
+          {
+            "slug": "home-kitchen",
+            "description": "Home kitchen with butcher block counter and cast iron pan",
+            "timeOfDay": "late morning",
+            "lighting": "Warm window light with film grain"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A drip of deep red sauce hangs from the bottle tip over a spoon, then falls.",
+            "camera": "push_in_slow",
+            "framing": "Macro on bottle tip and spoon, shallow depth of field",
+            "motion": "One slow drip falls, spoon held still by a bare forearm",
+            "lighting": "Sunny side light, rich red tones",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": "Wait for it.",
+            "dialogue": null,
+            "sound": "Quiet room tone, one soft drip, bass note"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "In the kitchen, a woman in a rust knit sweater shakes the bottle and drizzles fried eggs in the cast iron pan.",
+            "camera": "handheld",
+            "framing": "Tight on pan and bottle, label facing camera",
+            "motion": "Quick shake, drizzle, hand leaves the frame",
+            "lighting": "Warm natural light, deep shadows",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": "Garlic. Fermented chile. A little fruit.",
+            "dialogue": "Garlic, fermented chile, a little fruit.",
+            "sound": "Sizzle, groove kicks in with drum break"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "A man in a charcoal tee and dark apron drizzles a taco on the butcher block counter, then a slice of pizza beside it.",
+            "camera": "tracking_side",
+            "framing": "Side track along the counter at food height",
+            "motion": "Camera slides past two plates as the bottle swings over each",
+            "lighting": "Warm golden window light",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Slap bass, muted guitar chicks, cuts on the beat"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "At the table, the woman takes a spoonful from the noodle bowl and looks neutral and confident.",
+            "camera": "dolly_in",
+            "framing": "Medium close on her face and spoon",
+            "motion": "She chews calmly, eyes steady on camera",
+            "lighting": "Sunny side light",
+            "productVisible": false,
+            "location": "window-dining-table",
+            "overlayText": null,
+            "dialogue": "Heat that waits a second.",
+            "sound": "Music thins out to just bass and a hi-hat"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Her eyebrow rises and she smiles. Cut to the bottle centered on the table, label facing camera, held for the end.",
+            "camera": "static",
+            "framing": "Face close, then centered bottle shot",
+            "motion": "Eyebrow lift, smile; bottle stays still",
+            "lighting": "Warm window light, light film grain",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": "Try the bottle.",
+            "dialogue": "Try the bottle.",
+            "sound": "Horn stab on the bottle, groove lands"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Opening on the drip creates curiosity and the whole ad builds to one clear delayed reaction. Product use is slightly lighter in the middle scenes."
+      }
+    },
+    {
+      "concept": {
+        "title": "Cook's Quiet Confidence",
+        "hook": "Handheld close on a cook's hand setting the bottle down on a butcher block next to a pan of eggs, overlay: That's the whole secret.",
+        "emotion": "Confidence",
+        "surpriseBeat": "Two cooks reach for the same bottle at the table, and the one who gets it drizzles slowly while the other waits with a raised eyebrow.",
+        "locations": [
+          {
+            "slug": "home-kitchen",
+            "description": "Lived-in kitchen with butcher block counter and stovetop with a cast iron pan",
+            "timeOfDay": "morning",
+            "lighting": "Warm natural window light"
+          },
+          {
+            "slug": "window-dining-table",
+            "description": "Small dining table by a sunny window",
+            "timeOfDay": "midday",
+            "lighting": "Bright side light with deep shadows"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A man in a rolled-sleeve olive linen shirt sets the bottle on the butcher block beside fried eggs in the pan.",
+            "camera": "handheld",
+            "framing": "Close on the bottle and eggs, label facing camera",
+            "motion": "Bottle set down and turned slightly, hand leaves the frame",
+            "lighting": "Warm window light, deep shadows",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": "That's the whole secret.",
+            "dialogue": "Garlic, fermented chile, a little fruit. That's the whole secret.",
+            "sound": "Pan sizzle, drum break starts"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The woman shakes the bottle and drizzles a taco, then a slice of pizza, in two quick cuts.",
+            "camera": "handheld",
+            "framing": "Tight food framing, bottle at the top of the frame",
+            "motion": "Shake, drizzle, cut, shake, drizzle",
+            "lighting": "Warm natural light, rich reds",
+            "productVisible": true,
+            "location": "home-kitchen",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Slap bass groove, guitar chicks, cuts on the beat"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Overhead of a noodle bowl on the table as red sauce is drizzled across it in a zigzag.",
+            "camera": "overhead_top_down",
+            "framing": "Straight down on the bowl, table edge visible",
+            "motion": "Bottle passes across the bowl, then lifts out",
+            "lighting": "Sunny window light",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": "Fermented chile. Slow heat.",
+            "dialogue": null,
+            "sound": "Funk groove continues, chopstick tap on the bowl"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The two cooks sit at the table and both reach for the bottle. She gets it first and tips it over a spoon in slow motion.",
+            "camera": "push_in_slow",
+            "framing": "Two hands and the bottle tip, spoon below, shallow depth of field",
+            "motion": "One slow drip stretches and falls onto the spoon, the other hand waits",
+            "lighting": "Sunny side light",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Music dips, soft drip"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "She takes the bite, then raises an eyebrow and smiles as the heat arrives. Cut to the bottle centered, label facing camera.",
+            "camera": "static",
+            "framing": "Medium close on her face, then centered bottle",
+            "motion": "Calm face, then eyebrow lift and smile; bottle still",
+            "lighting": "Warm window light, light film grain",
+            "productVisible": true,
+            "location": "window-dining-table",
+            "overlayText": "Try the bottle.",
+            "dialogue": "Try the bottle.",
+            "sound": "Horn stab on the bottle shot, groove resolves"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Calm, confident tone fits the voice and the shared-bottle moment is a warm, relatable beat. The hook is gentler and the surprise is milder than the other concepts."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}

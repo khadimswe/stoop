@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "candidate": "apparel-everyday",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:31:11.307Z",
+  "instructionsHash": "b46b3e585e23ae817e02f8b51ed88ace105d3512c44a173ac01a4319a94f1c97",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4076,
+    "outputTokens": 1183
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who live in plain basics and care about fit, weight and how a piece looks after months of wear. They are budget aware, tired of thin tees that twist and shrink, and like quiet details over loud graphics. They share outfits and finds with friends and notice texture and cut."
+    },
+    "productRole": "A folded tee on a folded hoodie is the hero object. In 3D animation, the stack gets put through a quick montage of wear and washing: the tee is pulled on and drops into a boxy shape, the hoodie is zipped around a shoulder and its brushed fleece compresses and springs back, then both tumble through a washing drum and come out with the same square shoulders and crisp hem. The small embroidered circle-and-line symbol is shown in a close macro stitch-by-stitch reveal.",
+    "mood": "Calm, confident, tactile, quietly satisfying",
+    "music": {
+      "style": "Lo-fi hip hop with warm dusty drums, soft electric piano chords, a round sub bass and a light vinyl crackle, modern with a late-90s feel",
+      "tempo": "about 88 bpm"
+    },
+    "visual": {
+      "look": "Stylized 3D animation with soft clay-like rendering, physically believable cloth simulation and visible cotton weave and fleece fibers. Warm studio key light with soft shadows, muted washed palette on a pale warm backdrop. Macro lens on fabric and stitching, slow push-ins, then a pulled-back medium shot. Gentle film grain overlay, no outlines. Pacing: five to six clean cuts timed to the beat, with one satisfying slow-motion fabric settle at the 8 second mark and a held end frame of the stack."
+    },
+    "wardrobe": {
+      "styling": "Animated characters wear the product itself: a washed charcoal boxy tee with relaxed shoulders, and a charcoal brushed fleece hoodie with the hood down. Paired with plain straight-leg trousers in muted tones and simple unmarked canvas sneakers. No logos, no printed text."
+    },
+    "setting": {
+      "types": [
+        "minimal 3D studio set with a pale warm backdrop",
+        "tiny stylized laundry room with a front-load washer",
+        "sunlit dorm-style bedroom with a shelf and a chair"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, understated, assured, short sentences",
+      "use": [
+        "Names the weight and the cut in plain terms",
+        "Lets the fabric behavior do the convincing",
+        "Mentions the small runs and the single small symbol",
+        "States the prices once near the end"
+      ],
+      "avoid": [
+        "Hype words and exclamation marks",
+        "Health or protection claims",
+        "Ratings, reviews or sales claims",
+        "Speaking as a customer",
+        "Slang"
+      ]
+    },
+    "hooks": [
+      "Most tees give up by the third wash.",
+      "Heavy cotton. Boxy cut. Nothing to explain.",
+      "Watch this tee hold its shape."
+    ],
+    "talent": {
+      "description": "A fictional stylized 3D adult character, relaxed and unhurried, with a casual short haircut and an easy posture, who appears briefly pulling on the tee and the hoodie. A second fictional adult character appears for a beat in the bedroom scene, hanging the hoodie on a chair. Expressions are subtle and content."
+    },
+    "references": {
+      "artist": [
+        "Tyler, the Creator",
+        "Nujabes"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Rick and Morty"
+      ],
+      "brand": [
+        "Carhartt",
+        "Champion"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Chicago"
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "candidate": "home-candles",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:39:34.950Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.0: \"cure\" is a health or regulated claim."
+  ],
+  "usage": {
+    "inputTokens": 9360,
+    "outputTokens": 2398
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Adults who come home tired and want the evening to feel softer. They care about small rituals, tidy cozy rooms, warm lamps, tea, and a home that feels considered without being fussy. They notice good packaging and will pay a bit more for something that lasts and looks nice on a shelf."
+    },
+    "productRole": "The candle is the evening switch. An adult sets down keys, lights the single cotton wick with a match, and slides the matte charcoal lid aside. The flame steadies, the creamy wax glows amber through the glass, and the room visibly shifts from harsh overhead light to warm lamp light. At the end the lid is placed on to snuff the flame, and the jar sits as a decor piece on a shelf, hinting it can be reused once finished.",
+    "mood": "Quiet relief, warm, unhurried, softly sensual",
+    "music": {
+      "style": "Intimate indie folk with fingerpicked acoustic guitar, soft brushed percussion, a low warm bass and airy layered vocals humming without words, modern bedroom-recording feel",
+      "tempo": "about 78 bpm"
+    },
+    "visual": {
+      "look": "Warm, low-key grade with amber highlights and soft deep charcoal shadows. Shot on a 50mm lens with shallow depth of field and gentle fine grain. Handheld-steady framing with slow push-ins and macro close-ups of the flame and wax. Pacing starts with quick cuts in cool, bright, busy light for the first 2 seconds, then slows to longer 2 to 3 second takes as the match is struck and the light turns warm. Final 3 seconds hold on a still product shot with room for text overlay."
+    },
+    "wardrobe": {
+      "styling": "Soft, lived-in evening clothes: an oatmeal knit cardigan over a plain cream tee, loose dark lounge trousers, bare feet or chunky wool socks. Plain, unbranded, with no logos or visible text. Muted earth tones that match the amber glow."
+    },
+    "setting": {
+      "types": [
+        "small living room with a linen sofa and a floor lamp",
+        "entryway with a wooden console table",
+        "bedside shelf with books and a mug of tea"
+      ]
+    },
+    "voice": {
+      "tone": "Calm, warm, a little wry, like a friend who speaks softly and means it",
+      "use": [
+        "Speaks as the brand in short, plain sentences",
+        "Names the scents cedar, fig and black tea",
+        "Mentions hand-poured soy wax and about 50 hours of burn time",
+        "Frames the candle as the moment the day ends",
+        "Ends with a simple invitation to light one tonight"
+      ],
+      "avoid": [
+        "Health, wellness or stress-relief claims of any kind",
+        "Invented reviews, ratings or sales numbers",
+        "Hype, urgency or countdown language",
+        "Speaking as a customer who tried it",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Your day ends when you strike the match.",
+      "Turn off the overhead light. Keep the evening.",
+      "Cedar, fig, black tea. Now the room exhales."
+    ],
+    "talent": {
+      "description": "One fictional adult in their early thirties with a relaxed, slightly tired but content energy, shown mostly in hands, profile and over-the-shoulder shots. Optionally a second fictional adult glimpsed on the sofa with a mug of tea to add a sense of shared calm."
+    },
+    "references": {
+      "artist": [
+        "Phoebe Bridgers"
+      ],
+      "movie": [],
+      "tv_show": [
+        "Bridgerton"
+      ],
+      "brand": [
+        "Anthropologie",
+        "Bath & Body Works"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Austin"
+    ]
+  }
+}

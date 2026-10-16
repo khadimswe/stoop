@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "candidate": "care-moisturizer",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:38:39.061Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.1: \"best seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
+  ],
+  "usage": {
+    "inputTokens": 9324,
+    "outputTokens": 2304
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Busy working adults who want skincare that takes under a minute. They are tired of ten-step routines and crowded bathroom shelves, like plain packaging and simple ingredient lists, and want one reliable moisturizer that works on bare skin and under makeup before they leave the house."
+    },
+    "productRole": "The jar is used in a real morning routine. An adult unscrews the cream lid, scoops a pea-sized amount of glossy gel-cream with a fingertip, dots it on cheeks and forehead, and blends it in a few seconds. A macro shot shows the gel melting into skin quickly. Then the same adult applies concealer or tinted balm straight over it with no pilling, and the jar is set back on a shelf next to a coffee mug and keys.",
+    "mood": "Calm, unfussy, quietly confident, a small win before the day starts",
+    "music": {
+      "style": "Warm lo-fi indie pop with soft finger-picked guitar, muted electric piano, light brushed drums and a gentle handclap accent on the product moment, modern and sunny",
+      "tempo": "about 96 bpm"
+    },
+    "visual": {
+      "look": "Natural window light with a soft neutral grade, slightly lifted shadows and fine film grain. Handheld 35mm-feel vertical framing at eye level, with one tight macro on the gel texture and one overhead shot of the jar. Quick but unhurried cuts of about 1.5 to 2 seconds, and a clock-style on-screen timer in plain white text counting a 30 second routine. Final 2 seconds hold on the jar with a clean end card."
+    },
+    "wardrobe": {
+      "styling": "Everyday unbranded basics: an oatmeal knit sweater, a plain white tee, a soft grey robe, a hair clip or loose ponytail. Neutral and earthy tones, no logos, no printed text, minimal jewelry."
+    },
+    "setting": {
+      "types": [
+        "bright small apartment bathroom with a single shelf",
+        "narrow entryway with a mirror by the front door",
+        "kitchen counter with a coffee mug at sunrise"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, warm and matter-of-fact, like a friend who keeps things simple",
+      "use": [
+        "Name the one step: moisturize and go",
+        "Mention the light gel-cream feel and fast absorption",
+        "Say it works on its own or under makeup",
+        "State plainly that it is unscented and has no sunscreen",
+        "Close with the price of $32 and a simple invitation to shop"
+      ],
+      "avoid": [
+        "Health, medical or protection claims",
+        "Ratings, reviews, popularity or sales claims",
+        "Speaking as a customer who tried it",
+        "Jargon-heavy ingredient lectures",
+        "Pressure or fear about skin or aging"
+      ]
+    },
+    "hooks": [
+      "Your whole routine, in one jar.",
+      "Ten steps? Not this morning.",
+      "Moisturizer that's done before the coffee is."
+    ],
+    "talent": {
+      "description": "One fictional adult woman in her early thirties with a relaxed, no-rush energy, getting ready for work. A second fictional adult man in his late thirties appears briefly in the entryway scene, quickly applying a dab before grabbing his keys. Both look natural and unposed, with minimal makeup and real skin texture."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CeraVe",
+        "Glossier"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "New York",
+      "Los Angeles"
+    ]
+  }
+}

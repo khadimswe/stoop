@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "candidate": "pets-outfits",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:37:09.125Z",
+  "instructionsHash": "ad91bb875047cf69c0150c447413641d066dc68d0e9e4db61dc21b9085544ed1",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4033,
+    "outputTokens": 1075
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "female",
+      "description": "Adults who treat their cat or dog as family, share daily pet moments with friends, and enjoy picking out a seasonal outfit the way they would for themselves. They like cozy, giftable things, a bit of humor, and products that are easy to wash and adjust."
+    },
+    "productRole": "The mustard knit beanie and rust-red knit sweater are put on and worn through a small cozy morning routine. A paw-less human-free setup: the beanie is nudged over a calm dog's head with ear openings lining up, the strap clicks closed, then a cat in the rust sweater strolls past a window. Close ups show the stretch yarn, the adjustable strap, and the pom-pom bobbing as the pets move. A final shot shows both items folded together beside the product tag.",
+    "mood": "Cozy, cheeky, warm, affectionate",
+    "music": {
+      "style": "Upbeat indie pop with a cozy autumn feel: light acoustic guitar strum, soft hand claps, glockenspiel accents, warm bass, and a playful whistle hook",
+      "tempo": "about 104 bpm"
+    },
+    "visual": {
+      "look": "Warm natural window light with a soft golden grade, slight film grain, shallow depth of field on a 35mm style lens. Mostly eye-level shots at pet height, with quick close-ups of knit texture. Fast cuts of about 1 to 1.5 seconds for the first 8 seconds, then a slower held shot for the final reveal. Clean, uncluttered framing with vertical compositions that keep the pet centered."
+    },
+    "wardrobe": {
+      "styling": "A medium dog wears the mustard yellow knit beanie with a small pom-pom and ear openings. A cat wears the rust-red knit sweater. A small dog wears a knit bandana in a coordinating cream shade. All pieces are plain knit, with no logos or text, and the small paw-symbol tag is visible on the fabric."
+    },
+    "setting": {
+      "types": [
+        "sunlit living room with a soft rug and sofa",
+        "apartment window seat with a blanket",
+        "cozy entryway with a bench and a hook for a leash"
+      ]
+    },
+    "voice": {
+      "tone": "Warm, playful, and a little dramatic about how cute the pets look, like a proud friend narrating",
+      "use": [
+        "Speaks to the pet's personality with light humor",
+        "Mentions soft stretch yarn, adjustable straps, and machine washable care",
+        "Mentions the range of sizes from small cats to large dogs",
+        "Ends with a gentle nudge about new seasonal colors"
+      ],
+      "avoid": [
+        "Claims about health, warmth treatment, or protection",
+        "Invented reviews, ratings, or sales numbers",
+        "Speaking as a customer who tried it",
+        "Pressuring urgency or fake scarcity",
+        "Long dashes"
+      ]
+    },
+    "hooks": [
+      "Your dog called. He wants the mustard beanie.",
+      "Tiny sweater. Huge attitude.",
+      "Wait for the pom-pom to bounce."
+    ],
+    "talent": null,
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [
+        "Schitt's Creek"
+      ],
+      "brand": [
+        "BarkBox"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Austin"
+    ]
+  }
+}

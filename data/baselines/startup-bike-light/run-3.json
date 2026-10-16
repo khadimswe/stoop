@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "candidate": "startup-bike-light",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:36:13.603Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4018,
+    "outputTokens": 1003
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who ride to work most days of the year, in all kinds of weather and light. They like tidy, useful gear, track their rides, and listen to curious podcasts on the way. They care about being seen at dusk and want something they can mount in seconds and forget about."
+    },
+    "productRole": "Clipped to the seat post of a commuter bike, the light is shown in use: a rider straps it on in seconds with no tools, then rides home as dusk falls. The light shifts its flash pattern as daylight fades, and a close shot shows it glowing brighter when the rider squeezes the brake. A quick phone screen shows the battery level, and a USB-C cable charges it at a desk.",
+    "mood": "Calm, confident, quietly clever",
+    "music": {
+      "style": "Warm downtempo electronic with soft analog synth pads, a muted kick, a rolling bass line and light finger-snap percussion, modern and understated",
+      "tempo": "about 96 bpm"
+    },
+    "visual": {
+      "look": "Golden hour to blue hour grade with deep graphite shadows and glowing red highlights. Handheld shots at seat post height with shallow depth of field, a few low tracking shots behind the bike, fine grain. Quick cuts of about 1 second in the first half, then a longer held shot of the light glowing as the street darkens. Vertical framing keeps the light in the lower third of the screen."
+    },
+    "wardrobe": {
+      "styling": "Practical commuter layers: a slim waterproof shell in muted olive, dark slim trousers with a reflective-free cuff band, a plain knit beanie, simple gloves, a fitted cycling cap, and a small roll-top backpack. All clothing is unbranded with no logos or text."
+    },
+    "setting": {
+      "types": [
+        "city street at dusk with bike lane",
+        "office bike parking area",
+        "small apartment entryway with a bike against the wall"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, assured and friendly, like a smart colleague who keeps it short",
+      "use": [
+        "Names one concrete feature per line",
+        "Speaks in short plain sentences",
+        "Ties each feature to the ride home",
+        "Ends on a simple invitation to see the light"
+      ],
+      "avoid": [
+        "Safety or protection promises",
+        "Fake reviews or numbers about popularity",
+        "Jargon about lumens or specs",
+        "Hype or shouting",
+        "Speaking as a customer"
+      ]
+    },
+    "hooks": [
+      "Your commute ends after dark. Your light should know.",
+      "It gets brighter when you brake.",
+      "Mounts in seconds. No tools. No fuss."
+    ],
+    "talent": {
+      "description": "One fictional adult commuter in their early thirties, practical and relaxed, with an easy half smile. A second fictional adult appears briefly as a coworker at the bike rack. No dialogue on camera; the voiceover carries the message."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "Rapha",
+        "GoPro"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Portland",
+      "Chicago"
+    ]
+  }
+}

@@ -1,0 +1,333 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "62d8e671b45f8046c8a135b09a0dd39a3b8511085daf936132fd66ab9c396462",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:53:12.089Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5250,
+    "outputTokens": 4283
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Scuffed Midsole, Meet the Beat",
+        "hook": "Macro shot of a scuffed white leather midsole on a workbench, with the stiff brush entering frame. Overlay: Scuffed midsoles end here.",
+        "emotion": "Satisfaction",
+        "surpriseBeat": "At the 10 second mark the frame splits into a before and after of the same midsole, the clean half snapping in with a percussive click.",
+        "locations": [
+          {
+            "slug": "concrete-workbench",
+            "description": "Clean concrete-top workbench beside a window, with the zip pouch, brushes and towel laid out in a neat row",
+            "timeOfDay": "morning",
+            "lighting": "Soft warm side light from the window, strong contrast, fine grain"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A white leather low-top with a scuffed midsole sits on the workbench. The stiff brush enters and scrubs the midsole in short strokes.",
+            "camera": "static",
+            "framing": "Tight macro on the midsole and bristles, shallow depth of field",
+            "motion": "Brush strokes in time with the beat, shoe stays still",
+            "lighting": "Soft side key light showing texture",
+            "productVisible": true,
+            "location": "concrete-workbench",
+            "overlayText": "Scuffed midsoles end here.",
+            "dialogue": null,
+            "sound": "Lo-fi beat starts on the first kick, bristle scrub texture, dry snare snaps"
+          },
+          {
+            "beat": "product",
+            "seconds": 4,
+            "action": "The zip pouch lies open on the bench, showing the cleaner, two brushes and one towel. The foaming cleaner is pumped onto the midsole and the stiff brush works it in.",
+            "camera": "overhead_top_down",
+            "framing": "Top down on the bench with the kit laid out and the shoe at the edge",
+            "motion": "Pump presses once, brush sweeps, kit items stay still",
+            "lighting": "Warm side light with soft shadows",
+            "productVisible": true,
+            "location": "concrete-workbench",
+            "overlayText": "Cleaner. Two brushes. One towel.",
+            "dialogue": "Cleaner, two brushes, one towel. That's the whole kit.",
+            "sound": "Soft pump click, foam hiss, electric piano loop"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The gray microfiber towel wipes the foam off in one clean sweep, revealing a bright midsole.",
+            "camera": "handheld",
+            "framing": "Mid close shot of the towel and the shoe's side",
+            "motion": "Single confident wipe from heel to toe",
+            "lighting": "Soft window light, strong contrast",
+            "productVisible": true,
+            "location": "concrete-workbench",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Towel swipe, percussive click on the reveal"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 2,
+            "action": "Split screen of the same midsole: scuffed on the left, bright on the right.",
+            "camera": "static",
+            "framing": "Vertical split screen, same angle on both halves",
+            "motion": "The shoe is still, the divider line snaps in",
+            "lighting": "Matching warm side light on both halves",
+            "productVisible": false,
+            "location": "concrete-workbench",
+            "overlayText": "Before / After",
+            "dialogue": null,
+            "sound": "Sharp click and a bass note on the split"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The kit is packed into the zip pouch beside the clean pair. The pouch sits still while the camera pushes in slowly.",
+            "camera": "push_in_slow",
+            "framing": "Medium shot of the pouch and the finished pair on the bench",
+            "motion": "Hands set the pouch down and leave the frame, then everything is still",
+            "lighting": "Warm soft window light",
+            "productVisible": true,
+            "location": "concrete-workbench",
+            "overlayText": "The kit. $28.",
+            "dialogue": "Twenty-eight dollars. Come get the kit.",
+            "sound": "Zip sound, beat resolves on a soft kick"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 5,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Faithful to the brief's sequence, with clear product use and a clean split-screen beat. The surprise is the quietest of the three because the before and after is expected."
+      }
+    },
+    {
+      "concept": {
+        "title": "Mud Splatter Meltdown",
+        "hook": "A gray knit runner caked in mud splatter sits on an entryway mat. Overlay: That pair deserves better than a wet paper towel.",
+        "emotion": "Confident relief",
+        "surpriseBeat": "The towel wipes once across the muddy knit and the foam lifts away to reveal clean gray mesh underneath.",
+        "locations": [
+          {
+            "slug": "apartment-entryway",
+            "description": "Small apartment entryway with a mat and a bench, the muddy runner on the mat",
+            "timeOfDay": "late afternoon",
+            "lighting": "Warm, soft light from the side, strong contrast"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A gray knit runner with mud splatter is set down on the entryway mat. A wet paper towel lies crumpled beside it.",
+            "camera": "crash_zoom_in",
+            "framing": "Fast zoom from a mid shot to a tight shot of the mud on the knit",
+            "motion": "The shoe is set down once and stays still",
+            "lighting": "Warm side light that shows the mud texture",
+            "productVisible": false,
+            "location": "apartment-entryway",
+            "overlayText": "That pair deserves better than a wet paper towel.",
+            "dialogue": null,
+            "sound": "Dull thud as the shoe lands, beat enters on a punchy kick"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The zip pouch sits open on the bench. The person in a plain heather gray hoodie lifts out the foaming cleaner and sets it next to the shoe.",
+            "camera": "dolly_in",
+            "framing": "Mid shot of the bench, torso and hands only",
+            "motion": "Hands lift the cleaner and set it down, label turned to camera",
+            "lighting": "Warm side light",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": null,
+            "dialogue": "Muddy knit. Handled.",
+            "sound": "Zipper pull, warm bass note"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 4,
+            "action": "The cleaner pumps into a thick lather on the knit and the soft brush works it in with small circles.",
+            "camera": "handheld",
+            "framing": "Tight macro on the knit upper and the soft bristles",
+            "motion": "Small circular strokes timed to the snare",
+            "lighting": "Soft side light with shallow depth of field on the foam",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": "Soft brush for uppers.",
+            "dialogue": null,
+            "sound": "Foam hiss, bristle rustle, dry snare snaps"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 2,
+            "action": "The gray microfiber towel sweeps across the lather and the foam lifts to show clean mesh.",
+            "camera": "static",
+            "framing": "Tight shot of the upper, the towel crossing frame once",
+            "motion": "One wipe, left to right",
+            "lighting": "Same warm side light",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Towel swipe and a percussive click on the reveal"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The kit is packed back into the zip pouch and set next to the clean runner on the mat.",
+            "camera": "push_in_slow",
+            "framing": "Medium shot of the runner and the closed pouch",
+            "motion": "The pouch is set down and the hands leave the frame",
+            "lighting": "Warm soft light",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": "The kit. $28.",
+            "dialogue": "Get the kit. Your sneakers will notice.",
+            "sound": "Zip close, beat resolves softly"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 5,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The wet paper towel hook from the brief is a strong first second, and the wipe reveal is a clear escalation. Several product beats sit close together, so the focus is a little split."
+      }
+    },
+    {
+      "concept": {
+        "title": "Shelf Corner, Quietly Particular",
+        "hook": "A tidy sneaker shelf corner where one cream canvas pair stands out as the only dull one. Overlay: Your shelf is clean. Your sneakers should be too.",
+        "emotion": "Quiet pride",
+        "surpriseBeat": "A friend glances at the finished cream canvas pair and looks twice, thinking it is brand new.",
+        "locations": [
+          {
+            "slug": "sneaker-shelf-corner",
+            "description": "Bright home corner with a wooden floor and a shelf of neatly lined sneakers",
+            "timeOfDay": "midday",
+            "lighting": "Bright, slightly warm, soft side light"
+          },
+          {
+            "slug": "apartment-entryway",
+            "description": "Small apartment entryway with a mat and a bench",
+            "timeOfDay": "midday",
+            "lighting": "Warm soft light from the side"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A shelf of tidy sneakers, with one dull cream canvas pair in the middle. The person in a solid black tee lifts it off the shelf.",
+            "camera": "tilt_up_reveal",
+            "framing": "Tilts up from the wooden floor to the shelf, torso and hands only",
+            "motion": "One steady lift of the shoes",
+            "lighting": "Bright warm light, strong contrast",
+            "productVisible": false,
+            "location": "sneaker-shelf-corner",
+            "overlayText": "Your shelf is clean. Your sneakers should be too.",
+            "dialogue": null,
+            "sound": "Lo-fi beat begins, shoe lifted off the shelf"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The zip pouch is set on the bench and opened. Cleaner, two brushes and one towel are laid out in a row.",
+            "camera": "overhead_top_down",
+            "framing": "Top down on the bench with each item in view",
+            "motion": "Items are placed one by one, then still",
+            "lighting": "Soft warm side light",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": "Cleaner, two brushes, one towel.",
+            "dialogue": "Cleaner, two brushes, one towel.",
+            "sound": "Zipper, small click as each item lands on the beat"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 4,
+            "action": "Foam is worked into the canvas with the soft brush, then the stiff brush scrubs the sole edge.",
+            "camera": "orbit",
+            "framing": "Tight orbit around the shoe, macro on the foam and bristles",
+            "motion": "Brush strokes in rhythm with the snare",
+            "lighting": "Side light with shallow depth of field",
+            "productVisible": true,
+            "location": "apartment-entryway",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Bristle scrub, foam hiss, piano loop"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 2,
+            "action": "The towel wipes away the foam to reveal bright cream canvas, and the pair is placed back on the shelf, now the brightest on it.",
+            "camera": "whip_pan",
+            "framing": "Whip pan from the bench to the shelf corner",
+            "motion": "Quick wipe, then the shoes are set back in line",
+            "lighting": "Bright warm light",
+            "productVisible": true,
+            "location": "sneaker-shelf-corner",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Whoosh, percussive click as the pair lands on the shelf"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "A friend in their late twenties looks at the pair, then at the owner, and nods. The pouch sits on the bench, zipped.",
+            "camera": "push_in_slow",
+            "framing": "Medium shot of the two adults beside the shelf, pair in the foreground",
+            "motion": "Friend leans in and nods, the owner stays calm",
+            "lighting": "Bright warm light",
+            "productVisible": true,
+            "location": "sneaker-shelf-corner",
+            "overlayText": "The kit. $28.",
+            "dialogue": "Come get the kit.",
+            "sound": "Soft zip, beat resolves, friend's quiet laugh"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The shelf hook is relatable and the friend's second look adds a human payoff. It has two locations and a softer surprise, so it is less punchy than the mud concept."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}

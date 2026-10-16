@@ -1,0 +1,327 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "4036cabe207b085efc6b16f7dc949e572ecc949b13fbb08198d0fa470c78362c",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:51:49.372Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5219,
+    "outputTokens": 4339
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Forty Clips, One Tap",
+        "hook": "First second: a phone screen full of messy, overlapping colored clip blocks on a desk, with the on-screen line 'Forty clips. One tap.'",
+        "emotion": "Relief",
+        "surpriseBeat": "On the tap, a hard whip cut snaps the tangled colored blocks into a tight, ordered timeline with captions in place.",
+        "locations": [
+          {
+            "slug": "home-studio-desk",
+            "description": "Small home studio corner with a desk, a ring light and a sage green phone case on a stand",
+            "timeOfDay": "morning",
+            "lighting": "Bright natural window light with a soft warm ring light fill"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "Phone stands upright in the sage green case on the desk. The screen shows a messy pile of colored clip blocks. A creator in an oatmeal knit sweater leans in with a relaxed, curious look.",
+            "camera": "push_in_slow",
+            "framing": "Medium shot over the desk, phone in the foreground, creator softly blurred behind",
+            "motion": "Creator leans toward the phone and tilts their head. Blocks drift slightly on screen.",
+            "lighting": "Bright natural window light, warm grade, soft contrast",
+            "productVisible": true,
+            "location": "home-studio-desk",
+            "overlayText": "Forty clips. One tap.",
+            "dialogue": null,
+            "sound": "Soft finger-snap groove begins, quiet room tone"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "Creator's finger selects a handful of blocks, then taps a 15 second length option shown as an abstract colored pill. Hand stays to the side of the case.",
+            "camera": "dolly_in",
+            "framing": "Tight phone-screen insert, abstract colored blocks only",
+            "motion": "Blocks highlight one by one, the length pill glows.",
+            "lighting": "Screen glow over soft daylight",
+            "productVisible": true,
+            "location": "home-studio-desk",
+            "overlayText": "Pick your clips. Pick 15 seconds.",
+            "dialogue": "Pick your own clips.",
+            "sound": "Warm synth bass builds, soft claps rise"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Creator taps once. Hard whip cut as the tangled blocks snap into a tight aligned timeline with caption bars and even pacing.",
+            "camera": "whip_pan",
+            "framing": "Phone screen filling the frame, then snapping to a clean timeline",
+            "motion": "Blocks slide and lock into place in a quick, satisfying snap.",
+            "lighting": "Bright screen glow, soft daylight",
+            "productVisible": true,
+            "location": "home-studio-desk",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Whoosh then a bright plucked note and a clean snap"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Creator drags one clip a short way along the timeline and trims one caption bar. They give a small satisfied grin.",
+            "camera": "handheld",
+            "framing": "Medium close shot, phone upright in the foreground, creator's face and grin behind it",
+            "motion": "One drag, one trim, then a small nod.",
+            "lighting": "Warm natural light with soft ring light catchlight",
+            "productVisible": true,
+            "location": "home-studio-desk",
+            "overlayText": "Your clips. You stay in control.",
+            "dialogue": "Your clips. You stay in control.",
+            "sound": "Clean beat drops in, soft claps"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Creator hits post, then leans back relaxed with arms behind their head. Phone stays upright with the neat timeline on screen.",
+            "camera": "dolly_out",
+            "framing": "Medium wide shot of the desk corner, phone clearly in the sage green case",
+            "motion": "Creator leans back and smiles. The timeline stays still on screen.",
+            "lighting": "Bright, warm, even daylight",
+            "productVisible": true,
+            "location": "home-studio-desk",
+            "overlayText": "Try it. Monthly price shown here.",
+            "dialogue": "Try it. The monthly price is right there, plain as that.",
+            "sound": "Warm synth bass resolves, bright plucked melody ends on a button note"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Directly stages the brief's tap-and-snap moment with the timeline as hero and one clean emotion. The surprise is strong but expected for the category."
+      }
+    },
+    {
+      "concept": {
+        "title": "Between Orders",
+        "hook": "First second: a shop owner in a canvas apron holds a phone up over a stack of packed orders, with the on-screen line 'You filmed it. Now stop spending Sunday editing it.'",
+        "emotion": "Quiet satisfaction",
+        "surpriseBeat": "By the time the shop owner finishes taping the last box, the finished video is already waiting on the phone.",
+        "locations": [
+          {
+            "slug": "craft-shop-counter",
+            "description": "Tidy craft shop counter with neatly packed orders and a sage green cased phone propped upright",
+            "timeOfDay": "midday",
+            "lighting": "Bright natural window light, warm and soft"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A shop owner in a solid canvas apron films a quick clip of a packed order, then sets the phone upright against a box.",
+            "camera": "handheld",
+            "framing": "Medium shot at eye level, orders stacked in the foreground",
+            "motion": "Shop owner lifts the phone, films briefly, then sets it down.",
+            "lighting": "Bright natural light, warm grade",
+            "productVisible": true,
+            "location": "craft-shop-counter",
+            "overlayText": "You filmed it. Now stop spending Sunday editing it.",
+            "dialogue": null,
+            "sound": "Light finger-snap groove, paper and box sounds"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Shop owner packs another order, wraps a box and slides it onto the stack. Cuts are quick and rhythmic.",
+            "camera": "tracking_side",
+            "framing": "Medium shot along the counter",
+            "motion": "Hands move briskly between boxes.",
+            "lighting": "Soft daylight, shallow depth of field",
+            "productVisible": false,
+            "location": "craft-shop-counter",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Soft claps match the packing rhythm"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "Between tasks, the shop owner picks a messy handful of clips on the phone and taps once. The phone stays upright in the sage green case.",
+            "camera": "push_in_slow",
+            "framing": "Tight phone-screen insert showing abstract colored clip blocks",
+            "motion": "Blocks snap into a tight timeline with caption bars.",
+            "lighting": "Screen glow over warm daylight",
+            "productVisible": true,
+            "location": "craft-shop-counter",
+            "overlayText": "One tap.",
+            "dialogue": "Editing is a chore. This one takes a tap.",
+            "sound": "Build, whoosh, then bright plucked snap"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The shop owner tapes the last box, glances at the phone and sees the finished timeline already waiting. Small satisfied grin as they drag one clip and trim a caption.",
+            "camera": "whip_pan",
+            "framing": "Whip from the box to the phone, then a medium shot with the grin",
+            "motion": "Quick glance, one drag, one trim.",
+            "lighting": "Warm natural light",
+            "productVisible": true,
+            "location": "craft-shop-counter",
+            "overlayText": "Your clips. You stay in control.",
+            "dialogue": null,
+            "sound": "Clean beat drops in"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Shop owner hits post, then picks up the next box and carries on. The phone stays upright with the neat timeline glowing.",
+            "camera": "dolly_out",
+            "framing": "Medium wide shot of the counter, phone and orders in frame",
+            "motion": "Shop owner turns away calmly, phone stays still.",
+            "lighting": "Bright, even daylight",
+            "productVisible": true,
+            "location": "craft-shop-counter",
+            "overlayText": "Try it. Monthly price shown here.",
+            "dialogue": "Try it. The monthly price is shown plainly.",
+            "sound": "Warm synth bass resolves with a soft clap"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 5,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 5,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Very specific to the shop owner talent and setting, and it feels lived in. The surprise is gentler and the product appears later, so the hook is softer."
+      }
+    },
+    {
+      "concept": {
+        "title": "Your Camera Roll Called",
+        "hook": "First second: a phone on a sunny couch cushion buzzes and shakes, its screen full of colored clip blocks, with the on-screen line 'Your camera roll called.'",
+        "emotion": "Playful relief",
+        "surpriseBeat": "The phone's colored blocks line up and snap into a timeline on their own the instant the creator taps, as if the camera roll answered back.",
+        "locations": [
+          {
+            "slug": "sunny-living-room-couch",
+            "description": "Sunny apartment living room couch with cream cushions and a sage green cased phone propped upright",
+            "timeOfDay": "late morning",
+            "lighting": "Sunny natural window light, warm and soft"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "Phone buzzes on a cream cushion, propped upright in its sage green case, screen full of messy colored blocks.",
+            "camera": "crash_zoom_in",
+            "framing": "Tight shot of the phone on the couch",
+            "motion": "Phone gently vibrates and shifts.",
+            "lighting": "Sunny window light, warm grade",
+            "productVisible": true,
+            "location": "sunny-living-room-couch",
+            "overlayText": "Your camera roll called.",
+            "dialogue": null,
+            "sound": "Finger-snap groove starts, a soft buzz"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "A creator in a denim shirt over a white tee sits on the couch, glances at the phone and gives a wry, curious look.",
+            "camera": "handheld",
+            "framing": "Medium shot at eye level, creator beside the phone",
+            "motion": "Creator leans in and raises an eyebrow.",
+            "lighting": "Natural sunlight, shallow depth of field",
+            "productVisible": true,
+            "location": "sunny-living-room-couch",
+            "overlayText": "It wants to be a video.",
+            "dialogue": "It wants to be a video.",
+            "sound": "Warm synth bass, soft claps"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "Creator selects a handful of their own clips, picks a 15 second length, then taps once.",
+            "camera": "dolly_in",
+            "framing": "Tight phone-screen insert with abstract blocks",
+            "motion": "Blocks highlight in turn, length pill glows.",
+            "lighting": "Screen glow over sunlight",
+            "productVisible": true,
+            "location": "sunny-living-room-couch",
+            "overlayText": "Your own clips. 15 seconds.",
+            "dialogue": null,
+            "sound": "Build rises, claps gather"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Hard whip cut as blocks snap into a tight timeline with captions. Creator drags one clip and trims a caption with a small grin.",
+            "camera": "whip_pan",
+            "framing": "Phone screen, then a medium shot of the creator's grin",
+            "motion": "Blocks lock into place, then one drag and one trim.",
+            "lighting": "Bright screen glow, warm daylight",
+            "productVisible": true,
+            "location": "sunny-living-room-couch",
+            "overlayText": "You stay in control.",
+            "dialogue": "You stay in control.",
+            "sound": "Whoosh, bright plucked snap, clean beat drops"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Creator hits post and sinks back into the couch with a satisfied smile. Phone stays upright showing the neat timeline.",
+            "camera": "pull_out_reveal",
+            "framing": "Starts on the phone, pulls back to the sunny living room",
+            "motion": "Creator relaxes into the cushions.",
+            "lighting": "Sunny, warm, even",
+            "productVisible": true,
+            "location": "sunny-living-room-couch",
+            "overlayText": "Try it. Monthly price shown here.",
+            "dialogue": "Try it. The monthly price is plain to see.",
+            "sound": "Synth bass resolves, melody ends on a button note"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 3,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 3,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Playful hook from the brief gives a strong first second and the timeline is the hero. The couch setting is less specific to creator work and the surprise echoes concept one."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}

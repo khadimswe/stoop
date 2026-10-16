@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "candidate": "startup-ai-video",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:34:52.503Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4045,
+    "outputTokens": 1155
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who post short videos every week for their own small business or personal channel. They shoot plenty of clips on their phone but lose hours to cutting, captioning and pacing. They want to post more often without hiring an editor or learning heavy software, and they value tools that save time but keep their own voice and footage."
+    },
+    "productRole": "The app is shown solving a real chore. A creator picks a messy handful of their own clips from the camera roll, chooses a 15 second length, and taps once. The timeline of colored blocks snaps into a tight cut with captions and pacing in place. Then the creator drags one clip, trims a caption, and hits post. The phone stays upright in the sage green case so the timeline is the hero. The ad shows the edit fits their own footage and is never generated.",
+    "mood": "Relieved, quick, quietly satisfying, a little playful",
+    "music": {
+      "style": "Upbeat indie electronic pop with a light finger-snap groove, warm synth bass, soft claps and a bright plucked melody. Builds slightly at the tap moment, then drops to a clean beat for the finished video.",
+      "tempo": "about 112 bpm"
+    },
+    "visual": {
+      "look": "Bright natural-light handheld look with a clean, slightly warm grade and soft contrast. Vertical framing at eye level with a mix of tight phone-screen inserts and medium shots. Light grain, shallow depth of field on the lens. Fast pacing: cuts every 1 to 1.5 seconds, with a hard whip cut on the tap. Screen inserts use abstract colored clip blocks only, no readable text."
+    },
+    "wardrobe": {
+      "styling": "Casual everyday creator clothes: a plain oatmeal knit sweater, a washed denim shirt over a white tee, a simple apron in solid canvas for the shop owner, and clean sneakers. Solid muted colors with sage and cream tones that echo the phone case. No logos, no printed words."
+    },
+    "setting": {
+      "types": [
+        "small home studio corner with a desk and ring light",
+        "tidy craft shop counter with packed orders",
+        "sunny apartment living room couch"
+      ]
+    },
+    "voice": {
+      "tone": "Friendly, direct and a little wry, like a smart friend who respects your time",
+      "use": [
+        "Names the real chore of editing in plain words",
+        "Speaks in short sentences that match the quick cuts",
+        "Says the edit uses your own clips and you stay in control",
+        "Ends with a simple invitation to try it, with the monthly price stated plainly"
+      ],
+      "avoid": [
+        "Claiming it generates people or writes ads",
+        "Mentioning ratings, user counts or awards",
+        "Hype words like revolutionary or game-changing",
+        "Talking down to creators or naming other apps"
+      ]
+    },
+    "hooks": [
+      "You filmed it. Now stop spending Sunday editing it.",
+      "Forty clips. One tap. One finished video.",
+      "Your camera roll called. It wants to be a video."
+    ],
+    "talent": {
+      "description": "Two fictional adult solo creators: one adult with a relaxed, curious energy filming at a desk, and one adult small shop owner in a canvas apron packing orders and filming quick clips between tasks. Both have an easygoing, capable attitude and react with a small satisfied grin when the edit appears."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CapCut",
+        "Canva"
+      ],
+      "place": [],
+      "person": [
+        "Casey Neistat"
+      ]
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Austin"
+    ]
+  }
+}

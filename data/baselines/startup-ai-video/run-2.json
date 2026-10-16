@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "candidate": "startup-ai-video",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:35:03.490Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4045,
+    "outputTokens": 1070
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who post short videos every week for their own side project or small business: a baker, a freelance trainer, a shop owner, a hobby creator. They have a camera roll full of clips and little time. They want their posts to look finished and consistent without spending a whole evening editing."
+    },
+    "productRole": "The phone stands upright on a desk. A finger taps a handful of clips from the camera roll and picks a length. The timeline of colored clip blocks snaps into a tight sequence, the preview plays with cuts landing on the beat, then a thumb nudges one clip and trims it before tapping post. The app edits the person's own footage, and the ad shows the messy roll turning into a finished short.",
+    "mood": "Relieved, quick, quietly satisfying",
+    "music": {
+      "style": "Upbeat modern indie pop with a clean finger-snap and clap groove, warm bass, light synth plucks, and a small drum fill on the final cut",
+      "tempo": "about 112 bpm"
+    },
+    "visual": {
+      "look": "Bright natural daylight grade with soft warm highlights and gentle contrast, handheld-feeling but stable. Shot on a clean mid-wide lens with tight inserts on the phone screen. Fast pacing: cuts land on the beat every 1 to 1.5 seconds, a split of chaotic camera-roll scroll into a clean timeline, ending on a held shot of the sage green phone with the icon visible. Vertical framing with the subject in the upper two thirds so captions stay clear."
+    },
+    "wardrobe": {
+      "styling": "Everyday working clothes: a flour-dusted apron over a plain tee, a soft knit sweater, a plain denim jacket, a canvas work shirt. Solid muted colors, no logos, no printed text."
+    },
+    "setting": {
+      "types": [
+        "small home bakery kitchen",
+        "cluttered creator desk by a window",
+        "tiny studio shop counter"
+      ]
+    },
+    "voice": {
+      "tone": "Warm, direct, practical, a little playful",
+      "use": [
+        "Names the real problem of footage piling up",
+        "Speaks in short sentences",
+        "Says what the app does: cuts, captions and pacing done for you",
+        "Mentions that you pick the clips and fine-tune before posting",
+        "Ends with a simple invitation to try it"
+      ],
+      "avoid": [
+        "Claims it generates people or writes ads",
+        "Invented ratings or popularity claims",
+        "Hype words and jargon",
+        "Comparisons to named competitors",
+        "Speaking as a customer who tried it"
+      ]
+    },
+    "hooks": [
+      "Forty clips. One hour. Zero edits done.",
+      "Your camera roll is not a video yet.",
+      "Stop saving clips you never post."
+    ],
+    "talent": {
+      "description": "One fictional adult small-business owner, in a bakery kitchen, with flour on their hands, glancing at a phone. Then a second fictional adult creator at a desk scrolling a crowded camera roll. Both look relaxed and capable, with natural expressions, mid-twenties to early thirties in feel."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "CapCut",
+        "Canva"
+      ],
+      "place": [],
+      "person": [
+        "Casey Neistat"
+      ]
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "Austin"
+    ]
+  }
+}

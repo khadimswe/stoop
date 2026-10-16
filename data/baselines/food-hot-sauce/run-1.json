@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "candidate": "food-hot-sauce",
+  "run": 1,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:48:16.743Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 4015,
+    "outputTokens": 1147
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who cook at home most nights and reach for hot sauce on eggs, tacos, noodles, pizza and leftovers. They like trying small producers, read ingredient lists, and care more about flavor and depth than raw burn. They share food finds with friends and enjoy cooking videos."
+    },
+    "productRole": "The bottle is the finishing move across four quick meals. It is shaken, the cap is twisted off, and the deep red sauce is drizzled over fried eggs, a taco, a bowl of noodles and a slice of pizza. A final shot shows a slow drip off the bottle tip onto a spoon, then a bite and a reaction that shows the heat building a beat later.",
+    "mood": "Warm, confident, appetizing, a little playful",
+    "music": {
+      "style": "Upbeat funk-soul groove with a tight drum break, slap bass, muted electric guitar chicks and a short horn stab on the final bottle shot, warm vintage analog feel",
+      "tempo": "about 104 bpm"
+    },
+    "visual": {
+      "look": "Warm natural-light grade with rich reds and deep shadows, shallow depth of field on a 50mm macro-leaning lens, light film grain. Handheld close-ups with tight food framing, fast cuts every 1 to 1.5 seconds on the beat, one slow-motion drizzle at the 8 second mark. Overhead cutaway for the noodle bowl. Final 2 seconds hold on the bottle, centered, label facing camera, with no text overlays on the bottle itself."
+    },
+    "wardrobe": {
+      "styling": "Casual home-cook looks: rolled-sleeve linen shirt, plain heather tee under a dark apron, simple knit sweater, bare forearms, a plain silver ring or simple watch. Solid colors in cream, olive, rust and charcoal. No logos or printed text."
+    },
+    "setting": {
+      "types": [
+        "lived-in home kitchen with butcher block counter",
+        "small dining table by a sunny window",
+        "stovetop with a cast iron pan"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, friendly and sure of itself, like a cook who knows what's good and says it plainly",
+      "use": [
+        "Talks about flavor in concrete terms: garlic, fermented chile, a little fruit",
+        "Describes the slow-building heat as a feature",
+        "Gives short punchy lines that match the cuts",
+        "Ends with a simple invitation to try the bottle"
+      ],
+      "avoid": [
+        "Macho heat challenges or pain jokes",
+        "Health or wellness claims",
+        "Invented ratings or popularity claims",
+        "Speaking as a customer who tried it",
+        "Long dashes or slang"
+      ]
+    },
+    "hooks": [
+      "Your eggs called. They want a better hot sauce.",
+      "Heat that waits a second before it hits.",
+      "Garlic, fermented chile, a little fruit. That's the whole secret."
+    ],
+    "talent": {
+      "description": "Two fictional adult home cooks in their late 20s to late 30s, a man and a woman, relaxed and at ease in the kitchen. Hands and faces appear in quick shots: shaking the bottle, drizzling, taking a bite, then a raised-eyebrow smile as the heat builds. Natural, unposed energy."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [
+        "Parts Unknown"
+      ],
+      "brand": [
+        "Trader Joe's"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Austin",
+      "Portland"
+    ]
+  }
+}

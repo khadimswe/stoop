@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "candidate": "care-kit-sneakers",
+  "run": 2,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:40:53.543Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.1: \"best seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
+  ],
+  "usage": {
+    "inputTokens": 9307,
+    "outputTokens": 2152
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34"
+      ],
+      "genderSkew": "male",
+      "description": "Adults who collect and rotate sneakers, care about condition and resale-worthy pairs, and treat a clean shoe as part of their personal style. They watch cleaning and unboxing videos, like tidy routines, and want a kit that is simple, gentle on materials and looks good on a shelf."
+    },
+    "productRole": "The kit is unzipped and used start to finish on one scuffed pair. The stiff brush scrubs the midsole, the foaming cleaner is pumped onto the soft brush and worked over the knit or leather upper in small circles, then the microfiber towel wipes the foam away to reveal clean material. The pouch is zipped shut at the end and set beside the finished pair.",
+    "mood": "Satisfying, confident, tidy, quietly proud",
+    "music": {
+      "style": "Modern lo-fi hip hop beat with dusty drums, warm sub bass, soft electric piano and crisp finger snaps, with a small beat drop on the final reveal",
+      "tempo": "about 90 bpm"
+    },
+    "visual": {
+      "look": "Clean top-down and tight macro shots on a bright matte surface, soft window light, slightly warm neutral grade, shallow depth of field, fine grain. Fast cuts timed to the beat (about 1 second each) for scrubbing and foam close-ups, one slow 2 second push-in on the finished pair. A hard before and after wipe split at the midpoint using the towel as the transition."
+    },
+    "wardrobe": {
+      "styling": "Plain heather gray hoodie or boxy white tee, relaxed black cargo pants, rolled sleeves, no logos or text. Sneakers on screen are unbranded-looking in white leather, cream canvas and a colored knit pair, with visible scuffs and dirt at the start."
+    },
+    "setting": {
+      "types": [
+        "bright apartment corner with a wooden shelf of sneakers",
+        "concrete balcony floor in morning light",
+        "clean workbench with a pale tabletop"
+      ]
+    },
+    "voice": {
+      "tone": "Cool, direct, a little dry, proud of the craft",
+      "use": [
+        "Names the real steps: sole, upper, wipe",
+        "Mentions it works on leather, canvas and knit",
+        "Says the colors stay true, no bleaching",
+        "Mentions everything fits in one small pouch",
+        "Ends with a short, clear price line"
+      ],
+      "avoid": [
+        "Health or protection claims",
+        "Ratings, review counts or any claims of popularity or sales",
+        "Speaking as a customer who tried it",
+        "Comparing to other brands by name",
+        "Long dashes or slang"
+      ]
+    },
+    "hooks": [
+      "That scuff does not have to stay.",
+      "Your shelf deserves better than yesterday's dirt.",
+      "Same shoes. Watch the sole change."
+    ],
+    "talent": {
+      "description": "One fictional adult in their mid twenties with a relaxed, focused attitude, shown mostly as hands and torso with a brief glimpse of a satisfied half smile at the reveal. A second fictional adult friend leans into frame at the end to look at the finished pair and nod."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [],
+      "brand": [
+        "Jason Markk",
+        "Nike"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Los Angeles",
+      "New York"
+    ]
+  }
+}

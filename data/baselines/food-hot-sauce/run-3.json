@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "candidate": "food-hot-sauce",
+  "run": 3,
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:33:02.155Z",
+  "instructionsHash": "c5175221076a566abd81c329f97cd0004bffa16c94c117b7957420c928ad9ac8",
+  "attempts": 2,
+  "repairedFor": [
+    "voice.avoid.2: \"best-seller\" is social proof. Proof beats use facts the seller supplies, never invented ones."
+  ],
+  "usage": {
+    "inputTokens": 9342,
+    "outputTokens": 2368
+  },
+  "brief": {
+    "audience": {
+      "ageBands": [
+        "25_to_29",
+        "30_to_34",
+        "35_to_44"
+      ],
+      "genderSkew": "balanced",
+      "description": "Adults who cook at home most nights and reach for hot sauce on eggs, tacos, noodles, pizza and leftovers. They like trying small-batch pantry items, care about flavor over pure heat, and enjoy food videos and cooking shows. They will pay a bit more for a bottle that tastes layered and looks good on the counter."
+    },
+    "productRole": "The bottle is used across a fast sequence of everyday meals: a shake over fried eggs, a drizzle over a bowl of noodles, a dot on a taco, a swirl into a pan of roasted vegetables. A macro shot shows the sauce pouring slowly, thick and deep red, with flecks of chile and garlic. A final shot has an adult taking a bite, pausing, then reaching for the bottle again as the heat builds.",
+    "mood": "Warm, playful, confident, craveable",
+    "music": {
+      "style": "Upbeat funk-leaning indie groove with a tight drum break, muted electric guitar, warm bass and light hand percussion, a little retro, with a small snare fill on the final bite",
+      "tempo": "about 100 bpm"
+    },
+    "visual": {
+      "look": "Warm natural-light kitchen look with rich reds and deep shadows, slight film grain, handheld 35mm-style framing with tight macro inserts on the pour and the food. Quick cuts of about one second each, a match cut on every shake of the bottle, and a slow-motion pour at the 10 second mark. The bottle label with the flame symbol stays visible and unobstructed in at least four shots. No readable text appears on screen except a simple end card."
+    },
+    "wardrobe": {
+      "styling": "Casual home-cook looks: rolled-sleeve linen shirts, plain cotton tees, an apron in washed canvas, a dish towel over the shoulder. Earth tones and neutral colors, no logos or printed text on any clothing."
+    },
+    "setting": {
+      "types": [
+        "lived-in home kitchen with a wooden counter",
+        "small dining table by a window",
+        "stovetop with a cast iron pan"
+      ]
+    },
+    "voice": {
+      "tone": "Dry, friendly and confident, like a cook who knows what is good and does not oversell it",
+      "use": [
+        "Talk about flavor first: garlic, fruit sweetness, slow-building heat",
+        "Use short, punchy sentences",
+        "Name specific foods the sauce goes on",
+        "Invite people to put it on everything",
+        "End with a simple call to shop the bottle"
+      ],
+      "avoid": [
+        "Dares, challenges or extreme-heat bragging",
+        "Health or wellness claims",
+        "Ratings, reviews, popularity or sales claims of any kind",
+        "Speaking as a customer who tried it",
+        "Long dashes or slang"
+      ]
+    },
+    "hooks": [
+      "Heat that waits a second before it shows up.",
+      "Your eggs called. They want garlic and chile.",
+      "Fermented, fruity, and it builds slowly."
+    ],
+    "talent": {
+      "description": "Three fictional adult home cooks in their late 20s to late 30s with different styles and energy: one relaxed adult cooking breakfast in the morning light, one animated adult plating noodles, and one calm adult at the table taking a bite and smiling as the heat builds. Natural, unposed, shown mostly from the shoulders down and in profile during meals, with close, genuine reactions."
+    },
+    "references": {
+      "artist": [],
+      "movie": [],
+      "tv_show": [
+        "Parts Unknown",
+        "Hot Ones"
+      ],
+      "brand": [
+        "Tabasco",
+        "Trader Joe's"
+      ],
+      "place": [],
+      "person": []
+    },
+    "assumedCities": [
+      "Austin",
+      "Brooklyn"
+    ]
+  }
+}

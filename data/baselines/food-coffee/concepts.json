@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "be4dcd900161d217dd0b1ce373b5400c35e39a8c7dba5c650938e6069a8a4d90",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:51:22.061Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5142,
+    "outputTokens": 4112
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "Roast Day, Circled",
+        "hook": "Macro of a hand drawing a circle around a date on a paper calendar page, morning light. Overlay: Roasted this week.",
+        "emotion": "Quiet pride",
+        "surpriseBeat": "The calendar circle in the opening shot is matched by the same date reappearing on the doorstep box, linking roast day to arrival in one cut.",
+        "locations": [
+          {
+            "slug": "home-office-nook",
+            "description": "Small nook with a window, wooden desk, paper calendar on the wall",
+            "timeOfDay": "early morning",
+            "lighting": "Soft natural window light with creamy highlights"
+          },
+          {
+            "slug": "kitchen-counter",
+            "description": "Sunlit home kitchen counter with a hand grinder, small scale and pour-over setup",
+            "timeOfDay": "morning",
+            "lighting": "Warm window light, lifted shadows, fine film grain"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A hand in a rolled oatmeal sleeve circles a date on a paper calendar page with a pen. No readable numbers are shown, just the red circle.",
+            "camera": "push_in_slow",
+            "framing": "Tight macro on the calendar page and pen tip",
+            "motion": "Pen draws one slow circle, then lifts away",
+            "lighting": "Soft window light from the left",
+            "productVisible": false,
+            "location": "home-office-nook",
+            "overlayText": "Roasted this week.",
+            "dialogue": null,
+            "sound": "Pen scratch on paper, quiet room tone, fingerpicked guitar begins"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "The cream coffee bag sits on the counter. A hand folds back the top and beans tilt from the bag into a small scale.",
+            "camera": "handheld",
+            "framing": "Medium shot at counter height, bag label facing camera, hand entering from the side above the label",
+            "motion": "Bag tilts gently, beans slide into the scale",
+            "lighting": "Warm morning window light",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "Small batches. Shipped within days.",
+            "dialogue": "Roasted weekly. Shipped within days.",
+            "sound": "Beans rattling into a metal scale, soft upright bass"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 4,
+            "action": "Beans go into the hand grinder. The person turns the crank in profile, then the grounds bloom under a slow pour-over.",
+            "camera": "dolly_in",
+            "framing": "Profile of shoulders and hands, shallow depth of field, then macro on the bloom",
+            "motion": "Steady crank turns, steam rises from the bloom",
+            "lighting": "Window backlight catching steam",
+            "productVisible": false,
+            "location": "kitchen-counter",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Crisp grinding, soft bubbling bloom, brushed percussion"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 2,
+            "action": "Cut to a front porch: a shipping box sits on the step. A second adult in a linen shirt lifts it and carries it inside. The same hand-drawn circle is visible on a small tag on the box.",
+            "camera": "tracking_side",
+            "framing": "Medium shot at waist height",
+            "motion": "Person walks the box through the doorway",
+            "lighting": "Soft morning daylight",
+            "productVisible": false,
+            "location": "kitchen-counter",
+            "overlayText": "At your door within days.",
+            "dialogue": null,
+            "sound": "Footsteps, cardboard shift, light hand-clap accent"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "The bag rests on the counter, one-way valve visible, a full mug beside it. Beans scattered in front.",
+            "camera": "static",
+            "framing": "Centered on the bag with room above for captions",
+            "motion": "Steam drifts from the mug, nothing else moves",
+            "lighting": "Warm window light, creamy highlights",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "12 oz bag. Monthly option. Try a bag.",
+            "dialogue": "Come try a bag.",
+            "sound": "Final guitar chord, gentle hand-clap on the last beat"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Calendar circle is a distinctive, brief-based hook and the product is used in a real brew. The surprise is gentle, a quiet visual link rather than a jolt."
+      }
+    },
+    {
+      "concept": {
+        "title": "The Bag Opens the Morning",
+        "hook": "Hand tears the folded top of the cream bag, camera at counter height. Overlay: Tear open the bag. Notice the difference.",
+        "emotion": "Calm anticipation",
+        "surpriseBeat": "Mid-brew, the cut snaps from the steady pour to the sealed bag on a doorstep, revealing where the beans began before returning to the mug.",
+        "locations": [
+          {
+            "slug": "kitchen-counter",
+            "description": "Sunlit home kitchen counter with scale, hand grinder, pour-over dripper and mug",
+            "timeOfDay": "morning",
+            "lighting": "Natural window light, warm soft grade"
+          },
+          {
+            "slug": "front-porch",
+            "description": "Front porch step with a plain delivery box",
+            "timeOfDay": "early morning",
+            "lighting": "Soft diffuse daylight"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "A hand tears open the folded top of the cream bag. The label faces camera, the hand stays at the top edge.",
+            "camera": "handheld",
+            "framing": "Medium close at counter height, shallow depth of field",
+            "motion": "Quick tear, bag edge opens",
+            "lighting": "Window light from the side",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "Tear open the bag. Notice the difference.",
+            "dialogue": null,
+            "sound": "Paper tear, soft guitar pluck"
+          },
+          {
+            "beat": "product",
+            "seconds": 4,
+            "action": "The bag tilts and beans pour into a small scale, then a hand moves them into a hand grinder and cranks.",
+            "camera": "overhead_top_down",
+            "framing": "Top-down on the counter, scale and grinder in frame",
+            "motion": "Beans slide, crank turns in a steady rhythm",
+            "lighting": "Even soft light from the window",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": null,
+            "dialogue": "Plain tasting notes on every bag.",
+            "sound": "Beans clattering, grinder crunch, brushed percussion"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Grounds bloom in the pour-over, then a steady pour fills the dripper while the person watches in profile.",
+            "camera": "push_in_slow",
+            "framing": "Macro on the bloom, then profile of the person",
+            "motion": "Bloom rises, water circles slowly",
+            "lighting": "Backlit steam",
+            "productVisible": false,
+            "location": "kitchen-counter",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "Gentle water trickle, upright bass"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 2,
+            "action": "Quick insert: the plain shipping box on the porch step, a second adult picks it up and carries it inside.",
+            "camera": "static",
+            "framing": "Wide shot of the porch step",
+            "motion": "Person lifts box and walks into the house",
+            "lighting": "Soft diffuse daylight",
+            "productVisible": false,
+            "location": "front-porch",
+            "overlayText": "Shipped within days of roasting.",
+            "dialogue": null,
+            "sound": "Box lifted, door closing, light hand-clap"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 4,
+            "action": "The bag stands on the counter with the valve visible, a filled mug beside it, beans in front.",
+            "camera": "dolly_in",
+            "framing": "Centered on bag and beans, space for captions",
+            "motion": "Slow glide forward, steam rises",
+            "lighting": "Warm creamy window light",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "12 oz bag. Monthly option. Try a bag.",
+            "dialogue": "Try a bag. We roast it weekly.",
+            "sound": "Final guitar strum, soft hand-clap on last beat"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Strong tactile hook and the bag drives the whole brew. The porch cut is a mild twist but clearly the one escalation beat."
+      }
+    },
+    {
+      "concept": {
+        "title": "Counter Height Ritual",
+        "hook": "Macro of whole beans sliding across a scale, steam in the background. Overlay: Your morning cup should know its roast date.",
+        "emotion": "Unhurried contentment",
+        "surpriseBeat": "A single hard cut on the grinder's last crank to total silence and a still macro of beans, then the music returns warmer.",
+        "locations": [
+          {
+            "slug": "kitchen-counter",
+            "description": "Sunlit home kitchen counter with linen towel, scale, grinder and mug",
+            "timeOfDay": "morning",
+            "lighting": "Natural window light, lifted shadows"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "Beans tumble onto a small scale from the open cream bag at the edge of frame.",
+            "camera": "dolly_in",
+            "framing": "Macro on beans and scale, bag softly out of focus",
+            "motion": "Beans slide and settle",
+            "lighting": "Side window light with creamy highlights",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "Your morning cup should know its roast date.",
+            "dialogue": null,
+            "sound": "Beans settling on metal, fingerpicked guitar"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "Person in an oatmeal knit sweater cranks the hand grinder, seen in profile.",
+            "camera": "handheld",
+            "framing": "Medium shot of shoulders and hands at counter height",
+            "motion": "Steady cranking, shoulders relaxed",
+            "lighting": "Warm window light",
+            "productVisible": false,
+            "location": "kitchen-counter",
+            "overlayText": null,
+            "dialogue": "Roasted weekly. Shipped within days.",
+            "sound": "Grinder crunch, brushed percussion"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "The last crank stops. Sound drops out for a beat over a still macro of fresh grounds, then the pour-over bloom swells.",
+            "camera": "crash_zoom_in",
+            "framing": "Macro on grounds, then bloom",
+            "motion": "Grounds still, then rise as water lands",
+            "lighting": "Backlit steam",
+            "productVisible": false,
+            "location": "kitchen-counter",
+            "overlayText": null,
+            "dialogue": null,
+            "sound": "One beat of silence, then soft bloom hiss and bass returns"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "A steady pour fills the dripper, then the mug is set on the counter next to the bag.",
+            "camera": "tracking_side",
+            "framing": "Medium side view of the counter",
+            "motion": "Mug set down slowly",
+            "lighting": "Warm morning light",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "Plain tasting notes on every bag.",
+            "dialogue": null,
+            "sound": "Water trickle, mug touching the counter"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 3,
+            "action": "Bag and beans held in a centered still, valve visible, mug steaming beside.",
+            "camera": "static",
+            "framing": "Centered, room for captions above",
+            "motion": "Only steam moves",
+            "lighting": "Creamy warm window light",
+            "productVisible": true,
+            "location": "kitchen-counter",
+            "overlayText": "12 oz bag. Monthly option. Try a bag.",
+            "dialogue": "Come try a bag.",
+            "sound": "Final chord, gentle hand-clap"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 3,
+          "product_role": 4,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Very clear calm mood and a clean single-location shoot. The silence beat is subtle and the hook is less distinctive than the other two."
+      }
+    }
+  ],
+  "bestIndex": 1,
+  "discarded": []
+}

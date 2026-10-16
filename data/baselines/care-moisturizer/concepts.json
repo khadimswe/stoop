@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "briefId": "control",
+  "inputHash": "c35d455b0089d1cc0b4ded5fb3fa71884194f106cb93511721f497b50ed9f0fd",
+  "modelId": "claude-sonnet-5-5",
+  "effort": "medium",
+  "generatedAt": "2026-10-16T15:50:18.709Z",
+  "instructionsHash": "01515746573b5eb531ef660cf02785dc248a1d0358ad9f02a16ad194f7993d5f",
+  "attempts": 1,
+  "usage": {
+    "inputTokens": 5247,
+    "outputTokens": 4560
+  },
+  "concepts": [
+    {
+      "concept": {
+        "title": "One Jar, Ten Seconds",
+        "hook": "Alarm clock buzzes on a nightstand, cut straight to the jar on a bathroom shelf. On-screen line: One jar. Ten seconds. Out the door.",
+        "emotion": "quiet confidence",
+        "surpriseBeat": "The clock-like cuts speed up into a countdown rhythm, and the whole routine lands at exactly ten seconds on the overlay timer, ending with the person already out the door.",
+        "locations": [
+          {
+            "slug": "apartment-bathroom",
+            "description": "Bright small apartment bathroom with a plain shelf and a mirror",
+            "timeOfDay": "early morning",
+            "lighting": "soft natural window light, warm neutral grade, creamy highlights"
+          },
+          {
+            "slug": "entryway",
+            "description": "Small entryway with keys on a hook and a bag by the door",
+            "timeOfDay": "early morning",
+            "lighting": "soft daylight from a nearby window, slightly lifted shadows"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "A bedside alarm clock buzzes, then a hard cut to the jar sitting on a plain bathroom shelf, lid with debossed circle facing up.",
+            "camera": "static",
+            "framing": "Medium shot of the jar centered on the shelf, mirror softly blurred behind",
+            "motion": "The jar is still. A hand enters late and lifts the jar by its sides.",
+            "lighting": "soft window light, creamy highlights",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "One jar. Ten seconds. Out the door.",
+            "dialogue": null,
+            "sound": "Alarm buzz, then a soft finger-snap beat starts at about 100 bpm"
+          },
+          {
+            "beat": "product",
+            "seconds": 3,
+            "action": "A person in their early thirties, in an oatmeal knit sweater with hair in a plain claw clip, twists the lid off at the mirror and scoops a pea-sized amount of glossy gel-cream with two fingers.",
+            "camera": "handheld",
+            "framing": "Eye-level 35mm-feel shot at the mirror, jar held low in frame with label kept clear of fingers",
+            "motion": "Relaxed, unhurried movements: twist, scoop, lift to the face",
+            "lighting": "soft window light from the side",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": null,
+            "dialogue": "One step. Light gel-cream, sinks in fast.",
+            "sound": "Soft lid twist, warm electric piano enters"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "The person presses the gel-cream across cheeks and forehead. A tight macro shot of the gel on the fingertips melting into skin.",
+            "camera": "push_in_slow",
+            "framing": "Tight macro on fingertips and cheek, then a quick medium of the face",
+            "motion": "Gentle pressing with two fingers, the gel visibly sinking in",
+            "lighting": "soft window light, fine film grain",
+            "productVisible": false,
+            "location": "apartment-bathroom",
+            "overlayText": "Unscented. No sunscreen. Fits a simple routine.",
+            "dialogue": null,
+            "sound": "Quiet, close room tone with a gentle bass pulse"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 3,
+            "action": "Quick 1 second cuts: tinted balm swiped across the cheek, the jar set down on the shelf, keys grabbed off the hook, a simple blazer thrown on.",
+            "camera": "whip_pan",
+            "framing": "Fast medium shots linked by whip pans, following a clock-like rhythm",
+            "motion": "Brisk, easy movement from bathroom to entryway",
+            "lighting": "soft natural window light, warm neutral grade",
+            "productVisible": false,
+            "location": "entryway",
+            "overlayText": "Works under makeup or on its own.",
+            "dialogue": null,
+            "sound": "Finger-snap beat tightens, keys jingle, door handle click"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 4,
+            "action": "The door closes behind the person. Hold on the jar on the plain bathroom shelf, the lid with its debossed circle clearly visible.",
+            "camera": "push_in_slow",
+            "framing": "Still, centered medium shot of the jar on the shelf, lid and label readable",
+            "motion": "The jar is still. The camera pushes in very slowly.",
+            "lighting": "soft window light, creamy highlights",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "Shop the daily gel-cream.",
+            "dialogue": "Simple on purpose. Shop when you're ready.",
+            "sound": "Small musical lift from synth pads, then settling"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 4,
+          "specificity": 5,
+          "product_role": 5,
+          "emotional_clarity": 5,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Closely follows the brief's clock-like rhythm and gives the jar a real used role. The surprise (speeding countdown ending out the door) is clear but fairly mild."
+      }
+    },
+    {
+      "concept": {
+        "title": "Morning Skincare, Minus the Whole Shelf",
+        "hook": "A shelf crowded with a dozen blank, unlabeled bottles, then a hand sweeps them all out of frame, leaving only the jar. On-screen line: Morning skincare, minus the whole shelf.",
+        "emotion": "relief",
+        "surpriseBeat": "A single arm sweep clears the entire crowded shelf in the first seconds, leaving only the jar and making the one-step idea visual.",
+        "locations": [
+          {
+            "slug": "bedroom-vanity",
+            "description": "Tidy bedroom vanity by a window with a small mirror",
+            "timeOfDay": "morning",
+            "lighting": "soft natural window light, warm neutral grade, lifted shadows"
+          },
+          {
+            "slug": "apartment-bathroom",
+            "description": "Bright small apartment bathroom with a plain shelf",
+            "timeOfDay": "morning",
+            "lighting": "soft window light, creamy highlights"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 3,
+            "action": "A vanity shelf crowded with plain, unmarked bottles and tubes. A forearm in an oatmeal knit sweater sweeps across and clears them all out of frame, leaving the jar alone.",
+            "camera": "static",
+            "framing": "Locked medium shot of the full shelf, jar ends centered",
+            "motion": "One quick sweep of the arm, then stillness",
+            "lighting": "soft window light from the left",
+            "productVisible": true,
+            "location": "bedroom-vanity",
+            "overlayText": "Morning skincare, minus the whole shelf.",
+            "dialogue": null,
+            "sound": "Soft clatter, then a finger-snap beat drops in"
+          },
+          {
+            "beat": "product",
+            "seconds": 4,
+            "action": "The person, early thirties, hair in a claw clip, twists off the lid and scoops a pea-sized amount of gel-cream with two fingers, then presses it across cheeks and forehead.",
+            "camera": "handheld",
+            "framing": "Eye-level 35mm-feel at the vanity mirror, jar held low, label clear of fingers",
+            "motion": "Easy scoop and press, relaxed shoulders",
+            "lighting": "soft window light, fine film grain",
+            "productVisible": true,
+            "location": "bedroom-vanity",
+            "overlayText": null,
+            "dialogue": "One jar. Light gel-cream, and it sinks in fast.",
+            "sound": "Lid twist, warm electric piano, gentle bass pulse"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Macro shot of the glossy gel melting into skin on the cheek, then a quick cut of tinted balm going on smoothly over it.",
+            "camera": "dolly_in",
+            "framing": "Tight macro on fingertips and cheek, then a close shot of the face",
+            "motion": "Slow pressing motion, then a light swipe of balm",
+            "lighting": "soft natural window light",
+            "productVisible": false,
+            "location": "bedroom-vanity",
+            "overlayText": "Works under makeup or on its own.",
+            "dialogue": null,
+            "sound": "Quiet close sound, airy synth pad swells"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 5,
+            "action": "Jar set down on the plain bathroom shelf. The person, in a blazer, walks past and out the door. Final hold on the jar with its debossed circle lid.",
+            "camera": "pull_out_reveal",
+            "framing": "Starts close on the jar, pulls back slightly to the empty shelf, then holds still on the jar",
+            "motion": "Jar set down once and left still",
+            "lighting": "soft window light, creamy highlights",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "Unscented. No sunscreen. Shop the daily gel-cream.",
+            "dialogue": "Keep it simple. Shop when you're ready.",
+            "sound": "Door closes, small lift in the music, then calm finish"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 5,
+          "specificity": 4,
+          "product_role": 4,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 4
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "The shelf sweep is a strong visual hook that dramatizes the one-step idea using a brief hook line. The product role is good, though the pour of routine steps is standard."
+      }
+    },
+    {
+      "concept": {
+        "title": "Same Jar, Two Clocks",
+        "hook": "Alarm clock reads morning, a hand grabs the jar. On-screen line: Your routine does not need ten steps.",
+        "emotion": "calm reassurance",
+        "surpriseBeat": "A quick cut reveals a second adult in their late thirties doing the same routine at night in a soft gray robe, showing the jar fits any busy schedule.",
+        "locations": [
+          {
+            "slug": "apartment-bathroom",
+            "description": "Bright small apartment bathroom with a mirror and plain shelf",
+            "timeOfDay": "morning and night",
+            "lighting": "soft window light by day, warm lamp light at night"
+          },
+          {
+            "slug": "entryway",
+            "description": "Small entryway with keys and a bag by the door",
+            "timeOfDay": "morning",
+            "lighting": "soft daylight, slightly lifted shadows"
+          }
+        ],
+        "scenes": [
+          {
+            "beat": "hook",
+            "seconds": 2,
+            "action": "Alarm clock buzzes. Cut to a hand in a white tee sleeve lifting the jar from a plain shelf.",
+            "camera": "handheld",
+            "framing": "Close eye-level shot on the jar and hand entering late, label clear",
+            "motion": "A quick lift of the jar",
+            "lighting": "soft window light, creamy highlights",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "Your routine does not need ten steps.",
+            "dialogue": null,
+            "sound": "Alarm buzz, finger-snap beat begins"
+          },
+          {
+            "beat": "product",
+            "seconds": 4,
+            "action": "The early thirties person in a white tee twists off the lid, scoops a pea-sized amount with two fingers, and presses it on cheeks and forehead.",
+            "camera": "dolly_in",
+            "framing": "Eye-level mirror shot, jar low in frame, fingers away from label",
+            "motion": "Scoop, press, relaxed unhurried",
+            "lighting": "soft window light, fine film grain",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": null,
+            "dialogue": "One step. A light gel-cream that sinks in fast.",
+            "sound": "Lid twist, warm electric piano"
+          },
+          {
+            "beat": "cultural",
+            "seconds": 3,
+            "action": "Macro of gel melting into skin, then tinted balm smooth over it, then keys grabbed off the hook in the entryway.",
+            "camera": "whip_pan",
+            "framing": "Macro on fingertips, then quick medium cuts at about 1 second each",
+            "motion": "Pressing, swiping, grabbing keys",
+            "lighting": "soft natural window light",
+            "productVisible": false,
+            "location": "entryway",
+            "overlayText": "Works under makeup or on its own.",
+            "dialogue": null,
+            "sound": "Gentle bass pulse, keys jingle"
+          },
+          {
+            "beat": "escalation",
+            "seconds": 2,
+            "action": "Quick cut: a second adult in their late thirties, in a soft gray robe, scoops the same gel-cream at the bathroom mirror at night.",
+            "camera": "static",
+            "framing": "Locked medium shot at the mirror, warm lamp glow, jar label visible and clear of hands",
+            "motion": "One easy scoop and press",
+            "lighting": "warm lamp light, soft shadows",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "Morning or night. Same jar.",
+            "dialogue": null,
+            "sound": "Quieter beat, soft synth pads"
+          },
+          {
+            "beat": "payoff",
+            "seconds": 4,
+            "action": "Hold on the jar on the plain bathroom shelf, lid with debossed circle visible, the room empty.",
+            "camera": "push_in_slow",
+            "framing": "Still centered shot of the jar on the shelf",
+            "motion": "The jar is still, the camera pushes in very slowly",
+            "lighting": "soft window light, creamy highlights",
+            "productVisible": true,
+            "location": "apartment-bathroom",
+            "overlayText": "Unscented. No sunscreen. Shop the daily gel-cream.",
+            "dialogue": "Simple on purpose. Shop when you're ready.",
+            "sound": "Small musical lift, calm ending"
+          }
+        ]
+      },
+      "rubric": {
+        "scores": {
+          "scroll_stop": 3,
+          "specificity": 4,
+          "product_role": 5,
+          "emotional_clarity": 4,
+          "insider_not_outsider": 4,
+          "surprise": 3
+        },
+        "gates": {
+          "no_stereotype": true,
+          "has_surprise_beat": true
+        },
+        "reason": "Uses both talents from the brief and shows the jar used clearly. The night cut is a gentle surprise and the hook is quieter than the shelf sweep."
+      }
+    }
+  ],
+  "bestIndex": 0,
+  "discarded": []
+}
