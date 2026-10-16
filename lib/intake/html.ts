@@ -1,7 +1,8 @@
 // Small, dependency-free HTML reading for the page reader: entity decoding, a page's visible text,
-// meta tags, the <title>, the first <h1> and JSON-LD blocks. Bodies are capped at 1 MB by the fetch,
-// and every scan is a forward indexOf walk (no backtracking regex over the whole page), so a hostile
-// page cannot make reading slow. The output is plain text; nothing here interprets what it says.
+// meta tags, the <title>, the first <h1> and JSON-LD blocks. Bodies are capped at 1 MB by the fetch.
+// Every scan walks forward and resumes after what it already read (no backtracking regex over the
+// page, a start tag is at most MAX_TAG_TEXT long), so the work stays linear in the page size and a
+// hostile page cannot make reading slow. The output is plain text; nothing here interprets it.
 
 // Named entities seen on product pages. Code points are written as numbers on purpose: the project
 // never puts some of these characters (the long dash) in source.
@@ -115,31 +116,59 @@ export function capText(text: string, max: number): string {
   return (space > max * 0.8 ? cut.slice(0, space) : cut).trim();
 }
 
+/**
+ * Characters the scans below have walked over, so tests can check that the work stays linear in
+ * the input instead of timing it. Counting is a single addition per scan; nothing reads it in the app.
+ */
+export const scanWork = { chars: 0 };
+
+/** indexOf that counts the characters it walks over. */
+function indexFrom(text: string, token: string, from: number): number {
+  const at = text.indexOf(token, from);
+  scanWork.chars += Math.max(0, (at < 0 ? text.length : at + token.length) - from);
+  return at;
+}
+
 /** ASCII-only lowercase, so indexes into it match the original (toLowerCase can change length). */
-const asciiLower = (text: string) => text.replace(/[A-Z]+/g, (run) => run.toLowerCase());
+function asciiLower(text: string): string {
+  scanWork.chars += text.length;
+  return text.replace(/[A-Z]+/g, (run) => run.toLowerCase());
+}
 
 const isSpace = (code: number) => code === 32 || (code >= 9 && code <= 13);
 
-/** Index just past the ">" closing the tag that opens at `start`, honoring quoted values, or -1. */
+/** The longest start tag read. A longer one (or one never closed) is not a tag. */
+export const MAX_TAG_TEXT = 65_536;
+
+/**
+ * Index just past the ">" closing the tag that opens at `start`, honoring quoted values, or -1 when
+ * there is none within MAX_TAG_TEXT characters. Callers then skip ahead by MAX_TAG_TEXT, so a page
+ * full of unclosed tags is walked once, not once per tag.
+ */
 function tagEnd(html: string, start: number): number {
   let quote = 0;
   let previous = 0;
-  for (let i = start + 1; i < html.length; i++) {
+  const stop = Math.min(html.length, start + MAX_TAG_TEXT);
+  for (let i = start + 1; i < stop; i++) {
     const code = html.charCodeAt(i);
     if (quote) {
       if (code === quote) quote = 0;
       continue;
     }
     if ((code === 34 || code === 39) && previous === 61) quote = code;
-    else if (code === 62) return i + 1;
+    else if (code === 62) {
+      scanWork.chars += i + 1 - start;
+      return i + 1;
+    }
     if (!isSpace(code)) previous = code;
   }
+  scanWork.chars += stop - start;
   return -1;
 }
 
 /** The next "<name" (or "</name") at a tag boundary, so "<nav" does not match "<navbar". */
 function findTag(lower: string, token: string, from: number): number {
-  for (let at = lower.indexOf(token, from); at >= 0; at = lower.indexOf(token, at + 1)) {
+  for (let at = indexFrom(lower, token, from); at >= 0; at = indexFrom(lower, token, at + 1)) {
     const next = lower.charCodeAt(at + token.length);
     if (Number.isNaN(next) || isSpace(next) || next === 62 || next === 47) return at;
   }
@@ -147,7 +176,6 @@ function findTag(lower: string, token: string, from: number): number {
 }
 
 const ATTRIBUTE = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-const MAX_TAG_TEXT = 65_536;
 
 /** Attributes of one start tag, names lowercased, values entity-decoded. */
 export function parseAttributes(tag: string): Record<string, string> {
@@ -164,9 +192,16 @@ export function parseAttributes(tag: string): Record<string, string> {
 function startTags(html: string, name: string, limit: number): { attributes: Record<string, string>; end: number }[] {
   const lower = asciiLower(html);
   const found: { attributes: Record<string, string>; end: number }[] = [];
-  for (let at = findTag(lower, `<${name}`, 0); at >= 0 && found.length < limit; at = findTag(lower, `<${name}`, at + 1)) {
+  // Each search resumes after the last tag (or after the stretch a broken tag covered), never at
+  // `at + 1`, so no part of the page is scanned twice.
+  let resume = 0;
+  for (let at = findTag(lower, `<${name}`, 0); at >= 0 && found.length < limit; at = findTag(lower, `<${name}`, Math.max(at + 1, resume))) {
     const end = tagEnd(html, at);
-    if (end < 0) break;
+    if (end < 0) {
+      resume = at + MAX_TAG_TEXT;
+      continue;
+    }
+    resume = end;
     found.push({ attributes: parseAttributes(html.slice(at, end)), end });
   }
   return found;
@@ -192,7 +227,7 @@ const TAG_NAME = /<(\/?)([a-z][a-z0-9:-]*)/y;
 function skipRaw(html: string, lower: string, name: string, from: number): number {
   const close = findTag(lower, `</${name}`, from);
   if (close < 0) return html.length;
-  const end = html.indexOf(">", close);
+  const end = indexFrom(html, ">", close);
   return end < 0 ? html.length : end + 1;
 }
 
@@ -219,7 +254,7 @@ function skipNested(html: string, lower: string, name: string, from: number): nu
       position = nextClose + close.length;
     }
   }
-  const end = html.indexOf(">", position);
+  const end = indexFrom(html, ">", position);
   return end < 0 ? html.length : end + 1;
 }
 
@@ -228,6 +263,7 @@ function mainPart(html: string, lower: string): string {
   const at = findTag(lower, "<main", 0);
   if (at < 0) return html;
   const start = tagEnd(html, at);
+  scanWork.chars += html.length;
   const close = lower.lastIndexOf("</main");
   if (start < 0 || close < start) return html;
   return html.slice(start, close);
@@ -244,20 +280,20 @@ export function visibleText(html: string): string {
   const out: string[] = [];
   let i = 0;
   while (i < part.length) {
-    const lt = part.indexOf("<", i);
+    const lt = indexFrom(part, "<", i);
     if (lt < 0) {
       out.push(part.slice(i));
       break;
     }
     if (lt > i) out.push(part.slice(i, lt));
     if (lower.startsWith("<!--", lt)) {
-      const end = part.indexOf("-->", lt + 4);
+      const end = indexFrom(part, "-->", lt + 4);
       i = end < 0 ? part.length : end + 3;
       out.push(" ");
       continue;
     }
     if (lower.startsWith("<!", lt) || lower.startsWith("<?", lt)) {
-      const end = part.indexOf(">", lt);
+      const end = indexFrom(part, ">", lt);
       i = end < 0 ? part.length : end + 1;
       continue;
     }
@@ -269,7 +305,12 @@ export function visibleText(html: string): string {
       continue;
     }
     const end = tagEnd(part, lt);
-    if (end < 0) break;
+    if (end < 0) {
+      // Not a tag within the cap: skip the stretch it covers rather than rescanning it.
+      i = lt + MAX_TAG_TEXT;
+      out.push(" ");
+      continue;
+    }
     out.push(" ");
     i = end;
     const [, slash, name] = match;
@@ -320,7 +361,10 @@ export function jsonLdBlocks(html: string): unknown[] {
     const at = findTag(lower, "<script", from);
     if (at < 0) break;
     const start = tagEnd(html, at);
-    if (start < 0) break;
+    if (start < 0) {
+      from = at + MAX_TAG_TEXT;
+      continue;
+    }
     const close = findTag(lower, "</script", start);
     const stop = close < 0 ? html.length : close;
     from = stop;

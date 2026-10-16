@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capText, decodeEntities, findProductNode, firstHeading, jsonLdBlocks, metaTags, parseAttributes, plainText, titleOf, visibleText } from "./html";
+import { capText, decodeEntities, findProductNode, firstHeading, jsonLdBlocks, metaTags, parseAttributes, plainText, scanWork, titleOf, visibleText } from "./html";
 
 const EM_DASH = String.fromCharCode(0x2014);
 
@@ -45,14 +45,30 @@ describe("visibleText", () => {
     expect(visibleText('<p title="x > y">inside</p>')).toBe("inside");
   });
 
-  it("stays fast on hostile pages", () => {
-    const started = Date.now();
-    visibleText("<script>".repeat(100_000));
-    visibleText("<nav>".repeat(100_000));
-    visibleText(`<p a="${"x".repeat(500_000)}`);
-    jsonLdBlocks('<script type="application/ld+json">'.repeat(50_000));
-    metaTags("<meta ".repeat(100_000));
-    expect(Date.now() - started).toBeLessThan(3_000);
+  // Work is counted in characters scanned, not timed: a quadratic walk over these pages scans
+  // billions of characters, a linear one a small multiple of the page.
+  const hostile: [string, string][] = [
+    ["unclosed scripts", "<script>".repeat(100_000)],
+    ["unclosed navs", "<nav>".repeat(100_000)],
+    ["one endless attribute", `<p a="${"x".repeat(500_000)}`],
+    ["unclosed JSON-LD scripts", '<script type="application/ld+json">'.repeat(50_000)],
+    ["metas without an end", "<meta ".repeat(100_000)],
+    ["metas closed only at the far end", `${"<meta ".repeat(160_000)}>`],
+    ["metas with open quotes", `${'<meta a="'.repeat(100_000)}">`],
+    ["bare open brackets", "<a".repeat(300_000)],
+  ];
+
+  it.each(hostile)("does linear work on hostile pages: %s", (_name, html) => {
+    for (const read of [visibleText, metaTags, jsonLdBlocks, titleOf, firstHeading] as ((html: string) => unknown)[]) {
+      scanWork.chars = 0;
+      read(html);
+      expect(scanWork.chars, read.name).toBeLessThan(12 * html.length);
+    }
+  });
+
+  it("still reads tags after a broken one", () => {
+    const broken = `<meta property="og:title" content="${"x".repeat(70_000)}`;
+    expect(metaTags(`${broken}<meta property="og:site_name" content="Shop">`)).toEqual({ "og:site_name": ["Shop"] });
   });
 });
 
