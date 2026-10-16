@@ -177,6 +177,8 @@ describe("guardedFetch, pinned connection", () => {
     expect(one).toEqual({ address: "127.0.0.1", family: 4 });
     const all = await new Promise((resolve) => lookup?.("shop.stoop.test", { all: true }, (_error, address) => resolve(address)));
     expect(all).toEqual([{ address: "127.0.0.1", family: 4 }]);
+    await guardedFetch("https://shop.stoop.test./x", { policy: loopbackToo, resolve: local() });
+    expect(captured).toMatchObject({ hostname: "shop.stoop.test.", servername: "shop.stoop.test" });
   });
 });
 

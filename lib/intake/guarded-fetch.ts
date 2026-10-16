@@ -219,7 +219,8 @@ function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: Hop
       agent: false,
       signal: settings.signal,
       ...(checked.ip ? {} : { lookup: pinnedLookup(pinned) }),
-      ...(secure && !checked.ip ? { servername: checked.host } : {}),
+      // SNI never carries the trailing dot of a fully qualified name (RFC 6066).
+      ...(secure && !checked.ip ? { servername: checked.host.replace(/\.$/, "") } : {}),
     };
 
     const onResponse = (res: http.IncomingMessage) => {
