@@ -2,7 +2,9 @@
 // founder story, problem/solution) and TikTok hooks (POV, unboxing, first try). Each format fills the
 // same slots: a hook type, an on-screen text line, a product-demo beat, a proof beat (seller-supplied
 // facts only) and a CTA per platform. There is no testimonial format: AI-actor scripts speak as the
-// brand, never as a customer who "tried it".
+// brand, never as a customer who "tried it". Customer-voice formats (first try, unboxing) go to human
+// creators only; AI-actor tools get the product demo of the same concept (plan section 12: "The
+// default for customer-voice formats (first_try, review) is a human-creator teleprompter export").
 //
 // Sources (read Oct 16, 2026):
 //   Meta CTA buttons: https://developers.facebook.com/docs/marketing-api/reference/ad-creative-link-data-call-to-action/
@@ -38,6 +40,12 @@ export interface UgcFormatSpec {
   cta: CtaId;
   /** Prefix for the on-screen hook line, e.g. "POV: ". Empty for most formats. */
   textPrefix: string;
+  /**
+   * The format reads as a customer's own experience (someone trying it, or opening their order). An AI
+   * actor in it would be a person who does not exist shown using the product, which the FTC rule bans,
+   * so these go to human creators only and AI-actor tools get the product demo instead (plan, section 12).
+   */
+  customerVoice: boolean;
   /** Words in the concept that point to this format. Matches in the hook scene count double. */
   signals: readonly RegExp[];
 }
@@ -51,6 +59,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The product in use, close enough to see what it does.",
     cta: "shop_now",
     textPrefix: "",
+    customerVoice: false,
     // The default: picked when no other format's beats show up in the concept.
     signals: [],
   },
@@ -62,6 +71,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The same moment after the product, framed the same way.",
     cta: "shop_now",
     textPrefix: "",
+    customerVoice: false,
     signals: [
       /\bbefore\b[^.]*\bafter\b/,
       /\bsplit[- ]screen\b/,
@@ -85,6 +95,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The product being made or finished, then in use.",
     cta: "learn_more",
     textPrefix: "",
+    customerVoice: false,
     signals: [/\bfounders?\b/, /\bwe (?:make|made|started|roast|pour|bake|sew)\b/, /\bour (?:kitchen|studio|workshop|roastery)\b/, /\bsmall[- ]batch(?:es)?\b/, /\bhand[- ](?:made|poured|sewn|roasted)\b/],
   },
   problem_solution: {
@@ -95,6 +106,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The product solving it on screen.",
     cta: "shop_now",
     textPrefix: "",
+    customerVoice: false,
     signals: [
       /\bproblem\b/,
       /\bbland\b/,
@@ -118,6 +130,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The product used from the viewer's point of view.",
     cta: "shop_now",
     textPrefix: "POV: ",
+    customerVoice: false,
     signals: [/\bpov\b/, /\bpoint of view\b/, /\bfirst[- ]person\b/],
   },
   unboxing: {
@@ -128,6 +141,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The product coming out of its box, then in use.",
     cta: "order_now",
     textPrefix: "",
+    customerVoice: true,
     signals: [
       /\bunbox\w*/,
       /\bparcel\b/,
@@ -147,6 +161,7 @@ export const UGC_FORMAT_SPECS: Readonly<Record<UgcFormat, UgcFormatSpec>> = {
     demoBeat: "The first use, then the reaction.",
     cta: "shop_now",
     textPrefix: "",
+    customerVoice: true,
     signals: [
       /\bfirst (?:bite|taste|sip|try|spray|wear|use|time)\b/,
       /\b(?:takes?|taking) (?:a|the|her|his|their) (?:bite|sip|taste|spoonful)\b/,

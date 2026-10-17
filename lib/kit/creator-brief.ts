@@ -57,18 +57,19 @@ export function creatorBrief({ brief, creators, concepts }: CreatorBriefInput): 
     ...concepts.others.filter((c) => c.status === "ranked").map((c) => c.concept.hook),
     ...brief.hooks.map((cue) => cue.text),
   ];
+  // One line per brief field, settings joined, so all six fit and no craft cue is cut.
   const hit = [
     `Mood: ${brief.mood.text}`,
     `Voice: ${brief.voice.tone.text}`,
-    ...brief.setting.map((cue) => `Setting: ${cue.text}`),
-    ...(brief.wardrobe ? [`Wardrobe: ${brief.wardrobe.text}`] : []),
     `Music feel: ${brief.music.text}`,
     `Look: ${brief.visual.text}`,
+    `${brief.setting.length > 1 ? "Settings" : "Setting"}: ${brief.setting.map((cue) => cue.text).join("; ")}`,
+    ...(brief.wardrobe ? [`Wardrobe: ${brief.wardrobe.text}`] : []),
   ];
   return creatorBriefSchema.parse({
     profile: { text: profileText(creators), origin: "interpreted", evidenceIds: receipts },
     hooks: [...new Set(hooks)].slice(0, 3),
-    hit: hit.slice(0, 6),
+    hit,
     avoid: [...new Set([...brief.voice.avoid, AVOID_ALWAYS])].slice(0, 6),
     disclosure: CREATOR_DISCLOSURE,
   });

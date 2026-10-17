@@ -46,7 +46,7 @@ function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, 
   const hashes = packHashes(pack);
   const ranked = conceptSet(concepts, brief);
   const format = pickUgcFormat(pack.concept);
-  const kit = buildKitScripts({ product, brief, concept: pack.concept });
+  const kit = buildKitScripts({ product, brief, concept: pack.concept, names: baselineNames(run, candidate) });
   const { audience, references, assumedCities } = run.brief;
   const lines: string[] = [
     `# Production Pack: ${candidate.workingName} (Control)`,

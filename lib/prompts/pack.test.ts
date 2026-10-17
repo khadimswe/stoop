@@ -373,7 +373,7 @@ describe("chained scene jobs", () => {
   it("list the extra scene models in the Director's Guide, with the start-frame rules", () => {
     expect(pack.directorGuide).toContain(`scene prompts for ${MODELS["kling-3"].displayName}`);
     expect(pack.directorGuide).toContain(`scene prompts for ${MODELS["runway-gen-4-5"].displayName}`);
-    expect(pack.directorGuide).toMatch(/trim it at the head/);
+    expect(pack.directorGuide).toMatch(/take the next scene.s start frame from the last frame you keep \(at the cut\)/);
   });
 });
 
@@ -425,6 +425,25 @@ describe("start frames", () => {
     expect(productionPackSchema.parse(pack)).toEqual(pack);
     expect(pack.renders.find((r) => r.id === "kling-scene-1")?.refs).toEqual(["product_photo_1.jpg", "talent_control_sheet.png"]);
     expect(checkPack(pack, brief(), product({ source: { kind: "images", images: [{ url: "https://shop.example.com/cdn/bottle-front.jpg", showsPerson: false }] } }), [], none)).toEqual([]);
+  });
+});
+
+describe("a product known only from the brand's photos", () => {
+  const photos = product({ source: { kind: "images", images: [{ url: "https://shop.example.com/cdn/bottle-front.jpg", showsPerson: false }] } });
+
+  it("gets no Runway scene prompts, since Runway would invent the product, and the guide says why", () => {
+    const pack = build({ product: photos });
+    expect(pack.renders.some((r) => r.id.startsWith("runway"))).toBe(false);
+    expect(pack.renders.some((r) => r.id.startsWith("kling-scene"))).toBe(true);
+    expect(pack.directorGuide).toContain(`No scene prompts for ${MODELS["runway-gen-4-5"].displayName}: it takes no reference images`);
+  });
+
+  it("fails the check when a model without references is chosen for it anyway", () => {
+    const settings = defaultPackSettings();
+    const pack = build({ product: photos, settings: { ...settings, models: { ...settings.models, perScene: "runway-gen-4-5" } } });
+    const problems = checkPack(pack, brief(), photos, [], none);
+    expect(problems.filter((p) => p.where.startsWith("runway"))).toHaveLength(4);
+    expect(problems[0].message).toMatch(/known only from the brand's photos, so the model would invent its look/);
   });
 });
 

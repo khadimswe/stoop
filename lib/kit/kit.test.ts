@@ -99,8 +99,16 @@ describe("creatorBrief", () => {
 
   it("takes 3 hooks from the concepts, details to hit from the brief and to avoid from its avoid list", () => {
     expect(made!.hooks).toEqual([kept.hook, ...concepts.others.filter((c) => c.status === "ranked").map((c) => c.concept.hook)].slice(0, 3));
-    expect(made!.hit[0]).toBe(`Mood: ${brief.mood.text}`);
-    expect(made!.hit).toContain(`Setting: ${brief.setting[0].text}`);
+    // Every brief field fits: three settings plus wardrobe never push out the music or the look.
+    expect(brief.setting).toHaveLength(3);
+    expect(made!.hit).toEqual([
+      `Mood: ${brief.mood.text}`,
+      `Voice: ${brief.voice.tone.text}`,
+      `Music feel: ${brief.music.text}`,
+      `Look: ${brief.visual.text}`,
+      `Settings: ${brief.setting.map((cue) => cue.text).join("; ")}`,
+      `Wardrobe: ${brief.wardrobe!.text}`,
+    ]);
     expect(made!.avoid).toEqual([...brief.voice.avoid, "Copying a real person's look or voice, and any third-party logo"].slice(0, 6));
     expect(made!.disclosure).toBe(CREATOR_DISCLOSURE);
     expect(made!.disclosure).toMatch(/in the video itself, out loud and on screen: "ad" or #ad works/);

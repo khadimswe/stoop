@@ -8,7 +8,7 @@ import { conceptRunSchema } from "../../stages/concepts";
 import { conceptSchema, productSpecSchema, type Concept } from "../brief";
 import { conceptCaptions, vttTime } from "./captions";
 import { CTA_LABELS, UGC_FORMAT_SPECS } from "./formats";
-import { buildKitScripts, pickUgcFormat, proofLine } from "./index";
+import { ARCADS_MAX_CHARS, buildKitScripts, pickUgcFormat, proofLine } from "./index";
 
 // Real recorded pieces only: each candidate's Control run 1 and the concepts written from it.
 const control = (slug: string) => {
@@ -56,10 +56,46 @@ describe("buildKitScripts", () => {
   const kit = buildKitScripts({ product: hot.product, brief: hot.brief, concept: hot.best });
   const script = (platform: UgcScript["platform"], tool: UgcScript["tool"]) => kit.ugc.find((s) => s.platform === platform && s.tool === tool)!.script;
 
-  it("writes one script per platform and tool in the picked format, and fits the kit contract", () => {
+  it("writes one script per platform and tool, and fits the kit contract", () => {
     expect(kit.ugc.map((s) => `${s.platform}/${s.tool}`)).toEqual(["meta/arcads", "meta/creatify", "meta/creator", "tiktok/arcads", "tiktok/creatify", "tiktok/creator"]);
-    expect(new Set(kit.ugc.map((s) => s.format))).toEqual(new Set(["first_try"]));
     expect(kitSchema.parse({ ...kit, adPlan: null, creatorBrief: null })).toBeTruthy();
+  });
+
+  it("gives a customer-voice format to human creators only, and the product demo to AI actors", () => {
+    // A first try by an AI actor would show a person who does not exist trying the product (FTC, Aug 2024).
+    expect(kit.ugc.map((s) => [s.tool, s.format])).toEqual([
+      ["arcads", "product_demo"],
+      ["creatify", "product_demo"],
+      ["creator", "first_try"],
+      ["arcads", "product_demo"],
+      ["creatify", "product_demo"],
+      ["creator", "first_try"],
+    ]);
+    const pick = pickUgcFormat(hot.best);
+    expect(pick).toMatchObject({ format: { id: "first_try" }, aiFormat: { id: "product_demo" } });
+    expect(pick.reason).toMatch(/only a human creator gets it; AI-actor tools get the product demo/);
+    expect(script("meta", "creator")).toContain("Format: First try (TikTok hook)");
+    expect(script("meta", "arcads")).toContain("Format: Product demo (Meta-friendly)");
+    // Unboxing reads as opening one's own order, so it goes the same way.
+    expect(UGC_FORMAT_SPECS.unboxing.customerVoice).toBe(true);
+    const sneakers = control("care-kit-sneakers");
+    const before = buildKitScripts({ product: sneakers.product, brief: sneakers.brief, concept: sneakers.best });
+    expect(new Set(before.ugc.map((s) => s.format))).toEqual(new Set(["before_after"]));
+  });
+
+  it("checks real names the way the pack check does", () => {
+    // The concept's own payoff line names no one; a seed or reference name that slipped into it is refused.
+    const named = withScenes(hot.best, (_, index) => (index === 4 ? { dialogue: "Better than Trader Joe's." } : {}));
+    expect(() => buildKitScripts({ product: hot.product, brief: hot.brief, concept: named, names: ["Trader Joe's"] })).toThrow(/real name/);
+    expect(() => buildKitScripts({ product: hot.product, brief: hot.brief, concept: hot.best, names: ["Trader Joe's"] })).not.toThrow();
+  });
+
+  it("keeps the Arcads script under 1,000 characters, dropping the proof line first", () => {
+    const long = withScenes(hot.best, (scene, index) => (index > 0 ? { dialogue: `${"A slow, steady drizzle over the eggs. ".repeat(11)}${index}` } : {}));
+    const arcads = buildKitScripts({ product: hot.product, brief: hot.brief, concept: long }).ugc.find((s) => s.tool === "arcads")!.script;
+    const spoken = arcads.split("What the actor should say:\n")[1].split("\n\n")[0];
+    expect(spoken.length).toBeLessThan(ARCADS_MAX_CHARS);
+    expect(spoken).not.toContain(hot.product.oneLine);
   });
 
   it("uses each ads manager's own CTA wording", () => {

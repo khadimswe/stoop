@@ -2,7 +2,7 @@
 // one format per world from the concept itself (a deterministic rule, no extra LLM call) and says why;
 // the format's slots are then filled from the concept's own lines, the brief and the seller's facts.
 // Every script goes to Meta and TikTok, for Arcads, Creatify and a human creator.
-import { AVOID_LIST_EXEMPT, checkText, formatGuardIssues } from "../../guardrails";
+import { AVOID_LIST_EXEMPT, checkText, FAMOUS_PLACES, formatGuardIssues } from "../../guardrails";
 import { ugcScriptSchema, AD_PLATFORMS, SCRIPT_TOOLS, type UgcScript } from "../../report/world";
 import { ageBandLabel } from "../../types";
 import type { BriefSlots, Concept, ProductSpec } from "../brief";
@@ -17,11 +17,15 @@ export { CTA_LABELS, UGC_FORMAT_SPECS } from "./formats";
 
 export interface FormatPick {
   format: UgcFormatSpec;
+  /** The format AI-actor tools get: the same, or the product demo when the format is customer-voice. */
+  aiFormat: UgcFormatSpec;
   /** One line for the trace: why this format fits the concept. */
   reason: string;
   /** The words that pointed to it (empty for the product-demo fallback). */
   matched: string[];
 }
+
+const AI_TOOLS: ReadonlySet<string> = new Set(["arcads", "creatify"]);
 
 /**
  * Picks one format from the kept concept. Each format lists signal words; a match in the hook scene
@@ -54,17 +58,29 @@ export function pickUgcFormat(concept: Concept): FormatPick {
     }
     if (score >= 2 && (best === null || score > best.score)) best = { spec, score, matched };
   }
+  const demo = UGC_FORMAT_SPECS.product_demo;
   if (best) {
+    const voice = best.spec.customerVoice
+      ? ` It reads as a customer's own experience, so only a human creator gets it; AI-actor tools get the ${demo.label.toLowerCase()} (an AI actor would be a person who does not exist shown using the product).`
+      : "";
     return {
       format: best.spec,
+      aiFormat: best.spec.customerVoice ? demo : best.spec,
       matched: best.matched,
-      reason: `${best.spec.label}: the concept's own words point to it (${best.matched.map((m) => `"${m}"`).join(", ")}). ${best.spec.hookType}`,
+      reason: `${best.spec.label}: the concept's own words point to it (${best.matched.map((m) => `"${m}"`).join(", ")}). ${best.spec.hookType}${voice}`,
     };
   }
   const used = concept.scenes.filter((scene) => scene.productVisible).length;
-  const demo = UGC_FORMAT_SPECS.product_demo;
-  return { format: demo, matched: [], reason: `${demo.label}: the product is on screen in ${used} of ${concept.scenes.length} scenes, and no other format's beats show up in the concept.` };
+  return {
+    format: demo,
+    aiFormat: demo,
+    matched: [],
+    reason: `${demo.label}: the product is on screen in ${used} of ${concept.scenes.length} scenes, and no other format's beats show up in the concept.`,
+  };
 }
+
+/** Arcads' script field: the plan caps the paste-in script under 1,000 characters (Arcads allows about 1,500). */
+export const ARCADS_MAX_CHARS = 1000;
 
 /** The seller's one-line description as the proof beat, unless it makes a claim the kit can't use. */
 export function proofLine(product: ProductSpec): string | null {
@@ -123,27 +139,50 @@ export function scriptPlan(product: ProductSpec, brief: BriefSlots, concept: Con
 const ctaLabelFor = (format: UgcFormatSpec) => ctaLabel({ format } as ScriptPlan, "meta");
 
 /** The guardrails on everything a script carries from the concept, the brief and the seller. */
-function guardPlan(plan: ScriptPlan): void {
+function guardPlan(plan: ScriptPlan, product: ProductSpec, brief: BriefSlots, names: readonly string[]): void {
+  const options = { names: [...names, ...FAMOUS_PLACES], allowedNames: [...brief.allowedPlaces, ...(product.brandName ? [product.brandName] : [])] };
   const texts = [...plan.beats.flatMap((beat) => [beat.say ?? "", beat.show, beat.onScreen ?? ""]), plan.styling ?? "", plan.voice];
-  const issues = texts.flatMap((text) => checkText(text));
+  const issues = texts.flatMap((text) => checkText(text, options));
   // An avoid list names banned claims in order to forbid them.
-  const avoid = plan.avoid.flatMap((item) => checkText(item).filter((issue) => !AVOID_LIST_EXEMPT.has(issue.rule)));
+  const avoid = plan.avoid.flatMap((item) => checkText(item, options).filter((issue) => !AVOID_LIST_EXEMPT.has(issue.rule)));
   if (issues.length + avoid.length > 0) throw new Error(`A kit script breaks the guardrails:\n${formatGuardIssues([...issues, ...avoid])}`);
+}
+
+/** Keeps the spoken lines inside Arcads' cap: drops the proof line, then the demo line, if it must. */
+function fitArcads(plan: ScriptPlan): ScriptPlan {
+  const spokenLength = (p: ScriptPlan) => p.beats.reduce((sum, beat) => sum + (beat.say ? beat.say.length + 30 : 0), 0);
+  let fitted = plan;
+  for (const drop of ["proof", "demo"] as const) {
+    if (spokenLength(fitted) <= ARCADS_MAX_CHARS) break;
+    fitted = { ...fitted, beats: fitted.beats.map((beat) => (beat.beat === drop ? { ...beat, say: null } : beat)) };
+  }
+  if (spokenLength(fitted) > ARCADS_MAX_CHARS) throw new Error(`The Arcads script runs past ${ARCADS_MAX_CHARS} characters even without its proof and demo lines.`);
+  return fitted;
 }
 
 export interface KitScriptsInput {
   product: ProductSpec;
   brief: BriefSlots;
   concept: Concept;
+  /** Real names (references, seeds, Qloo entities) that must never appear in a script, as checkPack takes them. */
+  names?: readonly string[];
 }
 
-/** The Kit's captions and short-form scripts for one kept concept. Zero Qloo and LLM calls. */
-export function buildKitScripts({ product, brief, concept }: KitScriptsInput): { captions: string | null; ugc: UgcScript[] } {
-  const { format } = pickUgcFormat(concept);
-  const plan = scriptPlan(product, brief, concept, format);
-  guardPlan(plan);
+/**
+ * The Kit's captions and short-form scripts for one kept concept: Meta and TikTok, for Arcads,
+ * Creatify and a human creator. A customer-voice format goes to the creator only; the AI-actor tools
+ * get the product demo of the same concept. Zero Qloo and LLM calls.
+ */
+export function buildKitScripts({ product, brief, concept, names = [] }: KitScriptsInput): { captions: string | null; ugc: UgcScript[] } {
+  const pick = pickUgcFormat(concept);
+  const plans = new Map([pick.format, pick.aiFormat].map((format) => [format.id, scriptPlan(product, brief, concept, format)] as const));
+  for (const plan of plans.values()) guardPlan(plan, product, brief, names);
   const ugc = AD_PLATFORMS.flatMap((platform) =>
-    SCRIPT_TOOLS.map((tool) => ugcScriptSchema.parse({ format: format.id, platform, tool, script: SCRIPT_WRITERS[tool](plan, platform), cta: ctaLabel(plan, platform) })),
+    SCRIPT_TOOLS.map((tool) => {
+      const plan = plans.get((AI_TOOLS.has(tool) ? pick.aiFormat : pick.format).id) as ScriptPlan;
+      const script = SCRIPT_WRITERS[tool](tool === "arcads" ? fitArcads(plan) : plan, platform);
+      return ugcScriptSchema.parse({ format: plan.format.id, platform, tool, script, cta: ctaLabel(plan, platform) });
+    }),
   );
   return { captions: conceptCaptions(concept), ugc };
 }

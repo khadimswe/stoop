@@ -181,6 +181,8 @@ export const packSettingsSchema = z.strictObject({
   models: z.strictObject({
     image: z.enum(MODEL_IDS),
     multiShot: z.enum(MODEL_IDS),
+    // Null means no per-scene model of your own. Either way the pack also writes scene prompts for
+    // PER_SCENE_EXTRAS (models.config.ts), one set per template family, when the model can show the product.
     perScene: z.enum(MODEL_IDS).nullable(),
   }),
 });

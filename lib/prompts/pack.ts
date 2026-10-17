@@ -26,13 +26,26 @@ import { estimateTokens, renderScene } from "./veo";
  */
 const CHAINED_FAMILIES: ReadonlySet<TemplateFamily> = new Set(["kling", "runway"]);
 
-/** The settings' per-scene model, then the extras, one per template family. */
-function sceneModels(perScene: ModelConfig | null): ModelConfig[] {
-  const models: ModelConfig[] = [];
-  for (const model of [...(perScene ? [perScene] : []), ...PER_SCENE_EXTRAS.map(getModel)]) {
-    if (!models.some((m) => m.template === model.template)) models.push(model);
+/**
+ * A model that takes no reference images sees the product only through the prompt's words, so it can
+ * show a product described in text, but not one known only from the brand's photos.
+ */
+const canShowProduct = (model: ModelConfig, product: ProductSpec) => model.supportsImageRefs || product.source.kind === "description";
+
+/**
+ * The settings' per-scene model, then the extras, one per template family. An extra that cannot show
+ * this product is skipped (Runway with a brand's photos), so the pack never offers a prompt whose
+ * product the model would invent.
+ */
+function sceneModels(perScene: ModelConfig | null, product: ProductSpec): { models: ModelConfig[]; skipped: ModelConfig[] } {
+  const models: ModelConfig[] = perScene ? [perScene] : [];
+  const skipped: ModelConfig[] = [];
+  for (const model of PER_SCENE_EXTRAS.map(getModel)) {
+    if (models.some((m) => m.template === model.template)) continue;
+    if (canShowProduct(model, product)) models.push(model);
+    else skipped.push(model);
   }
-  return models;
+  return { models, skipped };
 }
 
 export const ASSET_KINDS = ["packshot", "product_sheet", "talent_sheet", "location"] as const;
@@ -311,7 +324,8 @@ export function buildProductionPack({ product, brief, concept, settings }: PackI
   const multiShotRefs = multiShotModel.template === "kling" ? sceneRefs(productRefs.slice(0, 1), all) : undefined;
   const renders: RenderJob[] = [job(`${multiShotModel.template}-${settings.seconds}s`, "multi-shot", multiShotModel, all, multiShotPrompt, { refs: multiShotRefs })];
 
-  for (const model of sceneModels(perSceneModel)) {
+  const scenes = sceneModels(perSceneModel, product);
+  for (const model of scenes.models) {
     const id = (index: number) => `${model.template}-scene-${index + 1}`;
     const chained = CHAINED_FAMILIES.has(model.template);
     for (const index of all) {
@@ -367,7 +381,8 @@ export function buildProductionPack({ product, brief, concept, settings }: PackI
       draftModel: multiShotModel,
       finalModel: multiShotModel,
       perSceneModel: perSceneModel ?? undefined,
-      extraSceneModels: sceneModels(perSceneModel).filter((model) => model.id !== perSceneModel?.id),
+      extraSceneModels: scenes.models.filter((model) => model.id !== perSceneModel?.id),
+      skippedSceneModels: scenes.skipped,
       checklist,
       takesPerPrompt: 1,
       maxRevisions: 1,
@@ -447,6 +462,8 @@ export function checkPack(pack: ProductionPack, brief: BriefSlots, product: Prod
       if (render.refs.length > model.maxRefs) problems.push({ where: render.id, message: `uses ${render.refs.length} references; the model takes ${model.maxRefs}` });
     } else if (!promptText.includes(product.name.toLowerCase())) {
       problems.push({ where: render.id, message: `does not name the ${product.name}; the model takes no reference images` });
+    } else if (!canShowProduct(model, product)) {
+      problems.push({ where: render.id, message: "takes no reference images, and this product is known only from the brand's photos, so the model would invent its look" });
     }
     const start = render.startFrame;
     if (start?.kind === "asset" && !assetFiles.has(start.file)) problems.push({ where: render.id, message: `starts from ${start.file}, which the pack does not have` });
