@@ -1,6 +1,7 @@
 // Writes the full Control Production Pack for one candidate (or all) for the founder to review before
 // any render: the brief with its origins, all three concepts with rubric scores, every asset and render
-// prompt with its hash, the shot list, the critique checklist and the Director's Guide.
+// prompt with its hash and start frame, the shot list, the kit scripts and captions, the critique
+// checklist and the Director's Guide. Concepts written with older instructions still export, with a warning.
 //   npm run prompts:export -- <slug>|--all [--freeze]
 // Review files go to exports/<slug>/ (gitignored). --freeze also writes data/packs/<slug>/control.json,
 // the committed record of an approved pack; approved hashes then go in public/demo/approvals.json.
@@ -11,11 +12,12 @@ import path from "node:path";
 import { baselineNames, baselineRunSchema, type BaselineRun } from "../lib/agent/baseline";
 import { candidateDirection, candidateProduct, CONTROL_RUN, controlBrief } from "../lib/agent/baseline-brief";
 import { CANDIDATES, type Candidate } from "../lib/demo/candidates";
-import { defaultPackSettings, type BriefSlots } from "../lib/prompts/brief";
+import { defaultPackSettings, type BriefSlots, type ProductSpec } from "../lib/prompts/brief";
 import { getModel } from "../lib/prompts/models.config";
 import { buildProductionPack, checkPack, packHashes, type ProductionPack } from "../lib/prompts/pack";
 import { totalScore } from "../lib/prompts/rubric";
-import { bestConcept, conceptInputHash, conceptRunSchema, type ConceptRun } from "../lib/stages/concepts";
+import { buildKitScripts, pickUgcFormat } from "../lib/prompts/ugc";
+import { bestConcept, conceptRunSchema, conceptSet, conceptsStatus, type ConceptRun } from "../lib/stages/concepts";
 import { ageBandLabel, type Cue } from "../lib/types";
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -40,8 +42,11 @@ export async function loadControl(candidate: Candidate): Promise<{ run: Baseline
 const origin = (cue: Cue) => (cue.origin === "creative" ? "not from Qloo" : cue.origin);
 const block = (text: string) => `\`\`\`text\n${text}\n\`\`\``;
 
-function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, brief: BriefSlots, pack: ProductionPack): string {
+function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, brief: BriefSlots, product: ProductSpec, pack: ProductionPack): string {
   const hashes = packHashes(pack);
+  const ranked = conceptSet(concepts, brief);
+  const format = pickUgcFormat(pack.concept);
+  const kit = buildKitScripts({ product, brief, concept: pack.concept, names: baselineNames(run, candidate) });
   const { audience, references, assumedCities } = run.brief;
   const lines: string[] = [
     `# Production Pack: ${candidate.workingName} (Control)`,
@@ -82,17 +87,20 @@ function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, 
     "",
     "## Concepts",
     "",
-    ...concepts.concepts.flatMap(({ concept, rubric }, index) => {
-      const status = index === concepts.bestIndex ? "**kept**" : concepts.discarded.includes(index) ? "discarded (failed a hard gate)" : "not kept";
+    "Specificity counts at most 1 plus the brief slots the concept declared and its own words verify; the total below is after that bound.",
+    "",
+    ...[ranked.best, ...ranked.others].flatMap(({ concept, rubric, uses, verifiedUses, total, status }, index) => {
       const scores = Object.entries(rubric.scores)
         .map(([id, score]) => `${id} ${score}`)
         .join(", ");
       return [
-        `### ${index + 1}. ${concept.title} (${status})`,
+        `### ${index + 1}. ${concept.title} (${status === "kept" ? "**kept**" : status === "discarded" ? "discarded (failed a hard gate)" : "not kept"})`,
         "",
         `- Hook: ${concept.hook}`,
         `- Feeling: ${concept.emotion}. Surprise beat: ${concept.surpriseBeat}`,
-        `- Rubric: total ${totalScore(rubric)} (${scores}); no stereotype ${rubric.gates.no_stereotype ? "pass" : "FAIL"}, surprise beat ${rubric.gates.has_surprise_beat ? "pass" : "FAIL"}`,
+        `- Tests: ${concept.testHypothesis ?? "(none: written before test hypotheses)"}`,
+        `- Brief slots: declared ${uses.length ? uses.join(", ") : "none"}; verified ${verifiedUses.length ? verifiedUses.join(", ") : "none"}`,
+        `- Rubric: total ${total} after the bound, ${totalScore(rubric)} as scored (${scores}); no stereotype ${rubric.gates.no_stereotype ? "pass" : "FAIL"}, surprise beat ${rubric.gates.has_surprise_beat ? "pass" : "FAIL"}`,
         `- Why: ${rubric.reason}`,
         "",
       ];
@@ -120,7 +128,10 @@ function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, 
       `### ${render.id}`,
       "",
       `- Model: ${getModel(render.modelId).displayName}. Request ${render.renderSeconds} s, cut to ${render.trimTo} s. Scenes ${render.sceneIndexes.map((i) => i + 1).join(", ")}.`,
-      `- References: ${render.refs.join(", ")}`,
+      `- References: ${render.refs.length ? render.refs.join(", ") : "none (the model takes no reference images)"}`,
+      ...(render.startFrame
+        ? [`- Start frame: ${render.startFrame.kind === "asset" ? render.startFrame.file : `the last frame of ${render.startFrame.job}`}`]
+        : []),
       ...(render.negative ? [`- Negative field: ${render.negative}`] : []),
       `- promptHash: \`${render.promptHash}\``,
       "",
@@ -137,6 +148,15 @@ function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, 
     "## Overlay text (added in the edit)",
     "",
     ...(pack.overlays.length ? pack.overlays.map((o) => `- Scene ${o.scene}: "${o.text}"`) : ["- none"]),
+    "",
+    "## Kit scripts (short-form, for AI UGC tools and creators)",
+    "",
+    `Format: ${format.reason}`,
+    "",
+    ...kit.ugc.flatMap((script) => [`### ${script.platform} / ${script.tool} (CTA: ${script.cta})`, "", block(script.script), ""]),
+    "### Captions (WebVTT)",
+    "",
+    kit.captions ? block(kit.captions.trimEnd()) : "None: the concept has no spoken lines or overlay text.",
     "",
     // The guide is its own document; shift its headings one level so it nests under this pack.
     pack.directorGuide.replace(/^(#+) /gm, "#$1 "),
@@ -162,19 +182,29 @@ async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean
   const product = candidateProduct(candidate);
   const settings = defaultPackSettings(candidateDirection(candidate));
   const brief = controlBrief(run);
-  if (concepts.inputHash !== conceptInputHash(product, brief, settings.direction)) {
+  const status = conceptsStatus(concepts, product, brief, settings.direction);
+  if (status === "other-input") {
     console.error(`${candidate.slug}: concepts.json was written from a different run 1. Run npm run baseline -- ${candidate.slug} to refresh it.`);
     return false;
   }
+  if (status === "stale-instructions") {
+    // Same brief, older concept writer: still a valid review file, but never one to approve.
+    if (freeze) {
+      console.error(`${candidate.slug}: concepts.json was written with older concept instructions. Refresh it (npm run baseline -- ${candidate.slug}) before freezing.`);
+      return false;
+    }
+    console.warn(`${candidate.slug}: concepts.json was written with older concept instructions (no declared slots or test hypothesis). Exporting for review; refresh it before approving.`);
+  }
   const pack = buildProductionPack({ product, brief, concept: bestConcept(concepts), settings });
-  const problems = checkPack(pack, brief, product, baselineNames(run, candidate));
+  // The Control has no Qloo data, so no slot is rich.
+  const problems = checkPack(pack, brief, product, baselineNames(run, candidate), { richSlots: [] });
   if (problems.length > 0) {
     console.error(`${candidate.slug}: ${problems.length} problem(s), nothing written:`);
     for (const p of problems) console.error(`  ${p.where}: ${p.message}`);
     return false;
   }
   const dir = path.join("exports", candidate.slug);
-  await writeChecked(path.join(dir, "production-pack.md"), markdown(candidate, run, concepts, brief, pack));
+  await writeChecked(path.join(dir, "production-pack.md"), markdown(candidate, run, concepts, brief, product, pack));
   await writeChecked(path.join(dir, "hashes.json"), `${JSON.stringify(packHashes(pack), null, 2)}\n`);
   if (freeze) await writeChecked(path.join("data", "packs", candidate.slug, "control.json"), `${JSON.stringify(pack, null, 2)}\n`);
   console.log(`${candidate.slug}: ${pack.assets.length} assets, ${pack.renders.length} render prompts -> ${dir}/production-pack.md${freeze ? " (frozen)" : ""}`);

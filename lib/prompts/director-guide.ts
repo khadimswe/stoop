@@ -14,6 +14,10 @@ export interface DirectorGuideInput {
   finalModel: ModelConfig;
   /** Optional model for tools that render scene by scene. */
   perSceneModel?: ModelConfig;
+  /** Other per-scene models the pack also writes prompts for (copy-ready for other tools). */
+  extraSceneModels?: readonly ModelConfig[];
+  /** Per-scene models the pack skipped because they cannot show this product (no reference images, no text look). */
+  skippedSceneModels?: readonly ModelConfig[];
   checklist: readonly ChecklistItem[];
   takesPerPrompt: number;
   maxRevisions: number;
@@ -28,10 +32,12 @@ function assertKind(model: ModelConfig, kind: ModelConfig["kind"], role: string)
 
 export function renderDirectorGuide(input: DirectorGuideInput): string {
   const { imageModel, draftModel, finalModel, perSceneModel, checklist, takesPerPrompt, maxRevisions } = input;
+  const extras = input.extraSceneModels ?? [];
   assertKind(imageModel, "image", "imageModel");
   assertKind(draftModel, "video", "draftModel");
   assertKind(finalModel, "video", "finalModel");
   if (perSceneModel) assertKind(perSceneModel, "video", "perSceneModel");
+  for (const model of extras) assertKind(model, "video", "extraSceneModels");
   if (!Number.isInteger(takesPerPrompt) || takesPerPrompt < 1) throw new Error("Director's Guide: takesPerPrompt must be a whole number of 1 or more");
   if (!Number.isInteger(maxRevisions) || maxRevisions < 0) throw new Error("Director's Guide: maxRevisions must be a whole number of 0 or more");
   if (checklist.length === 0) throw new Error("Director's Guide: the checklist must not be empty");
@@ -59,6 +65,17 @@ export function renderDirectorGuide(input: DirectorGuideInput): string {
   if (perSceneModel) {
     lines.push(`- For scene-by-scene clips, use ${perSceneModel.displayName} at ${perSceneModel.draftSetting}.`);
   }
+  for (const model of extras) lines.push(`- The pack also has scene prompts for ${model.displayName}: draft them at ${model.draftSetting}.`);
+  for (const model of input.skippedSceneModels ?? []) {
+    lines.push(`- No scene prompts for ${model.displayName}: it takes no reference images, and this product is shown only by the brand's photos, so it would invent the product.`);
+  }
+  if (perSceneModel || extras.length > 0) {
+    lines.push(
+      "- Some scene prompts start from a frame (listed with the prompt). Render those scenes in order: a scene that starts from the last frame of an earlier scene waits for that take, and one that starts from a location plate uses the plate as its first frame.",
+      "- When a clip renders longer than its scene, cut it to the scene's length from its start, and take the next scene's start frame from the last frame you keep (at the cut), not from the end of the raw clip.",
+      "- Where a tool locks the product or a character with Elements, build them from the files the prompt names (the product sheet or the brand's photos, the talent sheet).",
+    );
+  }
   lines.push(
     "",
     "## 3. Check",
@@ -83,6 +100,7 @@ export function renderDirectorGuide(input: DirectorGuideInput): string {
   if (perSceneModel) {
     lines.push(`- Scene-by-scene finals go on ${perSceneModel.displayName} at ${perSceneModel.finalSetting}.`);
   }
+  for (const model of extras) lines.push(`- ${model.displayName} scene finals: ${model.finalSetting}.`);
   lines.push(
     "",
     "## 6. Edit",

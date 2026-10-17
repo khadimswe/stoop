@@ -304,7 +304,8 @@ const ROWS = {
     notes: [
       "Elements built from 2 to 4 images lock a product's look; maxRefs counts one Element.",
       "Elements are attached in the UI, so prompts describe the product in words.",
-      "Start and end frames supported. Multi-Shot is a switch in the UI.",
+      "Start and end frames supported, and a start frame combines with Element references. Multi-Shot is a switch in the UI; Custom Multi-Shot sets each shot's content and length.",
+      "Dialogue is tied to a named speaker with an optional tone tag; ambient sound is described in the prompt.",
       "Resolution sources disagree: Higgsfield lists Kling 3.0 at 4K, Kling's own guide lists 1080p and 720p.",
       "The per-shot structure (action, setting, camera move, mood) and chaining the final frame of each scene into the start frame of the next come from Higgsfield's Kling page, not Kling's own guide.",
       "Kling 4.0 went live Oct 15, 2026 and is not confirmed on Higgsfield yet.",
@@ -489,6 +490,14 @@ export const ROLE_DEFAULTS = {
   multiShotVideo: "seedance-2-5",
   perSceneVideo: "veo-3-1",
 } as const satisfies Record<string, ModelId>;
+
+/**
+ * Per-scene models every pack also writes prompts for, next to the settings' own per-scene model, so
+ * a report offers copy-ready prompts for each tool. One job set per template family: the settings'
+ * per-scene model wins its family. These sit outside PackSettings on purpose: adding one adds jobs
+ * and leaves every existing job's hash unchanged.
+ */
+export const PER_SCENE_EXTRAS = ["kling-3", "runway-gen-4-5"] as const satisfies readonly ModelId[];
 
 /**
  * The shortest length the model accepts that holds `seconds`. Models with fixed lengths (Veo 3.1:
