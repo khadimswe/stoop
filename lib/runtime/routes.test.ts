@@ -74,6 +74,16 @@ describe("the runtime routes in replay mode (no store at all)", () => {
     expect(caughtUp.status).toBe(204);
   });
 
+  it("refuses a start or an intake the bot check flags, before anything is spent", async () => {
+    const store = new MemoryStore();
+    const flagged = { ...deps({ STOOP_LIVE: "true" }, store), botCheck: () => ({ name: "test", check: async () => ({ bot: true }) }) };
+    const run = await postRun(post(start), flagged);
+    expect(run.status).toBe(403);
+    expect(await run.json()).toMatchObject({ error: { code: "bot" } });
+    expect((await postIntake(post({ description: "A fermented red chile hot sauce in small batches." }), flagged)).status).toBe(403);
+    expect(await store.get(keys.daily("live-runs"))).toBeNull();
+  });
+
   it("reports an unreachable store in health, with no secrets", async () => {
     const res = await getHealth(replay);
     expect(res.status).toBe(503);

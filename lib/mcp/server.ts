@@ -11,9 +11,10 @@ import { intakeRequestSchema, RUN_SEEDS, type IntakeRequest } from "../api/reque
 import { REPLAY_REASONS, type IntakeResponse, type RunStartResponse } from "../api/responses";
 import { dailyCaps } from "../config";
 import { LEAD_EXAMPLE } from "../demo/examples";
-import { SCORE_BRIEF_BUDGET, SCORE_BRIEF_CAP } from "../qloo/budget";
+import { MONTHLY_FLOOR, SCORE_BRIEF_BUDGET, SCORE_BRIEF_CAP } from "../qloo/budget";
 import type { QlooClient } from "../qloo/client";
 import { createRunContext } from "../qloo/context";
+import { lastMonthRemaining } from "../qloo/shared";
 import { DAILY_RULES, EVERYONE, hitRate, RATE_RULES, rateUsed } from "../rate-limit";
 import type { RequestContext, RunIntake, StartRun } from "../runtime/types";
 import { keys } from "../store/keys";
@@ -28,7 +29,7 @@ export const MCP_SERVER_INFO = { name: "stoop", version: "0.1.0" } as const;
 export const CULTURE_BRIEF_SEEDS = 5;
 
 /** score_brief stops below this many Qloo calls left in the month: the floor live runs keep for themselves. */
-export const MONTHLY_FLOOR = 300;
+export { MONTHLY_FLOOR };
 
 /** Thrown by a RunIntake that is not wired yet: culture_brief answers with the example replay instead. */
 export class RuntimeUnavailableError extends Error {
@@ -190,8 +191,8 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
         if (left <= 0) return text("Today's scoring budget is used up. It opens again tomorrow (UTC).", true);
         const qlooCtx = createRunContext({ runId: `mcp-score-${crypto.randomUUID()}`, cap: Math.min(SCORE_BRIEF_CAP, left), rowCaps: SCORE_BRIEF_BUDGET, monthlyFloor: MONTHLY_FLOOR });
         // The last x-month-ratelimit-remaining any call saw, so this call stops at the same floor live runs keep.
-        const monthRemaining = await rc.store.get<number>(keys.qloo.monthRemaining);
-        if (typeof monthRemaining === "number") qlooCtx.monthRemaining = monthRemaining;
+        const monthRemaining = await lastMonthRemaining(rc.store, deps.now?.());
+        if (monthRemaining !== undefined) qlooCtx.monthRemaining = monthRemaining;
         try {
           const result = await scoreBrief(input, { client: deps.qloo(), ctx: qlooCtx });
           return { content: [{ type: "text", text: scoreBriefText(result) }], structuredContent: result };

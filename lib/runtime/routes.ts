@@ -10,6 +10,7 @@ import { keys, type DailyCap } from "../store/keys";
 import { getRunMeta, liveStatus, loadReport, readRunEvents, refreshReport } from "../store/runs";
 import type { Store } from "../store/types";
 import { lastMonthRemaining } from "../qloo/shared";
+import type { BotCheck } from "../bot-check";
 import type { ExampleSlug } from "../demo/examples";
 import { ApiFailure } from "./errors";
 import { runIntake, type IntakeDeps } from "./intake";
@@ -29,7 +30,16 @@ export interface RouteDeps {
   search: () => SearchDeps;
   examples: { slug: (runId: string) => ExampleSlug | null; events: (slug: ExampleSlug) => Promise<RunEvent[]>; report: (slug: ExampleSlug) => Promise<Report> };
   now?: () => number;
+  /** Judges browser requests to the routes that spend (lib/bot-check.ts; allows everything by default). */
+  botCheck?: () => BotCheck;
 }
+
+/** A request the bot check refuses, answered before anything is spent. */
+async function refusedAsBot(request: Request, deps: RouteDeps): Promise<boolean> {
+  return deps.botCheck ? (await deps.botCheck().check(request, { kind: "browser" })).bot : false;
+}
+
+const bot = () => errorResponse(new ApiFailure("bot", "This request looks automated.", 403));
 
 const off = () => errorResponse(new ApiFailure("off", "Live runs are off right now. The examples show a full run.", 503));
 const live = (deps: RouteDeps) => isLive(deps.env ?? process.env);
@@ -38,6 +48,7 @@ export async function postRun(request: Request, deps: RouteDeps): Promise<Respon
   try {
     const input = runStartRequestSchema.parse(await request.json());
     if (!live(deps)) return json(exampleReply("replay"));
+    if (await refusedAsBot(request, deps)) return bot();
     const store = deps.store();
     return json(await startRun({ ...deps.start(), env: deps.env }, input, await contextFor(request, store)));
   } catch (error) {
@@ -60,6 +71,7 @@ export async function postIntake(request: Request, deps: RouteDeps): Promise<Res
   try {
     const input = intakeRequestSchema.parse(await request.json());
     if (!live(deps)) return off();
+    if (await refusedAsBot(request, deps)) return bot();
     const store = deps.store();
     return json(await runIntake({ ...deps.intake(), env: deps.env }, input, await contextFor(request, store)));
   } catch (error) {

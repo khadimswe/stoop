@@ -3,6 +3,7 @@
 // browser bundle. Each vendor is built only when a route needs it, so replay mode needs none.
 import "server-only";
 import { SHARED_CREATIVE } from "../agent/creative";
+import { getBotCheck } from "../bot-check";
 import { stoopModel, stoopModelId } from "../agent/model";
 import { referenceSets } from "../geo/reference";
 import { frameRendererFromEnv, renderWorldFrames } from "../media/frames";
@@ -42,4 +43,5 @@ export const routeDeps = (): RouteDeps => ({
   intake: () => ({ client: getQlooClient(), model: liveModel() }),
   search: () => ({ client: getQlooClient() }),
   examples: { slug: exampleSlug, events: exampleEvents, report: exampleReport },
+  botCheck: getBotCheck,
 });

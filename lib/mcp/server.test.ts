@@ -200,7 +200,7 @@ describe("/api/mcp tools over HTTP", () => {
 
     // Below the monthly floor, every lookup is refused before it is sent: nothing scored, nothing spent.
     const low = deps();
-    await low.store().set(keys.qloo.monthRemaining, MONTHLY_FLOOR - 1);
+    await low.store().set(keys.qloo.monthRemaining(), MONTHLY_FLOOR - 1);
     const fetchImpl = vi.fn<typeof fetch>();
     const live = createQlooClient({ apiKey: "test-key", fetch: fetchImpl });
     const request = vi.spyOn(live, "request");

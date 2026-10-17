@@ -4,9 +4,12 @@ import { createMcpHandler } from "mcp-handler";
 import { connection } from "next/server";
 import { getBotCheck } from "@/lib/bot-check";
 import { isLive } from "@/lib/config";
-import { buildMcpServer, MCP_SERVER_INFO, pendingRuntime } from "@/lib/mcp/server";
+import { buildMcpServer, MCP_SERVER_INFO } from "@/lib/mcp/server";
 import { getQlooClient, qlooMode } from "@/lib/qloo/server";
 import { createMcpPost } from "@/lib/routes/mcp";
+import { runIntake } from "@/lib/runtime/intake";
+import { execute, liveModel } from "@/lib/runtime/server";
+import { startRun } from "@/lib/runtime/start";
 import { getStore } from "@/lib/store";
 
 const handler = createMcpHandler(
@@ -16,17 +19,16 @@ const handler = createMcpHandler(
     // Fixtures mode replays recorded responses only, so scoring can run there with STOOP_LIVE off.
     scoring: () => isLive() || qlooMode() === "fixtures",
     qloo: getQlooClient,
-    // Until the runtime's RunIntake and StartRun are wired here, culture_brief answers with the lead
-    // example's replay and makes no call.
-    runIntake: pendingRuntime.runIntake,
-    startRun: pendingRuntime.startRun,
+    // The same intake and start as the web flow: the same caps, admission and guardrails.
+    runIntake: (input, ctx) => runIntake({ client: getQlooClient(), model: liveModel() }, input, ctx),
+    startRun: (input, ctx) => startRun({ execute }, input, ctx),
   }),
   // Stoop has no subscriptions, so no request may hold a function open with a listen stream.
   { serverInfo: MCP_SERVER_INFO, maxSubscriptions: 0 },
 );
 
-/** score_brief is the longest call (up to 27 paced Qloo calls); culture_brief returns before its run. */
-export const maxDuration = 60;
+/** culture_brief answers before its run, but the run goes on in `after()` inside this function, so it gets a run's time. */
+export const maxDuration = 300;
 
 const post = createMcpPost({ store: () => getStore(), botCheck: getBotCheck, handler });
 
