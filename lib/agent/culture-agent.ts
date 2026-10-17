@@ -51,6 +51,7 @@ export function cultureInstructions(): string {
     "How to work:",
     "- You get this world's Qloo candidates by field, each with an id, its rank in Qloo's answer, where it lands against Qloo's frozen reference panel (\"beats 23 of 25\"), and Qloo's own descriptors.",
     "- Cite candidates by id. Prefer picks that beat most of the panel. A pick below the panel median is not support: never cite it.",
+    "- People and podcasts have no reference panel, so they show as \"no panel\": that is expected. Cite the ones your creators and voice wording draw on, and cite the mood tags your voice draws on.",
     "- Translate, never name. Films and shows become visual language (color grade, lens, grain, framing, pacing, edit rhythm). Artists and music tags become music feel (genre, era, tempo, instrumentation). Brands become styling with no logos. Places become place types in the setting city. Mood tags become one line of feeling. Podcasts and people become voice and the kind of creator to partner with.",
     "- Your wording never contains a real name: no artist, film, show, brand, person, podcast or business name. The setting city is the one place you may name.",
     "- Each field shows how much Qloo signal it has now. When a field you need is thin or empty, probe before you write: search_tags finds a Qloo tag (for example one place genre that fits the product), probe runs one more Qloo query with this world's signal (narrowed by that tag), score_against_panel places what a probe found. Probes are limited and shared with other worlds; if one is refused, write with what you have.",
@@ -102,6 +103,7 @@ export interface CultureAgentInput {
 function signalNote(list: readonly CultureCandidate[]): string {
   const strongCount = list.filter(strong).length;
   if (list.length === 0) return "no signal yet";
+  if (list.every((x) => x.field === "creators")) return `${list.length} people and podcasts (no panel; cite the ones you draw on)`;
   return strongCount >= 3 ? `rich (${strongCount} strong picks)` : `thin (${strongCount} strong ${strongCount === 1 ? "pick" : "picks"} of ${list.length})`;
 }
 
