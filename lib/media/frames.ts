@@ -19,7 +19,7 @@ import { framesRequestSchema, liveRunIdSchema } from "../api/requests";
 import { framesResponseSchema, type FramesResponse } from "../api/responses";
 import { dailyCaps } from "../config";
 import { checkText, FAMOUS_PLACES } from "../guardrails";
-import { apiError, type RouteAnswer } from "../http";
+import { apiError, type RouteAnswer } from "../route-answer";
 import type { BriefSlots, ProductSpec } from "../prompts/brief";
 import { buildFramePrompt, FRAME_ASPECT, frameScenes, type FramePrompt } from "../prompts/frames";
 import { FRAME_MODELS, type FrameModel } from "../prompts/models.config";

@@ -4,7 +4,7 @@
 import { after } from "next/server";
 import { stoopModel } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
-import { readJson, respond } from "@/lib/http";
+import { readJson, respond } from "@/lib/route-answer";
 import { frameRendererFromEnv, renderWorldFrames, requestFrames } from "@/lib/media/frames";
 import { getStorage, StorageConfigError } from "@/lib/storage";
 import { getStore } from "@/lib/store";

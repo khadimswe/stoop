@@ -18,6 +18,7 @@ import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { getRunMeta, loadReport, readRunEvents, runLease, setRunMeta } from "../store/runs";
 import type { VisitorId } from "../store/visitor";
+import { claudeUsd } from "./cost";
 import { executeRun, estimateUsd, type ExecuteDeps } from "./execute";
 import { saveRunRecord } from "./record";
 import { resumeRun } from "./start";
@@ -165,5 +166,34 @@ describe("a live run that cannot finish", () => {
     expect((await getRunMeta(memory, runId))?.status).toBe("failed");
     expect(await memory.leaseCount(keys.liveLeases)).toBe(0);
     expect(asked).toHaveLength(3);
+  });
+});
+
+describe("frames during a live run", () => {
+  it("starts each world's frames as its pack lands, and folds their cost into the run's", async () => {
+    const store = new MemoryStore();
+    const { options, deps } = await liveRun(store);
+    const jobs: { segmentId: string; hasPack: boolean; names: number }[] = [];
+    const frameCost = { durationMs: 5_000, qloo: { live: 0, cached: 0 }, claude: { calls: 2, inputTokens: 10_000, outputTokens: 1_000, cachedInputTokens: 0 }, frames: 4, estimateUsd: 0.32 };
+    const asked: string[] = [];
+    await executeRun(
+      {
+        ...deps(counted(options.model, options.modelId, asked)),
+        frames: async (job) => {
+          jobs.push({ segmentId: job.segmentId, hasPack: job.world.pack !== null, names: job.names?.length ?? 0 });
+          return { status: "done", frames: null, cost: frameCost };
+        },
+      },
+      runId,
+    );
+    expect(jobs.map((j) => j.segmentId).sort()).toEqual(stored.worlds.map((w) => w.segmentId).sort());
+    expect(jobs.every((j) => j.hasPack && j.names > 0)).toBe(true);
+    const cost = (await loadReport(store, runId))!.cost!;
+    expect(cost.frames).toBe(8);
+    expect(cost.claude.calls).toBe(asked.length + 4);
+    // The run's own Claude calls, plus each job's frames at their price and its critique at Claude's list prices.
+    const critique = claudeUsd(frameCost.claude);
+    expect(cost.estimateUsd).toBeGreaterThan(2 * (0.32 + critique));
+    expect((await getRunMeta(store, runId))?.status).toBe("done");
   });
 });

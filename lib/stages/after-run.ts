@@ -8,6 +8,7 @@ import { wrapLanguageModel, type LanguageModel } from "ai";
 import { ENTITY_PANELS } from "../culture/panels";
 import { reduce, type RunEvent } from "../events";
 import type { Cost, Report } from "../report/schema";
+import { claudeUsd } from "../runtime/cost";
 import { appendRunEvents, readRunEvents } from "../store/runs";
 import type { Store } from "../store/types";
 
@@ -61,8 +62,9 @@ export function addCost(cost: Cost, delta: CostDelta): Cost {
       cachedInputTokens: cost.claude.cachedInputTokens + delta.claude.cachedInputTokens,
     },
     frames: cost.frames + delta.frames,
-    // Rounded to a tenth of a cent, so repeated additions never print as 0.38000000000000006.
-    estimateUsd: Math.round((cost.estimateUsd + delta.estimateUsd) * 1000) / 1000,
+    // The job's own prices (frames) plus its Claude calls at list prices, rounded to a tenth of a
+    // cent so repeated additions never print as 0.38000000000000006.
+    estimateUsd: Math.round((cost.estimateUsd + delta.estimateUsd + claudeUsd(delta.claude)) * 1000) / 1000,
   };
 }
 
