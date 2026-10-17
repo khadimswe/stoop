@@ -7,7 +7,7 @@ describe("the Report contract", () => {
   // shape (including the schemas it borrows from lib/prompts: briefs, concepts, packs) show up in the
   // diff for review. Refinements (receipts, medians, counts) are tested where they are defined.
   it("keeps the shape reviewers approved", async () => {
-    const shape = JSON.stringify(z.toJSONSchema(reportSchema, { unrepresentable: "any", reused: "ref" }), null, 2);
+    const shape = JSON.stringify(z.toJSONSchema(reportSchema, { unrepresentable: "any" }), null, 2);
     await expect(`${shape}\n`).toMatchFileSnapshot("./report.schema.json");
   });
 });
