@@ -15,7 +15,7 @@ import { defaultPackSettings, type BriefSlots } from "../lib/prompts/brief";
 import { getModel } from "../lib/prompts/models.config";
 import { buildProductionPack, checkPack, packHashes, type ProductionPack } from "../lib/prompts/pack";
 import { totalScore } from "../lib/prompts/rubric";
-import { bestConcept, conceptInputHash, conceptRunSchema, type ConceptRun } from "../lib/stages/concepts";
+import { bestConcept, conceptRunSchema, conceptsStatus, type ConceptRun } from "../lib/stages/concepts";
 import { ageBandLabel, type Cue } from "../lib/types";
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -162,9 +162,18 @@ async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean
   const product = candidateProduct(candidate);
   const settings = defaultPackSettings(candidateDirection(candidate));
   const brief = controlBrief(run);
-  if (concepts.inputHash !== conceptInputHash(product, brief, settings.direction)) {
+  const status = conceptsStatus(concepts, product, brief, settings.direction);
+  if (status === "other-input") {
     console.error(`${candidate.slug}: concepts.json was written from a different run 1. Run npm run baseline -- ${candidate.slug} to refresh it.`);
     return false;
+  }
+  if (status === "stale-instructions") {
+    // Same brief, older concept writer: still a valid review file, but never one to approve.
+    if (freeze) {
+      console.error(`${candidate.slug}: concepts.json was written with older concept instructions. Refresh it (npm run baseline -- ${candidate.slug}) before freezing.`);
+      return false;
+    }
+    console.warn(`${candidate.slug}: concepts.json was written with older concept instructions (no declared slots or test hypothesis). Exporting for review; refresh it before approving.`);
   }
   const pack = buildProductionPack({ product, brief, concept: bestConcept(concepts), settings });
   const problems = checkPack(pack, brief, product, baselineNames(run, candidate));
