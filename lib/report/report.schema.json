@@ -71,6 +71,11 @@
               "type": "string",
               "minLength": 1
             },
+            "sellerFacts": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
             "source": {
               "oneOf": [
                 {

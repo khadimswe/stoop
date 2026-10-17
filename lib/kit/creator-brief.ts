@@ -12,6 +12,7 @@
 //   https://www.ftc.gov/news-events/news/press-releases/2024/08/federal-trade-commission-announces-final-rule-banning-fake-reviews-testimonials
 //     (no testimonials that misrepresent who is speaking or whether they used the product)
 import { checkText } from "../guardrails";
+import { settingText } from "../prompts/lines";
 import type { BriefSlots } from "../prompts/brief";
 import { creatorBriefSchema, type ConceptSet, type CreatorBrief, type CultureFieldResult } from "../report/world";
 
@@ -63,7 +64,7 @@ export function creatorBrief({ brief, creators, concepts }: CreatorBriefInput): 
     `Voice: ${brief.voice.tone.text}`,
     `Music feel: ${brief.music.text}`,
     `Look: ${brief.visual.text}`,
-    `${brief.setting.length > 1 ? "Settings" : "Setting"}: ${brief.setting.map((cue) => cue.text).join("; ")}`,
+    `${brief.setting.length > 1 ? "Settings" : "Setting"}: ${settingText(brief)}`,
     ...(brief.wardrobe ? [`Wardrobe: ${brief.wardrobe.text}`] : []),
   ];
   return creatorBriefSchema.parse({

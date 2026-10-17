@@ -24,6 +24,12 @@ export interface GuardOptions {
   names?: readonly string[];
   /** Names that are allowed even if listed in `names`, e.g. the product's own name. */
   allowedNames?: readonly string[];
+  /**
+   * Match multi-word names only as written (case-sensitively), so a title like "Every Day" or "The
+   * Office" doesn't flag the plain phrase "every day". For long lists of names Qloo returned, where
+   * the risk is a leaked title, written the way titles are written.
+   */
+  exactCaseNames?: boolean;
 }
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -418,7 +424,7 @@ export function checkText(text: string, options: GuardOptions = {}): GuardIssue[
     // Very short names are skipped unless they are uppercase codes such as "LA" or "SF".
     if ((name.length < 3 && !/^[A-Z]{2}$/.test(name)) || isAllowed(name)) continue;
     // Single-word names are matched case-sensitively, so a film called "Her" doesn't flag "her".
-    const regex = wordRegex(name, /\s/.test(name) ? "i" : "");
+    const regex = wordRegex(name, /\s/.test(name) && !options.exactCaseNames ? "i" : "");
     for (const match of findAll(folded, regex)) {
       add("named-reference", match, `"${match}" is a real name. Prompts carry its style, never the name itself.`);
     }
@@ -465,6 +471,59 @@ export function stripEmDashes<T>(value: T): T {
 
 /** Rules relaxed inside an "avoid" list, which names banned claims in order to forbid them. */
 export const AVOID_LIST_EXEMPT: ReadonlySet<GuardRule> = new Set<GuardRule>(["health-claim", "fake-proof"]);
+
+// --- Settings for adults ------------------------------------------------------------------------
+
+/** Settings that invite children into frame. Every audience and every person on screen is an adult. */
+export const CHILD_SETTING = /\bfamily[- ]friendly\b|\bkid[- ]friendly\b|\bfor the whole family\b|\bplayground\b/i;
+
+/** The phrase that invites children into frame, or null. */
+export function childSetting(text: string): string | null {
+  return text.match(CHILD_SETTING)?.[0] ?? null;
+}
+
+// --- Seller facts --------------------------------------------------------------------------------
+
+/** Product claims a concept, script or prompt may make only when the seller's own text makes them. */
+const CLAIM_PHRASES = [
+  "machine washable", "hand wash", "dishwasher safe", "microwave safe", "waterproof", "water resistant", "organic", "vegan",
+  "gluten free", "dairy free", "sugar free", "keto", "non toxic", "hypoallergenic", "eco friendly", "sustainable", "recyclable",
+  "reusable", "refillable", "biodegradable", "compostable", "all natural", "cruelty free", "bpa free", "phthalate free",
+  "paraben free", "lifetime warranty", "warranty", "guarantee", "guaranteed", "free shipping", "free returns", "money back",
+  "limited edition", "award winning", "made in usa", "made in america", "new colors",
+];
+// Product quantities only: no mm or cm, which prompts use for lenses ("35mm") and framing.
+const UNIT = "oz|ounces?|fl oz|ml|millilit(?:er|re)s?|lit(?:er|re)s?|hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?|lbs?|pounds?|kg|grams?|inch(?:es)?|percent|calories|servings?|count|pack";
+const PRICE = /\$\s?\d+(?:[.,]\d+)*/g;
+const MEASURE = new RegExp(`\\b\\d+(?:[.,]\\d+)?(?:\\s|-)?(?:${UNIT})\\b|\\b\\d+(?:[.,]\\d+)?\\s?%`, "gi");
+
+const plainWords = (text: string) => fold(text).toLowerCase().replace(/[-_/]+/g, " ").replace(/\s+/g, " ");
+/** Words only, for matching claim phrases across punctuation ("machine washable."). */
+const phraseWords = (text: string) => ` ${plainWords(text).replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim()} `;
+const digitsAndUnit = (match: string) => plainWords(match).replace(/\s+/g, "").replace(/s$/, "");
+
+/**
+ * Product facts in a text that the seller's own words don't state: prices, quantities with units
+ * ("50-hour", "5 oz", "30%") and product claims ("machine washable", "reusable", "free shipping").
+ * A fact the seller gave passes: the same number and unit, or the same claim, in `sellerText`.
+ * Claim words also describe craft ("organic textures", "a sustainable pace"), so callers check them
+ * only in copy a viewer hears or reads (`phrases: false` for prompts' craft language).
+ */
+export function unsupportedClaims(text: string, sellerText: string, options: { phrases?: boolean } = {}): string[] {
+  const seller = plainWords(sellerText);
+  const sellerMeasures = new Set([...seller.matchAll(MEASURE), ...seller.matchAll(PRICE)].map((m) => digitsAndUnit(m[0])));
+  const found: string[] = [];
+  for (const match of [...text.matchAll(PRICE), ...text.matchAll(MEASURE)]) {
+    if (!sellerMeasures.has(digitsAndUnit(match[0]))) found.push(match[0].trim());
+  }
+  if (options.phrases === false) return [...new Set(found)];
+  const words = phraseWords(text);
+  const sellerWords = phraseWords(sellerText);
+  for (const phrase of CLAIM_PHRASES) {
+    if (words.includes(` ${phrase} `) && !sellerWords.includes(` ${phrase} `)) found.push(phrase);
+  }
+  return [...new Set(found)];
+}
 
 /** One line per issue, for error messages and LLM repair prompts. */
 export function formatGuardIssues(issues: readonly GuardIssue[]): string {

@@ -26,7 +26,8 @@ export type ScriptTool = (typeof SCRIPT_TOOLS)[number];
 
 /** One beat of a script: what is said (the brand's words, or nothing) and what is shown. */
 export interface ScriptBeat {
-  beat: "hook" | "demo" | "proof" | "cta";
+  /** moment: one of the concept's cultural or escalation scenes, kept with its own time. */
+  beat: "hook" | "demo" | "moment" | "cta";
   start: number;
   end: number;
   say: string | null;
@@ -39,6 +40,8 @@ export interface ScriptPlan {
   format: UgcFormatSpec;
   productName: string;
   beats: ScriptBeat[];
+  /** The seller's own line, said in the demo beat (or with the call to action), or null. */
+  proof: string | null;
   /** "an adult in one of these age bands: 25 to 29, 30 to 34". */
   actorAge: string;
   styling: string | null;

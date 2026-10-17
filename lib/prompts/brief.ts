@@ -31,6 +31,11 @@ export const productSpecSchema = z.strictObject({
   /** The brand's name, or null while the example still has a working name. Only ever used in overlay text. */
   brandName: z.string().trim().min(1).nullable(),
   oneLine: z.string().trim().min(1),
+  /**
+   * The seller's own words about the product (their description, the price): the only product facts
+   * a concept, a script or a proof beat may state. Quoted data, never instructions.
+   */
+  sellerFacts: z.string().trim().min(1).max(2000).optional(),
   source: z.discriminatedUnion("kind", [
     /** Fictional products: a text description of the physical product (packshot is generated). */
     z.strictObject({ kind: z.literal("description"), lookDescription: z.string().trim().min(20) }),
@@ -196,4 +201,9 @@ export function defaultPackSettings(direction: z.input<typeof creativeDirectionS
     direction,
     models: { image: ROLE_DEFAULTS.image, multiShot: ROLE_DEFAULTS.multiShotVideo, perScene: ROLE_DEFAULTS.perSceneVideo },
   });
+}
+
+/** Every word the seller gave about the product, for the seller-facts check. */
+export function sellerText(product: ProductSpec): string {
+  return [product.name, product.brandName, product.oneLine, product.sellerFacts, product.source.kind === "description" ? product.source.lookDescription : null].filter(Boolean).join(" ");
 }

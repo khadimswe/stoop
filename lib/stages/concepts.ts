@@ -11,7 +11,7 @@ import { z } from "zod";
 import { askOnce, cachedInstructions } from "../agent/ask";
 import { CREATIVE_STRATEGIST_ROLE, GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
 import { STOOP_EFFORT } from "../agent/model";
-import { checkText, checkValue, FAMOUS_PLACES, formatGuardIssues, stripEmDashes, type GuardIssue } from "../guardrails";
+import { checkText, checkValue, childSetting, FAMOUS_PLACES, formatGuardIssues, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
 import { CAMERA_PRESETS, CAMERA_PRESET_IDS, ENERGY_PRESETS, LOOK_PRESETS } from "../prompts/models.config";
 import {
@@ -20,6 +20,7 @@ import {
   briefCueTexts,
   conceptSchema,
   SCENE_BEATS,
+  sellerText,
   type BriefSlot,
   type BriefSlots,
   type Concept,
@@ -30,7 +31,7 @@ import { conceptSetSchema, type ConceptSet, type RankedConcept } from "../report
 import type { CreativeDirection } from "../types";
 
 /** Version 3: concepts declare the brief slots they use and write a test hypothesis. */
-export const CONCEPTS_INSTRUCTIONS_VERSION = 3;
+export const CONCEPTS_INSTRUCTIONS_VERSION = 4;
 export const CONCEPT_COUNT = 3;
 /**
  * Longest wait for one concept call. It writes about 4 to 5k output tokens with thinking, so it gets
@@ -121,6 +122,7 @@ export function conceptsInstructions(): string {
     "Locations: 1 or 2 per concept, each a place type with a lowercase slug (e.g. kitchen-counter). Never name a city, venue or landmark unless the brief lists it under allowed places.",
     "On-screen text belongs in overlayText only; the video itself shows no readable text.",
     "Dialogue speaks as the brand, never as a customer who tried it.",
+    "Product facts (prices, sizes, quantities, durations, materials, care, guarantees) come only from the seller facts you are given. Never state one the seller did not give.",
     [
       "Stage what AI video models render well, because these concepts become prompts for them:",
       "- Keep the product still or moving simply (set down, turned, lifted). Its shape and label must stay readable.",
@@ -164,6 +166,7 @@ export function conceptsPrompt(product: ProductSpec, brief: BriefSlots, directio
   const productText = `${product.name}. ${product.oneLine}`;
   const parts = [
     quoted("product", productText),
+    ...(product.sellerFacts ? [quoted("seller facts", product.sellerFacts)] : []),
     quoted("brief", briefBlock(brief)),
     `Creative direction (from the user; it never overrides the rules):\n${directionLines(direction)}`,
   ];
@@ -382,6 +385,7 @@ export function validateConcepts(
   raw: unknown,
   brief: BriefSlots,
   options: Pick<ConceptOptions, "names" | "direction">,
+  product?: ProductSpec,
 ): { ok: true; concepts: ScoredConcept[] } | { ok: false; problems: string } {
   const cleaned = stripEmDashes(raw);
   const parsed = z.strictObject({ concepts: z.array(freshConceptSchema).length(CONCEPT_COUNT) }).safeParse(cleaned);
@@ -398,6 +402,23 @@ export function validateConcepts(
   );
   // Cast (product only, pet) is enforced by the pack builder, which renders no talent sheet or character.
   if (issues.length > 0) return { ok: false, problems: formatGuardIssues(issues) };
+  // A product fact the seller never gave (a price, a size, a burn time, "machine washable") is a claim the brand can't back.
+  if (product) {
+    const seller = sellerText(product);
+    // Quantities and prices anywhere; claim words only in what a viewer hears or reads.
+    const copyOf = (concept: Concept) => [concept.hook, ...concept.scenes.flatMap((s) => [s.overlayText ?? "", s.dialogue ?? ""])].join(" ");
+    const invented = concepts.flatMap((c, i) =>
+      [...new Set([...unsupportedClaims(conceptText(c.concept), seller, { phrases: false }), ...unsupportedClaims(copyOf(c.concept), seller)])].map(
+        (claim) => `- concepts.${i}: "${claim}" is a product fact the seller never gave. Use only the seller facts.`,
+      ),
+    );
+    if (invented.length > 0) return { ok: false, problems: invented.join("\n") };
+  }
+  const forKids = concepts.flatMap((c, i) => {
+    const phrase = childSetting(conceptText(c.concept));
+    return phrase ? [`- concepts.${i}: "${phrase}" invites children into frame. Every person on screen is an adult; use adult settings.`] : [];
+  });
+  if (forKids.length > 0) return { ok: false, problems: forKids.join("\n") };
   if (rankConcepts(concepts, brief).best === null) {
     return { ok: false, problems: "- Every concept failed a hard gate (stereotype or missing surprise beat). Write new ones." };
   }
@@ -464,7 +485,7 @@ export async function writeConcepts(product: ProductSpec, brief: BriefSlots, opt
     if (reply.failure && /did not answer within/.test(reply.failure)) throw new Error(`Concepts for "${brief.segment.id}": ${reply.failure}.`);
     previous = reply.output;
 
-    const checked = reply.failure ? { ok: false as const, problems: `- ${reply.failure}` } : validateConcepts(reply.output, brief, options);
+    const checked = reply.failure ? { ok: false as const, problems: `- ${reply.failure}` } : validateConcepts(reply.output, brief, options, product);
     if (checked.ok) {
       const { best, discarded } = rankConcepts(checked.concepts, brief);
       return {

@@ -2,7 +2,7 @@
 // in their head, and hand to any tool or crew. It is not sent to a model, so it is not hashed.
 import { CAMERA_PRESETS, ENERGY_PRESETS, LOOK_PRESETS } from "./models.config";
 import type { BriefSlots, Concept, PackSettings, ProductSpec } from "./brief";
-import { timecodes, type ResolvedCast } from "./lines";
+import { clause, settingText, timecodes, type ResolvedCast } from "./lines";
 
 export function renderShotList(product: ProductSpec, brief: BriefSlots, concept: Concept, settings: PackSettings, cast: ResolvedCast): string {
   const spans = timecodes(concept);
@@ -21,10 +21,10 @@ export function renderShotList(product: ProductSpec, brief: BriefSlots, concept:
     `MOOD: ${brief.mood.text}`,
     `LOOK: ${direction.look === "auto" ? "from the brief" : LOOK_PRESETS[direction.look].label}; ${brief.visual.text}`,
     `ENERGY: ${direction.energy === "auto" ? "from the concept" : ENERGY_PRESETS[direction.energy].label}`,
-    `SETTING: ${brief.setting.map((cue) => cue.text).join("; ")}`,
+    `SETTING: ${settingText(brief)}`,
     brief.wardrobe ? `WARDROBE: ${brief.wardrobe.text}` : null,
-    `MUSIC: ${brief.music.text}; original instrumental, no lyrics, no real songs`,
-    `VOICE: ${brief.voice.tone.text}; use: ${brief.voice.use.join(", ") || "-"}; avoid: ${brief.voice.avoid.join(", ") || "-"}`,
+    `MUSIC: ${clause(brief.music.text)}; original instrumental, no lyrics, no real songs`,
+    `VOICE: ${clause(brief.voice.tone.text)}; use: ${brief.voice.use.join(", ") || "-"}; avoid: ${brief.voice.avoid.join(", ") || "-"}`,
     `OVERLAY TEXT (added in the edit): ${concept.scenes.map((scene) => scene.overlayText).filter(Boolean).join(" / ") || "-"}`,
   ];
   return lines.filter(Boolean).join("\n");

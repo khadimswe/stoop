@@ -98,8 +98,8 @@ function search(name: string, type: EntityType, note: string): PlannedRequest {
   return searchRequest(name, type, note);
 }
 
-/** The query is the normalized term ("Lo-fi hip hop" and "lo-fi hip-hop" both send "lo fi hip hop"), so one id is one request. */
-function tagQuery(kind: TagKind | "place", term: string, note: string): PlannedRequest {
+/** The query is the normalized term ("Lo-fi hip hop" and "lo-fi hip-hop" both send "lo fi hip hop"), so one id is one request. Gate 4's check maps the Control the same way, so these replay. */
+export function tagQuery(kind: TagKind | "place", term: string, note: string): PlannedRequest {
   const tagType = kind === "place" ? "urn:tag:genre:place" : TAG_KINDS[kind];
   const query = slugOf(term).replace(/-/g, " ");
   return { id: tagQueryId(kind, term), endpoint: ENDPOINTS.tags, params: { "filter.query": query, "filter.tag.types": [tagType], take: 10 }, note };

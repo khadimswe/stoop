@@ -20,7 +20,7 @@
 // Exclusions are phrased positively (exclusionStyle "positive"), per lines.ts.
 import { CAMERA_PRESETS, type ModelConfig } from "./models.config";
 import type { BriefSlots, Concept, Location, PackSettings, ProductSpec } from "./brief";
-import { energyLine, FILES, fragment, lookLine, midSentence, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
+import { energyLine, FILES, fragment, lookLine, midSentence, petNoun, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
 
 /** Where a chained shot starts, in words for the prompt. Null for a shot that starts from the prompt. */
 export type ShotStart = "plate" | "previous" | null;
@@ -39,13 +39,13 @@ export interface KlingShotInput {
 }
 
 /** The product, character and wardrobe lines, locked with Elements. */
-function elementLines(product: ProductSpec, brief: BriefSlots, cast: ResolvedCast, productRef: string, visible: boolean | null): string[] {
+function elementLines(product: ProductSpec, brief: BriefSlots, cast: ResolvedCast, productRef: string, visible: boolean | null, direction: PackSettings["direction"]): string[] {
   const shown = visible === null ? "identical shape, colors and label in every shot" : visible ? "clearly visible" : "just out of frame";
   const lines = [sentence(`Product: the ${product.name}, locked as the product Element from ${productRef}, ${shown}. Its role: ${brief.productRole.text}`)];
   if (cast === "adult_talent") {
     lines.push(sentence(`Character: an original fictional adult, locked as the character Element from ${FILES.talentSheet(brief.segment.id)}: ${midSentence(talentText(brief))}`));
   } else if (cast === "pet") {
-    lines.push("Character: a real pet that moves like a real animal and stays silent.");
+    lines.push(`Character: ${petNoun(direction)} that moves like a real animal and stays silent.`);
   } else {
     lines.push("The product is the only subject on screen.");
   }
@@ -77,7 +77,7 @@ export function renderKlingShot({ model, product, brief, concept, settings, cast
         ? `It opens on its start frame, the empty location as in ${FILES.location(brief.segment.id, place.slug)}, and the action enters it.`
         : null,
     sentence(`Setting: ${settingText(brief)}`),
-    ...elementLines(product, brief, cast, productRef, scene.productVisible),
+    ...elementLines(product, brief, cast, productRef, scene.productVisible, settings.direction),
     sentence(`Framing: ${scene.framing}`),
     sentence(`Motion: ${scene.motion}`),
     sentence(`Lighting: ${scene.lighting}`),
@@ -124,7 +124,7 @@ export function renderKlingMultiShot({ model, product, brief, concept, settings,
     `Multi-shot video, ${concept.scenes.length} custom shots, ${settings.seconds} seconds, vertical ${settings.aspect}. Each shot keeps its own length.`,
     sentence(`${concept.title}: ${midSentence(concept.hook)}`),
     sentence(`Surprise beat: ${concept.surpriseBeat}`),
-    ...elementLines(product, brief, cast, productRef, null),
+    ...elementLines(product, brief, cast, productRef, null, settings.direction),
     ...concept.locations.map((place) => sentence(`Location ${FILES.location(segment, place.slug)}: ${midSentence(place.description)}, ${fragment(place.timeOfDay)}, ${fragment(place.lighting)}`)),
     sentence(`Setting: ${settingText(brief)}`),
     ...styleLines(brief, settings),

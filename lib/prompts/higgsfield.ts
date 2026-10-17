@@ -21,7 +21,7 @@ import {
   energyLine,
   FILES,
   fragment,
-  lookLine,
+  lookLine, petNoun,
   plateExclusions,
   sceneExclusions,
   sentence,
@@ -74,7 +74,7 @@ export function renderMultiShot({ model, product, brief, concept, settings, cast
     );
   } else if (cast === "pet") {
     characters.push(
-      "A real pet that behaves like a real animal and never talks." + (brief.wardrobe ? ` Styling: ${sentence(brief.wardrobe.text)}` : ""),
+      sentence(`${petNoun(direction)} that behaves like a real animal and never talks`) + (brief.wardrobe ? ` Styling: ${sentence(brief.wardrobe.text)}` : ""),
     );
   } else {
     characters.push("No people on screen. The product is the only character.");

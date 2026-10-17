@@ -26,6 +26,8 @@ export function candidateProduct(candidate: Candidate): ProductSpec {
     // Working names only until the examples are picked; the brand name is added in the edit.
     brandName: null,
     oneLine: firstSentence(candidate.product.description),
+    // The founder's own description and price: the only product facts a concept or script may state.
+    sellerFacts: [candidate.product.description, candidate.product.price ? `Price: ${candidate.product.price}.` : null].filter(Boolean).join(" "),
     source: { kind: "description", lookDescription: candidate.product.lookDescription },
   });
 }
