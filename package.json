@@ -19,6 +19,7 @@
     "fixtures:record": "tsx scripts/record-fixture.ts",
     "baseline": "tsx scripts/generate-baseline.ts",
     "prompts:export": "tsx scripts/export-pack.ts",
+    "render:demo": "tsx scripts/render-demo.ts",
     "check:contrast": "tsx scripts/check-contrast.ts",
     "data-check": "tsx scripts/data-check.ts",
     "audience": "tsx scripts/run-audience.ts",

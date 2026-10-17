@@ -4,7 +4,7 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { NAV_LINKS } from "./nav-links";
+import { NAV_LINKS, TRY_LINK } from "./nav-links";
 
 export function MobileMenu() {
   return (
@@ -18,7 +18,7 @@ export function MobileMenu() {
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <nav aria-label="Mobile">
           <ul className="mt-8 flex flex-col gap-1">
-            {[...NAV_LINKS, { href: "/start", label: "Try it free" }].map((link) => (
+            {[...NAV_LINKS, TRY_LINK].map((link) => (
               <li key={link.href}>
                 <SheetClose asChild>
                   <Link href={link.href} className="block rounded-xl px-3 py-3 text-lg font-semibold text-ink hover:bg-ink/5">
