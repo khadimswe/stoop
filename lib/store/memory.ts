@@ -68,6 +68,13 @@ export class MemoryStore implements Store {
     this.entries.delete(key);
   }
 
+  async deleteIfEquals(key: string, value: unknown): Promise<boolean> {
+    const entry = this.live(key);
+    if (!entry || entry.kind !== "value" || entry.value !== copy(value)) return false;
+    this.entries.delete(key);
+    return true;
+  }
+
   async expire(key: string, ttlSeconds: number): Promise<void> {
     const entry = this.live(key);
     if (entry) this.put(key, entry, this.now() + ttlSeconds * 1000);
@@ -136,6 +143,10 @@ export class MemoryStore implements Store {
     // The key outlives its last slot a little, then disappears.
     this.put(key, { kind: "counter", value: slot + spacingMs }, slot + spacingMs + 60_000);
     return slot - now;
+  }
+
+  async leaseHeld(key: string, member: string, now?: number): Promise<boolean> {
+    return this.leases(key, now ?? this.now()).has(member);
   }
 
   async ping(): Promise<boolean> {

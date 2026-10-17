@@ -7,6 +7,8 @@ export const RUN_CAP = 50;
 export const REVISE_CAP = 6;
 /** Cap for offline example generation, which may use 3 segments instead of 2. */
 export const OFFLINE_CAP = 80;
+/** Live runs stop calling Qloo when fewer than this many calls are left this month (examples always work). */
+export const MONTHLY_FLOOR = 300;
 
 /**
  * Planned live calls per budget row for a 2-segment run, recalibrated from Gates 2 and 3. Seeds are

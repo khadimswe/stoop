@@ -39,6 +39,16 @@ export function describeStore(name: string, make: (clock: { now: () => number })
       expect(await store.set("k", "third", { ifAbsent: true })).toBe(true);
     });
 
+    it("deletes a key only while it holds the expected value", async () => {
+      const store = make(clock);
+      await store.set("claim", { runId: "run-a", at: 1 });
+      expect(await store.deleteIfEquals("claim", { runId: "run-b", at: 1 })).toBe(false);
+      expect(await store.get("claim")).toEqual({ runId: "run-a", at: 1 });
+      expect(await store.deleteIfEquals("claim", { runId: "run-a", at: 1 })).toBe(true);
+      expect(await store.get("claim")).toBeNull();
+      expect(await store.deleteIfEquals("claim", { runId: "run-a", at: 1 })).toBe(false);
+    });
+
     it("expires a value after its TTL", async () => {
       const store = make(clock);
       await store.set("k", "v", { ttlSeconds: 10 });
@@ -129,6 +139,15 @@ export function describeStore(name: string, make: (clock: { now: () => number })
       expect(await store.leaseAcquire("leases", "run-c", { ...lease, now: options.now() + 60_000 })).toBe(true);
       await store.leaseRelease("leases", "run-a");
       expect(await store.leaseCount("leases", options.now() + 60_000)).toBe(1);
+    });
+
+    it("tells whether a member holds a live lease, without refreshing it", async () => {
+      const store = make(clock);
+      await store.leaseAcquire("held", "run-a", { max: 2, ttlMs: 60_000, now: options.now() });
+      expect(await store.leaseHeld("held", "run-a", options.now() + 59_000)).toBe(true);
+      expect(await store.leaseHeld("held", "run-a", options.now() + 60_000)).toBe(false);
+      expect(await store.leaseHeld("held", "run-b", options.now())).toBe(false);
+      expect(await store.leaseHeld("none", "run-a", options.now())).toBe(false);
     });
 
     it("answers a ping", async () => {

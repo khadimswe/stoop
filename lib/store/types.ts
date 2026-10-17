@@ -1,6 +1,6 @@
 // The one store every lane builds on: Upstash Redis in production, MemoryStore in tests and local
 // dev without keys. Values are JSON, so a value read back is always a copy. An adapter encodes and
-// decodes JSON itself (Upstash with automaticDeserialization off), so a stored "123" stays a string.
+// decodes JSON itself, so a stored "123" stays a string.
 // The shared conformance suite in lib/store/contract.ts runs against every adapter.
 
 export interface SetOptions {
@@ -26,12 +26,19 @@ export interface LeaseOptions {
   now?: number;
 }
 
+/** No shared store is set up where one is needed (on Vercel without Upstash keys): routes fail closed. */
+export class StoreUnavailableError extends Error {
+  override name = "StoreUnavailableError";
+}
+
 export interface Store {
   readonly kind: "memory" | "upstash";
   get<T>(key: string): Promise<T | null>;
   /** Returns false when `ifAbsent` was set and the key already existed (nothing written). */
   set(key: string, value: unknown, options?: SetOptions): Promise<boolean>;
   del(key: string): Promise<void>;
+  /** Deletes the key only while it still holds exactly this value (compare and delete). Atomic. */
+  deleteIfEquals(key: string, value: unknown): Promise<boolean>;
   /** Sets a key's TTL from now, if the key exists. */
   expire(key: string, ttlSeconds: number): Promise<void>;
   /** Returns the new value. */
@@ -49,6 +56,8 @@ export interface Store {
   leaseRelease(key: string, member: string): Promise<void>;
   /** Live leases, after dropping expired ones. */
   leaseCount(key: string, now?: number): Promise<number>;
+  /** Whether this member holds a live lease. Read only: it never refreshes one. */
+  leaseHeld(key: string, member: string, now?: number): Promise<boolean>;
   /**
    * Reserves the next start slot on a shared clock, so every instance together keeps
    * `spacingMs` between starts (the global Qloo pacer: 250 ms). Returns how long to wait before

@@ -418,3 +418,57 @@ describe("raw (fixture recorder)", () => {
     await expect(client.raw(ENDPOINTS.insights, { "filter.type": "urn:entity:video_game" })).rejects.toBeInstanceOf(QlooParamError);
   });
 });
+
+describe("shared hooks: the global pacer, the daily cap and the month remaining", () => {
+  it("waits on the shared pacer instead of the local one, before every attempt", async () => {
+    const pacer = vi.fn(async () => {});
+    const localPace = vi.fn(async () => {});
+    const { client, ctx } = setup([status(503), ok()], { pacer, limiter: { run: (_key, task) => task(), pace: localPace, inFlight: () => false } });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(pacer).toHaveBeenCalledTimes(2);
+    expect(localPace).not.toHaveBeenCalled();
+  });
+
+  it("asks the daily cap before every live attempt, and a spent cap stops the call before fetch", async () => {
+    const admit = vi.fn(async () => {});
+    const { client, ctx } = setup([status(503), ok()], { admit });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(admit).toHaveBeenCalledTimes(2);
+
+    const spent = setup([ok()], {
+      admit: async () => {
+        throw new QlooBudgetError("Today's Qloo calls are spent");
+      },
+    });
+    await expect(spent.client.request(spent.ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })).rejects.toBeInstanceOf(QlooBudgetError);
+    expect(spent.fetchMock).not.toHaveBeenCalled();
+    // A cached answer needs no admission.
+    const cached = setup([ok()], { admit });
+    await cached.client.request(cached.ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything });
+    admit.mockClear();
+    await cached.client.request(cached.ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything });
+    expect(admit).not.toHaveBeenCalled();
+  });
+
+  it("passes on each month-remaining value, and a failing listener never fails the call", async () => {
+    const heard: number[] = [];
+    const { client, ctx } = setup([ok({ "x-month-ratelimit-remaining": "8123" })], { onMonthRemaining: (n) => void heard.push(n) });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything });
+    expect(heard).toEqual([8123]);
+    expect(ctx.monthRemaining).toBe(8123);
+    const failing = setup([ok({ "x-month-ratelimit-remaining": "10" })], {
+      onMonthRemaining: async () => {
+        throw new Error("store down");
+      },
+    });
+    await expect(failing.client.request(failing.ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything })).resolves.toBeDefined();
+  });
+
+  it("starts a live run with the 300-call monthly floor and the last month remaining seen", async () => {
+    const ctx = createLiveRunContext("run_floor", { monthRemaining: 299 });
+    expect(ctx.monthlyFloor).toBe(300);
+    const { client, fetchMock } = setup([ok()]);
+    await expect(client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(), schema: anything, budgetRow: "prove" })).rejects.toThrow(/below the floor/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
