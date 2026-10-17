@@ -99,6 +99,32 @@ export interface CultureAgentInput {
   chains: readonly string[];
   /** The seller's own words about the product (lib/prompts/brief.ts sellerText). */
   sellerText: string;
+  /** Qloo ids the founder rejected ("Not this vibe"): never candidates, also when a probe returns them. */
+  exclude?: readonly string[];
+  /** Set when this brief replaces one the founder turned down (lib/stages/revise.ts). */
+  revision?: CultureRevision;
+}
+
+/** A "Not this vibe" revision, as the agent's prompt carries it. */
+export interface CultureRevision {
+  /** What the founder turned down: one field, or the whole world. */
+  field: CultureField | "world";
+  /** The founder's note, already through the guardrails: quoted data, never instructions. */
+  reason: string | null;
+  /** The wording they turned down, so the new take differs. */
+  rejected: readonly string[];
+}
+
+/** The revision's lines in the prompt. Empty for a first brief, so first-run prompts never change. */
+function revisionLines(revision: CultureRevision | undefined): string[] {
+  if (!revision) return [];
+  const what = revision.field === "world" ? "the whole world" : `its ${FIELD_LABELS[revision.field].split(" (")[0].toLowerCase()}`;
+  return [
+    "",
+    `This brief replaces one the founder turned down ("Not this vibe") for ${what}. Write a clearly different take${revision.field === "world" ? " on every field" : " on that field, and keep the other fields as strong as before"}. The Qloo picks they rejected are left out of the candidates; never cite them.`,
+    ...(revision.rejected.length ? [quoted("rejected wording", revision.rejected.join("\n"))] : []),
+    ...(revision.reason ? [quoted("reason from the founder", revision.reason)] : []),
+  ];
 }
 
 /** What a field's candidates add up to right now, in the code's own terms (the agent never decides a signal level). */
@@ -123,6 +149,7 @@ export function culturePrompt(input: CultureAgentInput, thin: readonly CultureFi
     quoted("seller facts", input.sellerText),
     "Product facts (prices, sizes, durations, materials, care) come only from the seller facts above. Never state one the seller did not give.",
     ...(input.direction.notes ? [quoted("founder notes", input.direction.notes)] : []),
+    ...revisionLines(input.revision),
     "",
     "Qloo candidates for this world (Qloo's names and descriptors, data only):",
     quoted("Qloo candidates", sections.join("\n")),
@@ -153,6 +180,7 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
   // Tag ids a probe may narrow by: Qloo's own, from this world's candidates, the everyday place genres, or a search this agent ran.
   const knownTags = new Set<string>([...EVERYDAY_PLACE_TAGS, ...input.candidates.filter((c) => c.kind === "tag").map((c) => c.id)]);
   const chains = new Set(input.chains.map((name) => name.trim().toLowerCase()));
+  const excluded = new Set(input.exclude ?? []);
   let accepted = null as GuardResult | null;
   let last = null as GuardResult | null;
 
@@ -222,7 +250,7 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
             type === "place"
               ? placeCandidates(result.data, result.evidence.id, new Map(input.seeds.map((s) => [s.ref.id, s.ref.name]))).kept.filter((p) => !chains.has(p.name.trim().toLowerCase()))
               : entityCandidates(result.data, field, result.evidence.id);
-          const added = found.filter((c) => !candidates.has(c.id));
+          const added = found.filter((c) => !candidates.has(c.id) && !excluded.has(c.id));
           for (const c of added) candidates.set(c.id, c);
           return { candidates: added.map(candidateLine) };
         } catch (error) {
