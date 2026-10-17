@@ -10,6 +10,8 @@ import { keys, type DailyCap } from "../store/keys";
 import { getRunMeta, liveStatus, loadReport, readRunEvents, refreshReport } from "../store/runs";
 import type { Store } from "../store/types";
 import { lastMonthRemaining } from "../qloo/shared";
+import { allowAll, type BotCheck } from "../bot-check";
+import { browserOnly } from "../routes/guard";
 import type { ExampleSlug } from "../demo/examples";
 import { ApiFailure } from "./errors";
 import { runIntake, type IntakeDeps } from "./intake";
@@ -29,6 +31,13 @@ export interface RouteDeps {
   search: () => SearchDeps;
   examples: { slug: (runId: string) => ExampleSlug | null; events: (slug: ExampleSlug) => Promise<RunEvent[]>; report: (slug: ExampleSlug) => Promise<Report> };
   now?: () => number;
+  /** Judges browser requests to the routes that spend (lib/bot-check.ts; allows everything by default). */
+  botCheck?: () => BotCheck;
+}
+
+/** Another site's request, or one the bot check flags, is answered before anything is spent. */
+async function refused(request: Request, deps: RouteDeps): Promise<Response | null> {
+  return browserOnly(request, deps.botCheck ?? (() => allowAll));
 }
 
 const off = () => errorResponse(new ApiFailure("off", "Live runs are off right now. The examples show a full run.", 503));
@@ -38,6 +47,8 @@ export async function postRun(request: Request, deps: RouteDeps): Promise<Respon
   try {
     const input = runStartRequestSchema.parse(await request.json());
     if (!live(deps)) return json(exampleReply("replay"));
+    const no = await refused(request, deps);
+    if (no) return no;
     const store = deps.store();
     return json(await startRun({ ...deps.start(), env: deps.env }, input, await contextFor(request, store)));
   } catch (error) {
@@ -60,6 +71,8 @@ export async function postIntake(request: Request, deps: RouteDeps): Promise<Res
   try {
     const input = intakeRequestSchema.parse(await request.json());
     if (!live(deps)) return off();
+    const no = await refused(request, deps);
+    if (no) return no;
     const store = deps.store();
     return json(await runIntake({ ...deps.intake(), env: deps.env }, input, await contextFor(request, store)));
   } catch (error) {

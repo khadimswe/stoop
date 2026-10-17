@@ -2,6 +2,8 @@
 // whole world of a finished live run. The checks and limits answer right away (lib/stages/revise.ts
 // requestRevision); the revision runs after the response and streams to the page as world.revised.
 import { after } from "next/server";
+import { getBotCheck } from "@/lib/bot-check";
+import { browserOnly } from "@/lib/routes/guard";
 import { SHARED_CREATIVE } from "@/lib/agent/creative";
 import { stoopModel, stoopModelId } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
@@ -18,6 +20,8 @@ export const maxDuration = 300;
 const DEADLINE_MS = 280_000;
 
 export async function POST(request: Request) {
+  const refused = await browserOnly(request, getBotCheck);
+  if (refused) return refused;
   const body = await readJson(request);
   const answer = await requestRevision({
     live: isLive(),

@@ -13,6 +13,11 @@ export interface RequestContext {
   source: "web" | "mcp";
   /** Aborted when the caller goes away. */
   signal?: AbortSignal;
+  /**
+   * When the invocation began, set when work before the run (MCP's intake) shares its time limit:
+   * the run's deadline then counts from here, not from its own start.
+   */
+  startedAt?: number;
 }
 
 /** Reads the page, Claude's site reading and the proposed seeds, and stores the intake for /start. */

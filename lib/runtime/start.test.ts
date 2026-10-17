@@ -64,6 +64,15 @@ describe("starting a live run", () => {
     expect(record?.seedEvidence.map((e) => e.id).sort()).toEqual([...new Set(report.inputs.seeds.flatMap((s) => s.evidenceIds))].sort());
   });
 
+  it("passes on when its invocation began when earlier work shared it (MCP intake), so the run's deadline counts from there", async () => {
+    const { deps, ctx } = await setup();
+    const seen: unknown[] = [];
+    deps.execute = async (_id, options) => void seen.push(options);
+    await startRun(deps, { intakeId, seedIds, statedCustomer: report.inputs.statedCustomer, region: report.inputs.region, direction: report.inputs.direction }, { ...ctx(), startedAt: 1_000 });
+    await startRun(deps, { intakeId, seedIds, statedCustomer: null, region: "Texas", direction: report.inputs.direction }, ctx("v_dddddddddddddddddddddddd"));
+    expect(seen).toEqual([{ startedAt: 1_000 }, {}]);
+  });
+
   it("joins the run already going for the same brief, in any seed order", async () => {
     const { start, scheduled } = await setup();
     const first = liveId(await start());

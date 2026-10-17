@@ -13,39 +13,55 @@ export interface WaitlistSignup {
   email: string;
   sellsOn: SellsOn | null;
   consent: boolean;
+  /** The honeypot's value: empty for people. The server answers a filled one like a signup and drops it. */
+  company?: string;
 }
 
 /**
  * "Get a free brief": the waitlist. Email plus where they sell; the product link is asked for on
- * the success screen, where it doubles as the free-brief request. A hidden honeypot field catches bots.
- * Without `onSubmit` (before the backend exists) the form is shown but cannot be sent.
+ * the success screen, where it doubles as the free-brief request (posted with the same signup, so it
+ * lands on the same entry). A hidden honeypot field catches bots.
+ * Without `onSubmit` (the style tile) the form is shown but cannot be sent.
  */
 export function WaitlistForm({
   onSubmit,
+  onProductLink,
   className,
 }: {
   onSubmit?: (signup: WaitlistSignup) => Promise<{ position: number }>;
+  onProductLink?: (url: string, signup: WaitlistSignup) => Promise<void>;
   className?: string;
 }) {
   const id = useId();
   const [email, setEmail] = useState("");
   const [sellsOn, setSellsOn] = useState<SellsOn | null>(null);
   const [consent, setConsent] = useState(false);
-  const [state, setState] = useState<{ kind: "idle" | "sending" | "error" } | { kind: "done"; position: number }>({
+  const [state, setState] = useState<{ kind: "idle" | "sending" | "error" } | { kind: "done"; position: number; signup: WaitlistSignup }>({
     kind: "idle",
   });
 
-  if (state.kind === "done") return <WaitlistSuccess position={state.position} className={className} />;
+  if (state.kind === "done") {
+    const { signup } = state;
+    return (
+      <WaitlistSuccess
+        position={state.position}
+        onProductLink={onProductLink ? (url) => onProductLink(url, signup) : undefined}
+        className={className}
+      />
+    );
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    if (form.get("company")) return; // honeypot: humans never see or fill this field
     if (!onSubmit) return;
+    // Honeypot: humans never see or fill this field. It goes to the server, which answers like a signup.
+    // The honeypot's field has a name browsers never autofill, so a real person never trips it.
+    const company = new FormData(event.currentTarget).get("stoop_hp")?.toString() || undefined;
+    const signup: WaitlistSignup = { email, sellsOn, consent, ...(company ? { company } : {}) };
     setState({ kind: "sending" });
     try {
-      const { position } = await onSubmit({ email, sellsOn, consent });
-      setState({ kind: "done", position });
+      const { position } = await onSubmit(signup);
+      setState({ kind: "done", position, signup });
     } catch {
       setState({ kind: "error" });
     }
@@ -106,7 +122,7 @@ export function WaitlistForm({
       {/* Honeypot: off-screen, unfocusable, ignored by assistive tech. */}
       <input
         type="text"
-        name="company"
+        name="stoop_hp"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
@@ -143,36 +159,55 @@ export function WaitlistSuccess({
   className?: string;
 }) {
   const id = useId();
+  const [link, setLink] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  async function sendLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const url = new FormData(event.currentTarget).get("product")?.toString().trim() ?? "";
+    if (!onProductLink || !url) return;
+    setLink("sending");
+    try {
+      await onProductLink(url);
+      setLink("sent");
+    } catch {
+      setLink("error");
+    }
+  }
+
   return (
     <div className={cn("flex flex-col gap-4", className)} role="status">
       <p className="flex items-center gap-2 font-display text-2xl font-extrabold [font-stretch:85%]">
         <Check aria-hidden="true" className="size-6 text-dusk" />
         You&apos;re #{position}.
       </p>
-      <p className="text-ink-soft">Paste your product link and we&apos;ll send your free Culture Brief.</p>
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const url = new FormData(event.currentTarget).get("product")?.toString() ?? "";
-          if (onProductLink && url) void onProductLink(url);
-        }}
-      >
-        <Label htmlFor={`${id}-product`} className="sr-only">
-          Product link
-        </Label>
-        <Input
-          id={`${id}-product`}
-          name="product"
-          type="url"
-          placeholder="https://"
-          className="h-11 rounded-lg border-concrete-line bg-fill"
-        />
-        <Button type="submit" variant="quiet" disabled={!onProductLink}>
-          Send
-        </Button>
-      </form>
-      <p className="text-xs text-ink-soft">Check your inbox for a confirmation.</p>
+      {link === "sent" ? (
+        <p className="text-ink-soft">Got it. We&apos;ll email your free Culture Brief.</p>
+      ) : (
+        <>
+          <p className="text-ink-soft">Paste your product link and we&apos;ll send your free Culture Brief.</p>
+          <form className="flex gap-2" onSubmit={sendLink}>
+            <Label htmlFor={`${id}-product`} className="sr-only">
+              Product link
+            </Label>
+            <Input
+              id={`${id}-product`}
+              name="product"
+              type="url"
+              required
+              placeholder="https://"
+              className="h-11 rounded-lg border-concrete-line bg-fill"
+            />
+            <Button type="submit" variant="quiet" disabled={!onProductLink || link === "sending"}>
+              {link === "sending" ? "Sending" : "Send"}
+            </Button>
+          </form>
+        </>
+      )}
+      {link === "error" && (
+        <p role="alert" className="text-sm font-semibold text-rose-deep">
+          That didn&apos;t go through. Check the link, or try again in a little while.
+        </p>
+      )}
     </div>
   );
 }

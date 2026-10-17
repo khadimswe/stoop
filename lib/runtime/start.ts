@@ -51,8 +51,8 @@ export interface StartDeps {
   randomHex?: (bytes: number) => string;
   /** Runs the live run in the background. Defaults to next/server `after()`. */
   schedule?: (task: () => Promise<void>) => void;
-  /** The live run itself (lib/runtime/execute.ts), bound to its vendors by the route. */
-  execute: (runId: string) => Promise<void>;
+  /** The live run itself (lib/runtime/execute.ts), bound to its vendors by the route. `startedAt`: when its invocation began, if earlier work shared it. */
+  execute: (runId: string, options?: { startedAt?: number }) => Promise<void>;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -156,7 +156,7 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
     await saveRunRecord(store, runId, { inputs, stated, site: intake.site, seedEvidence, settings: defaultPackSettings(inputs.direction) });
     const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at };
     await setRunMeta(store, meta);
-    (deps.schedule ?? after)(() => deps.execute(runId));
+    (deps.schedule ?? after)(() => deps.execute(runId, ctx.startedAt !== undefined ? { startedAt: ctx.startedAt } : {}));
     scheduled = true;
     return liveReply(runId, false);
   } finally {

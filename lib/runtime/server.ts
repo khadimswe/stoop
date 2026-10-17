@@ -3,6 +3,7 @@
 // browser bundle. Each vendor is built only when a route needs it, so replay mode needs none.
 import "server-only";
 import { SHARED_CREATIVE } from "../agent/creative";
+import { getBotCheck } from "../bot-check";
 import { stoopModel, stoopModelId } from "../agent/model";
 import { referenceSets } from "../geo/reference";
 import { frameRendererFromEnv, renderWorldFrames } from "../media/frames";
@@ -10,7 +11,7 @@ import { getQlooClient } from "../qloo/server";
 import { getStorage, StorageConfigError, type Storage } from "../storage";
 import { getStore } from "../store";
 import { exampleEvents, exampleReport, exampleSlug } from "./examples";
-import { executeRun, type ExecuteDeps } from "./execute";
+import { DEADLINE_MS, executeRun, type ExecuteDeps } from "./execute";
 import type { RouteDeps } from "./routes";
 
 export function liveModel() {
@@ -28,12 +29,14 @@ function storageOrNull(): Storage | null {
 }
 
 /** The live run, bound to its vendors. Runs inside `after()`. Frames start only with a frame service and storage set up. */
-export function execute(runId: string): Promise<void> {
+export function execute(runId: string, options: { startedAt?: number } = {}): Promise<void> {
   const store = getStore();
+  // Work before the run in the same invocation (MCP's intake) comes off its deadline, at least 30 s left.
+  const deadlineMs = options.startedAt === undefined ? undefined : Math.max(30_000, DEADLINE_MS - (Date.now() - options.startedAt));
   const renderer = frameRendererFromEnv();
   const storage = renderer ? storageOrNull() : null;
   const frames: ExecuteDeps["frames"] = renderer && storage ? (job, model, abortSignal) => renderWorldFrames({ store, storage, renderer, model, abortSignal }, job) : undefined;
-  return executeRun({ store, client: getQlooClient(), model: liveModel(), reference: referenceSets(), creative: SHARED_CREATIVE, ...(frames ? { frames } : {}) }, runId);
+  return executeRun({ store, client: getQlooClient(), model: liveModel(), reference: referenceSets(), creative: SHARED_CREATIVE, ...(frames ? { frames } : {}), ...(deadlineMs ? { deadlineMs } : {}) }, runId);
 }
 
 export const routeDeps = (): RouteDeps => ({
@@ -42,4 +45,5 @@ export const routeDeps = (): RouteDeps => ({
   intake: () => ({ client: getQlooClient(), model: liveModel() }),
   search: () => ({ client: getQlooClient() }),
   examples: { slug: exampleSlug, events: exampleEvents, report: exampleReport },
+  botCheck: getBotCheck,
 });
