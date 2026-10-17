@@ -30,6 +30,8 @@ export const RATE_RULES = {
   scoreBrief: { name: "mcp-score-brief", limit: 10, windowSeconds: HOUR },
   /** culture_brief reads a page and runs intake before StartRun's own limits apply. */
   cultureBrief: { name: "mcp-culture-brief", limit: 3, windowSeconds: HOUR },
+  /** Requests to POST /api/mcp/token (honeypot hits and refusals included); issuing itself is capped per day (mcpCaps().issue). */
+  mcpToken: { name: "mcp-token-requests", limit: 10, windowSeconds: HOUR },
 } as const satisfies Record<string, RateRule>;
 
 export interface RateResult {
@@ -58,6 +60,89 @@ export async function hitRate(store: Store, rule: RateRule, visitor: VisitorId, 
 export async function rateUsed(store: Store, rule: RateRule, visitor: VisitorId, now: number = Date.now()): Promise<number> {
   return (await store.get<number>(keys.rate(rule.name, visitor, windowOf(rule, now).window))) ?? 0;
 }
+
+/** The counter a rule's current window counts in, for reserving against it (reserveUpTo). */
+export function ruleCounter(rule: RateRule, visitor: VisitorId, now: number = Date.now()): { key: string; ttlSeconds: number } {
+  return { key: keys.rate(rule.name, visitor, windowOf(rule, now).window), ttlSeconds: rule.windowSeconds + 60 };
+}
+
+// --- Reservations ---------------------------------------------------------------------------------
+//
+// Spend is taken before it happens: a counter is raised first (atomic), and what does not fit under its
+// cap is given back at once, so concurrent requests can never pass the cap together. Units the work did
+// not use, or that a failure left unspent, are given back afterwards.
+
+/**
+ * Takes up to `want` units of a counter capped at `cap` and gives back what does not fit. Returns how
+ * many it got. `ttlSeconds` applies when this call creates the counter.
+ */
+export async function reserveUpTo(store: Store, key: string, want: number, cap: number, ttlSeconds: number): Promise<number> {
+  if (want <= 0) return 0;
+  const after = await store.incr(key, { by: want, ttlSeconds });
+  const granted = Math.max(0, Math.min(want, cap - (after - want)));
+  if (granted < want) await store.incr(key, { by: granted - want });
+  return granted;
+}
+
+/** Gives back units taken with reserveUpTo. The TTL only applies if the counter has expired since, so no key outlives its window. */
+export async function giveBack(store: Store, key: string, count: number, ttlSeconds?: number): Promise<void> {
+  if (count > 0) await store.incr(key, { by: -count, ...(ttlSeconds ? { ttlSeconds } : {}) });
+}
+
+/** One capped counter a unit of work takes from, named for the refusal message. */
+export interface Capped<N extends string = string> {
+  name: N;
+  key: string;
+  cap: number;
+  ttlSeconds: number;
+}
+
+/** Units taken from several counters. Releasing gives them all back, once, however often it is called. */
+export interface Reservation {
+  release(): Promise<void>;
+}
+
+export type Reserved<N extends string> = { ok: true; reservation: Reservation } | { ok: false; full: N };
+
+/**
+ * Takes one unit from each counter, in order. When one is full, the units already taken are given back
+ * and `full` names that counter. Put the narrowest counter first, so a request refused by its own limit
+ * never holds a shared one, even for a moment.
+ */
+export async function reserveEach<N extends string>(store: Store, counters: readonly Capped<N>[]): Promise<Reserved<N>> {
+  const taken: Capped<N>[] = [];
+  const release = async (list: readonly Capped<N>[]) => {
+    await Promise.all(list.map((c) => giveBack(store, c.key, 1, c.ttlSeconds)));
+  };
+  for (const counter of counters) {
+    let granted = 0;
+    try {
+      granted = await reserveUpTo(store, counter.key, 1, counter.cap, counter.ttlSeconds);
+    } catch (error) {
+      await release(taken).catch(() => undefined);
+      throw error;
+    }
+    if (granted === 0) {
+      await release(taken);
+      return { ok: false, full: counter.name };
+    }
+    taken.push(counter);
+  }
+  let released = false;
+  return {
+    ok: true,
+    reservation: {
+      async release() {
+        if (released) return;
+        released = true;
+        await release(taken);
+      },
+    },
+  };
+}
+
+/** A reservation that holds nothing, for work no limit applies to. */
+export const NOTHING_RESERVED: Reservation = { release: async () => undefined };
 
 // --- Global daily budgets -------------------------------------------------------------------------
 

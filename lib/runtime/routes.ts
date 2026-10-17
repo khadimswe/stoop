@@ -13,6 +13,8 @@ import { lastMonthRemaining } from "../qloo/shared";
 import { allowAll, type BotCheck } from "../bot-check";
 import { browserOnly } from "../routes/guard";
 import type { ExampleSlug } from "../demo/examples";
+import { visitorCookie } from "../http";
+import { signingSecret } from "../sign";
 import { ApiFailure } from "./errors";
 import { runIntake, type IntakeDeps } from "./intake";
 import { contextFor, errorResponse, json } from "./respond";
@@ -50,7 +52,13 @@ export async function postRun(request: Request, deps: RouteDeps): Promise<Respon
     const no = await refused(request, deps);
     if (no) return no;
     const store = deps.store();
-    return json(await startRun({ ...deps.start(), env: deps.env }, input, await contextFor(request, store)));
+    // The signed visitor cookie, minted here when the browser has none: the run's storyboards count
+    // against it next to the IP (lib/media/storyboards.ts). Without STOOP_SIGNING_SECRET, the IP alone.
+    const cookie = visitorCookie(request, signingSecret(deps.env ?? process.env));
+    const reply = await startRun({ ...deps.start(), env: deps.env }, input, { ...(await contextFor(request, store)), cookieVisitor: cookie.id });
+    const response = json(reply);
+    if (cookie.setCookie) response.headers.append("Set-Cookie", cookie.setCookie);
+    return response;
   } catch (error) {
     return errorResponse(error);
   }

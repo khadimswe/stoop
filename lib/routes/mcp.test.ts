@@ -1,7 +1,11 @@
+import type { AuthInfo } from "@modelcontextprotocol/server";
 import { describe, expect, it, vi } from "vitest";
 import { allowAll, type BotCheck } from "../bot-check";
+import { callerOf } from "../mcp/auth";
+import { storeToken } from "../mcp/fixture-token";
+import { newToken } from "../mcp/token";
 import { MemoryStore } from "../store/memory";
-import { createMcpPost, MCP_MAX_BYTES } from "./mcp";
+import { createMcpGet, createMcpPost, MCP_MAX_BYTES } from "./mcp";
 
 function setup(botCheck: BotCheck = allowAll) {
   const store = new MemoryStore();
@@ -35,6 +39,90 @@ describe("POST /api/mcp", () => {
     const response = await post(rpc("x".repeat(MCP_MAX_BYTES + 1)));
     expect(response.status).toBe(413);
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("moves a path token into the Authorization header and hands the handler /api/mcp, with no token in any URL", async () => {
+    const store = new MemoryStore();
+    const { token, hash } = await storeToken(store);
+    const seen: Request[] = [];
+    const handler = vi.fn(async (request: Request) => {
+      seen.push(request);
+      return Response.json({ ok: true });
+    });
+    const post = createMcpPost({ store: () => store, botCheck: () => allowAll, handler });
+    const request = new Request(`https://stoop.example/api/mcp/${token}?again=${token}`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer something-else" }, body: "{}" });
+    expect((await post(request, { pathToken: token })).status).toBe(200);
+    const forwarded = seen[0] as Request & { auth?: AuthInfo };
+    expect(forwarded.url).toBe("https://stoop.example/api/mcp");
+    expect(forwarded.url).not.toContain(token);
+    expect(forwarded.headers.get("authorization")).toBe(`Bearer ${token}`);
+    expect(callerOf(forwarded.auth)).toEqual({ status: "valid", hash, label: token.slice(0, 8) });
+    expect(JSON.stringify(forwarded.auth)).not.toContain(token);
+    // A segment that is no token is never copied into a header: it is refused as unknown.
+    await post(new Request("https://stoop.example/api/mcp/bad%0Avalue", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }), { pathToken: "bad\nvalue" });
+    expect(seen[1].headers.get("authorization")).toBe("Bearer not-a-token");
+    expect(callerOf((seen[1] as Request & { auth?: AuthInfo }).auth)).toEqual({ status: "unknown" });
+  });
+
+  it("identifies callers by the Bearer token: valid, missing, unknown, revoked or expired", async () => {
+    const store = new MemoryStore();
+    const valid = await storeToken(store);
+    const revoked = await storeToken(store, { revokedAt: "2026-10-18T00:00:00.000Z" });
+    const expired = await storeToken(store, { expiresAt: "2026-10-01T00:00:00.000Z" });
+    const seen: (AuthInfo | undefined)[] = [];
+    const post = createMcpPost({ store: () => store, botCheck: () => allowAll, handler: async (r) => (seen.push((r as Request & { auth?: AuthInfo }).auth), Response.json({})) });
+    const send = (authorization?: string) => post(new Request("https://stoop.example/api/mcp", { method: "POST", headers: { "content-type": "application/json", ...(authorization ? { authorization } : {}) }, body: "{}" }));
+    for (const header of [`Bearer ${valid.token}`, undefined, `Bearer ${newToken()}`, `Basic ${valid.token}`, `Bearer ${revoked.token}`, `Bearer ${expired.token}`]) await send(header);
+    expect(seen.map((a) => callerOf(a).status)).toEqual(["valid", "missing", "unknown", "unknown", "revoked", "expired"]);
+  });
+
+  it("guards GET too: the bot check and the per-IP limit run before the handler", async () => {
+    const store = new MemoryStore();
+    const handler = vi.fn(async () => new Response(null, { status: 405 }));
+    const get = createMcpGet({ store: () => store, botCheck: () => allowAll, handler });
+    const request = (ip = "203.0.113.7") => new Request("https://stoop.example/api/mcp", { method: "GET", headers: { "x-forwarded-for": ip } });
+    for (let i = 0; i < 120; i++) expect((await get(request())).status).toBe(405);
+    expect((await get(request())).status).toBe(429);
+    expect(handler).toHaveBeenCalledTimes(120);
+    const blocked = createMcpGet({ store: () => store, botCheck: () => ({ name: "test", check: async () => ({ bot: true }) }), handler });
+    expect((await blocked(request("198.51.100.2"))).status).toBe(403);
+    expect(handler).toHaveBeenCalledTimes(120);
+  });
+
+  it("never logs a full token: a path token or an error quoting one is redacted", async () => {
+    const token = newToken();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const noStore = createMcpPost({
+        store: () => {
+          throw new Error("No shared store is configured");
+        },
+        botCheck: () => allowAll,
+        handler: async () => Response.json({}),
+      });
+      const down = await noStore(new Request(`https://stoop.example/api/mcp/${token}`, { method: "POST", body: "{}" }), { pathToken: token });
+      expect(down.status).toBe(503);
+      // Percent-encoded, as a client may send it (Next decodes the segment before it is used).
+      const encoded = await noStore(new Request(`https://stoop.example/api/mcp/stp%5F${token.slice(4)}`, { method: "POST", body: "{}" }), { pathToken: token });
+      expect(encoded.status).toBe(503);
+      const store = new MemoryStore();
+      const throwing = createMcpPost({
+        store: () => store,
+        botCheck: () => allowAll,
+        handler: async (r) => {
+          throw new Error(`could not serve ${r.headers.get("authorization")} for ${token}`);
+        },
+      });
+      const failed = await throwing(new Request(`https://stoop.example/api/mcp/${token}`, { method: "POST", body: "{}" }), { pathToken: token });
+      expect(failed.status).toBe(500);
+      expect(await failed.text()).not.toContain(token);
+      const logged = errors.mock.calls.map((args) => args.map(String).join(" ")).join("\n");
+      expect(logged).toContain(`${token.slice(0, 8)}...`);
+      expect(logged).not.toContain(token);
+      expect(logged).not.toContain(token.slice(8));
+    } finally {
+      errors.mockRestore();
+    }
   });
 
   it("asks the bot check as an agent route", async () => {

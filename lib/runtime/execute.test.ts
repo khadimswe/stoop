@@ -4,6 +4,7 @@
 // stopped at a short deadline resumes and finishes without asking Claude any step twice.
 import { readFileSync } from "node:fs";
 import { wrapLanguageModel, type LanguageModel } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { BaselineRun } from "../agent/baseline";
 import { SHARED_CREATIVE } from "../agent/creative";
@@ -17,7 +18,10 @@ import type { Report } from "../report/schema";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { getRunMeta, loadReport, readRunEvents, runLease, setRunMeta } from "../store/runs";
-import type { VisitorId } from "../store/visitor";
+import type { CookieVisitorId, VisitorId } from "../store/visitor";
+import { FrameRenderError, renderWorldFrames } from "../media/frames";
+import { PAUSED_REASON, storyboardCounter } from "../media/storyboards";
+import type { Storage } from "../storage";
 import { claudeUsd } from "./cost";
 import { executeRun, estimateUsd, type ExecuteDeps } from "./execute";
 import { saveRunRecord } from "./record";
@@ -169,6 +173,8 @@ describe("a live run that cannot finish", () => {
   });
 });
 
+const noCost = { durationMs: 0, qloo: { live: 0, cached: 0 }, claude: { calls: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }, frames: 0, estimateUsd: 0 };
+
 describe("frames during a live run", () => {
   it("starts each world's frames as its pack lands, and folds their cost into the run's", async () => {
     const store = new MemoryStore();
@@ -195,6 +201,132 @@ describe("frames during a live run", () => {
     const critique = claudeUsd(frameCost.claude);
     expect(cost.estimateUsd).toBeGreaterThan(2 * (0.32 + critique));
     expect((await getRunMeta(store, runId))?.status).toBe("done");
+  });
+
+  it("hands each job the visitor who started the run, and none for a run started before starters were kept", async () => {
+    const ip = "v_aaaaaaaaaaaaaaaaaaaaaaaa" as VisitorId;
+    const cookie = "c_bbbbbbbbbbbbbbbbbbbbbbbb" as CookieVisitorId;
+    for (const [meta, expected] of [
+      [{ visitor: ip, cookieVisitor: cookie }, { ip, cookie }],
+      [{ visitor: ip, cookieVisitor: null }, { ip, cookie: null }],
+      [{}, null],
+    ] as const) {
+      const store = new MemoryStore();
+      const { options, deps } = await liveRun(store);
+      await setRunMeta(store, { ...(await getRunMeta(store, runId))!, ...meta });
+      const seen: unknown[] = [];
+      await executeRun({ ...deps(counted(options.model, options.modelId, [])), frames: async (job) => (seen.push(job.visitor), { status: "done", frames: null, cost: noCost }) }, runId);
+      expect(seen).toEqual(stored.worlds.map(() => expected));
+    }
+  });
+
+  describe("counted against the day of the visitor who started the run", () => {
+    const ip = "v_aaaaaaaaaaaaaaaaaaaaaaaa" as VisitorId;
+    const cookie = "c_bbbbbbbbbbbbbbbbbbbbbbbb" as CookieVisitorId;
+    // The frames here render at time 0, so their storyboards count on 1970-01-01.
+    const day = "1970-01-01";
+    const IMAGE_URLS = { "image/*": [/^https:\/\/.*$/] };
+    const usage = { inputTokens: { total: 900, noCache: 900, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 120, text: 120, reasoning: undefined } };
+    // Claude's review, passing every frame.
+    const critic = () =>
+      new MockLanguageModelV4({
+        supportedUrls: IMAGE_URLS,
+        doGenerate: async (options) => {
+          const shots = [...JSON.stringify(options.prompt).matchAll(/Shot (\d+) \(/g)].map((m) => Number(m[1]));
+          return { content: [{ type: "text" as const, text: JSON.stringify({ frames: shots.map((shot) => ({ shot, issues: [], rewrite: null })) }) }], finishReason: { unified: "stop" as const, raw: undefined }, usage, warnings: [] };
+        },
+      });
+    const storage: Storage = {
+      kind: "blob",
+      put: async (path) => ({ path, url: `https://frames.test/${path}` }),
+      url: async (path) => `https://frames.test/${path}`,
+      delete: async () => undefined,
+    };
+
+    /** The real frames job, with a fake fal that counts what it renders per world. */
+    function realFrames(store: MemoryStore, rendered: string[], limits = { perCookieDaily: 6, perIpDaily: 15 }): NonNullable<ExecuteDeps["frames"]> {
+      return (job, _model, signal) =>
+        renderWorldFrames(
+          {
+            store,
+            storage,
+            renderer: { render: async () => (rendered.push(job.segmentId), { bytes: new Uint8Array([137, 80, 78, 71]), contentType: "image/png" }) },
+            model: critic(),
+            framesCap: 200,
+            storyboardLimits: limits,
+            now: () => new Date(0),
+            abortSignal: signal,
+          },
+          job,
+        );
+    }
+
+    async function startedBy(store: MemoryStore, cookieVisitor: CookieVisitorId | null) {
+      const run = await liveRun(store);
+      await setRunMeta(store, { ...(await getRunMeta(store, runId))!, visitor: ip, cookieVisitor });
+      return run;
+    }
+
+    it("renders the worlds the starter's day still covers and pauses the rest with the global cap's message", async () => {
+      expect(stored.worlds.length).toBeGreaterThan(1);
+      const store = new MemoryStore();
+      const { options, deps } = await startedBy(store, cookie);
+      const rendered: string[] = [];
+      await executeRun({ ...deps(counted(options.model, options.modelId, [])), frames: realFrames(store, rendered, { perCookieDaily: 1, perIpDaily: 15 }) }, runId);
+      expect(new Set(rendered).size).toBe(1);
+      const report = (await loadReport(store, runId))!;
+      const byStatus = (status: string) => report.worlds.filter((w) => w.frames?.status === status);
+      expect(byStatus("done").map((w) => w.segmentId)).toEqual([...new Set(rendered)]);
+      expect(byStatus("paused")).toHaveLength(stored.worlds.length - 1);
+      expect(byStatus("paused").every((w) => w.frames?.reason === PAUSED_REASON)).toBe(true);
+      expect(report.trace.some((t) => t.reason?.startsWith("Today's storyboards for this visitor are used up"))).toBe(true);
+      expect(await store.get(storyboardCounter(cookie, day))).toBe(1);
+      expect(await store.get(storyboardCounter(ip, day))).toBe(1);
+      // The paused worlds took nothing from the global frame cap.
+      expect(await store.get(keys.daily("frames", day))).toBe(report.cost!.frames);
+    });
+
+    it("needs no room in the day for frames from the cache: a resumed attempt at the limit renders them all for free", async () => {
+      const store = new MemoryStore();
+      const { options, deps } = await startedBy(store, null);
+      const rendered: string[] = [];
+      await executeRun({ ...deps(counted(options.model, options.modelId, [])), frames: realFrames(store, rendered) }, runId);
+      expect(await store.get(storyboardCounter(ip, day))).toBe(stored.worlds.length);
+      const firstRenders = rendered.length;
+      // The starter's day is now spent; the run resumes as attempt 2 and streams again from seq 0.
+      await store.incr(storyboardCounter(ip, day), { by: 15 - stored.worlds.length });
+      await setRunMeta(store, { ...(await getRunMeta(store, runId))!, attempt: 2, status: "running" });
+      await store.leaseAcquire(keys.liveLeases, runLease(runId, 2), { max: 2, ttlMs: 320_000 });
+      await executeRun({ ...deps(counted(options.model, options.modelId, [])), frames: realFrames(store, rendered) }, runId);
+      expect(rendered).toHaveLength(firstRenders);
+      const report = (await loadReport(store, runId))!;
+      expect(report.worlds.every((w) => w.frames?.status === "done")).toBe(true);
+      expect(await store.get(storyboardCounter(ip, day))).toBe(15);
+    });
+
+    it("gives the place back when a job renders nothing fresh", async () => {
+      const store = new MemoryStore();
+      const { options, deps } = await startedBy(store, cookie);
+      // fal refuses every frame (not billed): the jobs fail, and the day keeps none of them.
+      const failing: NonNullable<ExecuteDeps["frames"]> = (job, _model, signal) =>
+        renderWorldFrames(
+          {
+            store,
+            storage,
+            renderer: { render: async () => Promise.reject(new FrameRenderError("fal could not render the frame (HTTP 422): ValidationError.")) },
+            model: critic(),
+            framesCap: 200,
+            now: () => new Date(0),
+            abortSignal: signal,
+          },
+          job,
+        );
+      await executeRun({ ...deps(counted(options.model, options.modelId, [])), frames: failing }, runId);
+      const report = (await loadReport(store, runId))!;
+      expect(report.worlds.every((w) => w.frames?.status === "failed")).toBe(true);
+      expect(await store.get(storyboardCounter(cookie, day))).toBe(0);
+      expect(await store.get(storyboardCounter(ip, day))).toBe(0);
+    });
   });
 });
 

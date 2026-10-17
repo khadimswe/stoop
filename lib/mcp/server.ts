@@ -4,23 +4,27 @@
 //   RunIntake and StartRun the web flow uses, so it gets the same caps, admission and guardrails (and
 //   counts against LIVE_RUNS_DAILY_CAP inside StartRun). Returns the run id and where to follow it,
 //   or an example replay and why.
+// Listing tools is open; calling one needs a valid MCP token (lib/mcp/auth.ts), and each call takes its
+// share of the token's and the day's caps right before it spends anything (lib/mcp/caps.ts).
 // Everything is injected, so tests run both tools with fakes and the recorded Qloo fixtures.
-import type { McpServer } from "@modelcontextprotocol/server";
+import type { AuthInfo, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { intakeRequestSchema, RUN_SEEDS, type IntakeRequest } from "../api/requests";
 import { REPLAY_REASONS, type IntakeResponse, type RunStartResponse } from "../api/responses";
-import { dailyCaps } from "../config";
+import { dailyCaps, mcpCaps } from "../config";
 import { LEAD_EXAMPLE } from "../demo/examples";
 import { MONTHLY_FLOOR, SCORE_BRIEF_BUDGET, SCORE_BRIEF_CAP } from "../qloo/budget";
 import type { QlooClient } from "../qloo/client";
 import { createRunContext } from "../qloo/context";
 import { lastMonthRemaining } from "../qloo/shared";
-import { DAILY_RULES, EVERYONE, hitRate, RATE_RULES, rateUsed } from "../rate-limit";
+import { DAILY_RULES, EVERYONE, giveBack, hitRate, NOTHING_RESERVED, RATE_RULES, reserveUpTo, ruleCounter, type Reservation } from "../rate-limit";
 import type { RequestContext, RunIntake, StartRun } from "../runtime/types";
 import { keys } from "../store/keys";
 import type { Store } from "../store/types";
 import { visitorId } from "../store/visitor";
 import { DEFAULT_DIRECTION } from "../types";
+import { callerOf, tokenRefusal, type Caller } from "./auth";
+import { capRefusal, reserveCall } from "./caps";
 import { scoreBrief, scoreBriefInputSchema, scoreBriefResultSchema, scoreBriefText } from "./score-brief";
 
 export const MCP_SERVER_INFO = { name: "stoop", version: "0.1.0" } as const;
@@ -96,10 +100,11 @@ export const pendingRuntime: { runIntake: RunIntake; startRun: StartRun } = {
 
 /**
  * One flat object (MCP output schemas must be objects), keyed by `mode`: "live" carries the run and
- * its links, "example" the replay and why, "no_seeds" why no run started.
+ * its links, "example" the replay and why, "no_seeds" why no run started, "capped" which of the
+ * token's or the day's MCP caps is spent.
  */
 export const cultureBriefOutputSchema = z.strictObject({
-  mode: z.enum(["live", "example", "no_seeds"]),
+  mode: z.enum(["live", "example", "no_seeds", "capped"]),
   message: z.string(),
   runId: z.string().optional(),
   reportUrl: z.string().optional(),
@@ -114,7 +119,14 @@ export type CultureBriefOutput = z.infer<typeof cultureBriefOutputSchema>;
 
 const exampleLink = (origin: string, slug: string) => `${origin}/examples/${slug}`;
 
-export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?: Request): Promise<CultureBriefOutput> {
+/**
+ * Called right before intake spends anything (a page read, Claude, Qloo): a reservation lets it run,
+ * or an answer is given instead. The reservation is kept once the brief comes back after intake, and
+ * given back when intake never ran or the brief failed.
+ */
+export type IntakeGate = () => Promise<{ ok: true; reservation: Reservation } | { ok: false; output: CultureBriefOutput }>;
+
+export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?: Request, gate?: IntakeGate): Promise<CultureBriefOutput> {
   const origin = originOf(request);
   const example = (answer: Extract<RunStartResponse, { mode: "example" }>): CultureBriefOutput => ({ ...answer, reportUrl: exampleLink(origin, answer.slug) });
   const replay = (reason: (typeof REPLAY_REASONS)[number]) => example(replayAnswer(reason));
@@ -127,37 +139,48 @@ export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?
   const usedToday = (await ctx.store.get<number>(keys.daily("live-runs"))) ?? 0;
   if (usedToday >= dailyCaps(deps.env).liveRuns) return replay("daily-cap");
 
-  let intake: IntakeResponse;
+  const held = gate ? await gate() : { ok: true as const, reservation: NOTHING_RESERVED };
+  if (!held.ok) return held.output;
   try {
-    intake = await deps.runIntake(input, ctx);
+    let intake: IntakeResponse;
+    try {
+      intake = await deps.runIntake(input, ctx);
+    } catch (error) {
+      if (error instanceof RuntimeUnavailableError) {
+        await held.reservation.release();
+        return replay("replay");
+      }
+      throw error;
+    }
+    const seeds = intake.seeds.slice(0, CULTURE_BRIEF_SEEDS);
+    if (seeds.length < RUN_SEEDS.min) {
+      return {
+        mode: "no_seeds",
+        message: `Qloo matched ${seeds.length} ${seeds.length === 1 ? "seed" : "seeds"} for this product; a run needs at least ${RUN_SEEDS.min}. Try a product page link or a fuller description.`,
+        notes: intake.notes,
+      };
+    }
+    const started = await deps.startRun(
+      { intakeId: intake.intakeId, seedIds: seeds.map((s) => s.ref.id), statedCustomer: input.statedCustomer ?? null, region: input.region ?? "United States", direction: DEFAULT_DIRECTION },
+      ctx,
+    );
+    if (started.mode === "example") return example(started);
+    return {
+      mode: "live",
+      message: started.joined
+        ? "The same brief was already running, so this joined it. Open the report link to follow it."
+        : "The run takes a few minutes. Open the report link to watch it build, or read the events link as a server-sent event stream.",
+      runId: started.runId,
+      reportUrl: `${origin}${started.reportUrl}`,
+      eventsUrl: `${origin}${started.eventsUrl}`,
+      joined: started.joined,
+      seeds: seeds.map((s) => ({ name: s.ref.name, origin: s.origin })),
+    };
   } catch (error) {
-    if (error instanceof RuntimeUnavailableError) return replay("replay");
+    // A brief that failed gives its share of the caps back.
+    await held.reservation.release().catch(() => undefined);
     throw error;
   }
-  const seeds = intake.seeds.slice(0, CULTURE_BRIEF_SEEDS);
-  if (seeds.length < RUN_SEEDS.min) {
-    return {
-      mode: "no_seeds",
-      message: `Qloo matched ${seeds.length} ${seeds.length === 1 ? "seed" : "seeds"} for this product; a run needs at least ${RUN_SEEDS.min}. Try a product page link or a fuller description.`,
-      notes: intake.notes,
-    };
-  }
-  const started = await deps.startRun(
-    { intakeId: intake.intakeId, seedIds: seeds.map((s) => s.ref.id), statedCustomer: input.statedCustomer ?? null, region: input.region ?? "United States", direction: DEFAULT_DIRECTION },
-    ctx,
-  );
-  if (started.mode === "example") return example(started);
-  return {
-    mode: "live",
-    message: started.joined
-      ? "The same brief was already running, so this joined it. Open the report link to follow it."
-      : "The run takes a few minutes. Open the report link to watch it build, or read the events link as a server-sent event stream.",
-    runId: started.runId,
-    reportUrl: `${origin}${started.reportUrl}`,
-    eventsUrl: `${origin}${started.eventsUrl}`,
-    joined: started.joined,
-    seeds: seeds.map((s) => ({ name: s.ref.name, origin: s.origin })),
-  };
 }
 
 function cultureBriefText(output: CultureBriefOutput): string {
@@ -169,12 +192,26 @@ function cultureBriefText(output: CultureBriefOutput): string {
   return [output.message, ...(output.notes ?? [])].join("\n");
 }
 
+// --- Tokens ---------------------------------------------------------------------------------------
+
+/** The part of a tool call's context the token check reads. */
+interface CallContext {
+  http?: { authInfo?: AuthInfo; req?: Request };
+}
+
+/** A tool call goes on only with a valid token; anything else gets the refusal and the link to /mcp. */
+function authorize(ctx: CallContext): { ok: true; caller: Extract<Caller, { status: "valid" }> } | { ok: false; result: ToolResult } {
+  const caller = callerOf(ctx.http?.authInfo);
+  if (caller.status === "valid") return { ok: true, caller };
+  return { ok: false, result: text(tokenRefusal(caller.status, originOf(ctx.http?.req)), true) };
+}
+
 // --- The server -----------------------------------------------------------------------------------
 
 const SCORE_DESCRIPTION =
-  "Checks creative choices for an ad against the audience around a product, with Qloo's taste data. Give 2 to 5 seeds (things the customers also love) and the choices (music styles, moods, brands, films, TV, artists). Each choice comes back supported, below the reference median, no measurable affinity, or unverifiable, with its position against a frozen reference panel (\"beats 23 of 25 reference artists\") and Qloo's own top picks. No store data: it measures the product's taste neighborhood. Qloo only, no AI model.";
+  "Checks creative choices for an ad against the audience around a product, with Qloo's taste data. Give 2 to 5 seeds (things the customers also love) and the choices (music styles, moods, brands, films, TV, artists). Each choice comes back supported, below the reference median, no measurable affinity, or unverifiable, with its position against a frozen reference panel (\"beats 23 of 25 reference artists\") and Qloo's own top picks. No store data: it measures the product's taste neighborhood. Qloo only, no AI model. Needs a free Stoop MCP token (from the /mcp page), sent as \"Authorization: Bearer <token>\".";
 const CULTURE_DESCRIPTION =
-  "Starts a Stoop culture brief for a product: give a product or store link, or a description. Stoop reads the page, proposes seeds Qloo can match, and starts a run that maps the audience around the product, builds a Culture Brief per concept world and writes a production pack. Returns right away with the run id and links to follow it, or an example report when live runs are off, busy or used up for the day.";
+  "Starts a Stoop culture brief for a product: give a product or store link, or a description. Stoop reads the page, proposes seeds Qloo can match, and starts a run that maps the audience around the product, builds a Culture Brief per concept world and writes a production pack. Returns right away with the run id and links to follow it, or an example report when live runs are off, busy or used up for the day. Needs a free Stoop MCP token (from the /mcp page); each token can use up to 3 briefs a day.";
 
 /** Registers both tools. Pass it to createMcpHandler; it is called once per request. */
 export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
@@ -183,22 +220,37 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
       "score_brief",
       { title: "Score creative choices with Qloo", description: SCORE_DESCRIPTION, inputSchema: scoreBriefInputSchema, outputSchema: scoreBriefResultSchema, annotations: { readOnlyHint: true, openWorldHint: true } },
       async (input, ctx): Promise<ToolResult> => {
+        const auth = authorize(ctx);
+        if (!auth.ok) return auth.result;
         if (!deps.scoring()) return text(`Live scoring is off right now. The examples show the same check: ${exampleLink(originOf(ctx.http?.req), LEAD_EXAMPLE.slug)}`, true);
         const rc = await requestContext(deps, ctx.http?.req);
-        const rate = await hitRate(rc.store, RATE_RULES.scoreBrief, rc.visitor, deps.now?.());
+        const now = deps.now?.() ?? Date.now();
+        const rate = await hitRate(rc.store, RATE_RULES.scoreBrief, rc.visitor, now);
         if (!rate.ok) return text(`Too many scores from here. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`, true);
-        // All agents together get a daily slice of Qloo calls, and one call may spend only what is left of it.
-        const left = DAILY_RULES.scoreBriefQloo.limit - (await rateUsed(rc.store, DAILY_RULES.scoreBriefQloo, EVERYONE, deps.now?.()));
-        if (left <= 0) return text("Today's scoring budget is used up. It opens again tomorrow (UTC).", true);
-        const qlooCtx = createRunContext({ runId: `mcp-score-${crypto.randomUUID()}`, cap: Math.min(SCORE_BRIEF_CAP, left), rowCaps: SCORE_BRIEF_BUDGET, monthlyFloor: MONTHLY_FLOOR });
-        // The last x-month-ratelimit-remaining any call saw, so this call stops at the same floor live runs keep.
-        const monthRemaining = await lastMonthRemaining(rc.store, deps.now?.());
-        if (monthRemaining !== undefined) qlooCtx.monthRemaining = monthRemaining;
+        const caps = mcpCaps(deps.env);
+        const calls = await reserveCall(rc.store, auth.caller.hash, "score_brief", caps, now);
+        if (!calls.ok) return text(capRefusal(calls.full, caps), true);
+        let scored = false;
         try {
-          const result = await scoreBrief(input, { client: deps.qloo(), ctx: qlooCtx });
-          return { content: [{ type: "text", text: scoreBriefText(result) }], structuredContent: result };
+          // All agents together get a daily slice of Qloo calls. A call reserves its whole cap from the
+          // slice before it starts (so concurrent calls can never overshoot it) and gives back what it did not spend.
+          const slice = ruleCounter(DAILY_RULES.scoreBriefQloo, EVERYONE, now);
+          const granted = await reserveUpTo(rc.store, slice.key, SCORE_BRIEF_CAP, DAILY_RULES.scoreBriefQloo.limit, slice.ttlSeconds);
+          if (granted === 0) return text("Today's scoring budget is used up. It opens again tomorrow (UTC).", true);
+          const qlooCtx = createRunContext({ runId: `mcp-score-${crypto.randomUUID()}`, cap: granted, rowCaps: SCORE_BRIEF_BUDGET, monthlyFloor: MONTHLY_FLOOR });
+          try {
+            // The last x-month-ratelimit-remaining any call saw, so this call stops at the same floor live runs keep.
+            const monthRemaining = await lastMonthRemaining(rc.store, now);
+            if (monthRemaining !== undefined) qlooCtx.monthRemaining = monthRemaining;
+            const result = await scoreBrief(input, { client: deps.qloo(), ctx: qlooCtx });
+            scored = true;
+            return { content: [{ type: "text", text: scoreBriefText(result) }], structuredContent: result };
+          } finally {
+            await giveBack(rc.store, slice.key, granted - qlooCtx.liveCalls, slice.ttlSeconds);
+          }
         } finally {
-          if (qlooCtx.liveCalls > 0) await hitRate(rc.store, DAILY_RULES.scoreBriefQloo, EVERYONE, deps.now?.(), qlooCtx.liveCalls);
+          // A refused or failed call gives its share of the token's and the day's calls back.
+          if (!scored) await calls.reservation.release();
         }
       },
     );
@@ -206,8 +258,15 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
       "culture_brief",
       { title: "Start a Stoop culture brief", description: CULTURE_DESCRIPTION, inputSchema: intakeRequestSchema, outputSchema: cultureBriefOutputSchema, annotations: { readOnlyHint: false, openWorldHint: true } },
       async (input, ctx): Promise<ToolResult> => {
-        const output = await cultureBrief(input, deps, ctx.http?.req);
-        return { content: [{ type: "text", text: cultureBriefText(output) }], structuredContent: output, ...(output.mode === "no_seeds" ? { isError: true } : {}) };
+        const auth = authorize(ctx);
+        if (!auth.ok) return auth.result;
+        const caps = mcpCaps(deps.env);
+        // The token's calls and briefs are taken right before intake, after the cheap refusals.
+        const output = await cultureBrief(input, deps, ctx.http?.req, async () => {
+          const reserved = await reserveCall(deps.store(), auth.caller.hash, "culture_brief", caps, deps.now?.() ?? Date.now());
+          return reserved.ok ? reserved : { ok: false, output: { mode: "capped", message: capRefusal(reserved.full, caps) } };
+        });
+        return { content: [{ type: "text", text: cultureBriefText(output) }], structuredContent: output, ...(output.mode === "no_seeds" || output.mode === "capped" ? { isError: true } : {}) };
       },
     );
   };

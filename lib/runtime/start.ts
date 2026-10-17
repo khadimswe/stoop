@@ -154,7 +154,8 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
     const stated = statedCustomer === intake.statedCustomer ? intake.stated : statedCustomer ? statedFromText(statedCustomer) : null;
     const seedEvidence = [...new Set(chosen.flatMap((s) => s.evidenceIds))].flatMap((id) => receipts.get(id) ?? []);
     await saveRunRecord(store, runId, { inputs, stated, site: intake.site, seedEvidence, settings: defaultPackSettings(inputs.direction) });
-    const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at };
+    // Who started it: its storyboards count against this visitor's day (lib/media/storyboards.ts).
+    const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at, visitor: ctx.visitor, cookieVisitor: ctx.cookieVisitor ?? null };
     await setRunMeta(store, meta);
     (deps.schedule ?? after)(() => deps.execute(runId, ctx.startedAt !== undefined ? { startedAt: ctx.startedAt } : {}));
     scheduled = true;

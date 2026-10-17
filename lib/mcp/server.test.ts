@@ -11,7 +11,12 @@ import type { Report } from "../report/schema";
 import type { RequestContext } from "../runtime/types";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
+import type { Store } from "../store/types";
+import { allowAll } from "../bot-check";
 import { DAILY_RULES, EVERYONE, hitRate, rateUsed } from "../rate-limit";
+import { createMcpPost } from "../routes/mcp";
+import { storeToken } from "./fixture-token";
+import { newToken } from "./token";
 import { buildMcpServer, cultureBrief, cultureBriefOutputSchema, MONTHLY_FLOOR, pendingRuntime, replayAnswer, type McpDeps } from "./server";
 
 const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
@@ -118,20 +123,29 @@ describe("culture_brief", () => {
   });
 });
 
-// --- Over HTTP, through mcp-handler ---------------------------------------------------------------
+// --- Over HTTP, through the route and mcp-handler -------------------------------------------------
 
-type RpcResult = { result?: { tools?: { name: string; inputSchema: Record<string, unknown> }[]; content?: { text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean }; error?: { message: string } };
+type RpcResult = { result?: { tools?: { name: string; inputSchema: Record<string, unknown> }[]; content?: { text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean; serverInfo?: { name: string } }; error?: { message: string } };
 
-function rpc(d: McpDeps) {
+/**
+ * Calls the MCP server as an agent would: through POST /api/mcp's guard and token check, then the real
+ * mcp-handler. By default it holds a valid token of its own; `token: null` sends none, a string sends that.
+ */
+function rpc(d: McpDeps, options: { token?: string | null } = {}) {
   const handler = createMcpHandler(buildMcpServer(d), { serverInfo: { name: "stoop", version: "0.1.0" } });
+  const post = createMcpPost({ store: d.store, botCheck: () => allowAll, handler });
   let id = 0;
-  return async (method: string, params: Record<string, unknown>, ip = "203.0.113.7"): Promise<RpcResult> => {
-    const response = await handler(
-      new Request("https://stoop.example/api/mcp", {
+  let token: Promise<string | null> | null = null;
+  const bearer = () => (token ??= options.token !== undefined ? Promise.resolve(options.token) : storeToken(d.store()).then((t) => t.token));
+  return async (method: string, params: Record<string, unknown>, ip = "203.0.113.7", extra: { pathToken?: string } = {}): Promise<RpcResult> => {
+    const auth = extra.pathToken ? null : await bearer();
+    const response = await post(
+      new Request(`https://stoop.example/api/mcp${extra.pathToken ? `/${extra.pathToken}` : ""}`, {
         method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "x-forwarded-for": ip },
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18", "x-forwarded-for": ip, ...(auth ? { authorization: `Bearer ${auth}` } : {}) },
         body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }),
       }),
+      extra.pathToken ? { pathToken: extra.pathToken } : {},
     );
     const text = await response.text();
     // The stateless transport answers as one server-sent event.
@@ -226,5 +240,157 @@ describe("/api/mcp tools over HTTP", () => {
     const { result } = await rpc(deps())("tools/call", { name: "culture_brief", arguments: { url: "https://shop.example/products/hot-sauce" } });
     expect(result?.structuredContent).toMatchObject({ mode: "live", reportUrl: "https://stoop.example/report/run_0123456789abcdef01234567" });
     expect(result?.content?.[0].text).toContain("Started run run_0123456789abcdef01234567");
+  });
+});
+
+// --- Tokens and caps ------------------------------------------------------------------------------
+
+const cultureArgs = { description: "Small-batch hot sauce made with smoked peppers and a little honey." };
+const ipN = (n: number) => `198.51.100.${n + 10}`;
+const counter = async (store: Store, key: string) => (await store.get<number>(key)) ?? 0;
+
+describe("MCP tokens", () => {
+  it("leaves initialize and tools/list open, and closes tools/call without a token, with the link to get one", async () => {
+    const d = deps();
+    const qloo = vi.fn();
+    const call = rpc({ ...d, qloo }, { token: null });
+    const init = await call("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+    expect(init.result?.serverInfo?.name).toBe("stoop");
+    expect((await call("tools/list", {})).result?.tools).toHaveLength(2);
+    for (const name of ["score_brief", "culture_brief"]) {
+      const { result } = await call("tools/call", { name, arguments: name === "score_brief" ? scoreArgs : cultureArgs });
+      expect(result?.isError).toBe(true);
+      expect(result?.content?.[0].text).toContain("need a free MCP token. Get one at https://stoop.example/mcp");
+    }
+    expect(qloo).not.toHaveBeenCalled();
+    expect(d.runIntake).not.toHaveBeenCalled();
+  });
+
+  it("refuses unknown, malformed, revoked and expired tokens with a clear message, never echoing the token", async () => {
+    const d = deps();
+    const store = d.store();
+    const revoked = await storeToken(store, { revokedAt: "2026-10-18T00:00:00.000Z" });
+    const expired = await storeToken(store, { expiresAt: "2026-10-01T00:00:00.000Z" });
+    const cases: [string, string][] = [
+      [newToken(), "does not recognize this MCP token"],
+      ["not-even-close", "does not recognize this MCP token"],
+      [revoked.token, "was revoked. Get a new one at https://stoop.example/mcp"],
+      [expired.token, "has expired"],
+    ];
+    for (const [token, message] of cases) {
+      const { result } = await rpc(d, { token })("tools/call", { name: "score_brief", arguments: scoreArgs });
+      expect(result?.isError).toBe(true);
+      expect(result?.content?.[0].text).toContain(message);
+      expect(JSON.stringify(result)).not.toContain(token);
+    }
+    expect(d.runIntake).not.toHaveBeenCalled();
+  });
+
+  it("accepts the path form for URL-only clients, and refuses a path segment that is no token", async () => {
+    const d = deps();
+    const { token } = await storeToken(d.store());
+    const call = rpc(d, { token: null });
+    const ok = await call("tools/call", { name: "culture_brief", arguments: cultureArgs }, "203.0.113.7", { pathToken: token });
+    expect(ok.result?.structuredContent).toMatchObject({ mode: "live" });
+    const bad = await call("tools/call", { name: "culture_brief", arguments: cultureArgs }, "203.0.113.7", { pathToken: "hello" });
+    expect(bad.result?.content?.[0].text).toContain("does not recognize this MCP token");
+  });
+});
+
+describe("MCP caps", () => {
+  it("starts at most 3 culture briefs per token per day, even when calls arrive at once", async () => {
+    const d = deps();
+    const { token, hash } = await storeToken(d.store());
+    const call = rpc(d, { token });
+    const results = await Promise.all(Array.from({ length: 6 }, (_, i) => call("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i))));
+    expect(results.filter((r) => r.result?.structuredContent?.mode === "live")).toHaveLength(3);
+    const capped = results.filter((r) => r.result?.structuredContent?.mode === "capped");
+    expect(capped).toHaveLength(3);
+    expect(capped[0].result?.isError).toBe(true);
+    expect(capped[0].result?.content?.[0].text).toContain("used its 3 culture briefs for today");
+    expect(d.runIntake).toHaveBeenCalledTimes(3);
+    expect(await counter(d.store(), keys.mcp.cultureBriefs(hash))).toBe(3);
+    expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(3);
+    expect(await counter(d.store(), keys.daily("mcp-calls"))).toBe(3);
+  });
+
+  it("allows 40 tool calls per token per day, never more under concurrent calls", async () => {
+    const d = deps();
+    const { token, hash } = await storeToken(d.store());
+    await d.store().incr(keys.mcp.calls(hash), { by: 38 });
+    const call = rpc(d, { token });
+    const results = await Promise.all(Array.from({ length: 6 }, (_, i) => call("tools/call", { name: "score_brief", arguments: scoreArgs }, ipN(i))));
+    expect(results.filter((r) => r.result?.structuredContent?.status === "scored")).toHaveLength(2);
+    const refused = results.filter((r) => r.result?.isError);
+    expect(refused).toHaveLength(4);
+    expect(refused[0].result?.content?.[0].text).toContain("made its 40 tool calls for today");
+    expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(40);
+  });
+
+  it("holds every token to MCP_DAILY_CAP tool calls a day together", async () => {
+    const d = deps({ env: { MCP_DAILY_CAP: "4" } });
+    const tokens = await Promise.all([0, 1, 2].map(() => storeToken(d.store())));
+    const calls = tokens.flatMap((t, i) => [0, 1, 2].map((j) => rpc(d, { token: t.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i * 3 + j))));
+    const results = await Promise.all(calls);
+    expect(results.filter((r) => r.result?.structuredContent?.mode === "live")).toHaveLength(4);
+    expect(results.filter((r) => r.result?.content?.[0].text.includes("today's limit across all agents"))).toHaveLength(5);
+    expect(d.runIntake).toHaveBeenCalledTimes(4);
+    expect(await counter(d.store(), keys.daily("mcp-calls"))).toBe(4);
+    // The refused calls gave their per-token units back.
+    const briefs = await Promise.all(tokens.map((t) => counter(d.store(), keys.mcp.cultureBriefs(t.hash))));
+    expect(briefs.reduce((a, b) => a + b, 0)).toBe(4);
+  });
+
+  it("gives a call's units back when it spends nothing or fails", async () => {
+    // The live-run cap is spent: culture_brief answers before intake and takes nothing.
+    const capped = deps({ env: { LIVE_RUNS_DAILY_CAP: "1" } });
+    await capped.store().incr(keys.daily("live-runs"));
+    const one = await storeToken(capped.store());
+    expect((await rpc(capped, { token: one.token })("tools/call", { name: "culture_brief", arguments: cultureArgs })).result?.structuredContent).toMatchObject({ reason: "daily-cap" });
+    expect(await counter(capped.store(), keys.mcp.calls(one.hash))).toBe(0);
+    // The runtime is not wired: intake never ran, so the brief is given back.
+    const pending = deps({ ...pendingRuntime });
+    const two = await storeToken(pending.store());
+    expect((await rpc(pending, { token: two.token })("tools/call", { name: "culture_brief", arguments: cultureArgs })).result?.structuredContent).toMatchObject({ reason: "replay" });
+    expect(await counter(pending.store(), keys.mcp.cultureBriefs(two.hash))).toBe(0);
+    // Intake fails: everything comes back.
+    const failing = deps({ runIntake: vi.fn(async () => Promise.reject(new Error("the page reader broke"))) });
+    const three = await storeToken(failing.store());
+    const failed = await rpc(failing, { token: three.token })("tools/call", { name: "culture_brief", arguments: cultureArgs });
+    expect(failed.result?.isError ?? !!failed.error).toBe(true);
+    expect(await counter(failing.store(), keys.mcp.cultureBriefs(three.hash))).toBe(0);
+    expect(await counter(failing.store(), keys.mcp.calls(three.hash))).toBe(0);
+    expect(await counter(failing.store(), keys.daily("mcp-calls"))).toBe(0);
+    // score_brief with the scoring slice spent takes nothing from the token either.
+    const spent = deps();
+    await hitRate(spent.store(), DAILY_RULES.scoreBriefQloo, EVERYONE, Date.now(), DAILY_RULES.scoreBriefQloo.limit);
+    const four = await storeToken(spent.store());
+    expect((await rpc(spent, { token: four.token })("tools/call", { name: "score_brief", arguments: scoreArgs })).result?.content?.[0].text).toContain("scoring budget is used up");
+    expect(await counter(spent.store(), keys.mcp.calls(four.hash))).toBe(0);
+  });
+
+  it("reserves score_brief's whole Qloo cap from the day's slice before it starts, and gives back what it did not spend", async () => {
+    const d = deps();
+    const store = d.store();
+    const left = 20;
+    await hitRate(store, DAILY_RULES.scoreBriefQloo, EVERYONE, Date.now(), DAILY_RULES.scoreBriefQloo.limit - left);
+    const client = createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) });
+    const original = client.request.bind(client);
+    const seen: number[] = [];
+    vi.spyOn(client, "request").mockImplementation(async (...args: Parameters<typeof client.request>) => {
+      seen.push(await rateUsed(store, DAILY_RULES.scoreBriefQloo, EVERYONE));
+      return original(...args);
+    });
+    const { token } = await storeToken(store);
+    const call = rpc({ ...d, qloo: () => client }, { token });
+    const [first, second] = await Promise.all([call("tools/call", { name: "score_brief", arguments: scoreArgs }, ipN(1)), call("tools/call", { name: "score_brief", arguments: scoreArgs }, ipN(2))]);
+    // While one call scores, all that was left is reserved: the slice reads full, and the call beside it gets nothing.
+    expect(seen.length).toBeGreaterThan(0);
+    expect(new Set(seen)).toEqual(new Set([DAILY_RULES.scoreBriefQloo.limit]));
+    const texts = [first, second].map((r) => r.result?.content?.[0].text ?? "");
+    expect(texts.filter((t) => t.includes("scoring budget is used up"))).toHaveLength(1);
+    expect([first, second].filter((r) => r.result?.structuredContent?.status === "scored")).toHaveLength(1);
+    // Replayed fixtures spend no live calls, so the whole reservation came back.
+    expect(await rateUsed(store, DAILY_RULES.scoreBriefQloo, EVERYONE)).toBe(DAILY_RULES.scoreBriefQloo.limit - left);
   });
 });

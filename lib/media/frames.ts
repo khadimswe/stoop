@@ -5,12 +5,14 @@
 // FRAME_MODELS). Then the critique loop (lib/stages/critique.ts): Claude reviews the frames with
 // vision, and each kept rewrite re-renders once, at most 4 per world. Zero Qloo calls.
 //
-// Spend is guarded three ways:
+// Spend is guarded four ways:
 //   a lock per world and attempt (keys.run.framesLock), so repeated requests cannot render twice
 //   the global FRAMES_DAILY_CAP, reserved before rendering; only fresh renders count, and what a job
 //     did not use (a failure, a cap overflow) is given back
 //   a render cache by prompt hash (keys.frames.render), so a repeat render (a resumed run, a second
 //     request) is free and not counted
+//   world jobs per visitor per day (./storyboards.ts), for the run's starter or the asker, taken at
+//     the job's first fresh render, so frames from the cache never need room in anyone's day
 // Bytes go to storage through lib/storage.ts; the store keeps each frame's URL by prompt hash.
 import { createFalClient, type FalClient } from "@fal-ai/client";
 import type { LanguageModel } from "ai";
@@ -26,13 +28,15 @@ import { FRAME_MODELS, type FrameModel } from "../prompts/models.config";
 import type { ProductionPack } from "../prompts/pack";
 import type { RunEventInput } from "../events";
 import type { Frame, World, WorldFrames } from "../report/world";
+import { giveBack as giveBackUnits, reserveUpTo } from "../rate-limit";
 import { dayOf, keys, TTL } from "../store/keys";
 import { appendRunEvents, getRunMeta, refreshReport } from "../store/runs";
 import type { Store } from "../store/types";
 import type { Storage } from "../storage";
 import { addRunCost, countingModel, emptyDelta, reportNames, runState, type CostDelta } from "../stages/after-run";
 import { critiqueFrames, frameChecklist, type CritiqueResult } from "../stages/critique";
-import { visitorId } from "../store/visitor";
+import { visitorId, type CookieVisitorId } from "../store/visitor";
+import { PAUSED_REASON, storyboardHold, storyboardsSpent, type StoryboardHold, type StoryboardLimits, type StoryboardVisitor } from "./storyboards";
 
 if (typeof window !== "undefined") {
   throw new Error("lib/media/frames runs on the server only.");
@@ -40,7 +44,7 @@ if (typeof window !== "undefined") {
 
 /** The lock outlives the route's 300 s limit, so a crashed job frees its world within minutes. */
 export const FRAMES_LOCK_SECONDS = 10 * 60;
-export const PAUSED_REASON = "Storyboards paused today.";
+export { PAUSED_REASON };
 export const NO_SERVICE_REASON = "Storyboards are not set up on this server.";
 /** A failure that would only repeat: the route never starts it again. */
 export const BLOCKED_REASON = "Every frame prompt broke the guardrails.";
@@ -186,6 +190,8 @@ export interface FramesEnv {
   model: LanguageModel;
   /** FRAMES_DAILY_CAP; defaults to the environment's. */
   framesCap?: number;
+  /** Tests only: the per-visitor daily storyboard limits (lib/config.ts STORYBOARD_LIMITS). */
+  storyboardLimits?: StoryboardLimits;
   now?: () => Date;
   abortSignal?: AbortSignal;
 }
@@ -200,6 +206,12 @@ export interface FramesJob {
   product: ProductSpec;
   /** Every real name the run knows, kept out of prompts and rewrites. Defaults to the world's own names. */
   names?: readonly string[];
+  /**
+   * Whose storyboards for the day this job counts against (./storyboards.ts): the run's starter in the
+   * runtime, the asker in POST /api/frames/<id>. Absent or null counts no visitor (a run started before
+   * starters were kept); the global cap still applies.
+   */
+  visitor?: StoryboardVisitor | null;
 }
 
 export interface FramesOutcome {
@@ -226,17 +238,12 @@ function worldNames(world: World): string[] {
 }
 
 /** Takes up to `want` frames from today's cap and gives back what does not fit. Returns how many it got. */
-async function reserve(store: Store, day: string, want: number, cap: number): Promise<number> {
-  if (want <= 0) return 0;
-  const key = keys.daily("frames", day);
-  const after = await store.incr(key, { by: want, ttlSeconds: TTL.daily });
-  const granted = Math.max(0, Math.min(want, cap - (after - want)));
-  if (granted < want) await store.incr(key, { by: granted - want });
-  return granted;
+function reserve(store: Store, day: string, want: number, cap: number): Promise<number> {
+  return reserveUpTo(store, keys.daily("frames", day), want, cap, TTL.daily);
 }
 
-async function giveBack(store: Store, day: string, count: number): Promise<void> {
-  if (count > 0) await store.incr(keys.daily("frames", day), { by: -count });
+function giveBack(store: Store, day: string, count: number): Promise<void> {
+  return giveBackUnits(store, keys.daily("frames", day), count, TTL.daily);
 }
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 3).trimEnd()}...` : text);
@@ -260,12 +267,23 @@ export async function renderWorldFrames(env: FramesEnv, job: FramesJob): Promise
   if (!(await store.set(lock, { revisionId, at: now().toISOString() }, { ifAbsent: true, ttlSeconds: FRAMES_LOCK_SECONDS }))) {
     return { status: "skipped", frames: null, cost: emptyDelta() };
   }
+  // The visitor's place for this job is taken only once a pass needs a fresh render.
+  const hold = storyboardHold(store, job.visitor, () => now().getTime(), env.storyboardLimits);
   try {
     // Checked again inside the lock: a repeat request for frames already done renders nothing.
     const state = await runState(store, job.runId, job.attempt);
     const existing = state.worlds.find((w) => w.segmentId === job.segmentId)?.frames ?? null;
     if (existing && existing.revisionId === revisionId && existing.status === "done") return { status: "skipped", frames: existing, cost: emptyDelta() };
-    return await render(env, job, source, revisionId, now);
+    let outcome: FramesOutcome;
+    try {
+      outcome = await render(env, job, source, revisionId, now, hold);
+    } catch (error) {
+      await hold.settle(null).catch(() => undefined);
+      throw error;
+    }
+    // The frames are written by now: a failed give-back never loses them (the place just stays counted).
+    await hold.settle(outcome).catch(() => undefined);
+    return outcome;
   } finally {
     await store.del(lock);
   }
@@ -277,7 +295,7 @@ interface Rendered {
   fresh: boolean;
 }
 
-async function render(env: FramesEnv, job: FramesJob, source: { pack: ProductionPack; brief: BriefSlots }, revisionId: string | null, now: () => Date): Promise<FramesOutcome> {
+async function render(env: FramesEnv, job: FramesJob, source: { pack: ProductionPack; brief: BriefSlots }, revisionId: string | null, now: () => Date, hold: StoryboardHold): Promise<FramesOutcome> {
   const { store } = env;
   const day = dayOf(now().getTime());
   const cap = env.framesCap ?? dailyCaps().frames;
@@ -330,17 +348,24 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     return hit.success ? { plan, frame: { scene: plan.scene, url: hit.data.url, promptHash: plan.promptHash, modelId: hit.data.modelId, attempt }, fresh: false } : null;
   };
 
-  /** Cached frames first, then fresh renders within the cap. `all` decides whether a cap shortfall renders none or as many as fit. */
+  /**
+   * Cached frames first, then fresh renders within the visitor's day and the global cap. `all` decides
+   * whether a cap shortfall renders none or as many as fit. `visitorSpent`: the visitor's day, not the
+   * global cap, stopped it.
+   */
   const pass = async (list: readonly FramePrompt[], attempt: 1 | 2, all: boolean) => {
     const cached = await Promise.all(list.map((plan) => cachedOf(plan, attempt)));
     const hits = cached.filter((c): c is Rendered => c !== null);
     const fresh = list.filter((_, i) => cached[i] === null);
+    const none = { rendered: [] as Rendered[], failed: [] as { plan: FramePrompt; message: string; billed: boolean }[] };
     // A job already stopped (a pack emitted right at the deadline) takes nothing from the day's cap.
     if (env.abortSignal?.aborted) throw env.abortSignal.reason ?? new Error("The storyboards ran out of time.");
+    // A fresh render needs a place in the visitor's day; frames from the cache never do.
+    if (fresh.length > 0 && !(await hold.take())) return { hits, ...none, capped: fresh, capSpent: true, visitorSpent: true };
     const granted = await reserve(store, day, fresh.length, cap);
     if (all && granted < fresh.length) {
       await giveBack(store, day, granted);
-      return { hits, rendered: [] as Rendered[], failed: [] as { plan: FramePrompt; message: string; billed: boolean }[], capped: fresh, capSpent: true };
+      return { hits, ...none, capped: fresh, capSpent: true, visitorSpent: false };
     }
     const settled = await Promise.allSettled(fresh.slice(0, granted).map((plan) => renderOne(plan, attempt)));
     const rendered = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
@@ -351,13 +376,14 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
       cost.frames++;
       cost.estimateUsd += plan.model.usdPerFrame;
     }
-    return { hits, rendered, failed, capped: fresh.slice(granted), capSpent: granted < fresh.length };
+    return { hits, rendered, failed, capped: fresh.slice(granted), capSpent: granted < fresh.length, visitorSpent: false };
   };
 
   try {
     const first = await pass(plans, 1, true);
     if (first.capSpent) {
-      steps.push(step("Storyboards paused today", "The daily frame cap is spent; the brief, kit and prompts are ready without frames."));
+      const why = first.visitorSpent ? "Today's storyboards for this visitor are used up" : "The daily frame cap is spent";
+      steps.push(step("Storyboards paused today", `${why}; the brief, kit and prompts are ready without frames.`));
       return finish(ended("paused", PAUSED_REASON, first.hits.map((h) => h.frame)), steps, "paused");
     }
     const firsts = [...first.hits, ...first.rendered].sort((a, b) => a.plan.scene - b.plan.scene);
@@ -405,7 +431,8 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     const second = await pass(replans, 2, false);
     const reRendered = new Map([...second.hits, ...second.rendered].map((r) => [r.plan.scene, r]));
     for (const f of second.failed) steps.push(step(`Frame ${f.plan.scene + 1} did not re-render`, `${f.message} The first frame stands.`));
-    for (const plan of second.capped) steps.push(step(`Kept frame ${plan.scene + 1} as it was`, "The daily frame cap is spent, so its rewrite did not re-render."));
+    const cappedWhy = second.visitorSpent ? "Today's storyboards for this visitor are used up" : "The daily frame cap is spent";
+    for (const plan of second.capped) steps.push(step(`Kept frame ${plan.scene + 1} as it was`, `${cappedWhy}, so its rewrite did not re-render.`));
 
     // A rewrite that never re-rendered is not shown as one.
     const critiques = review.critiques.map((c) => (c.rewrite !== null && !reRendered.has(c.scene) ? { ...c, rewrite: null } : c));
@@ -438,7 +465,11 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
 
 // --- POST /api/frames/<id> ---------------------------------------------------------------------------
 
-/** Frame jobs one visitor may start in an hour, across runs (each one still spends the daily cap). */
+/**
+ * Frame requests one visitor may schedule in an hour, across runs. The daily storyboard limits count
+ * jobs that render; this one also bounds requests whose job finds nothing to do (another job holds the
+ * world, or every frame is cached), which cost an invocation each.
+ */
 export const FRAMES_PER_VISITOR_HOUR = 20;
 
 export interface FramesRouteDeps {
@@ -446,10 +477,14 @@ export interface FramesRouteDeps {
   /** The process's store (lib/store/index.ts getStore); it throws where no shared store is configured. */
   store: () => Store;
   headers: Headers;
+  /** The asker's signed visitor cookie id (lib/visitor-cookie.ts); null without one, or without STOOP_SIGNING_SECRET. */
+  cookieVisitor?: CookieVisitorId | null;
   /** True when a frame service and storage are set up; without them nothing is scheduled. */
   configured: boolean;
   framesCap?: number;
   perVisitorHour?: number;
+  /** Tests only: the per-visitor daily storyboard limits the answer checks (lib/config.ts STORYBOARD_LIMITS). */
+  storyboardLimits?: StoryboardLimits;
   now?: () => number;
   /** Runs the job after the response (next/server after()). */
   schedule: (task: () => Promise<unknown>) => void;
@@ -464,8 +499,10 @@ const answer = (status: number, body: FramesResponse): RouteAnswer<FramesRespons
  * world must have a pack (its latest revision's when it has one), and frames already done or rendering
  * for that pack are not started again (a "rendering" whose job died, its lock gone, is started again).
  * Nothing is scheduled without a frame service, for prompts the guardrails refused, or past the
- * visitor's hourly limit. The work runs after the response. While a run is still going, the runtime
- * renders each world's frames itself as its pack lands.
+ * visitor's hourly limit. The job counts against the asker's storyboards for the day (./storyboards.ts),
+ * taken when it first needs a fresh render; an asker whose day is already spent is answered paused at
+ * once, with the global cap's message. The work runs after the response. While a run is still going,
+ * the runtime renders each world's frames itself as its pack lands.
  */
 export async function requestFrames(deps: FramesRouteDeps, id: string, body: unknown): Promise<RouteAnswer<FramesResponse>> {
   if (!deps.live) return apiError("off", "Live runs are off, so storyboards do not render. The examples show their frames.");
@@ -500,12 +537,15 @@ export async function requestFrames(deps: FramesRouteDeps, id: string, body: unk
   const used = (await store.get<number>(keys.daily("frames"))) ?? 0;
   if (current?.status === "paused" && used >= (deps.framesCap ?? dailyCaps().frames)) return answer(200, { status: "paused", message: PAUSED_REASON });
 
-  const visitor = await visitorId(store, deps.headers);
-  const hour = new Date(deps.now?.() ?? Date.now()).toISOString().slice(0, 13);
-  const count = await store.incr(keys.rate("frames", visitor, hour), { ttlSeconds: 60 * 60 + 60 });
+  const now = deps.now?.() ?? Date.now();
+  const visitor: StoryboardVisitor = { ip: await visitorId(store, deps.headers), cookie: deps.cookieVisitor ?? null };
+  // Only a read: the job takes its place in the visitor's day when it renders (so cached frames stay free).
+  if (await storyboardsSpent(store, visitor, now, deps.storyboardLimits)) return answer(200, { status: "paused", message: PAUSED_REASON });
+  const hour = new Date(now).toISOString().slice(0, 13);
+  const count = await store.incr(keys.rate("frames", visitor.ip, hour), { ttlSeconds: 60 * 60 + 60 });
   if (count > (deps.perVisitorHour ?? FRAMES_PER_VISITOR_HOUR)) return apiError("rate_limited", "That is a lot of storyboards in an hour. Try again later.");
 
-  const job: FramesJob = { runId: runId.data, attempt: meta.attempt, segmentId: world.segmentId, world, revisionId, product: state.inputs.product, names: reportNames({ ...state, inputs: state.inputs }) };
+  const job: FramesJob = { runId: runId.data, attempt: meta.attempt, segmentId: world.segmentId, world, revisionId, product: state.inputs.product, names: reportNames({ ...state, inputs: state.inputs }), visitor };
   deps.schedule(() => deps.job(job));
   return answer(202, { status: "rendering", message: null });
 }

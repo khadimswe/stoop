@@ -4,11 +4,13 @@
 import type { IntakeRequest, RunStartRequest } from "../api/requests";
 import type { IntakeResponse, RunStartResponse } from "../api/responses";
 import type { Store } from "../store/types";
-import type { VisitorId } from "../store/visitor";
+import type { CookieVisitorId, VisitorId } from "../store/visitor";
 
 export interface RequestContext {
   store: Store;
   visitor: VisitorId;
+  /** The browser's signed visitor cookie id (lib/visitor-cookie.ts), when it has one; agents never do. */
+  cookieVisitor?: CookieVisitorId | null;
   /** Which door the request came through, for the per-IP limits and the trace. */
   source: "web" | "mcp";
   /** Aborted when the caller goes away. */
