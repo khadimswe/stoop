@@ -335,6 +335,8 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     const cached = await Promise.all(list.map((plan) => cachedOf(plan, attempt)));
     const hits = cached.filter((c): c is Rendered => c !== null);
     const fresh = list.filter((_, i) => cached[i] === null);
+    // A job already stopped (a pack emitted right at the deadline) takes nothing from the day's cap.
+    if (env.abortSignal?.aborted) throw env.abortSignal.reason ?? new Error("The storyboards ran out of time.");
     const granted = await reserve(store, day, fresh.length, cap);
     if (all && granted < fresh.length) {
       await giveBack(store, day, granted);
@@ -422,6 +424,8 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     for (const scene of [...unsafe].sort((a, b) => a - b)) {
       steps.push(step(`Held back frame ${scene + 1}`, reRendered.has(scene) ? "It broke a blocking guardrail; only its re-render is shown." : "It broke a blocking guardrail and no clean re-render replaced it, so it is not shown."));
     }
+    // Its render leaves the frame cache too, so a retry renders it again and is reviewed again.
+    await Promise.all(firsts.filter((r) => unsafe.has(r.plan.scene)).map((r) => store.del(keys.frames.render(r.plan.promptHash))));
     const kept = firsts.filter((r) => !unsafe.has(r.plan.scene)).map((r) => r.frame);
     const frames = [...kept, ...[...reRendered.values()].map((r) => r.frame)].sort((a, b) => a.scene - b.scene || a.attempt - b.attempt);
     return finish({ revisionId, status: "done", reason: null, frames, critiques }, steps, "done");
