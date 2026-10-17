@@ -131,6 +131,15 @@ export function describeStore(name: string, make: (clock: { now: () => number })
       expect(await store.leaseCount("leases", options.now() + 60_000)).toBe(1);
     });
 
+    it("tells whether a member holds a live lease, without refreshing it", async () => {
+      const store = make(clock);
+      await store.leaseAcquire("held", "run-a", { max: 2, ttlMs: 60_000, now: options.now() });
+      expect(await store.leaseHeld("held", "run-a", options.now() + 59_000)).toBe(true);
+      expect(await store.leaseHeld("held", "run-a", options.now() + 60_000)).toBe(false);
+      expect(await store.leaseHeld("held", "run-b", options.now())).toBe(false);
+      expect(await store.leaseHeld("none", "run-a", options.now())).toBe(false);
+    });
+
     it("answers a ping", async () => {
       expect(await make(clock).ping()).toBe(true);
     });

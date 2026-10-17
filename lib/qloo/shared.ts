@@ -32,13 +32,15 @@ export function sharedClientOptions(store: Store, options: SharedOptions): Pick<
       if (used > options.dailyCap) throw new QlooBudgetError(DAILY_CAP_MESSAGE);
     },
     onMonthRemaining: async (remaining) => {
-      await store.set(keys.qloo.monthRemaining, remaining, { ttlSeconds: 35 * DAY_SECONDS });
+      await store.set(keys.qloo.monthRemaining(monthOf(now())), remaining, { ttlSeconds: 35 * DAY_SECONDS });
     },
   };
 }
 
-/** The last month-remaining any instance saw, to seed a new run's monthly floor. */
-export async function lastMonthRemaining(store: Store): Promise<number | undefined> {
-  const value = await store.get<number>(keys.qloo.monthRemaining);
+const monthOf = (now: number) => new Date(now).toISOString().slice(0, 7);
+
+/** The last month-remaining any instance saw this month, to seed a new run's monthly floor. */
+export async function lastMonthRemaining(store: Store, now: number = Date.now()): Promise<number | undefined> {
+  const value = await store.get<number>(keys.qloo.monthRemaining(monthOf(now)));
   return typeof value === "number" ? value : undefined;
 }

@@ -16,13 +16,17 @@ import { readAudience, toStatedAudience, type AudienceReading } from "../intake/
 import { productSpecSchema, type ProductSpec } from "../prompts/brief";
 import type { QlooClient } from "../qloo/client";
 import { ageBandLabel } from "../types";
-import { keys } from "../store/keys";
+import { checkText } from "../guardrails";
+import { lastMonthRemaining } from "../qloo/shared";
+import { keys, TTL } from "../store/keys";
 import { ApiFailure, hourOf } from "./errors";
 import { saveIntake } from "./record";
 import type { RequestContext } from "./types";
 
 /** Intakes per visitor per hour (each costs Claude calls and up to INTAKE_CAP Qloo calls). */
 export const INTAKES_PER_HOUR = 6;
+/** Intakes per day for everyone, as a multiple of the live-run cap: most intakes lead to a run. */
+export const INTAKES_PER_RUN = 4;
 
 export interface IntakeDeps {
   client: QlooClient;
@@ -78,15 +82,24 @@ export async function runIntake(deps: IntakeDeps, raw: IntakeRequest, ctx: Reque
   const input = intakeRequestSchema.parse(raw);
   const now = deps.now ?? Date.now;
   const hex = deps.randomHex ?? randomHex;
+  // The founder's words reach Claude as quoted data, after the guardrails (ethnicity, minors).
+  const stated = input.statedCustomer ? checkText(input.statedCustomer) : [];
+  if (stated.length) throw new ApiFailure("invalid", `Describe your customer by age band, place or taste, not by who they are: ${stated[0].message}`, 422);
 
   const used = await ctx.store.incr(keys.rate("intake", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 });
   if (used > INTAKES_PER_HOUR) throw new ApiFailure("rate_limited", "That is a lot of products in an hour. Try again a little later.", 429);
   // Intake spends live Qloo calls too, so a spent day stops it before any work.
+  const caps = dailyCaps(env);
   const today = (await ctx.store.get<number>(keys.daily("qloo"))) ?? 0;
-  if (today >= dailyCaps(env).qloo) throw new ApiFailure("daily_cap", "Today's live runs are used up. The examples still show a full run.", 503);
+  if (today >= caps.qloo) throw new ApiFailure("daily_cap", "Today's live runs are used up. The examples still show a full run.", 503);
+  // Claude's side of intake has its own daily ceiling, since cached Qloo answers never count above.
+  if ((await ctx.store.incr(keys.daily("intakes"), { ttlSeconds: TTL.daily })) > caps.liveRuns * INTAKES_PER_RUN) {
+    throw new ApiFailure("daily_cap", "Today's live runs are used up. The examples still show a full run.", 503);
+  }
 
   const intakeId = `in_${hex(12)}`;
-  const { lookup } = intakeQloo(deps.client, `intake-${sha256(intakeId).slice(0, 12)}`);
+  const monthRemaining = await lastMonthRemaining(ctx.store, now());
+  const { lookup } = intakeQloo(deps.client, `intake-${sha256(intakeId).slice(0, 12)}`, monthRemaining === undefined ? {} : { monthRemaining });
   const notes: string[] = [];
   const evidence = new Map<string, Evidence>();
   const keep = (list: readonly Evidence[]) => list.forEach((e) => evidence.set(e.id, e));

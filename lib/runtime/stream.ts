@@ -6,7 +6,7 @@
 import { lastEventIdSchema, eventId } from "../api/requests";
 import type { StreamStatus } from "../api/responses";
 import type { RunEvent } from "../events";
-import { getRunMeta, indexAfter, readRunEvents } from "../store/runs";
+import { getRunMeta, indexAfter, liveStatus, readRunEvents } from "../store/runs";
 import type { Store } from "../store/types";
 
 export interface StreamOptions {
@@ -86,14 +86,16 @@ export function streamLiveRun(store: Store, runId: string, options: StreamOption
             lastSent = now();
             quietSince = null;
           }
-          const next: StreamStatus = { status: meta.status, attempt, resumable: meta.status === "stopped" };
+          // A run still marked running whose lease is gone lost its instance: it shows as stopped, resumable.
+          const current = await liveStatus(store, meta, now());
+          const next: StreamStatus = { status: current, attempt, resumable: current === "stopped" };
           if (!status || status.status !== next.status || status.attempt !== next.attempt) {
             status = next;
             send(sseStatus(next));
             lastSent = now();
           }
-          if (meta.status === "stopped") break;
-          if (meta.status === "done" || meta.status === "failed") {
+          if (current === "stopped") break;
+          if (current === "done" || current === "failed") {
             quietSince ??= now();
             if (now() - quietSince >= lingerMs) break;
           }

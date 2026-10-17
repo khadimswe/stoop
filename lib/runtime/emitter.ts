@@ -8,13 +8,26 @@ import type { Store } from "../store/types";
 
 /** Events emitted within this many ms are written together. */
 export const FLUSH_MS = 150;
+/** A failed write is tried again after these waits, then the store counts as down. */
+export const RETRY_WAITS_MS = [200, 800] as const;
 
 export interface StoreEmitter extends Emitter {
   /** Writes everything emitted so far. Rejects if a write failed. */
   flush(): Promise<void>;
 }
 
-export function storeEmitter(store: Store, runId: string, attempt: number, now: () => Date = () => new Date()): StoreEmitter {
+export interface StoreEmitterOptions {
+  now?: () => Date;
+  /** Called once when writes keep failing, so the run can stop spending: nothing it does would be kept. */
+  onFailure?: (error: unknown) => void;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export function storeEmitter(store: Store, runId: string, attempt: number, options: StoreEmitterOptions = {}): StoreEmitter {
+  const now = options.now ?? (() => new Date());
+  const sleep = options.sleep ?? pause;
   const events: RunEvent[] = [];
   let pending: RunEventInput[] = [];
   let chain: Promise<void> = Promise.resolve();
@@ -28,10 +41,18 @@ export function storeEmitter(store: Store, runId: string, attempt: number, now: 
     if (batch.length === 0) return chain;
     chain = chain.then(async () => {
       if (failure) return;
-      try {
-        events.push(...(await appendRunEvents(store, runId, attempt, batch, now)));
-      } catch (error) {
-        failure = error;
+      for (let tries = 0; ; tries++) {
+        try {
+          events.push(...(await appendRunEvents(store, runId, attempt, batch, now)));
+          return;
+        } catch (error) {
+          if (tries >= RETRY_WAITS_MS.length) {
+            failure = error;
+            options.onFailure?.(error);
+            return;
+          }
+          await sleep(RETRY_WAITS_MS[tries]);
+        }
       }
     });
     return chain;

@@ -167,7 +167,7 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
       emit({ type: "run.done" });
       return env.emitter.events;
     }
-    const controlRuns = await run.control;
+    const controlRuns = await untilAborted(run.control, env.abortSignal);
     const control = controlRuns.find((r) => r.run === CONTROL_RUN);
     if (!control) throw new Error(`The run has no Control run ${CONTROL_RUN}.`);
     const runs = [control, ...controlRuns.filter((r) => r.run !== CONTROL_RUN)];
@@ -217,6 +217,20 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
     emit({ type: "run.failed", stage: timer.current(), message: error instanceof Error ? error.message : String(error) });
   }
   return env.emitter.events;
+}
+
+/** Waits for a value, or rejects as soon as the run is aborted (a live run's deadline). */
+function untilAborted<T>(value: T | Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return Promise.resolve(value);
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const stop = () => reject(signal.reason);
+    signal.addEventListener("abort", stop, { once: true });
+    Promise.resolve(value).then(
+      (result) => (signal.removeEventListener("abort", stop), resolve(result)),
+      (error: unknown) => (signal.removeEventListener("abort", stop), reject(error)),
+    );
+  });
 }
 
 /** What the LLM-only Control assumed, in the Reality Check's dimensions. */

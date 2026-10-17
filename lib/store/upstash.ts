@@ -165,6 +165,11 @@ export class UpstashStore implements Store {
     return Number(await this.call(["ZCOUNT", key, `(${now}`, "+inf"]));
   }
 
+  async leaseHeld(key: string, member: string, now: number = Date.now()): Promise<boolean> {
+    const score = await this.call<string | null>(["ZSCORE", key, member]);
+    return score !== null && Number(score) > now;
+  }
+
   async reserveSlot(key: string, spacingMs: number, options: { now?: number } = {}): Promise<number> {
     return Number(await this.evalScript(SLOT_SCRIPT, [key], [options.now ?? Date.now(), spacingMs]));
   }

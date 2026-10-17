@@ -3,7 +3,9 @@
 import { searchRequestSchema, type SearchRequest } from "../api/requests";
 import type { SearchResponse } from "../api/responses";
 import { isLive } from "../config";
+import { MONTHLY_FLOOR } from "../qloo/budget";
 import { createRunContext } from "../qloo/context";
+import { lastMonthRemaining } from "../qloo/shared";
 import type { QlooClient } from "../qloo/client";
 import { searchEntities } from "../qloo/search";
 import type { Seed } from "../report/schema";
@@ -37,7 +39,8 @@ export async function searchSeeds(deps: SearchDeps, raw: SearchRequest, ctx: Req
   }
 
   const type = `urn:entity:${input.type}` as const;
-  const qctx = createRunContext({ runId: `search-${input.intakeId}`, cap: 1 });
+  const monthRemaining = await lastMonthRemaining(ctx.store, now());
+  const qctx = createRunContext({ runId: `search-${input.intakeId}`, cap: 1, ...(monthRemaining !== undefined ? { monthlyFloor: MONTHLY_FLOOR, monthRemaining } : {}) });
   const result = await searchEntities(deps.client, qctx, { query: input.q, types: [type], take: RESULTS }, { label: `Searching Qloo for "${input.q}"`, stage: "intake" });
   const results: Seed[] = result.data.slice(0, RESULTS).map((entity) => ({
     ref: { kind: "entity", id: entity.id, name: entity.name, type: entity.type ?? type },

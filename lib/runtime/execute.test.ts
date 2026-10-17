@@ -16,7 +16,7 @@ import { createRunContext } from "../qloo/context";
 import type { Report } from "../report/schema";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
-import { getRunMeta, loadReport, readRunEvents, setRunMeta } from "../store/runs";
+import { getRunMeta, loadReport, readRunEvents, runLease, setRunMeta } from "../store/runs";
 import type { VisitorId } from "../store/visitor";
 import { executeRun, estimateUsd, type ExecuteDeps } from "./execute";
 import { saveRunRecord } from "./record";
@@ -63,7 +63,7 @@ async function liveRun(store: MemoryStore) {
   await saveRunRecord(store, runId, { inputs: brief.inputs, stated: brief.stated, site: brief.site, seedEvidence: [...brief.seedEvidence], settings: brief.settings });
   const at = "2026-10-17T12:00:00.000Z";
   await setRunMeta(store, { runId, attempt: 1, status: "running", briefHash: "b".repeat(64), createdAt: at, updatedAt: at });
-  await store.leaseAcquire(keys.liveLeases, runId, { max: 2, ttlMs: 320_000 });
+  await store.leaseAcquire(keys.liveLeases, runLease(runId, 1), { max: 2, ttlMs: 320_000 });
   const control = brief.control as readonly BaselineRun[];
   const reference = referenceSets();
   const deps = (model: LanguageModel & { modelId: string }, extra: Partial<ExecuteDeps> = {}): ExecuteDeps => ({
@@ -137,5 +137,33 @@ describe("a live run", () => {
   it("estimates the cost from list prices, cached input at a tenth", () => {
     expect(estimateUsd({ inputTokens: 1_000_000, cachedInputTokens: 0, outputTokens: 0 })).toBe(3);
     expect(estimateUsd({ inputTokens: 1_000_000, cachedInputTokens: 1_000_000, outputTokens: 100_000 })).toBe(1.8);
+  });
+});
+
+describe("a live run that cannot finish", () => {
+  it("stops at the deadline even while the Control never answers, and frees its slot", async () => {
+    const store = new MemoryStore();
+    const { options, deps } = await liveRun(store);
+    const started = Date.now();
+    await executeRun(deps(counted(options.model, options.modelId, []), { deadlineMs: 400, control: () => new Promise(() => undefined) }), runId);
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect((await getRunMeta(store, runId))?.status).toBe("stopped");
+    expect(await store.leaseCount(keys.liveLeases)).toBe(0);
+  });
+
+  it("stops spending when the store stops taking its events, ends failed and frees its slot", async () => {
+    const memory = new MemoryStore();
+    const { options, deps } = await liveRun(memory);
+    const store = Object.assign(Object.create(memory), {
+      append: async () => {
+        throw new Error("store write failed");
+      },
+    }) as MemoryStore;
+    // Claude answers three steps, then each step waits as a slow call would, until the run is stopped.
+    const asked: string[] = [];
+    await executeRun({ ...deps(counted(options.model, options.modelId, asked, 3)), store }, runId);
+    expect((await getRunMeta(memory, runId))?.status).toBe("failed");
+    expect(await memory.leaseCount(keys.liveLeases)).toBe(0);
+    expect(asked).toHaveLength(3);
   });
 });

@@ -19,6 +19,7 @@ import { hashOf } from "../hash";
 import { AGE_BUCKETS } from "../qloo/constants";
 import { ageBucketSchema, DEFAULT_DIRECTION, type CreativeDirection } from "../types";
 import { CREATIVE_STRATEGIST_ROLE, GUARDRAIL_INSTRUCTIONS, quoted } from "./instructions";
+import { CLAUDE_TIMEOUT_MS } from "./ask";
 import { STOOP_EFFORT, STOOP_PROVIDER_OPTIONS } from "./model";
 
 export const BASELINE_INSTRUCTIONS_VERSION = 1;
@@ -300,12 +301,13 @@ interface Reply {
   failure?: string;
 }
 
-async function askForBrief(model: LanguageModel, instructions: string, prompt: string): Promise<Reply> {
+async function askForBrief(model: LanguageModel, instructions: string, prompt: string, abortSignal: AbortSignal): Promise<Reply> {
   try {
     const result = await generateText({
       model,
       instructions,
       prompt,
+      abortSignal,
       output: Output.object({ schema: baselineOutputSchema, name: "ad_brief", description: "A 15 second vertical video ad brief." }),
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       providerOptions: STOOP_PROVIDER_OPTIONS,
@@ -353,6 +355,10 @@ export interface GenerateBaselineOptions {
   now?: () => Date;
   /** Recorded on the run when it replaces an existing one. */
   because?: string;
+  /** Cancels the brief, e.g. at a live run's deadline. A cancelled brief rejects. */
+  abortSignal?: AbortSignal;
+  /** Per call; defaults to CLAUDE_TIMEOUT_MS. A call that runs over rejects. */
+  timeoutMs?: number;
 }
 
 /** One LLM-only Control brief for a candidate: one call, plus one repair when the answer fails a check. */
@@ -374,7 +380,8 @@ export async function generateBaseline(candidate: Candidate, opts: GenerateBasel
   let ask = prompt;
 
   for (let attempt = 1; attempt <= BASELINE_MAX_ATTEMPTS; attempt++) {
-    const reply = await askForBrief(opts.model, instructions, ask);
+    const timeout = AbortSignal.timeout(opts.timeoutMs ?? CLAUDE_TIMEOUT_MS);
+    const reply = await askForBrief(opts.model, instructions, ask, opts.abortSignal ? AbortSignal.any([timeout, opts.abortSignal]) : timeout);
     usages.push(reply.usage);
     const check: BriefCheck = reply.failure ? { brief: null, issues: [reply.failure] } : checkBaselineBrief(reply.output, candidate);
     if (check.brief) {

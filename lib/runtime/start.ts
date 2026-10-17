@@ -1,21 +1,22 @@
-// Starting a live run, safely (docs plan section 4.1). In order: the live switch, the visitor's hourly
-// limit, an idempotent start on the brief hash (a repeat joins the run already going), today's live-run
-// cap, and admission (at most 2 live runs at once, as leases that expire if an instance dies). Anything
-// refused becomes an example replay with a one-line reason, never an error screen. The run itself
-// starts in the background (`after()` in the route), so the founder gets the stream URL at once.
+// Starting a live run, safely (docs plan section 4.1). In order: the live switch, the founder's text
+// through the guardrails, an idempotent start on the brief hash (a repeat joins the run already
+// going), the visitor's hourly limit, today's live-run cap, and admission (at most 2 live runs at
+// once, as leases that expire if an instance dies). Anything refused becomes an example replay with a
+// one-line reason, never an error screen. The run itself starts in the background (`after()` in the
+// route), so the founder gets the stream URL at once. A start that fails halfway gives back what it took.
 import { after } from "next/server";
 import { runStartRequestSchema, type RunStartRequest } from "../api/requests";
 import type { RunStartResponse } from "../api/responses";
 import { dailyCaps, isLive } from "../config";
 import { LEAD_EXAMPLE } from "../demo/examples";
 import type { Evidence } from "../evidence";
-import { checkText } from "../guardrails";
+import { checkText, FAMOUS_PLACES } from "../guardrails";
 import { hashOf } from "../hash";
 import { defaultPackSettings } from "../prompts/brief";
 import type { Seed } from "../report/schema";
 import { statedFromText } from "../stages/gap";
 import { keys, TTL } from "../store/keys";
-import { getRunMeta, setRunMeta, type RunMeta } from "../store/runs";
+import { getRunMeta, liveStatus, runLease, setRunMeta, type RunMeta } from "../store/runs";
 import type { Store } from "../store/types";
 import { ApiFailure, hourOf } from "./errors";
 import { randomHex } from "./intake";
@@ -59,6 +60,19 @@ async function confirmable(store: Store, intakeId: string, proposed: readonly Se
   return { seeds, receipts };
 }
 
+/**
+ * The founder's own words reach Claude as quoted data, after the same guardrails as generated text:
+ * notes may not name a seed or a famous place (the Control and the concept writer refuse those), and
+ * neither notes nor the stated customer may describe people by ethnicity or as minors.
+ */
+export function founderTextIssues(input: { notes?: string | undefined; statedCustomer: string | null }, seeds: readonly Seed[]): string | null {
+  const notes = input.notes ? checkText(input.notes, { names: [...seeds.map((s) => s.ref.name), ...FAMOUS_PLACES] }) : [];
+  if (notes.length) return `Your notes can't be used: ${notes[0].message}`;
+  const stated = input.statedCustomer ? checkText(input.statedCustomer) : [];
+  if (stated.length) return `Describe your customer by age band, place or taste, not by who they are: ${stated[0].message}`;
+  return null;
+}
+
 export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: RequestContext): Promise<RunStartResponse> {
   const env = deps.env ?? process.env;
   if (!isLive(env)) return exampleReply("replay");
@@ -72,54 +86,68 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
   const seeds = input.seedIds.map((id) => allowed.get(id));
   if (seeds.some((s) => !s)) throw new ApiFailure("invalid", "Pick seeds from the list Qloo found for your product.", 422);
   const chosen = seeds as Seed[];
-  // The founder's notes reach Claude as quoted data, after the same guardrails as generated text.
-  const noteIssues = input.direction.notes ? checkText(input.direction.notes) : [];
-  if (noteIssues.length) throw new ApiFailure("invalid", `Your notes can't be used: ${noteIssues[0].message}`, 422);
+  const statedCustomer = input.statedCustomer?.trim() || null;
+  const refused = founderTextIssues({ notes: input.direction.notes, statedCustomer }, chosen);
+  if (refused) throw new ApiFailure("invalid", refused, 422);
 
-  const inputs = { product: intake.product, seeds: chosen, statedCustomer: input.statedCustomer?.trim() || null, region: input.region, direction: input.direction };
+  const inputs = { product: intake.product, seeds: chosen, statedCustomer, region: input.region, direction: input.direction };
   // Idempotent on what the run would measure: the same brief joins the run already started for it.
   const briefHash = hashOf({ ...inputs, seeds: chosen.map((s) => s.ref.id).sort() });
-  const existing = await joinable(store, briefHash);
-  if (existing) return liveReply(existing, true);
+  const claimKey = keys.brief(briefHash);
+  const claimed = await store.get<string>(claimKey);
+  if (claimed && (await joinable(store, claimed))) return liveReply(claimed, true);
 
   if ((await store.incr(keys.rate("run", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > RUNS_PER_HOUR) return exampleReply("rate-limited");
   const dailyKey = keys.daily("live-runs");
   if ((await store.incr(dailyKey, { ttlSeconds: TTL.daily })) > dailyCaps(env).liveRuns) return exampleReply("daily-cap");
 
   const runId = `run_${(deps.randomHex ?? randomHex)(12)}`;
-  if (!(await store.leaseAcquire(keys.liveLeases, runId, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() }))) {
-    await store.incr(dailyKey, { by: -1 });
-    return exampleReply("busy");
+  const lease = runLease(runId, 1);
+  let leased = false;
+  let ours = false;
+  let scheduled = false;
+  try {
+    leased = await store.leaseAcquire(keys.liveLeases, lease, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() });
+    if (!leased) return exampleReply("busy");
+    // A claim left by a failed run (or a start that died before its meta) is replaced; a live one is joined.
+    if (claimed && (await store.get<string>(claimKey)) === claimed) await store.del(claimKey);
+    ours = await store.set(claimKey, runId, { ifAbsent: true, ttlSeconds: TTL.runEvents });
+    if (!ours) {
+      const other = await store.get<string>(claimKey);
+      return other && (await joinable(store, other)) ? liveReply(other, true) : exampleReply("busy");
+    }
+    const at = new Date(now()).toISOString();
+    const stated = statedCustomer === intake.statedCustomer ? intake.stated : statedCustomer ? statedFromText(statedCustomer) : null;
+    const seedEvidence = [...new Set(chosen.flatMap((s) => s.evidenceIds))].flatMap((id) => receipts.get(id) ?? []);
+    await saveRunRecord(store, runId, { inputs, stated, site: intake.site, seedEvidence, settings: defaultPackSettings(inputs.direction) });
+    const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at };
+    await setRunMeta(store, meta);
+    (deps.schedule ?? after)(() => deps.execute(runId));
+    scheduled = true;
+    return liveReply(runId, false);
+  } finally {
+    if (!scheduled) {
+      // Nothing started: give back the slot, the day's count and the claim.
+      await Promise.allSettled([
+        leased ? store.leaseRelease(keys.liveLeases, lease) : Promise.resolve(),
+        store.incr(dailyKey, { by: -1 }),
+        ours ? store.del(claimKey) : Promise.resolve(),
+      ]);
+    }
   }
-  // Two identical starts at once: the second finds the first's claim and joins it.
-  if (!(await store.set(keys.brief(briefHash), runId, { ifAbsent: true, ttlSeconds: TTL.runEvents }))) {
-    await Promise.all([store.leaseRelease(keys.liveLeases, runId), store.incr(dailyKey, { by: -1 })]);
-    const other = await joinable(store, briefHash);
-    return other ? liveReply(other, true) : exampleReply("busy");
-  }
-
-  const at = new Date(now()).toISOString();
-  const stated = inputs.statedCustomer === intake.statedCustomer ? intake.stated : inputs.statedCustomer ? statedFromText(inputs.statedCustomer) : null;
-  const seedEvidence = [...new Set(chosen.flatMap((s) => s.evidenceIds))].flatMap((id) => receipts.get(id) ?? []);
-  await saveRunRecord(store, runId, { inputs, stated, site: intake.site, seedEvidence, settings: defaultPackSettings(inputs.direction) });
-  const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at };
-  await setRunMeta(store, meta);
-  (deps.schedule ?? after)(() => deps.execute(runId));
-  return liveReply(runId, false);
 }
 
-async function joinable(store: Store, briefHash: string): Promise<string | null> {
-  const runId = await store.get<string>(keys.brief(briefHash));
-  if (!runId) return null;
+/** A run a repeat start may join: one that exists and has not failed. */
+async function joinable(store: Store, runId: string): Promise<boolean> {
   const meta = await getRunMeta(store, runId);
-  // A failed run is not joined: starting again gives the founder a fresh try.
-  return meta && meta.status !== "failed" ? runId : null;
+  return meta !== null && meta.status !== "failed";
 }
 
 /**
  * Resumes a run that stopped (the deadline) or whose instance died (still "running", lease gone).
- * The next attempt streams again from seq 0; its Qloo answers come from the shared cache and its
- * Claude steps from the run's memo, so it costs nothing until it passes where the last attempt stopped.
+ * The next attempt is claimed first, so two Resume clicks never run it twice. It streams again from
+ * seq 0; its Qloo answers come from the shared cache and its Claude steps from the run's memo, so it
+ * costs nothing until it passes where the last attempt stopped.
  */
 export async function resumeRun(deps: StartDeps, runId: string, ctx: RequestContext): Promise<RunStartResponse> {
   if (!isLive(deps.env ?? process.env)) return exampleReply("replay");
@@ -127,17 +155,24 @@ export async function resumeRun(deps: StartDeps, runId: string, ctx: RequestCont
   const { store } = ctx;
   const meta = await getRunMeta(store, runId);
   if (!meta) throw new ApiFailure("not_found", "That run has expired.", 404);
-  if (meta.status === "done" || meta.status === "failed") return liveReply(runId, true);
-  // With room for none, a lease is only refreshed when this run already holds one: a live instance is still on it.
-  const holding = await store.leaseAcquire(keys.liveLeases, runId, { max: 0, ttlMs: LEASE_MS, now: now() });
-  if (meta.status === "running" && holding) return liveReply(runId, true);
+  if ((await liveStatus(store, meta, now())) !== "stopped") return liveReply(runId, true);
   if ((await store.incr(keys.rate("resume", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > RESUMES_PER_HOUR) {
     throw new ApiFailure("rate_limited", "That run has been resumed a lot this hour. Try again a little later.", 429);
   }
-  if (!(await store.leaseAcquire(keys.liveLeases, runId, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() }))) {
-    throw new ApiFailure("busy", "Two live runs are going right now. Try Resume again in a minute.", 503);
+  const attempt = meta.attempt + 1;
+  const claim = keys.run.attempt(runId, attempt);
+  if (!(await store.set(claim, true, { ifAbsent: true, ttlSeconds: TTL.runEvents }))) return liveReply(runId, true);
+  const lease = runLease(runId, attempt);
+  let leased = false;
+  let scheduled = false;
+  try {
+    leased = await store.leaseAcquire(keys.liveLeases, lease, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() });
+    if (!leased) throw new ApiFailure("busy", "Two live runs are going right now. Try Resume again in a minute.", 503);
+    await setRunMeta(store, { ...meta, attempt, status: "running", updatedAt: new Date(now()).toISOString() });
+    (deps.schedule ?? after)(() => deps.execute(runId));
+    scheduled = true;
+    return liveReply(runId, false);
+  } finally {
+    if (!scheduled) await Promise.allSettled([leased ? store.leaseRelease(keys.liveLeases, lease) : Promise.resolve(), store.del(claim)]);
   }
-  await setRunMeta(store, { ...meta, attempt: meta.attempt + 1, status: "running", updatedAt: new Date(now()).toISOString() });
-  (deps.schedule ?? after)(() => deps.execute(runId));
-  return liveReply(runId, false);
 }

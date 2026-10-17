@@ -27,6 +27,18 @@ export const runMetaSchema = z.strictObject({
 });
 export type RunMeta = z.infer<typeof runMetaSchema>;
 
+/** A live run's admission lease, per attempt, so an old attempt can never release a new one's. */
+export const runLease = (runId: string, attempt: number) => `${runId}:${attempt}`;
+
+/**
+ * What a viewer should be told: a run still marked running whose lease is gone lost its instance
+ * (a crash, a platform kill), so it is stopped and can be resumed.
+ */
+export async function liveStatus(store: Store, meta: RunMeta, now: number = Date.now()): Promise<RunMeta["status"]> {
+  if (meta.status !== "running") return meta.status;
+  return (await store.leaseHeld(keys.liveLeases, runLease(meta.runId, meta.attempt), now)) ? "running" : "stopped";
+}
+
 export async function getRunMeta(store: Store, runId: string): Promise<RunMeta | null> {
   const meta = await store.get<unknown>(keys.run.meta(runId));
   return meta === null ? null : runMetaSchema.parse(meta);
@@ -47,7 +59,8 @@ export async function appendRunEvents(store: Store, runId: string, attempt: numb
   // The counter is refreshed before the list, so it always outlives it, even if this write stops halfway.
   await store.expire(counter, TTL.runEvents);
   await store.append(keys.run.events(runId, attempt), events, { ttlSeconds: TTL.runEvents });
-  await store.expire(keys.run.meta(runId), TTL.runEvents);
+  // The events are written; keeping the meta alive is best effort, so a retry never writes them twice.
+  await store.expire(keys.run.meta(runId), TTL.runEvents).catch(() => undefined);
   return events;
 }
 

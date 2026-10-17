@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../events";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
-import { appendRunEvents, setRunMeta, type RunMeta } from "../store/runs";
+import { appendRunEvents, runLease, setRunMeta, type RunMeta } from "../store/runs";
 import { streamExample, streamLiveRun } from "./stream";
 
 const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
@@ -11,6 +11,9 @@ const runId = `run_${"d".repeat(24)}`;
 const at = "2026-10-17T12:00:00.000Z";
 const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash: "e".repeat(64), createdAt: at, updatedAt: at };
 /** Events as a writer sends them: the store stamps seq, time and attempt. */
+/** A run some instance is still on: its attempt's lease is held. */
+const hold = (store: MemoryStore, attempt = 1) => store.leaseAcquire(keys.liveLeases, runLease(runId, attempt), { max: 2, ttlMs: 600_000 });
+
 const inputsOf = (events: readonly RunEvent[]) =>
   events.map((event) => {
     const input: Record<string, unknown> = { ...event };
@@ -57,6 +60,7 @@ describe("the live run stream", () => {
   it("sends the attempt's events with attempt:seq ids, its status, and ends a while after the run is done", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
+    await hold(store);
     await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(0, 20)));
     const time = clock(async (polls) => {
       if (polls === 1) await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(20)));
@@ -87,9 +91,11 @@ describe("the live run stream", () => {
   it("follows a resume to the next attempt from seq 0, even when the viewer last saw the old one", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
+    await hold(store);
     await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(0, 5)));
     const time = clock(async (polls) => {
       if (polls === 1) {
+        await hold(store, 2);
         await setRunMeta(store, { ...meta, attempt: 2 });
         await appendRunEvents(store, runId, 2, inputsOf(recorded.slice(0, 3)));
       }
@@ -104,6 +110,15 @@ describe("the live run stream", () => {
     ]);
   });
 
+  it("shows a run still marked running, whose lease is gone, as stopped and resumable", async () => {
+    const store = new MemoryStore();
+    await setRunMeta(store, meta);
+    await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(0, 4)));
+    const out = await frames(streamLiveRun(store, runId, clock()));
+    expect(out.filter((f) => f.event === "run")).toHaveLength(4);
+    expect(JSON.parse(out.at(-1)!.data!)).toEqual({ status: "stopped", attempt: 1, resumable: true });
+  });
+
   it("ends with a failed status when the run is gone", async () => {
     const out = await frames(streamLiveRun(new MemoryStore(), runId, clock()));
     expect(out.map((f) => JSON.parse(f.data!).status)).toEqual(["failed"]);
@@ -112,6 +127,7 @@ describe("the live run stream", () => {
   it("stops polling when the viewer leaves", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
+    await hold(store);
     const leave = new AbortController();
     const time = clock((polls) => (polls === 2 ? leave.abort() : undefined));
     await frames(streamLiveRun(store, runId, { ...time, signal: leave.signal }));

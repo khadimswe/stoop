@@ -24,7 +24,7 @@ export const TTL = {
 export const dayOf = (now: number = Date.now()) => new Date(now).toISOString().slice(0, 10);
 
 /** Names of the global daily caps (CLAUDE.md section 6), plus per-visitor limits. */
-export type DailyCap = "live-runs" | "frames" | "qloo" | "renders";
+export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes";
 
 export const keys = {
   run: {
@@ -34,6 +34,8 @@ export const keys = {
     /** The seq counter per attempt: every writer takes its seqs from it. */
     seq: (runId: string, attempt: number) => `run:${runId}:${attempt}:seq`,
     report: (runId: string) => `run:${runId}:report`,
+    /** Claimed by the one start or resume that runs this attempt, so two clicks never run it twice. */
+    attempt: (runId: string, attempt: number) => `run:${runId}:${attempt}:claim`,
     /** What the run was started with (inputs, readings, receipts, settings), so a resume rebuilds it. */
     input: (runId: string) => `run:${runId}:input`,
     /** Recorded Claude steps for a run (memoized stages): a resume replays them for free. */
@@ -61,8 +63,8 @@ export const keys = {
     cache: (requestHash: string) => `qloo:cache:${requestHash}`,
     /** The global pacer's next free start slot (Store.reserveSlot, 250 ms apart). */
     pacer: "qloo:pacer",
-    /** The last x-month-ratelimit-remaining seen. */
-    monthRemaining: "qloo:month-remaining",
+    /** The last x-month-ratelimit-remaining seen this month (a new month starts without it). */
+    monthRemaining: (month: string = new Date().toISOString().slice(0, 7)) => `qloo:month-remaining:${month}`,
   },
   daily: (cap: DailyCap, day: string = dayOf()) => `daily:${cap}:${day}`,
   frames: {

@@ -1,6 +1,6 @@
 // The one store every lane builds on: Upstash Redis in production, MemoryStore in tests and local
 // dev without keys. Values are JSON, so a value read back is always a copy. An adapter encodes and
-// decodes JSON itself (Upstash with automaticDeserialization off), so a stored "123" stays a string.
+// decodes JSON itself, so a stored "123" stays a string.
 // The shared conformance suite in lib/store/contract.ts runs against every adapter.
 
 export interface SetOptions {
@@ -49,6 +49,8 @@ export interface Store {
   leaseRelease(key: string, member: string): Promise<void>;
   /** Live leases, after dropping expired ones. */
   leaseCount(key: string, now?: number): Promise<number>;
+  /** Whether this member holds a live lease. Read only: it never refreshes one. */
+  leaseHeld(key: string, member: string, now?: number): Promise<boolean>;
   /**
    * Reserves the next start slot on a shared clock, so every instance together keeps
    * `spacingMs` between starts (the global Qloo pacer: 250 ms). Returns how long to wait before

@@ -138,6 +138,10 @@ export class MemoryStore implements Store {
     return slot - now;
   }
 
+  async leaseHeld(key: string, member: string, now?: number): Promise<boolean> {
+    return this.leases(key, now ?? this.now()).has(member);
+  }
+
   async ping(): Promise<boolean> {
     return true;
   }
