@@ -1,20 +1,23 @@
 // The creative steps a run hands to the orchestrator: the shared concept writer, the Production Pack
-// templates and the kit. Gate 4's lane B is rebuilding the concept writer (verified slot use, test
-// hypotheses), the Kling and Runway templates and the kit; until it lands, concepts are not written
-// here, so a run records its Qloo calls and Culture briefs and stops each world at "concepts".
+// templates and the kit. The concept worlds and the LLM-only Control both go through these same
+// functions, with the same model and settings, so the only difference between them is the brief.
+import { adPlanEntry } from "../kit/ad-plan";
+import { creatorBrief } from "../kit/creator-brief";
 import { buildProductionPack, checkPack } from "../prompts/pack";
+import { buildKitScripts, pickUgcFormat } from "../prompts/ugc";
+import { conceptSet, writeConcepts } from "../stages/concepts";
 import type { Creative } from "./orchestrator";
 
-const pending = () => {
-  throw new Error("Concepts are written once the Gate 4 concept writer lands.");
-};
-
-export const INTERIM_CREATIVE: Creative = {
-  writeConcepts: async () => pending(),
-  conceptSet: () => pending(),
+export const SHARED_CREATIVE: Creative = {
+  writeConcepts: (product, brief, options) => writeConcepts(product, brief, options),
+  conceptSet: (run, brief) => conceptSet(run, brief),
   buildPack: (input) => buildProductionPack(input),
-  checkPack: (pack, brief, product, names) => checkPack(pack, brief, product, names),
-  kitScripts: () => ({ captions: null, ugc: [] }),
-  adPlanEntry: () => pending(),
-  creatorBrief: () => null,
+  checkPack: (pack, brief, product, names, options) => checkPack(pack, brief, product, names, options),
+  kitScripts: (input) => buildKitScripts(input),
+  formatReason: (concept) => {
+    const pick = pickUgcFormat(concept);
+    return { format: pick.format.label, reason: pick.reason };
+  },
+  adPlanEntry: (input) => adPlanEntry(input),
+  creatorBrief: (input) => creatorBrief(input),
 };

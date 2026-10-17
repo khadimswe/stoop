@@ -38,7 +38,9 @@ export interface Creative {
   conceptSet(run: ConceptRun, brief: BriefSlots): ConceptSet;
   buildPack(input: { product: ProductSpec; brief: BriefSlots; concept: Concept; settings: PackSettings }): ProductionPack;
   checkPack(pack: ProductionPack, brief: BriefSlots, product: ProductSpec, names: readonly string[], options: { richSlots: readonly string[] }): PackProblem[];
-  kitScripts(input: { product: ProductSpec; brief: BriefSlots; concept: Concept }): { captions: string | null; ugc: UgcScript[] };
+  kitScripts(input: { product: ProductSpec; brief: BriefSlots; concept: Concept; names?: readonly string[] }): { captions: string | null; ugc: UgcScript[] };
+  /** Which short-form format the kept concept fits, and why (for the trace). */
+  formatReason(concept: Concept): { format: string; reason: string };
   adPlanEntry(input: { label: string; ageBands: AgeBucket[]; cities: { label: string; evidenceIds: string[] }[]; concept: Concept; evidenceIds: string[] }): AdPlanEntry;
   creatorBrief(input: { brief: BriefSlots; creators: CultureFieldResult | null; concepts: ConceptSet }): CreatorBrief | null;
 }
@@ -300,7 +302,9 @@ async function runWorld(
       const pack = env.creative.buildPack({ product: run.inputs.product, brief: crafted.brief, concept, settings: run.settings });
       const problems = env.creative.checkPack(pack, crafted.brief, run.inputs.product, names, { richSlots: crafted.richSlots });
       if (problems.length) decide(wenv, "prompts", `The pack for ${band} has ${problems.length} ${problems.length === 1 ? "problem" : "problems"}`, problems.slice(0, 3).map((p) => p.message).join(" "));
-      const scripts = env.creative.kitScripts({ product: run.inputs.product, brief: crafted.brief, concept });
+      const scripts = env.creative.kitScripts({ product: run.inputs.product, brief: crafted.brief, concept, names });
+      const format = env.creative.formatReason(concept);
+      decide(wenv, "prompts", `Picked the ${format.format} format for ${band}'s scripts`, format.reason);
       const cityCues = segment.cities.slice(0, 3).map((c) => ({ label: c.label, evidenceIds: c.evidenceIds }));
       const adPlan = env.creative.adPlanEntry({ label: segment.label, ageBands: [segment.bucket], cities: cityCues, concept, evidenceIds: segment.evidenceIds });
       const creatorField = crafted.culture.find((f) => f.field === "creators") ?? null;
@@ -333,7 +337,10 @@ async function runControl(env: BriefEnv, run: BriefRun, brief: BriefSlots, maps:
     const packed = await stages.time("prompts", async () => {
       const concept = concepts.result.best.concept;
       const pack = env.creative.buildPack({ product: run.inputs.product, brief, concept, settings: run.settings });
-      const scripts = env.creative.kitScripts({ product: run.inputs.product, brief, concept });
+      // The Control has no Qloo-backed slots; its pack still passes the same coverage and guardrail checks.
+      const problems = env.creative.checkPack(pack, brief, run.inputs.product, names, { richSlots: [] });
+      if (problems.length) decide({ client: env.client, ctx: env.ctx, emit, reference: env.reference, inReference: env.inReference, segmentId: CONTROL_ID }, "prompts", `The generic brief's pack has ${problems.length} ${problems.length === 1 ? "problem" : "problems"}`, problems.slice(0, 3).map((p) => p.message).join(" "));
+      const scripts = env.creative.kitScripts({ product: run.inputs.product, brief, concept, names });
       return { pack, kit: { ...scripts, adPlan: null, creatorBrief: null } };
     });
     stages.done("prompts", packed.stats);

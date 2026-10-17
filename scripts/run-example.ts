@@ -8,7 +8,7 @@
 //   npm run example -- <slug>|--picks [--record]
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { INTERIM_CREATIVE } from "../lib/agent/creative";
+import { SHARED_CREATIVE } from "../lib/agent/creative";
 import { LlmStore, recordingModel } from "../lib/agent/llm-replay";
 import { stoopModel, stoopModelId } from "../lib/agent/model";
 import { recordExampleBrief, replayOptions } from "../lib/demo/example-run";
@@ -38,7 +38,7 @@ async function recordLive(slug: ExampleSlug): Promise<void> {
   const store = LlmStore.named(slug);
   const started = Date.now();
   const model = recordingModel(Object.assign(stoopModel(modelId), { modelId }), store);
-  const { report } = await recordExampleBrief(slug, { client, model, modelId, creative: INTERIM_CREATIVE });
+  const { report } = await recordExampleBrief(slug, { client, model, modelId, creative: SHARED_CREATIVE });
   // A new name for every recording: earlier ones still hold answers this run replayed.
   let name = `culture-${slug}`;
   for (let n = 2; findFixture(name); n++) name = `culture-${slug}-${n}`;
@@ -52,7 +52,7 @@ async function recordLive(slug: ExampleSlug): Promise<void> {
 }
 
 async function replay(slug: ExampleSlug): Promise<void> {
-  const { events, report } = await recordExampleBrief(slug, replayOptions(slug, INTERIM_CREATIVE));
+  const { events, report } = await recordExampleBrief(slug, replayOptions(slug, SHARED_CREATIVE));
   await mkdir(runDir(slug), { recursive: true });
   await writeFile(path.join(runDir(slug), "run.events.json"), json(events));
   await writeFile(path.join(runDir(slug), "run.report.json"), json(report));
