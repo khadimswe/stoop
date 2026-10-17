@@ -176,7 +176,8 @@ async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean
     console.warn(`${candidate.slug}: concepts.json was written with older concept instructions (no declared slots or test hypothesis). Exporting for review; refresh it before approving.`);
   }
   const pack = buildProductionPack({ product, brief, concept: bestConcept(concepts), settings });
-  const problems = checkPack(pack, brief, product, baselineNames(run, candidate));
+  // The Control has no Qloo data, so no slot is rich.
+  const problems = checkPack(pack, brief, product, baselineNames(run, candidate), { richSlots: [] });
   if (problems.length > 0) {
     console.error(`${candidate.slug}: ${problems.length} problem(s), nothing written:`);
     for (const p of problems) console.error(`  ${p.where}: ${p.message}`);

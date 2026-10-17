@@ -118,3 +118,10 @@ export const fragment = (text: string) => {
 };
 
 export const settingText = (brief: BriefSlots) => brief.setting.map((cue) => cue.text).join("; ");
+
+/**
+ * Like fragment(), and also lowercases an opening article ("A woman shakes" reads "a woman shakes"),
+ * for text placed mid-sentence. Newer templates only: fragment() stays as it is so existing prompts
+ * keep their approved hashes.
+ */
+export const midSentence = (text: string) => fragment(text).replace(/^(?:A|An|The)\s/, (article) => article.toLowerCase());

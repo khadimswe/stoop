@@ -38,7 +38,7 @@ describe("committed baselines", () => {
     // instructions of their day: newer instructions make them stale, not wrong).
     expect(concepts.inputHash).toBe(conceptInputHash(product, brief, candidateDirection(candidate), concepts.instructionsHash));
     const pack = buildProductionPack({ product, brief, concept: bestConcept(concepts), settings: defaultPackSettings(candidateDirection(candidate)) });
-    expect(checkPack(pack, brief, product, baselineNames(run, candidate))).toEqual([]);
+    expect(checkPack(pack, brief, product, baselineNames(run, candidate), { richSlots: [] })).toEqual([]);
     // The Control never names a city the LLM guessed.
     for (const city of run.brief.assumedCities) {
       for (const render of pack.renders) expect(render.prompt).not.toContain(city);
