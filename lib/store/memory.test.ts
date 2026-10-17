@@ -29,3 +29,13 @@ describe("store keys", () => {
     expect(keys.daily("live-runs", "2026-10-17")).toBe("daily:live-runs:2026-10-17");
   });
 });
+
+describe("getStore", () => {
+  it("refuses the in-memory store on Vercel, where instances do not share memory", async () => {
+    const { getStore, setStore } = await import("./index");
+    setStore(null);
+    expect(() => getStore({ VERCEL: "1" })).toThrow(/local use only/);
+    expect(getStore({}).kind).toBe("memory");
+    setStore(null);
+  });
+});

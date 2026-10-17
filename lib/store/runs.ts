@@ -44,8 +44,10 @@ export async function appendRunEvents(store: Store, runId: string, attempt: numb
   const counter = keys.run.seq(runId, attempt);
   const end = await store.incr(counter, { by: inputs.length, ttlSeconds: TTL.runEvents });
   const events = inputs.map((input, i) => runEventSchema.parse({ ...input, seq: end - inputs.length + i, at, attempt }));
+  // The counter is refreshed before the list, so it always outlives it, even if this write stops halfway.
+  await store.expire(counter, TTL.runEvents);
   await store.append(keys.run.events(runId, attempt), events, { ttlSeconds: TTL.runEvents });
-  await Promise.all([store.expire(counter, TTL.runEvents), store.expire(keys.run.meta(runId), TTL.runEvents)]);
+  await store.expire(keys.run.meta(runId), TTL.runEvents);
   return events;
 }
 

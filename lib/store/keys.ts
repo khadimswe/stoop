@@ -12,6 +12,8 @@ export const TTL = {
   report: 30 * DAY_SECONDS,
   /** An intake (product, reading, proposed and searched seeds) waiting for /start's confirmation. */
   intake: DAY_SECONDS,
+  /** A rendered storyboard frame's URL, by prompt hash. */
+  frameRender: 30 * DAY_SECONDS,
   /** Qloo responses (CLAUDE.md section 2). */
   qlooCache: 7 * DAY_SECONDS,
   /** Daily counters outlive their day a little, so a counter never resets mid-day by clock skew. */
@@ -58,6 +60,10 @@ export const keys = {
     monthRemaining: "qloo:month-remaining",
   },
   daily: (cap: DailyCap, day: string = dayOf()) => `daily:${cap}:${day}`,
+  frames: {
+    /** A rendered frame by its prompt hash (the stored URL): a repeat render, as after a resume, is free and not counted against the cap. */
+    render: (promptHash: string) => `frames:render:${promptHash}`,
+  },
   /** Per-visitor limits in a time window: `window` is e.g. the hour or day the count belongs to. */
   rate: (name: string, visitor: VisitorId, window: string) => `rate:${name}:${visitor}:${window}`,
   waitlist: {
