@@ -5,6 +5,8 @@ import { evidenceSchema } from "../evidence";
 import { productSpecSchema } from "../prompts/brief";
 import { costSchema, reportSchema, seedSchema } from "../report/schema";
 import { ageBandLabel, ageBucketSchema } from "../types";
+import { TOKEN_PATTERN } from "../mcp/token";
+import { renderPlanSchema, renderStatusSchema, VIDEO_ACCESS } from "../render/schema";
 import { exampleSlugSchema, runIdSchema, intakeIdSchema, VOTE_CHOICES } from "./requests";
 
 const evidenceIdSchema = z.string().regex(/^ev_[0-9a-f]{12}$/);
@@ -172,6 +174,33 @@ export const healthResponseSchema = z.strictObject({
   qlooMonthRemaining: z.number().int().nullable(),
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
+// --- Draft video: GET /api/render/access, POST /api/render/plan, POST /api/render, GET /api/render/[job]
+
+/** Which video line the Output section shows this visitor, and how many server-paid drafts their pass has left. */
+export const renderAccessResponseSchema = z.strictObject({
+  video: z.enum(VIDEO_ACCESS),
+  rendersLeft: z.number().int().nonnegative().nullable(),
+  byok: z.boolean(),
+});
+export type RenderAccessResponse = z.infer<typeof renderAccessResponseSchema>;
+
+export const renderPlanResponseSchema = z.strictObject({ plan: renderPlanSchema });
+export type RenderPlanResponse = z.infer<typeof renderPlanResponseSchema>;
+
+export const renderStatusResponseSchema = z.strictObject({ job: renderStatusSchema });
+export type RenderStatusResponse = z.infer<typeof renderStatusResponseSchema>;
+
+// --- POST /api/mcp/token ------------------------------------------------------------------------
+
+/** The token, shown once. */
+export const mcpTokenResponseSchema = z.strictObject({
+  token: z.string().regex(TOKEN_PATTERN),
+  expiresAt: z.iso.datetime(),
+  /** Whether the copy by email went out (no email without Resend keys). */
+  emailed: z.boolean(),
+});
+export type McpTokenResponse = z.infer<typeof mcpTokenResponseSchema>;
 
 /** The trace footer: "completed in 48 s · 31 Qloo calls · $0.38". */
 export { costSchema };
