@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { approvalsSchema, CONTROL_KEY, demoMediaFor, manifestSchema, type DemoApprovals, type DemoClip, type DemoManifest, type DemoStoryboard } from "./manifest";
+import { FRAMES_PER_WORLD } from "../prompts/frames";
+import { approvalsSchema, CONTROL_KEY, demoMediaFor, MAX_DEMO_FRAMES, manifestSchema, type DemoApprovals, type DemoClip, type DemoManifest, type DemoStoryboard } from "./manifest";
 
 const hex = (c: string) => c.repeat(64);
 const clip: DemoClip = {
@@ -48,6 +49,11 @@ describe("demo manifest schema", () => {
     expect(() => manifestSchema.parse(manifest({ packshots: [{ ...packshot, file: "/demo/a.mp4" }] }))).toThrow();
   });
 
+  it("allows as many frames as a live storyboard, one per scene", () => {
+    expect(MAX_DEMO_FRAMES).toBe(FRAMES_PER_WORLD);
+    expect(() => manifestSchema.parse(manifest({ storyboards: [board("seg-a", [frame(0, hex("2"), hex("b")), frame(0, hex("3"), hex("c"))])] }))).toThrow(/one frame/);
+  });
+
   it("rejects unknown examples, more than 4 frames and a Control clip with a segment", () => {
     expect(() => manifestSchema.parse(manifest({ clips: [{ ...clip, example: "coffee" as DemoClip["example"] }] }))).toThrow();
     const five = [0, 1, 2, 3, 4].map((i) => frame(i, hex("2"), hex("b")));
@@ -80,8 +86,13 @@ describe("demoMediaFor", () => {
     expect(Object.keys(demoMediaFor(all, both, "food-hot-sauce").storyboards).sort()).toEqual([CONTROL_KEY, "seg-a"]);
   });
 
+  it("shows a clip only when its rendered file is approved too", () => {
+    expect(demoMediaFor(all, approvals({ prompts: [hex("1")] }), "food-hot-sauce").clips).toEqual([]);
+    expect(demoMediaFor(all, approvals({ prompts: [hex("1")], files: [hex("a")] }), "food-hot-sauce").clips).toEqual([clip]);
+  });
+
   it("keeps each example's media to itself", () => {
-    const everything = approvals({ prompts: [hex("1"), hex("2"), hex("3"), hex("4")], files: [hex("b"), hex("c"), hex("d")] });
+    const everything = approvals({ prompts: [hex("1"), hex("2"), hex("3"), hex("4")], files: [hex("a"), hex("b"), hex("c"), hex("d")] });
     expect(demoMediaFor(all, everything, "home-candles")).toEqual({ packshot: null, storyboards: {}, clips: [] });
     const sauce = demoMediaFor(all, everything, "food-hot-sauce");
     expect(sauce.packshot).toEqual(packshot);

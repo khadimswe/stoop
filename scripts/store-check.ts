@@ -14,7 +14,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function main() {
   const store = getStore();
   if (store.kind !== "upstash") {
-    console.log("No Upstash keys are set (UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN), so there is nothing to check.");
+    console.log("No Upstash keys are set (UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, or Vercel's KV_REST_API_URL and KV_REST_API_TOKEN), so there is nothing to check.");
     process.exitCode = 1;
     return;
   }
