@@ -1,12 +1,9 @@
 import { X } from "lucide-react";
+import type { ReceiptRow } from "@/lib/report/view/types";
 import { Chip } from "./chip";
 import { cn } from "cn";
 
-export interface ReceiptRow {
-  label: string;
-  value: string;
-  mono?: boolean;
-}
+export type { ReceiptRow };
 
 /**
  * One receipt, demo beat 3: the Qloo request and result behind a single cue. Gate 7 renders it inside
@@ -49,8 +46,8 @@ export function ReceiptPanel({
       </div>
       <p className="font-display text-xl leading-snug font-bold [font-stretch:90%]">{title}</p>
       <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3.5 gap-y-2.5 text-sm">
-        {rows.map((row) => (
-          <div key={row.label} className="contents">
+        {rows.map((row, i) => (
+          <div key={`${i}-${row.label}`} className="contents">
             <dt className="text-ink-soft">{row.label}</dt>
             <dd className={cn("min-w-0 break-words", row.mono && "font-mono")}>{row.value}</dd>
           </div>
