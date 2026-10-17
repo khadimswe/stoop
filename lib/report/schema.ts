@@ -7,17 +7,15 @@ import { evidenceSchema } from "../evidence";
 import { AGE_BUCKETS } from "../qloo/constants";
 import { productSpecSchema } from "../prompts/brief";
 import { creativeDirectionSchema } from "../types";
-import { comparisonSchema, controlSchema, worldSchema } from "./world";
+import { partialSchema, stageSchema, stageStatsSchema } from "./stages";
+import { CONTROL_ID, comparisonSchema, controlSchema, worldSchema } from "./world";
+
+export { STAGES, stageSchema, stageStatsSchema, partialSchema, type Stage, type StageStats } from "./stages";
 
 export const REPORT_VERSION = 1;
 
 const evidenceIds = z.array(z.string().regex(/^ev_[0-9a-f]{12}$/));
 const ageSkews = z.record(z.enum(AGE_BUCKETS), z.number().min(-1).max(1));
-
-/** Pipeline stages, in progress-rail order. */
-export const STAGES = ["prove", "gap", "segments", "culture", "concepts", "prompts", "score"] as const;
-export type Stage = (typeof STAGES)[number];
-export const stageSchema = z.enum(STAGES);
 
 // --- Inputs ----------------------------------------------------------------------------------
 
@@ -210,12 +208,6 @@ export const traceStepSchema = z.strictObject({
 });
 export type TraceStep = z.infer<typeof traceStepSchema>;
 
-export const stageStatsSchema = z.strictObject({
-  durationMs: z.number().nonnegative(),
-  liveCalls: z.number().int().nonnegative(),
-  cachedCalls: z.number().int().nonnegative(),
-});
-
 // --- The report ------------------------------------------------------------------------------
 
 const reportShape = z.strictObject({
@@ -239,9 +231,10 @@ const reportShape = z.strictObject({
   control: controlSchema.nullable(),
   comparison: comparisonSchema.nullable(),
   trace: z.array(traceStepSchema),
+  /** Run-scoped stages only; each world (and the Control) keeps its own stats. */
   stats: z.strictObject({ stages: z.partialRecord(stageSchema, stageStatsSchema) }),
   /** Set when the run stopped early; the report still shows what was measured. */
-  partial: z.strictObject({ stage: stageSchema, reason: z.string() }).nullable(),
+  partial: partialSchema.nullable(),
 });
 
 /** Every evidence id anywhere in a value (evidenceIds arrays and single evidenceId fields). */
@@ -261,12 +254,36 @@ export function citedEvidence(value: unknown): string[] {
   return found;
 }
 
-/** A report is valid only when every receipt it cites is in its ledger. No evidence, no display. */
+/**
+ * A report is valid only when every receipt it cites is in its ledger (no evidence, no display) and
+ * its parts agree: each world is one of the measured segments, once, with its own brief and pack, and
+ * every fit and comparison line points at a world.
+ */
 export const reportSchema = reportShape.superRefine((report, ctx) => {
   const ledger = new Set(report.ledger.map((e) => e.id));
   const cited = citedEvidence({ inputs: report.inputs, audience: report.audience, worlds: report.worlds, control: report.control, comparison: report.comparison, trace: report.trace });
-  for (const id of cited) {
+  for (const id of new Set(cited)) {
     if (!ledger.has(id)) ctx.addIssue({ code: "custom", message: `cites ${id}, which is not in the ledger`, path: ["ledger"] });
   }
+  const issue = (message: string, path: (string | number)[]) => ctx.addIssue({ code: "custom", message, path });
+  const segmentIds = report.audience.segments ? new Set(report.audience.segments.items.map((s) => s.id)) : null;
+  const worldIds = new Set<string>();
+  report.worlds.forEach((world, i) => {
+    if (worldIds.has(world.segmentId)) issue(`world ${world.segmentId} appears twice`, ["worlds", i]);
+    worldIds.add(world.segmentId);
+    if (segmentIds && !segmentIds.has(world.segmentId)) issue(`world ${world.segmentId} is not a measured segment`, ["worlds", i]);
+    if (world.brief && world.brief.segment.id !== world.segmentId) issue(`world ${world.segmentId} carries the brief of ${world.brief.segment.id}`, ["worlds", i, "brief"]);
+    if (world.pack && world.pack.segmentId !== world.segmentId) issue(`world ${world.segmentId} carries the pack of ${world.pack.segmentId}`, ["worlds", i, "pack"]);
+  });
+  if (report.control) {
+    if (report.control.brief.segment.id !== CONTROL_ID) issue(`the Control's brief is for ${report.control.brief.segment.id}`, ["control", "brief"]);
+    if (report.control.pack && report.control.pack.segmentId !== CONTROL_ID) issue(`the Control carries the pack of ${report.control.pack.segmentId}`, ["control", "pack"]);
+    report.control.fits.forEach((fit, i) => {
+      if (!worldIds.has(fit.segmentId)) issue(`the Control's fit for ${fit.segmentId} has no world`, ["control", "fits", i]);
+    });
+  }
+  report.comparison?.worlds.forEach((line, i) => {
+    if (!worldIds.has(line.segmentId)) issue(`the comparison line for ${line.segmentId} has no world`, ["comparison", "worlds", i]);
+  });
 });
 export type Report = z.infer<typeof reportShape>;

@@ -78,15 +78,19 @@ export function rankWithin(values: readonly number[]): number[] {
   return values.map((value) => 1 + values.filter((other) => other > value).length);
 }
 
+/** Fewer panel items than this come back, and there is no median to be above or below. */
+export const MIN_PANEL_FOR_MEDIAN = 5;
+
 /**
  * Where a score sits against a frozen reference panel scored in the same response.
  * Shown as "beats N of M reference artists"; below the panel median counts as unsupported.
+ * With fewer than MIN_PANEL_FOR_MEDIAN panel items there is no median: aboveMedian is null.
  */
 export function panelPosition(
   score: number,
   panelScores: readonly number[],
 ): { beats: number; of: number; aboveMedian: boolean | null } {
-  const mid = median(panelScores);
+  const mid = panelScores.length < MIN_PANEL_FOR_MEDIAN ? null : median(panelScores);
   return {
     beats: panelScores.filter((p) => score > p).length,
     of: panelScores.length,

@@ -1,5 +1,5 @@
 import { createLedger, type Ledger } from "../evidence";
-import { RUN_CAP } from "./budget";
+import { RUN_BUDGET, RUN_CAP } from "./budget";
 
 /** Per-run state shared by every Qloo call in one agent run. */
 export interface RunContext {
@@ -33,4 +33,9 @@ export function createRunContext(options: { runId: string; cap?: number; monthly
     rowCalls: {},
     ledger: createLedger(),
   };
+}
+
+/** A live run's context: the run cap plus the per-row table, so every call is planned and capped. */
+export function createLiveRunContext(runId: string, options: { monthlyFloor?: number } = {}): RunContext {
+  return createRunContext({ runId, cap: RUN_CAP, rowCaps: RUN_BUDGET, ...options });
 }

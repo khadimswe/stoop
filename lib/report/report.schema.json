@@ -1,0 +1,3383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "meta": {
+      "$ref": "#/$defs/__schema1"
+    },
+    "inputs": {
+      "$ref": "#/$defs/__schema2"
+    },
+    "ledger": {
+      "$ref": "#/$defs/__schema8"
+    },
+    "audience": {
+      "$ref": "#/$defs/__schema9"
+    },
+    "worlds": {
+      "$ref": "#/$defs/__schema13"
+    },
+    "control": {
+      "$ref": "#/$defs/__schema69"
+    },
+    "comparison": {
+      "$ref": "#/$defs/__schema77"
+    },
+    "trace": {
+      "$ref": "#/$defs/__schema78"
+    },
+    "stats": {
+      "$ref": "#/$defs/__schema79"
+    },
+    "partial": {
+      "$ref": "#/$defs/__schema80"
+    }
+  },
+  "required": [
+    "version",
+    "meta",
+    "inputs",
+    "ledger",
+    "audience",
+    "worlds",
+    "control",
+    "comparison",
+    "trace",
+    "stats",
+    "partial"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "number",
+      "const": 1
+    },
+    "__schema1": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "live",
+            "example"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "live",
+            "recorded",
+            "partial"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "createdAt",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "__schema2": {
+      "type": "object",
+      "properties": {
+        "product": {
+          "type": "object",
+          "properties": {
+            "slug": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "brandName": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "oneLine": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "description"
+                    },
+                    "lookDescription": {
+                      "type": "string",
+                      "minLength": 20
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "lookDescription"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "images"
+                    },
+                    "images": {
+                      "minItems": 1,
+                      "maxItems": 14,
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/__schema4"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "images"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "slug",
+            "name",
+            "brandName",
+            "oneLine",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "seeds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema5"
+          }
+        },
+        "statedCustomer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "$ref": "#/$defs/__schema7"
+        }
+      },
+      "required": [
+        "product",
+        "seeds",
+        "statedCustomer",
+        "region",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "__schema3": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "__schema4": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "showsPerson": {
+          "type": "boolean"
+        },
+        "alt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "showsPerson"
+      ],
+      "additionalProperties": false
+    },
+    "__schema5": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "entity",
+                "tag"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "name",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "qloo",
+            "suggested",
+            "you"
+          ]
+        },
+        "match": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "affix"
+          ]
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/__schema6"
+        }
+      },
+      "required": [
+        "ref",
+        "origin",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "__schema6": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ev_[0-9a-f]{12}$"
+      }
+    },
+    "__schema7": {
+      "type": "object",
+      "properties": {
+        "look": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "live_action",
+            "animation_2d",
+            "animation_3d",
+            "stop_motion",
+            "illustrated"
+          ]
+        },
+        "cast": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "adult_talent",
+            "product_only",
+            "pet"
+          ]
+        },
+        "energy": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "calm",
+            "upbeat",
+            "high"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 280
+        }
+      },
+      "required": [
+        "look",
+        "cast",
+        "energy"
+      ],
+      "additionalProperties": false
+    },
+    "__schema8": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ev_[0-9a-f]{12}$"
+          },
+          "endpoint": {
+            "type": "string",
+            "enum": [
+              "/search",
+              "/v2/tags",
+              "/v2/insights",
+              "/v2/analysis/compare"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "label": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "durationMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "rank": {
+            "type": "object",
+            "properties": {
+              "position": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "of": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "position",
+              "of"
+            ],
+            "additionalProperties": false
+          },
+          "panelPosition": {
+            "type": "object",
+            "properties": {
+              "beats": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "of": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "beats",
+              "of"
+            ],
+            "additionalProperties": false
+          },
+          "explain": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "endpoint",
+          "params",
+          "status",
+          "cached",
+          "fetchedAt",
+          "durationMs"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "__schema9": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "seeds": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema5"
+                  }
+                },
+                "demographics": {
+                  "type": "object",
+                  "properties": {
+                    "age": {
+                      "$ref": "#/$defs/__schema10"
+                    },
+                    "gender": {
+                      "type": "object",
+                      "properties": {
+                        "male": {
+                          "type": "number"
+                        },
+                        "female": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "male",
+                        "female"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "perSeed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seedId": {
+                            "type": "string"
+                          },
+                          "age": {
+                            "$ref": "#/$defs/__schema10"
+                          },
+                          "gender": {
+                            "type": "object",
+                            "properties": {
+                              "male": {
+                                "type": "number"
+                              },
+                              "female": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "male",
+                              "female"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "seedId",
+                          "age",
+                          "gender"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "evidenceIds": {
+                      "$ref": "#/$defs/__schema6"
+                    }
+                  },
+                  "required": [
+                    "age",
+                    "gender",
+                    "perSeed",
+                    "evidenceIds"
+                  ],
+                  "additionalProperties": false
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "music",
+                          "tone"
+                        ]
+                      },
+                      "affinity": {
+                        "type": "number"
+                      },
+                      "rank": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "evidenceIds": {
+                        "$ref": "#/$defs/__schema6"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "kind",
+                      "affinity",
+                      "rank",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "cities": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema11"
+                  }
+                },
+                "cityRanks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "metro": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "rank": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "flags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "small-set-only",
+                            "large-swing"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "metro",
+                      "label",
+                      "rank",
+                      "flags"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "smallSetOnly": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "candidateSetRank": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "fullRank": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "candidateSetRank",
+                      "fullRank"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "coverage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "flags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "thin-heatmap",
+                      "few-seeds"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "seeds",
+                "demographics",
+                "tags",
+                "cities",
+                "cityRanks",
+                "smallSetOnly",
+                "coverage",
+                "flags"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "gap",
+                    "partly",
+                    "confirmed",
+                    "not_stated"
+                  ]
+                },
+                "dimensions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "dimension": {
+                        "type": "string",
+                        "enum": [
+                          "age",
+                          "gender",
+                          "cities",
+                          "taste"
+                        ]
+                      },
+                      "stated": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "statedBy": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "you",
+                              "site"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "measured": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "outcome": {
+                        "type": "string",
+                        "enum": [
+                          "gap",
+                          "near_tie",
+                          "confirmed",
+                          "unverifiable",
+                          "not_stated"
+                        ]
+                      },
+                      "margin": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "position": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "tag": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "beats": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "of": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "tag",
+                              "beats",
+                              "of"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "broad": {
+                        "type": "boolean"
+                      },
+                      "evidenceIds": {
+                        "$ref": "#/$defs/__schema6"
+                      }
+                    },
+                    "required": [
+                      "dimension",
+                      "stated",
+                      "statedBy",
+                      "measured",
+                      "outcome",
+                      "margin",
+                      "position",
+                      "broad",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "site",
+                          "stated",
+                          "generic",
+                          "measured",
+                          "near",
+                          "broad",
+                          "unverifiable",
+                          "confirmed",
+                          "unstated"
+                        ]
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "evidenceIds": {
+                        "$ref": "#/$defs/__schema6"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "text",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "outcome",
+                "dimensions",
+                "lines"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "segments": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9-]+$"
+                      },
+                      "bucket": {
+                        "type": "string",
+                        "enum": [
+                          "24_and_younger",
+                          "25_to_29",
+                          "30_to_34",
+                          "35_to_44",
+                          "45_to_54",
+                          "55_and_older"
+                        ]
+                      },
+                      "ageBand": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "skew": {
+                        "type": "number"
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "genres": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "cities": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema11"
+                        }
+                      },
+                      "artists": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema12"
+                        }
+                      },
+                      "brands": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema12"
+                        }
+                      },
+                      "evidenceIds": {
+                        "$ref": "#/$defs/__schema6"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "bucket",
+                      "ageBand",
+                      "skew",
+                      "label",
+                      "genres",
+                      "cities",
+                      "artists",
+                      "brands",
+                      "evidenceIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "distinctness": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "merged": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "items",
+                "distinctness",
+                "merged"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "proof",
+        "gap",
+        "segments"
+      ],
+      "additionalProperties": false
+    },
+    "__schema10": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "24_and_younger",
+          "25_to_29",
+          "30_to_34",
+          "35_to_44",
+          "45_to_54",
+          "55_and_older"
+        ]
+      },
+      "additionalProperties": {
+        "type": "number",
+        "minimum": -1,
+        "maximum": 1
+      },
+      "required": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34",
+        "35_to_44",
+        "45_to_54",
+        "55_and_older"
+      ]
+    },
+    "__schema11": {
+      "type": "object",
+      "properties": {
+        "metro": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "lift": {
+          "type": "number"
+        },
+        "cells": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "topCell": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparedWith": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "candidateSetRank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "small-set-only",
+              "large-swing"
+            ]
+          }
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "audience",
+            "age-band"
+          ]
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/__schema6"
+        }
+      },
+      "required": [
+        "metro",
+        "label",
+        "rank",
+        "lift",
+        "cells",
+        "topCell",
+        "comparedWith",
+        "candidateSetRank",
+        "flags",
+        "basis",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "__schema12": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "affinity": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "popularity": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/__schema6"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "rank",
+        "affinity",
+        "popularity",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "__schema13": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "segmentId": {
+            "$ref": "#/$defs/__schema14"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "settingCity": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "localityId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "audienceRank": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "evidenceIds": {
+                    "$ref": "#/$defs/__schema15"
+                  }
+                },
+                "required": [
+                  "label",
+                  "localityId",
+                  "audienceRank",
+                  "evidenceIds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "check": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "picks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "qloo",
+                            "control"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "entity",
+                            "tag"
+                          ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "position": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/$defs/__schema18"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "evidenceIds": {
+                          "$ref": "#/$defs/__schema15"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "kind",
+                        "id",
+                        "name",
+                        "type",
+                        "position",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "cliches": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "dimension": {
+                          "type": "string",
+                          "enum": [
+                            "age",
+                            "cities",
+                            "music",
+                            "mood",
+                            "reference",
+                            "setting",
+                            "wardrobe"
+                          ]
+                        },
+                        "assumed": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "measured": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "evidenceIds": {
+                          "$ref": "#/$defs/__schema15"
+                        }
+                      },
+                      "required": [
+                        "dimension",
+                        "assumed",
+                        "measured",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "picks",
+                  "cliches"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "culture": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "$ref": "#/$defs/__schema22"
+                    },
+                    "signal": {
+                      "$ref": "#/$defs/__schema23"
+                    },
+                    "scope": {
+                      "$ref": "#/$defs/__schema24"
+                    },
+                    "sources": {
+                      "$ref": "#/$defs/__schema25"
+                    },
+                    "cues": {
+                      "$ref": "#/$defs/__schema27"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "signal",
+                    "scope",
+                    "sources",
+                    "cues"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "brief": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "richSlots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema36"
+            }
+          },
+          "concepts": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema37"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema59"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema61"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stats": {
+            "$ref": "#/$defs/__schema65"
+          },
+          "partial": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema68"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "segmentId",
+          "label",
+          "settingCity",
+          "check",
+          "culture",
+          "brief",
+          "richSlots",
+          "concepts",
+          "pack",
+          "kit",
+          "stats",
+          "partial"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "__schema14": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "__schema15": {
+      "minItems": 1,
+      "$ref": "#/$defs/__schema17"
+    },
+    "__schema16": {
+      "type": "string",
+      "pattern": "^ev_[0-9a-f]{12}$"
+    },
+    "__schema17": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema16"
+      }
+    },
+    "__schema18": {
+      "type": "object",
+      "properties": {
+        "beats": {
+          "$ref": "#/$defs/__schema19"
+        },
+        "of": {
+          "$ref": "#/$defs/__schema20"
+        },
+        "aboveMedian": {
+          "$ref": "#/$defs/__schema21"
+        }
+      },
+      "required": [
+        "beats",
+        "of",
+        "aboveMedian"
+      ],
+      "additionalProperties": false
+    },
+    "__schema19": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema20": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema21": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "__schema22": {
+      "type": "string",
+      "enum": [
+        "music",
+        "visual",
+        "wardrobe",
+        "setting",
+        "mood",
+        "voice",
+        "creators"
+      ]
+    },
+    "__schema23": {
+      "type": "string",
+      "enum": [
+        "rich",
+        "thin",
+        "none"
+      ]
+    },
+    "__schema24": {
+      "type": "string",
+      "enum": [
+        "segment",
+        "audience"
+      ]
+    },
+    "__schema25": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "tag"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema18"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema26"
+            }
+          },
+          "evidenceIds": {
+            "$ref": "#/$defs/__schema15"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "type",
+          "rank",
+          "position",
+          "why",
+          "evidenceIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "__schema26": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema27": {
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema28"
+      }
+    },
+    "__schema28": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "$ref": "#/$defs/__schema29"
+        },
+        "origin": {
+          "$ref": "#/$defs/__schema30"
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/__schema31"
+        }
+      },
+      "required": [
+        "text",
+        "origin",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "__schema29": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema30": {
+      "type": "string",
+      "enum": [
+        "qloo",
+        "interpreted",
+        "creative",
+        "yours"
+      ]
+    },
+    "__schema31": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "__schema32": {
+      "type": "object",
+      "properties": {
+        "segment": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/__schema3"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ageBands": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema33"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "ageBands"
+          ],
+          "additionalProperties": false
+        },
+        "productRole": {
+          "$ref": "#/$defs/__schema28"
+        },
+        "mood": {
+          "$ref": "#/$defs/__schema28"
+        },
+        "music": {
+          "$ref": "#/$defs/__schema28"
+        },
+        "visual": {
+          "$ref": "#/$defs/__schema28"
+        },
+        "wardrobe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema28"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "setting": {
+          "minItems": 1,
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema28"
+          }
+        },
+        "voice": {
+          "type": "object",
+          "properties": {
+            "tone": {
+              "$ref": "#/$defs/__schema28"
+            },
+            "use": {
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema34"
+              }
+            },
+            "avoid": {
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema35"
+              }
+            }
+          },
+          "required": [
+            "tone",
+            "use",
+            "avoid"
+          ],
+          "additionalProperties": false
+        },
+        "talent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema28"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hooks": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema28"
+          }
+        },
+        "allowedPlaces": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "segment",
+        "productRole",
+        "mood",
+        "music",
+        "visual",
+        "wardrobe",
+        "setting",
+        "voice",
+        "talent",
+        "hooks",
+        "allowedPlaces"
+      ],
+      "additionalProperties": false
+    },
+    "__schema33": {
+      "type": "string",
+      "enum": [
+        "24_and_younger",
+        "25_to_29",
+        "30_to_34",
+        "35_to_44",
+        "45_to_54",
+        "55_and_older"
+      ]
+    },
+    "__schema34": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema35": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema36": {
+      "type": "string",
+      "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+    },
+    "__schema37": {
+      "type": "object",
+      "properties": {
+        "best": {
+          "$ref": "#/$defs/__schema38"
+        },
+        "others": {
+          "$ref": "#/$defs/__schema56"
+        },
+        "modelId": {
+          "$ref": "#/$defs/__schema57"
+        },
+        "usage": {
+          "$ref": "#/$defs/__schema58"
+        }
+      },
+      "required": [
+        "best",
+        "others",
+        "modelId",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "__schema38": {
+      "type": "object",
+      "properties": {
+        "concept": {
+          "$ref": "#/$defs/__schema39"
+        },
+        "rubric": {
+          "$ref": "#/$defs/__schema49"
+        },
+        "uses": {
+          "$ref": "#/$defs/__schema52"
+        },
+        "verifiedUses": {
+          "$ref": "#/$defs/__schema53"
+        },
+        "total": {
+          "$ref": "#/$defs/__schema54"
+        },
+        "status": {
+          "$ref": "#/$defs/__schema55"
+        }
+      },
+      "required": [
+        "concept",
+        "rubric",
+        "uses",
+        "verifiedUses",
+        "total",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "__schema39": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/__schema40"
+        },
+        "hook": {
+          "$ref": "#/$defs/__schema41"
+        },
+        "emotion": {
+          "$ref": "#/$defs/__schema42"
+        },
+        "surpriseBeat": {
+          "$ref": "#/$defs/__schema43"
+        },
+        "testHypothesis": {
+          "$ref": "#/$defs/__schema44"
+        },
+        "locations": {
+          "$ref": "#/$defs/__schema45"
+        },
+        "scenes": {
+          "$ref": "#/$defs/__schema47"
+        }
+      },
+      "required": [
+        "title",
+        "hook",
+        "emotion",
+        "surpriseBeat",
+        "locations",
+        "scenes"
+      ],
+      "additionalProperties": false
+    },
+    "__schema40": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema41": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema42": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema43": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema44": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema45": {
+      "minItems": 1,
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema46"
+      }
+    },
+    "__schema46": {
+      "type": "object",
+      "properties": {
+        "slug": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeOfDay": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "slug",
+        "description",
+        "timeOfDay",
+        "lighting"
+      ],
+      "additionalProperties": false
+    },
+    "__schema47": {
+      "minItems": 3,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema48"
+      }
+    },
+    "__schema48": {
+      "type": "object",
+      "properties": {
+        "beat": {
+          "type": "string",
+          "enum": [
+            "hook",
+            "product",
+            "cultural",
+            "escalation",
+            "payoff"
+          ]
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "camera": {
+          "type": "string",
+          "enum": [
+            "static",
+            "handheld",
+            "dolly_in",
+            "dolly_out",
+            "push_in_slow",
+            "pull_out_reveal",
+            "tracking_side",
+            "orbit",
+            "crash_zoom_in",
+            "whip_pan",
+            "fpv_drone",
+            "snorricam",
+            "dolly_zoom",
+            "object_pov",
+            "overhead_top_down",
+            "tilt_up_reveal"
+          ]
+        },
+        "framing": {
+          "type": "string",
+          "minLength": 1
+        },
+        "motion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lighting": {
+          "type": "string",
+          "minLength": 1
+        },
+        "productVisible": {
+          "type": "boolean"
+        },
+        "location": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "overlayText": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dialogue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sound": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "beat",
+        "seconds",
+        "action",
+        "camera",
+        "framing",
+        "motion",
+        "lighting",
+        "productVisible",
+        "location",
+        "overlayText",
+        "dialogue",
+        "sound"
+      ],
+      "additionalProperties": false
+    },
+    "__schema49": {
+      "type": "object",
+      "properties": {
+        "scores": {
+          "type": "object",
+          "properties": {
+            "scroll_stop": {
+              "$ref": "#/$defs/__schema50"
+            },
+            "specificity": {
+              "$ref": "#/$defs/__schema50"
+            },
+            "product_role": {
+              "$ref": "#/$defs/__schema50"
+            },
+            "emotional_clarity": {
+              "$ref": "#/$defs/__schema50"
+            },
+            "insider_not_outsider": {
+              "$ref": "#/$defs/__schema50"
+            },
+            "surprise": {
+              "$ref": "#/$defs/__schema50"
+            }
+          },
+          "required": [
+            "scroll_stop",
+            "specificity",
+            "product_role",
+            "emotional_clarity",
+            "insider_not_outsider",
+            "surprise"
+          ],
+          "additionalProperties": false
+        },
+        "gates": {
+          "type": "object",
+          "properties": {
+            "no_stereotype": {
+              "$ref": "#/$defs/__schema51"
+            },
+            "has_surprise_beat": {
+              "$ref": "#/$defs/__schema51"
+            }
+          },
+          "required": [
+            "no_stereotype",
+            "has_surprise_beat"
+          ],
+          "additionalProperties": false
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "scores",
+        "gates",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "__schema50": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "__schema51": {
+      "type": "boolean"
+    },
+    "__schema52": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema36"
+      }
+    },
+    "__schema53": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema36"
+      }
+    },
+    "__schema54": {
+      "type": "integer",
+      "minimum": 6,
+      "maximum": 30
+    },
+    "__schema55": {
+      "type": "string",
+      "enum": [
+        "kept",
+        "ranked",
+        "discarded"
+      ]
+    },
+    "__schema56": {
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema38"
+      }
+    },
+    "__schema57": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema58": {
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outputTokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "inputTokens",
+        "outputTokens"
+      ],
+      "additionalProperties": false
+    },
+    "__schema59": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "templateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "productSlug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "segmentId": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "segmentLabel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cast": {
+          "type": "string",
+          "enum": [
+            "adult_talent",
+            "product_only",
+            "pet"
+          ]
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "aspect": {
+              "type": "string",
+              "const": "9:16"
+            },
+            "seconds": {
+              "type": "number",
+              "const": 15
+            },
+            "templateVersion": {
+              "type": "number",
+              "const": 1
+            },
+            "direction": {
+              "$ref": "#/$defs/__schema7"
+            },
+            "models": {
+              "type": "object",
+              "properties": {
+                "image": {
+                  "type": "string",
+                  "enum": [
+                    "nano-banana-pro",
+                    "soul-2",
+                    "seedance-2-5",
+                    "cinema-studio-4",
+                    "kling-3",
+                    "kling-3-turbo",
+                    "veo-3-1",
+                    "veo-3-1-fast",
+                    "runway-gen-4-5"
+                  ]
+                },
+                "multiShot": {
+                  "type": "string",
+                  "enum": [
+                    "nano-banana-pro",
+                    "soul-2",
+                    "seedance-2-5",
+                    "cinema-studio-4",
+                    "kling-3",
+                    "kling-3-turbo",
+                    "veo-3-1",
+                    "veo-3-1-fast",
+                    "runway-gen-4-5"
+                  ]
+                },
+                "perScene": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "nano-banana-pro",
+                        "soul-2",
+                        "seedance-2-5",
+                        "cinema-studio-4",
+                        "kling-3",
+                        "kling-3-turbo",
+                        "veo-3-1",
+                        "veo-3-1-fast",
+                        "runway-gen-4-5"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "image",
+                "multiShot",
+                "perScene"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "aspect",
+            "seconds",
+            "templateVersion",
+            "direction",
+            "models"
+          ],
+          "additionalProperties": false
+        },
+        "settingsHash": {
+          "$ref": "#/$defs/__schema60"
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "packshot",
+                  "product_sheet",
+                  "talent_sheet",
+                  "location"
+                ]
+              },
+              "modelId": {
+                "type": "string",
+                "enum": [
+                  "nano-banana-pro",
+                  "soul-2",
+                  "seedance-2-5",
+                  "cinema-studio-4",
+                  "kling-3",
+                  "kling-3-turbo",
+                  "veo-3-1",
+                  "veo-3-1-fast",
+                  "runway-gen-4-5"
+                ]
+              },
+              "aspect": {
+                "type": "string",
+                "minLength": 1
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "negative": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "promptHash": {
+                "$ref": "#/$defs/__schema60"
+              }
+            },
+            "required": [
+              "file",
+              "kind",
+              "modelId",
+              "aspect",
+              "prompt",
+              "refs",
+              "negative",
+              "promptHash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "concept": {
+          "$ref": "#/$defs/__schema39"
+        },
+        "renders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "multi-shot",
+                  "scene"
+                ]
+              },
+              "modelId": {
+                "type": "string",
+                "enum": [
+                  "nano-banana-pro",
+                  "soul-2",
+                  "seedance-2-5",
+                  "cinema-studio-4",
+                  "kling-3",
+                  "kling-3-turbo",
+                  "veo-3-1",
+                  "veo-3-1-fast",
+                  "runway-gen-4-5"
+                ]
+              },
+              "sceneIndexes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "renderSeconds": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "trimTo": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "negative": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startFrame": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "asset"
+                          },
+                          "file": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "file"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "last-frame"
+                          },
+                          "job": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "job"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "promptHash": {
+                "$ref": "#/$defs/__schema60"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "modelId",
+              "sceneIndexes",
+              "renderSeconds",
+              "trimTo",
+              "refs",
+              "prompt",
+              "negative",
+              "startFrame",
+              "promptHash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "shotList": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overlays": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scene": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "scene",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sourcePhotos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "file",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "musicForEdit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checklist": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "appliesTo": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "frame",
+                    "clip"
+                  ]
+                }
+              },
+              "blocking": {
+                "type": "boolean"
+              },
+              "when": {
+                "type": "string",
+                "enum": [
+                  "always",
+                  "talent",
+                  "source-images",
+                  "pet"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "text",
+              "appliesTo",
+              "blocking",
+              "when"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "directorGuide": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewChecklist": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "disclosure": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "version",
+        "templateVersion",
+        "productSlug",
+        "segmentId",
+        "segmentLabel",
+        "cast",
+        "settings",
+        "settingsHash",
+        "assets",
+        "concept",
+        "renders",
+        "shotList",
+        "overlays",
+        "sourcePhotos",
+        "musicForEdit",
+        "checklist",
+        "directorGuide",
+        "reviewChecklist",
+        "disclosure"
+      ],
+      "additionalProperties": false
+    },
+    "__schema60": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "__schema61": {
+      "type": "object",
+      "properties": {
+        "captions": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "starts_with",
+              "pattern": "^WEBVTT.*"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ugc": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "enum": [
+                  "product_demo",
+                  "before_after",
+                  "founder_story",
+                  "problem_solution",
+                  "pov",
+                  "unboxing",
+                  "first_try"
+                ]
+              },
+              "platform": {
+                "type": "string",
+                "enum": [
+                  "meta",
+                  "tiktok"
+                ]
+              },
+              "tool": {
+                "type": "string",
+                "enum": [
+                  "arcads",
+                  "creatify",
+                  "creator"
+                ]
+              },
+              "script": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cta": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "format",
+              "platform",
+              "tool",
+              "script",
+              "cta"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "adPlan": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ageBands": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "24_and_younger",
+                      "25_to_29",
+                      "30_to_34",
+                      "35_to_44",
+                      "45_to_54",
+                      "55_and_older"
+                    ]
+                  }
+                },
+                "cities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "watch": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "evidenceIds": {
+                  "$ref": "#/$defs/__schema15"
+                }
+              },
+              "required": [
+                "name",
+                "ageBands",
+                "cities",
+                "watch",
+                "note",
+                "evidenceIds"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creatorBrief": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "profile": {
+                  "$ref": "#/$defs/__schema28"
+                },
+                "hooks": {
+                  "maxItems": 3,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema62"
+                  }
+                },
+                "hit": {
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema63"
+                  }
+                },
+                "avoid": {
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema64"
+                  }
+                },
+                "disclosure": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "profile",
+                "hooks",
+                "hit",
+                "avoid",
+                "disclosure"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "captions",
+        "ugc",
+        "adPlan",
+        "creatorBrief"
+      ],
+      "additionalProperties": false
+    },
+    "__schema62": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema63": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema64": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema65": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/__schema66"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema67"
+      }
+    },
+    "__schema66": {
+      "type": "string",
+      "enum": [
+        "prove",
+        "gap",
+        "segments",
+        "culture",
+        "concepts",
+        "prompts",
+        "score"
+      ]
+    },
+    "__schema67": {
+      "type": "object",
+      "properties": {
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "liveCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cachedCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "durationMs",
+        "liveCalls",
+        "cachedCalls"
+      ],
+      "additionalProperties": false
+    },
+    "__schema68": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/__schema66"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "stage",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "__schema69": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "run": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "brief": {
+              "$ref": "#/$defs/__schema32"
+            },
+            "assumed": {
+              "type": "object",
+              "properties": {
+                "ageBands": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "24_and_younger",
+                      "25_to_29",
+                      "30_to_34",
+                      "35_to_44",
+                      "45_to_54",
+                      "55_and_older"
+                    ]
+                  }
+                },
+                "cities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "ageBands",
+                "cities"
+              ],
+              "additionalProperties": false
+            },
+            "mappings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "dimension": {
+                    "type": "string",
+                    "enum": [
+                      "age",
+                      "cities",
+                      "music",
+                      "mood",
+                      "reference",
+                      "setting",
+                      "wardrobe"
+                    ]
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ref": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "entity",
+                              "tag"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "type": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "id",
+                          "name",
+                          "type"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "match": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "exact",
+                              "affix"
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "evidenceIds": {
+                    "$ref": "#/$defs/__schema17"
+                  }
+                },
+                "required": [
+                  "dimension",
+                  "text",
+                  "ref",
+                  "match",
+                  "evidenceIds"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "fits": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "segmentId": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "choices": {
+                    "$ref": "#/$defs/__schema70"
+                  },
+                  "checkable": {
+                    "$ref": "#/$defs/__schema71"
+                  },
+                  "below": {
+                    "$ref": "#/$defs/__schema72"
+                  },
+                  "missing": {
+                    "$ref": "#/$defs/__schema73"
+                  },
+                  "unverifiable": {
+                    "$ref": "#/$defs/__schema74"
+                  },
+                  "line": {
+                    "$ref": "#/$defs/__schema75"
+                  },
+                  "range": {
+                    "$ref": "#/$defs/__schema76"
+                  }
+                },
+                "required": [
+                  "segmentId",
+                  "choices",
+                  "checkable",
+                  "below",
+                  "missing",
+                  "unverifiable",
+                  "line",
+                  "range"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "concepts": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/__schema37"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pack": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/__schema59"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kit": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/__schema61"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "stats": {
+              "$ref": "#/$defs/__schema65"
+            },
+            "partial": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/__schema68"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "run",
+            "brief",
+            "assumed",
+            "mappings",
+            "fits",
+            "concepts",
+            "pack",
+            "kit",
+            "stats",
+            "partial"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "__schema70": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "age",
+              "cities",
+              "music",
+              "mood",
+              "reference",
+              "setting",
+              "wardrobe"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "below",
+              "missing",
+              "unverifiable"
+            ]
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema18"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "of": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "rank",
+                  "of"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measured": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidenceIds": {
+            "$ref": "#/$defs/__schema17"
+          }
+        },
+        "required": [
+          "dimension",
+          "text",
+          "status",
+          "position",
+          "rank",
+          "measured",
+          "evidenceIds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "__schema71": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema72": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema73": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema74": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema75": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema76": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "runs": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 9007199254740991
+            },
+            "belowMin": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "belowMax": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "runs",
+            "belowMin",
+            "belowMax"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "__schema77": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "headline": {
+              "type": "string",
+              "minLength": 1
+            },
+            "worlds": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "segmentId": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "control": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "qloo": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cliches": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "evidenceIds": {
+                    "$ref": "#/$defs/__schema15"
+                  }
+                },
+                "required": [
+                  "segmentId",
+                  "control",
+                  "qloo",
+                  "cliches",
+                  "evidenceIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "headline",
+            "worlds"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "__schema78": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "$ref": "#/$defs/__schema66"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "decision"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          },
+          "evidenceId": {
+            "type": "string"
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "segmentId": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          }
+        },
+        "required": [
+          "stage",
+          "kind",
+          "label"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "__schema79": {
+      "type": "object",
+      "properties": {
+        "stages": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/__schema66"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema67"
+          }
+        }
+      },
+      "required": [
+        "stages"
+      ],
+      "additionalProperties": false
+    },
+    "__schema80": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/__schema68"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

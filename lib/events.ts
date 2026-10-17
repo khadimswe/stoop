@@ -17,6 +17,7 @@ import {
   type Stage,
 } from "./report/schema";
 import {
+  CONTROL_ID,
   comparisonSchema,
   conceptSetSchema,
   controlFitSchema,
@@ -34,12 +35,14 @@ import { briefSlotsSchema } from "./prompts/brief";
 import { productionPackSchema } from "./prompts/pack";
 
 const base = { seq: z.number().int().nonnegative(), at: z.iso.datetime() };
-const world = { ...base, segmentId: z.string().regex(/^[a-z0-9-]+$/) };
+const segmentIdSchema = z.string().regex(/^[a-z0-9-]+$/);
+const world = { ...base, segmentId: segmentIdSchema };
 
 export const runEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ ...base, type: z.literal("run.started"), runId: z.string().min(1), kind: z.enum(["live", "example"]), inputs: inputsSchema }),
-  z.strictObject({ ...base, type: z.literal("stage.started"), stage: stageSchema }),
-  z.strictObject({ ...base, type: z.literal("stage.done"), stage: stageSchema, stats: stageStatsSchema }),
+  // Run-scoped stages carry no segmentId; world-scoped ones carry the world's id, or CONTROL_ID for the Control.
+  z.strictObject({ ...base, type: z.literal("stage.started"), stage: stageSchema, segmentId: segmentIdSchema.optional() }),
+  z.strictObject({ ...base, type: z.literal("stage.done"), stage: stageSchema, stats: stageStatsSchema, segmentId: segmentIdSchema.optional() }),
   z.strictObject({ ...base, type: z.literal("trace.step"), step: traceStepSchema }),
   z.strictObject({ ...base, type: z.literal("evidence.added"), evidence: evidenceSchema }),
   z.strictObject({ ...base, type: z.literal("audience.proof"), proof: proofSchema }),
@@ -57,6 +60,8 @@ export const runEventSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({ ...world, type: z.literal("world.concepts"), concepts: conceptSetSchema }),
   z.strictObject({ ...world, type: z.literal("world.pack"), pack: productionPackSchema, kit: kitSchema }),
+  /** One world stopped early; the other worlds go on. */
+  z.strictObject({ ...world, type: z.literal("world.partial"), stage: stageSchema, reason: z.string().min(1) }),
   z.strictObject({
     ...base,
     type: z.literal("control.brief"),
@@ -68,6 +73,7 @@ export const runEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ ...base, type: z.literal("control.fit"), fit: controlFitSchema }),
   z.strictObject({ ...base, type: z.literal("control.concepts"), concepts: conceptSetSchema }),
   z.strictObject({ ...base, type: z.literal("control.pack"), pack: productionPackSchema, kit: kitSchema }),
+  z.strictObject({ ...base, type: z.literal("control.partial"), stage: stageSchema, reason: z.string().min(1) }),
   z.strictObject({ ...base, type: z.literal("comparison.ready"), comparison: comparisonSchema }),
   z.strictObject({ ...base, type: z.literal("run.partial"), stage: stageSchema, reason: z.string().min(1) }),
   z.strictObject({ ...base, type: z.literal("run.done") }),
@@ -143,6 +149,8 @@ const emptyWorld = (segmentId: string, label: string): World => ({
   concepts: null,
   pack: null,
   kit: null,
+  stats: {},
+  partial: null,
 });
 
 /** Updates one world, creating it if its world.started has not arrived yet (it keeps the id as a label until then). */
@@ -152,7 +160,29 @@ function withWorld(worlds: readonly World[], segmentId: string, change: (world: 
   return worlds.map((w, i) => (i === index ? change(w) : w));
 }
 
-const emptyControl: ControlState = { run: null, brief: null, assumed: null, mappings: [], fits: [], concepts: null, pack: null, kit: null };
+const emptyControl: ControlState = {
+  run: null,
+  brief: null,
+  assumed: null,
+  mappings: [],
+  fits: [],
+  concepts: null,
+  pack: null,
+  kit: null,
+  stats: {},
+  partial: null,
+};
+
+type Scope = { stats: World["stats"]; partial: World["partial"] };
+
+/** A world-scoped stage event lands on its world, or on the Control. */
+function scoped(state: ReportState, segmentId: string, change: (scope: Scope) => Scope): Pick<ReportState, "worlds" | "control"> {
+  if (segmentId === CONTROL_ID) {
+    const control = state.control ?? emptyControl;
+    return { worlds: state.worlds, control: { ...control, ...change(control) } };
+  }
+  return { worlds: withWorld(state.worlds, segmentId, (w) => ({ ...w, ...change(w) })), control: state.control };
+}
 
 /**
  * Applies one event. A repeat (same seq, e.g. an SSE reconnect) changes nothing; a late event with a
@@ -169,8 +199,10 @@ export function apply(state: ReportState, event: RunEvent): ReportState {
     case "run.started":
       return { ...next, status: "running", runId: event.runId, kind: event.kind, startedAt: event.at, inputs: event.inputs };
     case "stage.started":
-      return { ...next, stage: event.stage };
+      // The run's current stage moves with run-scoped stages; worlds run side by side and report their own.
+      return event.segmentId ? next : { ...next, stage: event.stage };
     case "stage.done":
+      if (event.segmentId) return { ...next, ...scoped(state, event.segmentId, (s) => ({ ...s, stats: { ...s.stats, [event.stage]: event.stats } })) };
       return { ...next, stats: { stages: { ...state.stats.stages, [event.stage]: event.stats } } };
     case "trace.step":
       return { ...next, trace: [...state.trace, event.step] };
@@ -201,19 +233,25 @@ export function apply(state: ReportState, event: RunEvent): ReportState {
       return { ...next, worlds: withWorld(state.worlds, event.segmentId, (w) => ({ ...w, concepts: event.concepts })) };
     case "world.pack":
       return { ...next, worlds: withWorld(state.worlds, event.segmentId, (w) => ({ ...w, pack: event.pack, kit: event.kit })) };
+    case "world.partial":
+      return { ...next, worlds: withWorld(state.worlds, event.segmentId, (w) => ({ ...w, partial: { stage: event.stage, reason: event.reason } })) };
     case "control.brief": {
       const control = state.control ?? emptyControl;
       return { ...next, control: { ...control, run: event.run, brief: event.brief, assumed: event.assumed, mappings: event.mappings } };
     }
     case "control.fit": {
       const control = state.control ?? emptyControl;
-      const fits = [...control.fits.filter((fit) => fit.segmentId !== event.fit.segmentId), event.fit];
+      // A repeat replaces the old fit in place.
+      const index = control.fits.findIndex((fit) => fit.segmentId === event.fit.segmentId);
+      const fits = index === -1 ? [...control.fits, event.fit] : control.fits.map((fit, i) => (i === index ? event.fit : fit));
       return { ...next, control: { ...control, fits } };
     }
     case "control.concepts":
       return { ...next, control: { ...(state.control ?? emptyControl), concepts: event.concepts } };
     case "control.pack":
       return { ...next, control: { ...(state.control ?? emptyControl), pack: event.pack, kit: event.kit } };
+    case "control.partial":
+      return { ...next, control: { ...(state.control ?? emptyControl), partial: { stage: event.stage, reason: event.reason } } };
     case "comparison.ready":
       return { ...next, comparison: event.comparison };
     case "run.partial":
@@ -248,8 +286,8 @@ export function toReport(state: ReportState): Report {
     inputs: state.inputs,
     ledger: state.ledger,
     audience: state.audience,
-    worlds: state.worlds,
-    control: finishedControl(state.control),
+    worlds: inSegmentOrder(state),
+    control: finishedControl(state.control, inSegmentOrder(state)),
     comparison: state.comparison,
     trace: state.trace,
     stats: state.stats,
@@ -257,10 +295,25 @@ export function toReport(state: ReportState): Report {
   });
 }
 
-/** The Control as the report shows it: only once its brief has arrived. Fits keep their arrival order. */
-function finishedControl(control: ControlState | null): Control | null {
+/** Worlds in the order Segments measured them (a live view and a replay agree), then any others as they arrived. */
+function inSegmentOrder(state: ReportState): World[] {
+  const order = state.audience.segments?.items.map((s) => s.id) ?? [];
+  const at = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
+  return state.worlds
+    .map((world, i) => ({ world, i }))
+    .sort((a, b) => at(a.world.segmentId) - at(b.world.segmentId) || a.i - b.i)
+    .map(({ world }) => world);
+}
+
+/** The Control as the report shows it: only once its brief has arrived, with its fits in world order. */
+function finishedControl(control: ControlState | null, worlds: readonly World[]): Control | null {
   if (!control || control.run === null || !control.brief || !control.assumed) return null;
-  return { ...control, run: control.run, brief: control.brief, assumed: control.assumed };
+  const at = (id: string) => worlds.findIndex((w) => w.segmentId === id);
+  const fits = control.fits
+    .map((fit, i) => ({ fit, i }))
+    .sort((a, b) => at(a.fit.segmentId) - at(b.fit.segmentId) || a.i - b.i)
+    .map(({ fit }) => fit);
+  return { ...control, run: control.run, brief: control.brief, assumed: control.assumed, fits };
 }
 
 /** Stamps events with `seq` and `at` as stages emit them. The clock is injectable for reproducible recordings. */

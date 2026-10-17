@@ -17,6 +17,7 @@ import {
   RETRYABLE_STATUSES,
   type Endpoint,
 } from "./constants";
+import type { BudgetRow } from "./budget";
 import type { RunContext } from "./context";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooShapeError, redact } from "./errors";
 import { createLimiter, realSleep, type Limiter } from "./limiter";
@@ -46,8 +47,11 @@ export interface QlooRequest<T> {
   /** Human label for the trace, e.g. "Resolving Olipop to a brand entity". */
   label?: string;
   stage?: string;
-  /** The budget row this call spends (lib/qloo/budget.ts). Refused once the run's cap for that row is reached. */
-  budgetRow?: string;
+  /**
+   * The budget row this call spends (lib/qloo/budget.ts). Refused once the run's cap for that row is
+   * reached; a run with row caps refuses any call without a known row, so nothing slips past the table.
+   */
+  budgetRow?: BudgetRow;
   /** Trims large bodies (heatmaps) before they are cached. */
   slim?: (body: unknown) => unknown;
   /** Returned when Qloo answers 404 (search with no match). Without it, a 404 throws. */
@@ -220,6 +224,13 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     if (row) ctx.rowCalls[row] = (ctx.rowCalls[row] ?? 0) + 1;
   }
 
+  /** In a run with row caps, every call names a row the table knows. */
+  function assertRow(ctx: RunContext, row: string | undefined): void {
+    if (Object.keys(ctx.rowCaps).length === 0) return;
+    if (row === undefined) throw new QlooBudgetError(`Run ${ctx.runId} has a budget table, and this call names no budget row`);
+    if (!(row in ctx.rowCaps)) throw new QlooBudgetError(`Run ${ctx.runId} has no budget row "${row}"`);
+  }
+
   /** Turns a cached or fresh entry into typed data, or throws. */
   function parse<T>(req: QlooRequest<T>, entry: CacheEntry): T {
     if (entry.status === 404) {
@@ -257,6 +268,7 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
 
   async function request<T>(ctx: RunContext, req: QlooRequest<T>): Promise<QlooResult<T>> {
     validateParams(req.endpoint, req.params);
+    assertRow(ctx, req.budgetRow);
     const key = cacheKey(req.endpoint, req.params);
 
     const hit = await cache?.get(key, `${req.endpoint}?${canonicalQuery(req.params)}`);
@@ -280,8 +292,10 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     }
     const fetched = await limiter.run(flightKey, async () => {
       const response = await send(req.endpoint, canonicalQuery(req.params), () => {
-        if (budgetProblem(ctx, req.budgetRow)) return false;
-        charge(ctx, req.stage, req.budgetRow);
+        // Retries draw on the run cap's slack (RUN_CAP minus the planned rows), not on the row, so one
+        // 503 never costs a world one of its planned calls.
+        if (budgetProblem(ctx)) return false;
+        charge(ctx, req.stage, undefined);
         return true;
       });
 

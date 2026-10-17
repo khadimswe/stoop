@@ -95,6 +95,10 @@ describe("panelPosition", () => {
   it("returns null for an empty panel instead of guessing", () => {
     expect(panelPosition(0.3, [])).toEqual({ beats: 0, of: 0, aboveMedian: null });
   });
+
+  it("calls no median with fewer than 5 panel items", () => {
+    expect(panelPosition(0.45, panel.slice(0, 4))).toEqual({ beats: 4, of: 4, aboveMedian: null });
+  });
 });
 
 describe("heatmap fixtures", () => {

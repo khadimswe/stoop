@@ -2,6 +2,7 @@
 // in the ledger plus a "tool" trace step) and an agent decision (a "decision" trace step).
 import type { Emitter } from "../events";
 import type { ReferenceSets } from "../geo/metros";
+import type { BudgetRow } from "../qloo/budget";
 import type { QlooClient, QlooRequest, QlooResult } from "../qloo/client";
 import type { RunContext } from "../qloo/context";
 import type { Stage } from "../report/schema";
@@ -25,9 +26,13 @@ export function forWorld(env: StageEnv, segmentId: string): StageEnv {
 
 const worldOf = (env: StageEnv) => (env.segmentId ? { segmentId: env.segmentId } : {});
 
-/** One Qloo call through the real client, recorded as a receipt and a trace step. Pass `budgetRow` to spend a RUN_BUDGET row. */
+/** The budget row a stage's calls spend unless a call names another (culture's locality lookups and the agent's probes do). */
+export const STAGE_ROWS: Partial<Record<Stage, BudgetRow>> = { prove: "prove", gap: "gap", segments: "segments", culture: "culture", score: "scoring" };
+
+/** One Qloo call through the real client, recorded as a receipt and a trace step, spending its stage's budget row by default. */
 export async function qloo<T>(env: StageEnv, stage: Stage, label: string, request: Omit<QlooRequest<T>, "label" | "stage">): Promise<QlooResult<T>> {
-  const result = await env.client.request(env.ctx, { ...request, label, stage });
+  const budgetRow = request.budgetRow ?? STAGE_ROWS[stage];
+  const result = await env.client.request(env.ctx, { ...request, label, stage, ...(budgetRow ? { budgetRow } : {}) });
   env.emit({ type: "evidence.added", evidence: result.evidence });
   env.emit({ type: "trace.step", step: { stage, kind: "tool", label, evidenceId: result.evidence.id, cached: result.evidence.cached, ...worldOf(env) } });
   return result;

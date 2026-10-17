@@ -2,29 +2,50 @@
 // the check against the frozen panels, the Creative Director's concepts, the Production Pack and the
 // kit), plus the LLM-only Control scored against every world and the with-vs-without comparison.
 // Part of the Report contract (lib/report/schema.ts): it changes only through its own pull request.
+// The honesty rules live here as checks, not just comments: no median under 5 panel items, no Qloo
+// or interpreted cue without a receipt, a field's signal agrees with its sources, and every count in
+// a fit line is the count of its choices.
 import { z } from "zod";
 import { briefSlotsSchema, conceptSchema } from "../prompts/brief";
 import { productionPackSchema } from "../prompts/pack";
 import { rubricScoreSchema } from "../prompts/rubric";
 import { AGE_BUCKETS } from "../qloo/constants";
+import { MIN_PANEL_FOR_MEDIAN } from "../qloo/lift";
 import { cueSchema, SIGNALS } from "../types";
+import { partialSchema, stageSchema, stageStatsSchema } from "./stages";
+
+export { MIN_PANEL_FOR_MEDIAN };
 
 const evidenceIds = z.array(z.string().regex(/^ev_[0-9a-f]{12}$/));
 const receipts = evidenceIds.min(1);
 const segmentId = z.string().regex(/^[a-z0-9-]+$/);
 
-/** Panel positions with fewer reference items than this get no median (too few to call a middle). */
-export const MIN_PANEL_FOR_MEDIAN = 5;
+/** The LLM-only Control's id wherever a segment id goes (its brief, its pack, its stage events). */
+export const CONTROL_ID = "control";
+
+/** A brief slot key, as lib/prompts/brief.ts briefCueTexts names them ("setting.0", "voice.tone"). */
+export const BRIEF_SLOT = /^(?:productRole|mood|music|visual|voice\.tone|wardrobe|talent|setting\.[0-2])$/;
+const briefSlot = z.string().regex(BRIEF_SLOT);
+
+const statsSchema = z.partialRecord(stageSchema, stageStatsSchema);
+const usageSchema = z.strictObject({ inputTokens: z.number().int().nonnegative().nullable(), outputTokens: z.number().int().nonnegative().nullable() });
 
 /**
  * Where a pick lands against the frozen reference panel in one scoring call: "beats 23 of 25
  * reference artists". `aboveMedian` is null when fewer than MIN_PANEL_FOR_MEDIAN panel items came back.
  */
-export const panelPositionSchema = z.strictObject({
-  beats: z.number().int().min(0),
-  of: z.number().int().min(0),
-  aboveMedian: z.boolean().nullable(),
-});
+export const panelPositionSchema = z
+  .strictObject({
+    beats: z.number().int().min(0),
+    of: z.number().int().min(0),
+    aboveMedian: z.boolean().nullable(),
+  })
+  .superRefine((p, ctx) => {
+    if (p.beats > p.of) ctx.addIssue({ code: "custom", message: `beats ${p.beats} of only ${p.of}`, path: ["beats"] });
+    if (p.of < MIN_PANEL_FOR_MEDIAN && p.aboveMedian !== null) {
+      ctx.addIssue({ code: "custom", message: `no median with ${p.of} panel items (fewer than ${MIN_PANEL_FOR_MEDIAN})`, path: ["aboveMedian"] });
+    }
+  });
 export type PanelPosition = z.infer<typeof panelPositionSchema>;
 
 // --- The Culture Brief ---------------------------------------------------------------------------
@@ -50,16 +71,29 @@ export const cultureSourceSchema = z.strictObject({
 });
 export type CultureSource = z.infer<typeof cultureSourceSchema>;
 
-export const cultureFieldSchema = z.strictObject({
-  field: z.enum(CULTURE_FIELDS),
-  /** rich: 3 or more sources beating 75% of the panel (or 3 distinct explained places); thin: 1 to 2; none: "No Qloo signal". */
-  signal: z.enum(SIGNALS),
-  /** "audience": measured for the whole taste neighborhood, not this segment (creators). */
-  scope: z.enum(["segment", "audience"]),
-  sources: z.array(cultureSourceSchema),
-  /** The brief's wording for this field. Empty shows "No Qloo signal". */
-  cues: z.array(cueSchema).max(3),
-});
+/** Sources a signal level needs at least: rich 3, thin 1, none 0 (the stage decides the level; this keeps it honest). */
+export const SIGNAL_MIN_SOURCES = { rich: 3, thin: 1, none: 0 } as const;
+
+export const cultureFieldSchema = z
+  .strictObject({
+    field: z.enum(CULTURE_FIELDS),
+    /** rich: 3 or more sources beating 75% of the panel (or 3 distinct explained places); thin: 1 to 2; none: "No Qloo signal". */
+    signal: z.enum(SIGNALS),
+    /** "audience": measured for the whole taste neighborhood, not this segment (creators). */
+    scope: z.enum(["segment", "audience"]),
+    sources: z.array(cultureSourceSchema),
+    /** The brief's wording for this field. With no signal it is empty ("No Qloo signal") or a creative suggestion. */
+    cues: z.array(cueSchema).max(3),
+  })
+  .superRefine((f, ctx) => {
+    if (f.sources.length < SIGNAL_MIN_SOURCES[f.signal]) {
+      ctx.addIssue({ code: "custom", message: `a ${f.signal} field needs at least ${SIGNAL_MIN_SOURCES[f.signal]} sources, has ${f.sources.length}`, path: ["signal"] });
+    }
+    if (f.signal === "none" && f.sources.length > 0) ctx.addIssue({ code: "custom", message: "a field with no signal lists sources", path: ["sources"] });
+    if (f.signal === "none" && f.cues.some((c) => c.origin === "qloo" || c.origin === "interpreted")) {
+      ctx.addIssue({ code: "custom", message: "a field with no Qloo signal can only carry a creative suggestion or your choice", path: ["cues"] });
+    }
+  });
 export type CultureFieldResult = z.infer<typeof cultureFieldSchema>;
 
 /** The city a world's settings come from: one of the audience's top stable cities (lib/stages/culture.ts). */
@@ -96,7 +130,7 @@ export type ControlDimension = (typeof CONTROL_DIMENSIONS)[number];
  * How one Control choice fared in one world.
  *   supported     at or above the world's reference median (or a city in its top 10, an age band it over-indexes on)
  *   below         below the median: a cliche this data does not support
- *   missing       Qloo returned no score for it ("no measurable affinity")
+ *   missing       Qloo returned no score for it ("no measurable affinity"): checkable, but not counted as below
  *   unverifiable  nothing to check it against (no matching tag, setting types, wardrobe text, or a panel under 5)
  */
 export const CHOICE_STATUSES = ["supported", "below", "missing", "unverifiable"] as const;
@@ -106,8 +140,12 @@ export const controlChoiceSchema = z.strictObject({
   /** The Control's own words, e.g. "Austin" or "lo-fi hip hop". */
   text: z.string().min(1),
   status: z.enum(CHOICE_STATUSES),
-  /** For a below or supported pick: where it landed, e.g. "beats 4 of 25 reference music tags". */
+  /** For a tag or reference: where it landed against the panel, e.g. "beats 4 of 25 reference music tags". */
   position: panelPositionSchema.nullable(),
+  /** For a city: its rank among this world's cities ("#44 of 380"). */
+  rank: z.strictObject({ rank: z.number().int().min(1), of: z.number().int().min(1) }).nullable(),
+  /** What Qloo measured for this choice in words, e.g. "skews -0.18" for an age band; null when nothing was. */
+  measured: z.string().min(1).nullable(),
   evidenceIds,
 });
 export type ControlChoice = z.infer<typeof controlChoiceSchema>;
@@ -135,24 +173,38 @@ export type WorldCheck = z.infer<typeof worldCheckSchema>;
  * draws on ("setting.0", "music"); `verifiedUses` the ones code found in its text. Specificity is
  * bounded by that count, so the writer never only grades itself.
  */
-export const rankedConceptSchema = z.strictObject({
-  concept: conceptSchema,
-  rubric: rubricScoreSchema,
-  uses: z.array(z.string().min(1)),
-  verifiedUses: z.array(z.string().min(1)),
-  /** Rubric total after the specificity bound (6 to 30). */
-  total: z.number().int().min(6).max(30),
-  /** kept: the world's concept; ranked: shown collapsed with its scores; discarded: failed a hard gate. */
-  status: z.enum(["kept", "ranked", "discarded"]),
-});
+export const rankedConceptSchema = z
+  .strictObject({
+    concept: conceptSchema,
+    rubric: rubricScoreSchema,
+    uses: z.array(briefSlot),
+    verifiedUses: z.array(briefSlot),
+    /** Rubric total after the specificity bound (6 to 30). */
+    total: z.number().int().min(6).max(30),
+    /** kept: the world's concept; ranked: shown collapsed with its scores; discarded: failed a hard gate. */
+    status: z.enum(["kept", "ranked", "discarded"]),
+  })
+  .superRefine((c, ctx) => {
+    const declared = new Set(c.uses);
+    for (const slot of c.verifiedUses) {
+      if (!declared.has(slot)) ctx.addIssue({ code: "custom", message: `verified ${slot}, which the concept never declared`, path: ["verifiedUses"] });
+    }
+  });
 export type RankedConcept = z.infer<typeof rankedConceptSchema>;
 
-export const conceptSetSchema = z.strictObject({
-  best: rankedConceptSchema,
-  others: z.array(rankedConceptSchema).max(2),
-  modelId: z.string().min(1),
-  usage: z.strictObject({ inputTokens: z.number().nullable(), outputTokens: z.number().nullable() }),
-});
+export const conceptSetSchema = z
+  .strictObject({
+    best: rankedConceptSchema,
+    others: z.array(rankedConceptSchema).max(2),
+    modelId: z.string().min(1),
+    usage: usageSchema,
+  })
+  .superRefine((set, ctx) => {
+    if (set.best.status !== "kept") ctx.addIssue({ code: "custom", message: "the best concept must be the kept one", path: ["best", "status"] });
+    set.others.forEach((other, i) => {
+      if (other.status === "kept") ctx.addIssue({ code: "custom", message: "only the best concept is kept", path: ["others", i, "status"] });
+    });
+  });
 export type ConceptSet = z.infer<typeof conceptSetSchema>;
 
 // --- The kit -------------------------------------------------------------------------------------
@@ -180,11 +232,11 @@ export const adPlanEntrySchema = z.strictObject({
   /** Optional geo and age options, never a promise of reach. */
   ageBands: z.array(z.enum(AGE_BUCKETS)),
   cities: z.array(z.string().min(1)),
-  /** What to watch, tied to the creative's test hypothesis. */
+  /** What to watch, tied to the kept concept's test hypothesis. */
   watch: z.string().min(1),
   /** "Targeting suggestions from aggregate taste data." */
   note: z.string().min(1),
-  evidenceIds,
+  evidenceIds: receipts,
 });
 export type AdPlanEntry = z.infer<typeof adPlanEntrySchema>;
 
@@ -212,7 +264,8 @@ export type Kit = z.infer<typeof kitSchema>;
 
 /**
  * One concept world, filled in as its stages land (check, then culture, then concepts, then pack).
- * A finished run has every part; a partial one shows what arrived.
+ * A finished run has every part; a world that stopped early says where in `partial` and shows what
+ * arrived, while the other worlds go on.
  */
 export const worldSchema = z.strictObject({
   segmentId,
@@ -222,10 +275,13 @@ export const worldSchema = z.strictObject({
   culture: z.array(cultureFieldSchema).nullable(),
   brief: briefSlotsSchema.nullable(),
   /** Brief slots Qloo backed richly: a pack that drops one fails its check. */
-  richSlots: z.array(z.string().min(1)),
+  richSlots: z.array(briefSlot),
   concepts: conceptSetSchema.nullable(),
   pack: productionPackSchema.nullable(),
   kit: kitSchema.nullable(),
+  /** This world's own stage timings and calls (world-scoped stages only). */
+  stats: statsSchema,
+  partial: partialSchema.nullable(),
 });
 export type World = z.infer<typeof worldSchema>;
 
@@ -242,16 +298,30 @@ export const controlMappingSchema = z.strictObject({
 });
 export type ControlMapping = z.infer<typeof controlMappingSchema>;
 
-/** How the Control fits one world: "4 of 7 checkable LLM-only choices below this audience's reference median (2 unverifiable)". */
-export const controlFitSchema = z.strictObject({
-  segmentId,
-  choices: z.array(controlChoiceSchema),
-  checkable: z.number().int().min(0),
-  below: z.number().int().min(0),
-  missing: z.number().int().min(0),
-  unverifiable: z.number().int().min(0),
-  line: z.string().min(1),
-});
+/**
+ * How the Control fits one world: "4 of 7 checkable LLM-only choices below this audience's reference
+ * median (2 unverifiable)". Checkable = supported + below + missing; every count is the count of its
+ * choices. `range` spans the 3 recorded Control runs for examples (plan section 5); null for live runs.
+ */
+export const controlFitSchema = z
+  .strictObject({
+    segmentId,
+    choices: z.array(controlChoiceSchema),
+    checkable: z.number().int().min(0),
+    below: z.number().int().min(0),
+    missing: z.number().int().min(0),
+    unverifiable: z.number().int().min(0),
+    line: z.string().min(1),
+    range: z.strictObject({ runs: z.number().int().min(2), belowMin: z.number().int().min(0), belowMax: z.number().int().min(0) }).nullable(),
+  })
+  .superRefine((fit, ctx) => {
+    const count = (status: (typeof CHOICE_STATUSES)[number]) => fit.choices.filter((c) => c.status === status).length;
+    const expected = { below: count("below"), missing: count("missing"), unverifiable: count("unverifiable"), checkable: fit.choices.length - count("unverifiable") };
+    for (const [key, value] of Object.entries(expected) as [keyof typeof expected, number][]) {
+      if (fit[key] !== value) ctx.addIssue({ code: "custom", message: `${key} is ${fit[key]}, but the choices give ${value}`, path: [key] });
+    }
+    if (fit.range && fit.range.belowMin > fit.range.belowMax) ctx.addIssue({ code: "custom", message: "the range runs backwards", path: ["range"] });
+  });
 export type ControlFit = z.infer<typeof controlFitSchema>;
 
 export const controlSchema = z.strictObject({
@@ -261,10 +331,13 @@ export const controlSchema = z.strictObject({
   /** What the generic brief assumed, in Qloo's dimensions. */
   assumed: z.strictObject({ ageBands: z.array(z.enum(AGE_BUCKETS)), cities: z.array(z.string().min(1)) }),
   mappings: z.array(controlMappingSchema),
+  /** In world order. */
   fits: z.array(controlFitSchema),
   concepts: conceptSetSchema.nullable(),
   pack: productionPackSchema.nullable(),
   kit: kitSchema.nullable(),
+  stats: statsSchema,
+  partial: partialSchema.nullable(),
 });
 export type Control = z.infer<typeof controlSchema>;
 
@@ -279,7 +352,7 @@ export const comparisonSchema = z.strictObject({
       /** Qloo's picks for this world, e.g. "Qloo's music picks beat a median 23 of 25 reference artists". */
       qloo: z.string().min(1),
       cliches: z.number().int().min(0),
-      evidenceIds,
+      evidenceIds: receipts,
     }),
   ),
 });
