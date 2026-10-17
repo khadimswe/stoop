@@ -28,6 +28,12 @@
 //     https://help.runwayml.com/hc/en-us/articles/46974685288467-Creating-with-Gen-4-5
 //     https://academy.runwayml.com/guides/prompting-guide
 //
+//   fal (storyboard frames, FRAME_MODELS below; checked Oct 17, 2026, FRAME_MODELS_VERIFIED_AT)
+//     https://fal.ai/models/fal-ai/nano-banana-2/edit/api
+//     https://fal.ai/models/fal-ai/nano-banana-2/edit
+//     https://fal.ai/models/fal-ai/flux/schnell/api
+//     https://fal.ai/models/fal-ai/flux/schnell
+//
 // Not listed on purpose: Sora 2 has left Higgsfield's lineup. Kling 4.0 went live Oct 15, 2026 but is
 // not confirmed on Higgsfield yet, so it gets no row until it is.
 //
@@ -519,6 +525,64 @@ export function renderLength(model: ModelConfig, seconds: number, opts: { hasRef
   }
   return Math.min(d.max, Math.max(d.min, Math.ceil(needed)));
 }
+
+// Storyboard frames on fal ----------------------------------------------------------------------------
+// Live runs render 4 stills per world as the cheap draft (lib/media/frames.ts). These are fal endpoint
+// ids, as fal names them, so they are not ModelIds: the Production Pack never renders on fal, only the
+// storyboard step does. Prices are fal's list prices on the pages above, for the cost estimate only.
+
+export const FRAME_MODELS_VERIFIED_AT = "2026-10-17";
+
+export const FRAME_MODEL_ROLES = ["edit", "text"] as const;
+export type FrameModelRole = (typeof FRAME_MODEL_ROLES)[number];
+
+export interface FrameModel {
+  role: FrameModelRole;
+  /** fal's endpoint id. */
+  endpoint: string;
+  displayName: string;
+  /** Reference images it takes (0: text only). */
+  maxRefs: number;
+  /** Dollars per frame at the settings Stoop sends. */
+  usdPerFrame: number;
+  notes: string[];
+  verifiedAt: typeof FRAME_MODELS_VERIFIED_AT;
+  sourceUrls: string[];
+}
+
+export const FRAME_MODELS: Readonly<Record<FrameModelRole, FrameModel>> = Object.freeze({
+  // The default: the product's own photo as the reference, so the product looks like itself.
+  edit: {
+    role: "edit",
+    endpoint: "fal-ai/nano-banana-2/edit",
+    displayName: "Nano Banana 2 Edit (fal)",
+    maxRefs: 14,
+    usdPerFrame: 0.08,
+    notes: [
+      "Input: prompt, image_urls (up to 14 references), num_images, aspect_ratio (9:16 among them), resolution (0.5K, 1K, 2K, 4K; default 1K), output_format (png, jpeg, webp).",
+      "Output: images[] with url, content_type, width and height.",
+      "$0.08 per image at 1K; 2K bills 1.5 times and 4K 2 times that. Every output carries a SynthID watermark.",
+    ],
+    verifiedAt: FRAME_MODELS_VERIFIED_AT,
+    sourceUrls: ["https://fal.ai/models/fal-ai/nano-banana-2/edit/api", "https://fal.ai/models/fal-ai/nano-banana-2/edit"],
+  },
+  // The fast fallback for products known only from a text description (no photo to reference).
+  text: {
+    role: "text",
+    endpoint: "fal-ai/flux/schnell",
+    displayName: "FLUX.1 [schnell] (fal)",
+    maxRefs: 0,
+    // $0.003 per megapixel, rounded up: a portrait_16_9 frame (576 x 1024) bills as 1 megapixel.
+    usdPerFrame: 0.003,
+    notes: [
+      "Input: prompt, image_size (portrait_16_9 is the 9:16 preset), num_inference_steps (default 4), num_images, output_format (jpeg, png), enable_safety_checker (default true).",
+      "Output: images[] with url, width, height and content_type, plus has_nsfw_concepts.",
+      "$0.003 per megapixel, rounded up to the nearest megapixel.",
+    ],
+    verifiedAt: FRAME_MODELS_VERIFIED_AT,
+    sourceUrls: ["https://fal.ai/models/fal-ai/flux/schnell/api", "https://fal.ai/models/fal-ai/flux/schnell"],
+  },
+});
 
 // Camera presets ---------------------------------------------------------------------------------
 // Camera moves are always creative or interpreted cues, never Qloo data. Each preset will later get a

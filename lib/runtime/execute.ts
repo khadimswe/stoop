@@ -1,11 +1,15 @@
 // One live run, end to end, in the background (`after()`): the same pipeline the examples were
 // recorded with (lib/agent/orchestrator.ts runBrief), with live inputs, the shared Qloo client, Claude
-// memoized in the store, the LLM-only Control written next to Prove, and a 240 s deadline. Hitting the
-// deadline stops the run where it is and marks it resumable; the trace says so.
+// memoized in the store, the LLM-only Control written next to Prove, and a 240 s deadline. Each world's
+// storyboard frames start as soon as its pack lands (docs plan section 4.3), and their cost joins the
+// run's. Hitting the deadline stops the run where it is and marks it resumable.
 import type { LanguageModel } from "ai";
 import { generateBaseline, type BaselineRun } from "../agent/baseline";
 import { CONTROL_RUN } from "../agent/baseline-brief";
 import { runBrief, type BriefRun, type Creative } from "../agent/orchestrator";
+import { createEmitter, reduce, type RunEventInput } from "../events";
+import type { FramesJob, FramesOutcome } from "../media/frames";
+import { addCost, reportNames } from "../stages/after-run";
 import { PLATFORMS, type Candidate } from "../demo/candidates";
 import type { ReferenceSets } from "../geo/metros";
 import type { QlooClient } from "../qloo/client";
@@ -15,8 +19,9 @@ import type { Cost } from "../report/schema";
 import { keys } from "../store/keys";
 import { getRunMeta, refreshReport, runLease, setRunMeta } from "../store/runs";
 import type { Store } from "../store/types";
-import { storeEmitter } from "./emitter";
-import { emptyTally, memoizedModel, type ClaudeTally } from "./memo";
+import { storeEmitter, type StoreEmitter } from "./emitter";
+import { estimateUsd } from "./cost";
+import { emptyTally, memoizedModel } from "./memo";
 import { loadRunRecord, type RunRecord } from "./record";
 
 /** The run stops here, leaving the function (maxDuration 300 s) time to write what it has. */
@@ -34,16 +39,14 @@ export interface ExecuteDeps {
   control?: (record: RunRecord, model: LanguageModel) => Promise<readonly BaselineRun[]>;
   /** Tests only: a recorded example is itself a reference audience, ranked leave-one-out. */
   inReference?: boolean;
+  /**
+   * Renders one world's storyboard frames (lib/media/frames.ts renderWorldFrames, bound to storage and
+   * the frame service). Absent when no frame service is set up: then no frames start.
+   */
+  frames?: (job: FramesJob, model: LanguageModel, signal: AbortSignal) => Promise<FramesOutcome>;
 }
 
-/** Rough list prices for the estimate in the trace footer (labeled as an estimate): per million tokens. */
-export const PRICES = { input: 3, cachedInput: 0.3, output: 15 } as const;
-
-export function estimateUsd(claude: Pick<ClaudeTally, "inputTokens" | "outputTokens" | "cachedInputTokens">): number {
-  const fresh = Math.max(0, claude.inputTokens - claude.cachedInputTokens);
-  const usd = (fresh * PRICES.input + claude.cachedInputTokens * PRICES.cachedInput + claude.outputTokens * PRICES.output) / 1_000_000;
-  return Math.round(usd * 100) / 100;
-}
+export { estimateUsd, PRICES } from "./cost";
 
 /** The founder's inputs, as the LLM-only Control sees them: the same facts, no Qloo. */
 export function liveCandidate(record: RunRecord): Candidate {
@@ -95,9 +98,30 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
     const started = now();
     // Stops the run at the deadline, or when the store is down (nothing it did would be kept).
     const stop = new AbortController();
-    const emitter = storeEmitter(store, runId, meta.attempt, { onFailure: () => stop.abort(new StoreDownError()) });
+    const stored = storeEmitter(store, runId, meta.attempt, { onFailure: () => stop.abort(new StoreDownError()) });
     const tally = emptyTally();
     const model = memoizedModel(deps.model, store, runId, tally);
+    // Frames count their own Claude calls in their cost, so their model is memoized but not tallied here.
+    const framesModel = memoizedModel(deps.model, store, runId);
+    const framing: Promise<FramesOutcome | null>[] = [];
+    // What the run has emitted so far, to hand each world to its frames as its pack lands.
+    const mirror = createEmitter();
+    const emitter: StoreEmitter = {
+      ...stored,
+      emit(input: RunEventInput) {
+        const event = stored.emit(input);
+        mirror.emit(input);
+        if (input.type === "world.pack" && deps.frames) {
+          const state = reduce(mirror.events);
+          const world = state.worlds.find((w) => w.segmentId === input.segmentId);
+          if (world && state.inputs) {
+            const job: FramesJob = { runId, attempt: meta.attempt, segmentId: world.segmentId, world, product: record.inputs.product, names: reportNames({ ...state, inputs: state.inputs }) };
+            framing.push(deps.frames(job, framesModel, stop.signal).catch(() => null));
+          }
+        }
+        return event;
+      },
+    };
     const monthRemaining = await lastMonthRemaining(store, now());
     const ctx = createLiveRunContext(runId, monthRemaining === undefined ? {} : { monthRemaining });
     const timer = setTimeout(() => stop.abort(new DeadlineError()), deps.deadlineMs ?? DEADLINE_MS);
@@ -121,18 +145,21 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
         const message = stop.signal.reason instanceof StoreDownError ? stop.signal.reason.message : error instanceof Error ? error.message : String(error);
         emitter.emit({ type: "run.failed", stage: null, message });
       }
-    } finally {
-      clearTimeout(timer);
     }
 
+    // Frames already started go on until they finish, or until the deadline (still running) stops them;
+    // their cost joins the run's.
+    const framed = await Promise.all(framing);
+    clearTimeout(timer);
     if (status !== "stopped") {
-      const cost: Cost = {
+      let cost: Cost = {
         durationMs: now() - started,
         qloo: { live: ctx.liveCalls, cached: ctx.cachedCalls },
         claude: { calls: tally.calls, inputTokens: tally.inputTokens, outputTokens: tally.outputTokens, cachedInputTokens: tally.cachedInputTokens },
         frames: 0,
         estimateUsd: estimateUsd(tally),
       };
+      for (const outcome of framed) if (outcome) cost = addCost(cost, { ...outcome.cost, durationMs: 0 });
       emitter.emit({ type: "run.cost", cost });
     }
     try {

@@ -5,10 +5,12 @@ import "server-only";
 import { SHARED_CREATIVE } from "../agent/creative";
 import { stoopModel, stoopModelId } from "../agent/model";
 import { referenceSets } from "../geo/reference";
+import { frameRendererFromEnv, renderWorldFrames } from "../media/frames";
 import { getQlooClient } from "../qloo/server";
+import { getStorage, StorageConfigError, type Storage } from "../storage";
 import { getStore } from "../store";
 import { exampleEvents, exampleReport, exampleSlug } from "./examples";
-import { executeRun } from "./execute";
+import { executeRun, type ExecuteDeps } from "./execute";
 import type { RouteDeps } from "./routes";
 
 export function liveModel() {
@@ -16,9 +18,22 @@ export function liveModel() {
   return Object.assign(stoopModel(modelId), { modelId });
 }
 
-/** The live run, bound to its vendors. Runs inside `after()`. */
+function storageOrNull(): Storage | null {
+  try {
+    return getStorage();
+  } catch (error) {
+    if (error instanceof StorageConfigError) return null;
+    throw error;
+  }
+}
+
+/** The live run, bound to its vendors. Runs inside `after()`. Frames start only with a frame service and storage set up. */
 export function execute(runId: string): Promise<void> {
-  return executeRun({ store: getStore(), client: getQlooClient(), model: liveModel(), reference: referenceSets(), creative: SHARED_CREATIVE }, runId);
+  const store = getStore();
+  const renderer = frameRendererFromEnv();
+  const storage = renderer ? storageOrNull() : null;
+  const frames: ExecuteDeps["frames"] = renderer && storage ? (job, model, abortSignal) => renderWorldFrames({ store, storage, renderer, model, abortSignal }, job) : undefined;
+  return executeRun({ store, client: getQlooClient(), model: liveModel(), reference: referenceSets(), creative: SHARED_CREATIVE, ...(frames ? { frames } : {}) }, runId);
 }
 
 export const routeDeps = (): RouteDeps => ({

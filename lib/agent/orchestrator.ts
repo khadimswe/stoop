@@ -31,7 +31,7 @@ import { craftWorld } from "../stages/craft";
 import { chooseSettingCities, measuredCandidates, sweepCreators, sweepWorld, type CultureCandidate, type SettingCityChoice } from "../stages/culture";
 import { decide, forWorld, type StageEnv } from "../stages/env";
 import type { ConceptRun } from "../stages/concepts";
-import { runCultureAgent } from "./culture-agent";
+import { runCultureAgent, type CultureRevision } from "./culture-agent";
 
 /** The creative steps both sides share (lane B's concept writer, templates and kit). */
 export interface Creative {
@@ -246,7 +246,14 @@ interface WorldOutcome {
   fit: ControlFit | null;
 }
 
-async function runWorld(
+/** For "Not this vibe" (lib/stages/revise.ts): one world built again with the founder's rejections. */
+export interface WorldOptions {
+  /** Qloo ids the founder rejected: left out of the agent's candidates (after the check, so its scoring calls replay from cache). */
+  exclude?: ReadonlySet<string>;
+  revision?: CultureRevision;
+}
+
+export async function runWorld(
   env: BriefEnv,
   run: BriefRun,
   measured: MeasuredAudience,
@@ -254,6 +261,7 @@ async function runWorld(
   city: SettingCityChoice | null,
   creators: readonly CultureCandidate[],
   maps: readonly ControlRunMap[],
+  options: WorldOptions = {},
 ): Promise<WorldOutcome> {
   const segment = measured.segments.items.find((s) => s.id === segmentId)!;
   const raw = measured.raw.get(segmentId)!;
@@ -292,6 +300,8 @@ async function runWorld(
 
     // Culture, part 2: the agent writes the brief from the scored candidates.
     const names = knownNames(run, checked.result.candidates, maps);
+    const exclude = options.exclude;
+    const kept = exclude?.size ? checked.result.candidates.filter((c) => !exclude.has(c.id)) : checked.result.candidates;
     // Product-only and pet ads have no on-screen person; "auto" lets the brief decide.
     const talent = run.inputs.direction.cast === "auto" || run.inputs.direction.cast === "adult_talent";
     const agent = await stages.time(
@@ -304,7 +314,7 @@ async function runWorld(
             label: segment.label,
             bucket: segment.bucket,
             seeds: run.inputs.seeds,
-            candidates: checked.result.candidates,
+            candidates: kept,
             settingCity: sweep.result.settingCity?.label ?? null,
             anchor: sweep.result.anchor,
             product: { name: run.inputs.product.name, oneLine: run.inputs.product.oneLine },
@@ -313,6 +323,8 @@ async function runWorld(
             talent,
             chains: sweep.result.chains,
             sellerText: sellerText(run.inputs.product),
+            ...(exclude?.size ? { exclude: [...exclude] } : {}),
+            ...(options.revision ? { revision: options.revision } : {}),
           },
           { model: env.model, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) },
         ),
