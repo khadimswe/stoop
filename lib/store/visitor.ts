@@ -70,8 +70,46 @@ export async function saltedHash(store: Store, value: string): Promise<SaltedHas
   return `h_${sha256(`${await salt(store)}:${value}`).slice(0, 32)}` as SaltedHash;
 }
 
-/** Visitors without an IP (local dev, tests) share one id. */
+/** The 8 groups of an IPv6 address, or null when it is not one. Handles "::" and an IPv4 tail. */
+function ipv6Groups(text: string): string[] | null {
+  let address = text;
+  const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(address);
+  if (tail) {
+    const bytes = tail.slice(1).map(Number);
+    if (bytes.some((b) => b > 255)) return null;
+    address = `${address.slice(0, tail.index)}${((bytes[0] << 8) | bytes[1]).toString(16)}:${((bytes[2] << 8) | bytes[3]).toString(16)}`;
+  }
+  const halves = address.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - rest.length;
+  if (halves.length === 1 ? missing !== 0 : missing < 1) return null;
+  const groups = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill("0"), ...rest];
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/i.test(g))) return null;
+  return groups.map((g) => parseInt(g, 16).toString(16));
+}
+
+/**
+ * What one visitor is, from their IP: an IPv4 address as it is, an IPv6 address by its /64 (one
+ * household or device usually holds a whole /64, so per-address limits would be trivial to step
+ * around). An IPv4-mapped IPv6 address counts as its IPv4 address. Anything unparseable stays as sent.
+ */
+export function ipGroup(ip: string): string {
+  const bare = ip.trim().replace(/^\[|\]$/g, "").replace(/%.*$/, "").toLowerCase();
+  if (!bare.includes(":")) return bare;
+  const groups = ipv6Groups(bare);
+  if (!groups) return bare;
+  if (groups.slice(0, 5).every((g) => g === "0") && groups[5] === "ffff") {
+    const [hi, lo] = [parseInt(groups[6], 16), parseInt(groups[7], 16)];
+    return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+  }
+  return `${groups.slice(0, 4).join(":")}::/64`;
+}
+
+/** Visitors without an IP (local dev, tests) share one id. An IPv6 visitor is their /64 (ipGroup). */
 export async function visitorId(store: Store, headers: Headers): Promise<VisitorId> {
-  const ip = clientIp(headers) ?? "unknown";
+  const forwarded = clientIp(headers);
+  const ip = forwarded ? ipGroup(forwarded) : "unknown";
   return `v_${sha256(`${await salt(store)}:ip:${ip}`).slice(0, 24)}` as VisitorId;
 }

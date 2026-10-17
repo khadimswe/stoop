@@ -4,7 +4,8 @@
 // cookie counts a browser next to its IP, never instead of it: clearing cookies makes a new cookie id,
 // but the IP count stays. Without STOOP_SIGNING_SECRET there is no cookie id, and the IP counts alone.
 // A run started over MCP counts against its token instead of the IP (the same 15 a day), because hosted
-// connectors call from servers many users share.
+// connectors call from servers many users share. A resumed run counts against the visitor who started it,
+// not the one who pressed Resume (accepted: resuming replays cached frames, which take no place at all).
 //
 // A job counts against the visitor it renders for (FramesJob.visitor): the one who started the run, kept
 // in the run meta, when the runtime renders a world as its pack lands; the one who asks, in POST
@@ -69,20 +70,26 @@ export function jobSpent(outcome: FramesOutcome): boolean {
 export interface StoryboardHold {
   /** True when the job may render fresh frames: no visitor to count, or a place taken (now or earlier). */
   take(): Promise<boolean>;
-  /** Keeps the place when the job rendered a fresh frame; gives it back when it did not, or failed (null). */
+  /** Called as soon as a fresh frame rendered or was billed: from then on the place is kept, whatever fails after. */
+  billed(): void;
+  /** Keeps the place when the job rendered (or was billed for) a fresh frame; gives it back when it did not. Null: the job threw. */
   settle(outcome: FramesOutcome | null): Promise<void>;
 }
 
 export function storyboardHold(store: Store, visitor: StoryboardVisitor | null | undefined, now: () => number, limits: StoryboardLimits = STORYBOARD_LIMITS): StoryboardHold {
   let held: Reservation | null = null;
+  let spent = false;
   return {
     async take() {
       if (!visitor || held) return true;
       held = await reserveStoryboard(store, visitor, now(), limits);
       return held !== null;
     },
+    billed() {
+      spent = true;
+    },
     async settle(outcome) {
-      if (held && (outcome === null || !jobSpent(outcome))) await held.release();
+      if (held && !spent && (outcome === null || !jobSpent(outcome))) await held.release();
     },
   };
 }

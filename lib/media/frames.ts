@@ -370,6 +370,8 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     const settled = await Promise.allSettled(fresh.slice(0, granted).map((plan) => renderOne(plan, attempt)));
     const rendered = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
     const failed = settled.flatMap((s, i) => (s.status === "rejected" ? [{ plan: fresh[i], message: s.reason instanceof Error ? s.reason.message : String(s.reason), billed: wasBilled(s.reason) }] : []));
+    // A frame rendered or billed: the visitor's place stays taken, even if a write after this fails.
+    if (rendered.length > 0 || failed.some((f) => f.billed)) hold.billed();
     // Only a render the vendor refused gives its reservation back; a billed one stays counted.
     await giveBack(store, day, failed.filter((f) => !f.billed).length);
     for (const plan of [...rendered.map((r) => r.plan), ...failed.filter((f) => f.billed).map((f) => f.plan)]) {

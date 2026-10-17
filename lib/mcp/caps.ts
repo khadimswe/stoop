@@ -1,12 +1,14 @@
 // What MCP tool calls may spend per UTC day (lib/config.ts mcpCaps): per token, 40 tool calls of which
 // 3 culture_briefs, and MCP_DAILY_CAP tool calls across every token. A call takes its units right
-// before it spends anything (atomic counters, so concurrent calls never pass a cap together). It keeps
-// them once that spending happened (a culture_brief once intake ran, whatever StartRun then answered),
-// and gives them back when it was refused before spending, or failed. culture_brief also counts against
-// LIVE_RUNS_DAILY_CAP inside StartRun.
+// before it spends anything (atomic counters, so concurrent calls never pass a cap together), and keeps
+// them once spending started: a culture_brief once intake was called (whatever it or StartRun did next),
+// a score_brief once it made a live Qloo call. Units come back only when a call was refused before
+// spending, or did no work (a culture_brief whose runtime is not wired, a score_brief that failed before
+// any live call). culture_brief also takes from the agents' daily share of live runs right before
+// StartRun (MCP_LIVE_RUNS_DAILY_SHARE), and StartRun counts it against LIVE_RUNS_DAILY_CAP too.
 import type { McpCaps } from "../config";
-import { reserveEach, type Capped, type Reserved } from "../rate-limit";
-import { dayOf, keys, TTL } from "../store/keys";
+import { EVERYONE, reserveEach, ruleCounter, type Capped, type Reserved } from "../rate-limit";
+import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
 
 export type McpTool = "score_brief" | "culture_brief";
@@ -25,6 +27,12 @@ export function callCounters(tokenHash: string, tool: McpTool, caps: McpCaps, no
 /** Takes one call (and, for culture_brief, one brief) from the token's day and the shared day. */
 export function reserveCall(store: Store, tokenHash: string, tool: McpTool, caps: McpCaps, now: number = Date.now()): Promise<Reserved<McpCapName>> {
   return reserveEach(store, callCounters(tokenHash, tool, caps, now));
+}
+
+/** The day's counter of live runs culture_brief started, across every token (a global budget on the EVERYONE key). */
+export function liveRunShareCounter(caps: McpCaps, now: number = Date.now()): Capped<"mcp-live-runs"> {
+  const { key, ttlSeconds } = ruleCounter({ name: "daily-mcp-live-runs", limit: caps.liveRunsShare, windowSeconds: DAY_SECONDS }, EVERYONE, now);
+  return { name: "mcp-live-runs", key, cap: caps.liveRunsShare, ttlSeconds };
 }
 
 /** What a tool answers when a cap is spent. */

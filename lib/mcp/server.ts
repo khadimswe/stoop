@@ -17,14 +17,14 @@ import { MONTHLY_FLOOR, SCORE_BRIEF_BUDGET, SCORE_BRIEF_CAP } from "../qloo/budg
 import type { QlooClient } from "../qloo/client";
 import { createRunContext } from "../qloo/context";
 import { lastMonthRemaining } from "../qloo/shared";
-import { DAILY_RULES, EVERYONE, giveBack, hitRate, NOTHING_RESERVED, RATE_RULES, reserveUpTo, ruleCounter, type Reservation } from "../rate-limit";
+import { DAILY_RULES, EVERYONE, giveBack, hitRate, NOTHING_RESERVED, RATE_RULES, reserveEach, reserveUpTo, ruleCounter, type Reservation } from "../rate-limit";
 import type { RequestContext, RunIntake, StartRun } from "../runtime/types";
 import { keys } from "../store/keys";
 import type { Store } from "../store/types";
 import { tokenVisitorId, visitorId, type TokenVisitorId } from "../store/visitor";
 import { DEFAULT_DIRECTION } from "../types";
 import { callerOf, tokenRefusal, type Caller } from "./auth";
-import { capRefusal, reserveCall } from "./caps";
+import { capRefusal, liveRunShareCounter, reserveCall } from "./caps";
 import { scoreBrief, scoreBriefInputSchema, scoreBriefResultSchema, scoreBriefText } from "./score-brief";
 
 export const MCP_SERVER_INFO = { name: "stoop", version: "0.1.0" } as const;
@@ -148,53 +148,67 @@ export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?
   const ctx = await requestContext(deps, request, options.caller);
   const rate = await hitRate(ctx.store, RATE_RULES.cultureBrief, ctx.visitor, deps.now?.());
   if (!rate.ok) return replay("rate-limited");
-  // A spent daily cap answers before intake spends anything. Only a read: StartRun does the counting.
+  // A spent daily cap answers before intake spends anything. Only reads: StartRun counts the day's runs,
+  // and the agents' share is taken right before StartRun.
+  const caps = mcpCaps(deps.env);
   const usedToday = (await ctx.store.get<number>(keys.daily("live-runs"))) ?? 0;
   if (usedToday >= dailyCaps(deps.env).liveRuns) return replay("daily-cap");
+  const share = liveRunShareCounter(caps, deps.now?.());
+  const sharePaused = () => example({ ...replayAnswer("daily-cap"), message: AGENT_SHARE_MESSAGE });
+  if (((await ctx.store.get<number>(share.key)) ?? 0) >= share.cap) return sharePaused();
 
   const held = gate ? await gate() : { ok: true as const, reservation: NOTHING_RESERVED };
   if (!held.ok) return held.output;
+  // From here intake has been called, so the token's units stay spent whatever happens next; only a
+  // runtime that is not wired (it did no work) gives them back.
+  let intake: IntakeResponse;
   try {
-    let intake: IntakeResponse;
-    try {
-      intake = await deps.runIntake(input, ctx);
-    } catch (error) {
-      if (error instanceof RuntimeUnavailableError) {
-        await held.reservation.release();
-        return replay("replay");
-      }
-      throw error;
+    intake = await deps.runIntake(input, ctx);
+  } catch (error) {
+    if (error instanceof RuntimeUnavailableError) {
+      await held.reservation.release();
+      return replay("replay");
     }
-    const seeds = intake.seeds.slice(0, CULTURE_BRIEF_SEEDS);
-    if (seeds.length < RUN_SEEDS.min) {
-      return {
-        mode: "no_seeds",
-        message: `Qloo matched ${seeds.length} ${seeds.length === 1 ? "seed" : "seeds"} for this product; a run needs at least ${RUN_SEEDS.min}. Try a product page link or a fuller description.`,
-        notes: intake.notes,
-      };
-    }
-    const started = await deps.startRun(
+    throw error;
+  }
+  const seeds = intake.seeds.slice(0, CULTURE_BRIEF_SEEDS);
+  if (seeds.length < RUN_SEEDS.min) {
+    return {
+      mode: "no_seeds",
+      message: `Qloo matched ${seeds.length} ${seeds.length === 1 ? "seed" : "seeds"} for this product; a run needs at least ${RUN_SEEDS.min}. Try a product page link or a fuller description.`,
+      notes: intake.notes,
+    };
+  }
+  // The agents' share of today's live runs, taken before StartRun so web visitors and judges keep the rest;
+  // given back when no new run started (an example replay, a join of a run already going, or a failure).
+  const shared = await reserveEach(ctx.store, [share]);
+  if (!shared.ok) return sharePaused();
+  let started: RunStartResponse;
+  try {
+    started = await deps.startRun(
       { intakeId: intake.intakeId, seedIds: seeds.map((s) => s.ref.id), statedCustomer: input.statedCustomer ?? null, region: input.region ?? "United States", direction: DEFAULT_DIRECTION },
       ctx,
     );
-    if (started.mode === "example") return example(started);
-    return {
-      mode: "live",
-      message: started.joined
-        ? "The same brief was already running, so this joined it. Open the report link to follow it."
-        : "The run takes a few minutes. Open the report link to watch it build, or read the events link as a server-sent event stream.",
-      runId: started.runId,
-      reportUrl: `${origin}${started.reportUrl}`,
-      eventsUrl: `${origin}${started.eventsUrl}`,
-      joined: started.joined,
-      seeds: seeds.map((s) => ({ name: s.ref.name, origin: s.origin })),
-    };
   } catch (error) {
-    // A brief that failed gives its share of the caps back.
-    await held.reservation.release().catch(() => undefined);
+    await shared.reservation.release().catch(() => undefined);
     throw error;
   }
+  if (started.mode === "example" || started.joined) await shared.reservation.release();
+  if (started.mode === "example") return example(started);
+  return {
+    mode: "live",
+    message: started.joined
+      ? "The same brief was already running, so this joined it. Open the report link to follow it."
+      : "The run takes a few minutes. Open the report link to watch it build, or read the events link as a server-sent event stream.",
+    runId: started.runId,
+    reportUrl: `${origin}${started.reportUrl}`,
+    eventsUrl: `${origin}${started.eventsUrl}`,
+    joined: started.joined,
+    seeds: seeds.map((s) => ({ name: s.ref.name, origin: s.origin })),
+  };
 }
+
+const AGENT_SHARE_MESSAGE = "Today's live runs for MCP agents are used up, so the rest stay open for people on the site. Here's an example report; agent runs open again tomorrow (UTC).";
 
 function cultureBriefText(output: CultureBriefOutput): string {
   if (output.mode === "live") {
@@ -244,6 +258,7 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
         const calls = await reserveCall(rc.store, auth.caller.hash, "score_brief", caps, now);
         if (!calls.ok) return text(capRefusal(calls.full, caps), true);
         let scored = false;
+        let liveCalls = 0;
         try {
           // All agents together get a daily slice of Qloo calls. A call reserves its whole cap from the
           // slice before it starts (so concurrent calls can never overshoot it) and gives back what it did not spend.
@@ -259,11 +274,13 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
             scored = true;
             return { content: [{ type: "text", text: scoreBriefText(result) }], structuredContent: result };
           } finally {
+            liveCalls = qlooCtx.liveCalls;
             await giveBack(rc.store, slice.key, granted - qlooCtx.liveCalls, slice.ttlSeconds);
           }
         } finally {
-          // A refused or failed call gives its share of the token's and the day's calls back.
-          if (!scored) await calls.reservation.release();
+          // A call refused or failed before any live Qloo call gives its share of the token's and the
+          // day's calls back; one that reached Qloo keeps it, even if it then failed.
+          if (!scored && liveCalls === 0) await calls.reservation.release();
         }
       },
     );

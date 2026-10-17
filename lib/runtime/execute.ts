@@ -1,7 +1,7 @@
 // One live run, end to end, in the background (`after()`): the same pipeline the examples were
 // recorded with (lib/agent/orchestrator.ts runBrief), with live inputs, the shared Qloo client, Claude
 // memoized in the store, the LLM-only Control written next to Prove, and a 240 s deadline. Each world's
-// storyboard frames start as soon as its pack lands (docs plan section 4.3), each world job counted
+// storyboard frames start as soon as its pack lands (worlds run side by side, so frames never wait for the whole run), each world job counted
 // against the day of the visitor who started the run when it renders fresh frames, and their cost joins
 // the run's. Hitting the deadline stops the run where it is and marks it resumable.
 import type { LanguageModel } from "ai";
@@ -51,6 +51,8 @@ export interface ExecuteDeps {
 /**
  * Who a run's storyboards count against (lib/media/storyboards.ts): the visitor who started it, when its
  * meta says (older runs do not). Each job takes its place in that visitor's day at its first fresh render.
+ * A resumed run still counts against its starter, not whoever pressed Resume: accepted, since a resume
+ * replays its frames from the cache and takes no place unless something new renders.
  */
 function starterOf(meta: RunMeta): StoryboardVisitor | null {
   return meta.visitor ? { id: meta.visitor, cookie: meta.cookieVisitor ?? null } : null;

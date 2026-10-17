@@ -2,21 +2,23 @@
 // guard (another site's request and what the bot check flags are refused) with a per-IP request limit,
 // a JSON body under a small cap, the email normalized like the waitlist's, the honeypot (answered like a
 // success; nothing is stored, counted or sent), then the issuing limits reserved before anything is
-// issued (per IP per day, and overall per day; given back if issuing fails). The email joins the
+// issued (3 per IP per day, 100 overall per day; given back if issuing fails). The email joins the
 // waitlist with source "mcp" through the waitlist module (its rules unchanged). Only the token's hash
-// and its record are stored; the token itself is in this one response and in one email, and nowhere
-// else: never logged, never stored.
+// and its record are stored; the token itself is in this one response and in at most one email, and
+// nowhere else: never logged, never stored, not even its first characters (the label comes from the hash).
 import { z } from "zod";
 import { mcpTokenRequestSchema } from "../api/requests";
 import { mcpTokenResponseSchema } from "../api/responses";
-import { judgingEndsAt, mcpCaps } from "../config";
+import { judgingEndsAt, mcpCaps, type McpCaps } from "../config";
 import { sendMcpToken, type Mailer } from "../email";
 import { apiError, BodyError, cookieHeader, json, readCookie, readJson } from "../http";
+import { tokenLabel } from "../mcp/auth";
 import { mcpTokenRecordSchema, newToken, redactTokens, tokenHash } from "../mcp/token";
-import { DAILY_RULES, EVERYONE, hitRate, RATE_RULES, reserveEach } from "../rate-limit";
-import { dayOf, keys, TTL } from "../store/keys";
-import { saltedHash } from "../store/visitor";
-import { joinWaitlist, newSignupToken, SIGNUP_COOKIE, SIGNUP_COOKIE_MAX_AGE, validSignupToken } from "../waitlist";
+import { EVERYONE, RATE_RULES, reserveEach, ruleCounter, type Capped } from "../rate-limit";
+import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
+import type { Store } from "../store/types";
+import { saltedHash, type SaltedHash } from "../store/visitor";
+import { joinWaitlist, newSignupToken, normalizeEmail, SIGNUP_COOKIE, SIGNUP_COOKIE_MAX_AGE, validSignupToken } from "../waitlist";
 import { failSafe, guard, type GuardDeps } from "./guard";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -47,6 +49,21 @@ const issueText = (error: z.ZodError) =>
     .join("; ")
     .slice(0, 300);
 
+/** The token-email counters: per address (salted hash) per day, then the token emails' own daily budget. */
+function emailCounters(emailHash: SaltedHash, caps: McpCaps, now: number): Capped<"address" | "budget">[] {
+  const budget = ruleCounter({ name: "daily-mcp-token-emails", limit: caps.tokenEmailsDaily, windowSeconds: DAY_SECONDS }, EVERYONE, now);
+  return [
+    { name: "address", key: keys.rate("mcp-token-email", emailHash, dayOf(now)), cap: caps.tokenEmailsPerAddressDaily, ttlSeconds: TTL.daily },
+    { name: "budget", key: budget.key, cap: caps.tokenEmailsDaily, ttlSeconds: budget.ttlSeconds },
+  ];
+}
+
+/** Whether a token email to this address would go out now. Only a read. */
+async function emailRoom(store: Store, emailHash: SaltedHash, caps: McpCaps, now: number): Promise<boolean> {
+  const used = await Promise.all(emailCounters(emailHash, caps, now).map(async (c) => ((await store.get<number>(c.key)) ?? 0) < c.cap));
+  return used.every(Boolean);
+}
+
 export function createMcpTokenPost(deps: McpTokenDeps) {
   return (request: Request) =>
     failSafe("POST /api/mcp/token", async () => {
@@ -71,12 +88,20 @@ export function createMcpTokenPost(deps: McpTokenDeps) {
       if (now >= endsAt) return apiError("off", "MCP tokens closed when judging ended.", 410);
       const expiresAt = new Date(endsAt).toISOString();
       const mailer = deps.mailer();
-
-      // Honeypot: answered like an issued token, so a bot learns nothing. The token was never stored, so it opens nothing.
-      if (company) return json(mcpTokenResponseSchema.parse({ token: newToken(), expiresAt, emailed: mailer !== null }));
-
       const caps = mcpCaps(env);
       const day = dayOf(now);
+      // The browser's signup token: a first visit gets one, as on the waitlist (honeypot hits too, so they look the same).
+      const existingSignup = validSignupToken(readCookie(request, SIGNUP_COOKIE));
+      const signupToken = existingSignup ?? newSignupToken();
+      const headers = existingSignup ? undefined : { "Set-Cookie": cookieHeader(request, SIGNUP_COOKIE, signupToken, SIGNUP_COOKIE_MAX_AGE) };
+
+      // Honeypot: answered like an issued token, with the same `emailed` a real one would get and the
+      // same cookie, so a bot learns nothing. The token was never stored, so it opens nothing.
+      if (company) {
+        const emailed = mailer !== null && (await emailRoom(store, await saltedHash(store, normalizeEmail(email)), caps, now));
+        return json(mcpTokenResponseSchema.parse({ token: newToken(), expiresAt, emailed }), { headers });
+      }
+
       const reserved = await reserveEach(store, [
         { name: "ip", key: keys.rate("mcp-token-issue", visitor, day), cap: caps.issue.perIpDaily, ttlSeconds: TTL.daily },
         { name: "daily", key: keys.daily("mcp-tokens", day), cap: caps.issue.daily, ttlSeconds: TTL.daily },
@@ -90,23 +115,25 @@ export function createMcpTokenPost(deps: McpTokenDeps) {
       let issued = false;
       try {
         // The waitlist entry, under the browser's signup cookie as the waitlist route does it.
-        const existingSignup = validSignupToken(readCookie(request, SIGNUP_COOKIE));
-        const signupToken = existingSignup ?? newSignupToken();
         const { entry } = await joinWaitlist(store, { email, sellsOn: null, consent, sourceReport: MCP_SOURCE }, { token: signupToken, now: new Date(now) });
+        const emailHash = await saltedHash(store, entry.email);
 
         const token = newToken();
         const hash = tokenHash(token);
-        const record = mcpTokenRecordSchema.parse({ email: await saltedHash(store, entry.email), issuedAt: new Date(now).toISOString(), expiresAt, revokedAt: null, label: token.slice(0, 8) });
+        // The label comes from the hash, so no character of the token is kept anywhere.
+        const record = mcpTokenRecordSchema.parse({ email: emailHash, issuedAt: new Date(now).toISOString(), expiresAt, revokedAt: null, label: tokenLabel(hash) });
         // Listed before it is written, so the revoke script can always find a token that exists.
         await store.append(keys.mcp.tokens, [hash], { ttlSeconds: TTL.mcpToken });
         if (!(await store.set(keys.mcp.token(hash), record, { ttlSeconds: TTL.mcpToken, ifAbsent: true }))) throw new Error("A new MCP token matched one already issued.");
         issued = true;
 
-        // One email per token, within the day's email budget (shared with waitlist confirmations, for
-        // Resend's daily quota). The token is issued by now, so nothing here may fail the answer that shows it.
+        // One email per token, at most 2 a day to one address and within the token emails' own daily
+        // budget; past either, the token still shows on screen and no email goes out. The token is issued
+        // by now, so nothing here may fail the answer that shows it.
         let emailed = false;
         try {
-          if (mailer && (await hitRate(store, DAILY_RULES.confirmationEmails, EVERYONE, now)).ok) {
+          const room = mailer ? await reserveEach(store, emailCounters(emailHash, caps, now)) : null;
+          if (mailer && room?.ok) {
             const origin = new URL(request.url).origin;
             const outcome = await sendMcpToken(mailer, entry.email, token, { origin, expiresAt, calls: caps.perToken.calls, cultureBriefs: caps.perToken.cultureBriefs, idempotencyKey: `mcp-token-${hash.slice(0, 32)}` });
             emailed = outcome === "sent";
@@ -114,7 +141,6 @@ export function createMcpTokenPost(deps: McpTokenDeps) {
         } catch (error) {
           console.warn(redactTokens(`MCP token email skipped: ${error instanceof Error ? error.message : String(error)}`));
         }
-        const headers = existingSignup ? undefined : { "Set-Cookie": cookieHeader(request, SIGNUP_COOKIE, signupToken, SIGNUP_COOKIE_MAX_AGE) };
         return json(mcpTokenResponseSchema.parse({ token, expiresAt, emailed }), { headers });
       } finally {
         // Nothing was issued: the day's limits get their units back.

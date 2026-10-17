@@ -8,7 +8,7 @@ import type { IntakeRequest, RunStartRequest } from "../api/requests";
 import { createQlooClient } from "../qloo/client";
 import { FixtureCache } from "../qloo/fixtures";
 import type { Report } from "../report/schema";
-import type { RequestContext } from "../runtime/types";
+import type { RequestContext, StartRun } from "../runtime/types";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import type { Store } from "../store/types";
@@ -371,20 +371,67 @@ describe("MCP caps", () => {
     const two = await storeToken(pending.store());
     expect((await rpc(pending, { token: two.token })("tools/call", { name: "culture_brief", arguments: cultureArgs })).result?.structuredContent).toMatchObject({ reason: "replay" });
     expect(await counter(pending.store(), keys.mcp.cultureBriefs(two.hash))).toBe(0);
-    // Intake fails: everything comes back.
+    // Intake was called and failed: it may have read the page or called Claude and Qloo, so the units stay spent.
     const failing = deps({ runIntake: vi.fn(async () => Promise.reject(new Error("the page reader broke"))) });
     const three = await storeToken(failing.store());
     const failed = await rpc(failing, { token: three.token })("tools/call", { name: "culture_brief", arguments: cultureArgs });
     expect(failed.result?.isError ?? !!failed.error).toBe(true);
-    expect(await counter(failing.store(), keys.mcp.cultureBriefs(three.hash))).toBe(0);
-    expect(await counter(failing.store(), keys.mcp.calls(three.hash))).toBe(0);
-    expect(await counter(failing.store(), keys.daily("mcp-calls"))).toBe(0);
+    expect(await counter(failing.store(), keys.mcp.cultureBriefs(three.hash))).toBe(1);
+    expect(await counter(failing.store(), keys.mcp.calls(three.hash))).toBe(1);
+    expect(await counter(failing.store(), keys.daily("mcp-calls"))).toBe(1);
     // score_brief with the scoring slice spent takes nothing from the token either.
     const spent = deps();
     await hitRate(spent.store(), DAILY_RULES.scoreBriefQloo, EVERYONE, Date.now(), DAILY_RULES.scoreBriefQloo.limit);
     const four = await storeToken(spent.store());
     expect((await rpc(spent, { token: four.token })("tools/call", { name: "score_brief", arguments: scoreArgs })).result?.content?.[0].text).toContain("scoring budget is used up");
     expect(await counter(spent.store(), keys.mcp.calls(four.hash))).toBe(0);
+  });
+
+  it("keeps a score_brief's units once it made a live Qloo call, even if it then failed", async () => {
+    const d = deps();
+    const { token, hash } = await storeToken(d.store());
+    const client = createQlooClient({ cache: FixtureCache.fromDir("fixtures", { strict: true }) });
+    // Each lookup is counted as a live call, then fails in a way scoring does not survive.
+    let live = 0;
+    vi.spyOn(client, "request").mockImplementation(async (ctx) => {
+      ctx.liveCalls++;
+      live++;
+      throw new Error("the answer could not be read");
+    });
+    const failed = await rpc({ ...d, qloo: () => client }, { token })("tools/call", { name: "score_brief", arguments: scoreArgs });
+    expect(failed.result?.isError ?? !!failed.error).toBe(true);
+    expect(live).toBeGreaterThan(0);
+    expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(1);
+    // The slice keeps exactly the live calls it made.
+    expect(await rateUsed(d.store(), DAILY_RULES.scoreBriefQloo, EVERYONE)).toBe(live);
+  });
+
+  it("gives MCP its own share of the day's live runs, so people on the site keep the rest", async () => {
+    const d = deps({ env: { MCP_LIVE_RUNS_DAILY_SHARE: "2" } });
+    const tokens = await Promise.all([0, 1, 2].map(() => storeToken(d.store())));
+    const results = [];
+    for (const [i, t] of tokens.entries()) results.push(await rpc(d, { token: t.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i)));
+    expect(results.map((r) => r.result?.structuredContent?.mode)).toEqual(["live", "live", "example"]);
+    expect(results[2].result?.structuredContent).toMatchObject({ reason: "daily-cap" });
+    expect(results[2].result?.content?.[0].text).toContain("live runs for MCP agents are used up");
+    // The third was refused before intake: nothing spent, nothing of its token's taken.
+    expect(d.runIntake).toHaveBeenCalledTimes(2);
+    expect(d.startRun).toHaveBeenCalledTimes(2);
+    expect(await counter(d.store(), keys.mcp.calls(tokens[2].hash))).toBe(0);
+  });
+
+  it("gives the agents' share back when no new run started: a join or an example replay", async () => {
+    const joined = { ...LIVE_START, joined: true } as const;
+    const busy = { mode: "example", slug: "food-hot-sauce", reason: "busy", message: "Live runs are busy right now." } as const;
+    const d = deps({ env: { MCP_LIVE_RUNS_DAILY_SHARE: "1" }, startRun: vi.fn<StartRun>().mockResolvedValueOnce(joined).mockResolvedValueOnce(busy).mockResolvedValue(LIVE_START) });
+    const tokens = await Promise.all([0, 1, 2].map(() => storeToken(d.store())));
+    const modes = [];
+    for (const [i, t] of tokens.entries()) modes.push((await rpc(d, { token: t.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i))).result?.structuredContent);
+    expect(modes.map((m) => m?.mode)).toEqual(["live", "example", "live"]);
+    expect(modes[0]).toMatchObject({ joined: true });
+    // Only the third started a new run, so the one-run share is spent now.
+    const fourth = await storeToken(d.store());
+    expect((await rpc(d, { token: fourth.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(9))).result?.content?.[0].text).toContain("live runs for MCP agents are used up");
   });
 
   it("reserves score_brief's whole Qloo cap from the day's slice before it starts, and gives back what it did not spend", async () => {

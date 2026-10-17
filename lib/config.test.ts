@@ -44,4 +44,11 @@ describe("runtime config", () => {
     expect(mcpCaps({}).daily).toBe(200);
     expect(mcpCaps({ MCP_DAILY_CAP: "0" }).daily).toBe(0);
   });
+
+  it("gives MCP a share of the day's live runs, never more than the cap, and its own email budget", () => {
+    expect(mcpCaps({})).toMatchObject({ liveRunsShare: 10, tokenEmailsDaily: 50, tokenEmailsPerAddressDaily: 2, issue: { perIpDaily: 3, daily: 100 } });
+    expect(mcpCaps({ MCP_LIVE_RUNS_DAILY_SHARE: "25", LIVE_RUNS_DAILY_CAP: "12" }).liveRunsShare).toBe(12);
+    expect(mcpCaps({ MCP_LIVE_RUNS_DAILY_SHARE: "0" }).liveRunsShare).toBe(0);
+    expect(mcpCaps({ MCP_TOKEN_EMAILS_DAILY: "5" }).tokenEmailsDaily).toBe(5);
+  });
 });

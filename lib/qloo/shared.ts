@@ -1,5 +1,5 @@
 // What makes the Qloo client safe across many instances: a cache, a pacer and a daily cap kept in the
-// shared store, plus the month remaining that the next run starts from (CLAUDE.md sections 2 and 6).
+// shared store, plus the month remaining that the next run starts from, so no instance can pass the 4 a second pacing or the daily call cap.
 import { DAY_SECONDS, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
 import type { QlooClientOptions } from "./client";

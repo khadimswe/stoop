@@ -1,7 +1,7 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { describe, expect, it, vi } from "vitest";
 import { allowAll, type BotCheck } from "../bot-check";
-import { callerOf } from "../mcp/auth";
+import { callerOf, tokenLabel } from "../mcp/auth";
 import { storeToken } from "../mcp/fixture-token";
 import { newToken } from "../mcp/token";
 import { RATE_RULES } from "../rate-limit";
@@ -81,8 +81,9 @@ describe("POST /api/mcp", () => {
     expect(forwarded.url).toBe("https://stoop.example/api/mcp");
     expect(forwarded.url).not.toContain(token);
     expect(forwarded.headers.get("authorization")).toBe(`Bearer ${token}`);
-    expect(callerOf(forwarded.auth)).toEqual({ status: "valid", hash, label: token.slice(0, 8) });
-    expect(JSON.stringify(forwarded.auth)).not.toContain(token);
+    expect(callerOf(forwarded.auth)).toEqual({ status: "valid", hash, label: tokenLabel(hash) });
+    // AuthInfo carries the hash and a hash-derived label: no run of the token's own characters.
+    expect(JSON.stringify(forwarded.auth)).not.toContain(token.slice(4, 12));
     // A segment that is no token is never copied into a header: it is refused as unknown.
     await post(new Request("https://stoop.example/api/mcp/bad%0Avalue", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }), { pathToken: "bad\nvalue" });
     expect(seen[1].headers.get("authorization")).toBe("Bearer not-a-token");

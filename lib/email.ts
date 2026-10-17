@@ -59,7 +59,8 @@ export function confirmationEmail(position: number): { subject: string; text: st
 
 /**
  * The MCP token, emailed once as the visitor's own copy (the screen shows it once too). It holds the
- * token and how to add it, never anything else the visitor typed.
+ * token as plain text, once, and how to add it, never anything else the visitor typed. The token is
+ * never put inside a link: mail clients turn URLs into links, and links get logged, scanned and shared.
  */
 export function mcpTokenEmail(token: string, options: { origin: string; expiresAt: string; calls: number; cultureBriefs: number }): { subject: string; text: string } {
   const until = new Date(options.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" });
@@ -70,11 +71,13 @@ export function mcpTokenEmail(token: string, options: { origin: string; expiresA
       "",
       token,
       "",
-      "Add Stoop to Claude Code:",
-      `claude mcp add --transport http stoop ${options.origin}/api/mcp --header "Authorization: Bearer ${token}"`,
+      `Stoop's MCP server is ${options.origin}/api/mcp. Add it to your MCP client with this header:`,
+      "Authorization: Bearer <your token>",
       "",
-      "If your client only takes a URL, use this one (it carries the token, so treat it like a password):",
-      `${options.origin}/api/mcp/${token}`,
+      "In Claude Code:",
+      `claude mcp add --transport http stoop ${options.origin}/api/mcp --header "Authorization: Bearer <your token>"`,
+      "",
+      "If your client only takes a URL, add your token after /api/mcp/ in the server address, with no slash after it. That address carries the token, so keep it as private as the token.",
       "",
       `It works until ${until}, with up to ${options.calls} tool calls and ${options.cultureBriefs} culture briefs a day. Setup and help: ${options.origin}/mcp`,
       "",

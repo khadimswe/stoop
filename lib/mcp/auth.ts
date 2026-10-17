@@ -11,6 +11,12 @@ import { keys } from "../store/keys";
 import type { Store } from "../store/types";
 import { isTokenShaped, mcpTokenRecordSchema, tokenActive, tokenHash } from "./token";
 
+/**
+ * A token's label for the founder's listing and the AuthInfo clientId: "stp_" plus the first 4 hex of
+ * its hash, so not one character of the token itself is kept in the store or passed along.
+ */
+export const tokenLabel = (hash: string) => `stp_${hash.slice(0, 4)}`;
+
 export type CallerStatus = "missing" | "unknown" | "revoked" | "expired" | "valid";
 
 export type Caller = { status: "valid"; hash: string; label: string } | { status: Exclude<CallerStatus, "valid"> };
@@ -70,7 +76,7 @@ export function tokenRefusal(status: Exclude<CallerStatus, "valid">, origin: str
   const page = tokenPage(origin);
   switch (status) {
     case "missing":
-      return `Stoop's tools need a free MCP token. Get one at ${page}, then send it as "Authorization: Bearer <token>" (or add ${origin}/api/mcp/<token> if your client only takes a URL).`;
+      return `Stoop's tools need a free MCP token. Get one at ${page}, then send it as "Authorization: Bearer <token>" (or, if your client only takes a URL, add your token after /api/mcp/ with no slash after it).`;
     case "unknown":
       return `Stoop does not recognize this MCP token. Check that it was copied whole, or get a new one at ${page}.`;
     case "revoked":

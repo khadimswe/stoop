@@ -1,4 +1,4 @@
-// Starting a live run, safely (docs plan section 4.1). In order: the live switch, the founder's text
+// Starting a live run, safely (nothing spent twice, nothing left half-started). In order: the live switch, the founder's text
 // through the guardrails, an idempotent start on the brief hash (a repeat joins the run already
 // going), the visitor's hourly limit, today's live-run cap, and admission (at most 2 live runs at
 // once, as leases that expire if an instance dies). Anything refused becomes an example replay with a
@@ -23,7 +23,7 @@ import { randomHex } from "./intake";
 import { loadIntake, saveRunRecord } from "./record";
 import type { RequestContext } from "./types";
 
-/** At most this many live runs at once (CLAUDE.md section 2). */
+/** At most this many live runs at once (admission: more than this replays an example, with no queue). */
 export const MAX_LIVE_RUNS = 2;
 /** A lease outlives the longest run (maxDuration 300 s) a little, so a crashed run frees its slot. */
 export const LEASE_MS = 320_000;
