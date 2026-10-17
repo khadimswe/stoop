@@ -135,19 +135,33 @@ export type ControlDimension = (typeof CONTROL_DIMENSIONS)[number];
  */
 export const CHOICE_STATUSES = ["supported", "below", "missing", "unverifiable"] as const;
 
-export const controlChoiceSchema = z.strictObject({
-  dimension: z.enum(CONTROL_DIMENSIONS),
-  /** The Control's own words, e.g. "Austin" or "lo-fi hip hop". */
-  text: z.string().min(1),
-  status: z.enum(CHOICE_STATUSES),
-  /** For a tag or reference: where it landed against the panel, e.g. "beats 4 of 25 reference music tags". */
-  position: panelPositionSchema.nullable(),
-  /** For a city: its rank among this world's cities ("#44 of 380"). */
-  rank: z.strictObject({ rank: z.number().int().min(1), of: z.number().int().min(1) }).nullable(),
-  /** What Qloo measured for this choice in words, e.g. "skews -0.18" for an age band; null when nothing was. */
-  measured: z.string().min(1).nullable(),
-  evidenceIds,
-});
+export const controlChoiceSchema = z
+  .strictObject({
+    dimension: z.enum(CONTROL_DIMENSIONS),
+    /** The Control's own words, e.g. "Austin" or "lo-fi hip hop". */
+    text: z.string().min(1),
+    status: z.enum(CHOICE_STATUSES),
+    /** For a tag or reference: where it landed against the panel, e.g. "beats 4 of 25 reference music tags". */
+    position: panelPositionSchema.nullable(),
+    /** For a city: its rank among this world's cities ("#44 of 380"). */
+    rank: z.strictObject({ rank: z.number().int().min(1), of: z.number().int().min(1) }).nullable(),
+    /** What Qloo measured for this choice in words, e.g. "skews -0.18" for an age band; null when nothing was. */
+    measured: z.string().min(1).nullable(),
+    evidenceIds,
+  })
+  .superRefine((choice, ctx) => {
+    const issue = (message: string) => ctx.addIssue({ code: "custom", message, path: ["status"] });
+    const verdict = choice.status === "supported" || choice.status === "below";
+    // A panel position decides the status: above the median supports, below it is a cliche, no median is unverifiable.
+    if (choice.position) {
+      const { aboveMedian } = choice.position;
+      if (aboveMedian === null && choice.status !== "unverifiable") issue("a panel with no median makes the choice unverifiable");
+      if (aboveMedian === true && choice.status !== "supported") issue("above the panel median is supported");
+      if (aboveMedian === false && choice.status !== "below") issue("below the panel median is below");
+    }
+    if (verdict && !choice.position && !choice.rank && !choice.measured) issue(`a ${choice.status} choice needs what Qloo measured`);
+    if (verdict && choice.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: `a ${choice.status} choice needs a receipt`, path: ["evidenceIds"] });
+  });
 export type ControlChoice = z.infer<typeof controlChoiceSchema>;
 
 export const clicheSchema = z.strictObject({

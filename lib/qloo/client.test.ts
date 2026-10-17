@@ -290,6 +290,17 @@ describe("budget", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("stops retrying once the retries have used the cap's unplanned calls", async () => {
+    const { client, fetchMock } = setup([status(503), status(503), status(503), ok()]);
+    // 3 calls of cap, 2 planned in rows: one retry of slack.
+    const ctx = createRunContext({ runId: "run_slack", cap: 3, rowCaps: { probes: 2 } });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" }),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(ctx.retryCalls).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("refuses a call with no row, or an unknown one, in a run with a budget table", async () => {
     const { client, fetchMock } = setup([]);
     const ctx = createLiveRunContext("run_live");
@@ -297,6 +308,9 @@ describe("budget", () => {
     await expect(
       client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "critique" as never }),
     ).rejects.toThrow(/no budget row "critique"/);
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "toString" as never }),
+    ).rejects.toThrow(/no budget row "toString"/);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ctx.rowCaps).toEqual(RUN_BUDGET);
     expect(ctx.cap).toBe(RUN_CAP);

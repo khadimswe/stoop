@@ -8,7 +8,7 @@ import { defaultPackSettings } from "./prompts/brief";
 import { buildProductionPack } from "./prompts/pack";
 import { totalScore } from "./prompts/rubric";
 import { conceptRunSchema } from "./stages/concepts";
-import { controlFitSchema, cultureFieldSchema, panelPositionSchema } from "./report/world";
+import { controlChoiceSchema, controlFitSchema, cultureFieldSchema, panelPositionSchema } from "./report/world";
 import { cueSchema } from "./types";
 
 // A real recorded run (data/runs/, produced by `npm run audience -- --picks` from fixtures).
@@ -265,8 +265,26 @@ describe("honesty rules in the world contract", () => {
     expect(cueSchema.safeParse({ text: "warm folk", origin: "creative", evidenceIds: [] }).success).toBe(true);
   });
 
+  it("ties a choice's status to what Qloo measured, with a receipt", () => {
+    const choice = (status: string, aboveMedian: boolean | null, of = 25) => ({
+      dimension: "music",
+      text: "lo-fi hip hop",
+      status,
+      position: { beats: 3, of, aboveMedian },
+      rank: null,
+      measured: null,
+      evidenceIds: artist.evidenceIds,
+    });
+    expect(controlChoiceSchema.safeParse(choice("below", false)).success).toBe(true);
+    expect(controlChoiceSchema.safeParse(choice("below", true)).success).toBe(false);
+    expect(controlChoiceSchema.safeParse(choice("below", null, 4)).success).toBe(false);
+    expect(controlChoiceSchema.safeParse(choice("unverifiable", null, 4)).success).toBe(true);
+    expect(controlChoiceSchema.safeParse({ ...choice("below", false), evidenceIds: [] }).success).toBe(false);
+    expect(controlChoiceSchema.safeParse({ ...choice("supported", true), position: null }).success).toBe(false);
+  });
+
   it("derives every count in a fit line from its choices", () => {
-    const choice = (status: string) => ({ dimension: "music", text: "lo-fi hip hop", status, position: null, rank: null, measured: null, evidenceIds: [] });
+    const choice = (status: string) => ({ dimension: "cities", text: "Austin", status, position: null, rank: { rank: 44, of: 380 }, measured: null, evidenceIds: artist.evidenceIds });
     const choices = [choice("below"), choice("supported"), choice("missing"), choice("unverifiable")];
     const fit = { segmentId: "seg-a", choices, checkable: 3, below: 1, missing: 1, unverifiable: 1, line: "1 of 3 checkable LLM-only choices below this audience's reference median (1 unverifiable)", range: null };
     expect(controlFitSchema.safeParse(fit).success).toBe(true);

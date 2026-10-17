@@ -224,11 +224,17 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     if (row) ctx.rowCalls[row] = (ctx.rowCalls[row] ?? 0) + 1;
   }
 
+  /** With row caps, retries may only use the calls the table leaves unplanned. */
+  function retrySlackSpent(ctx: RunContext): boolean {
+    const planned = Object.values(ctx.rowCaps).reduce((sum, calls) => sum + calls, 0);
+    return planned > 0 && ctx.retryCalls >= Math.max(0, ctx.cap - planned);
+  }
+
   /** In a run with row caps, every call names a row the table knows. */
   function assertRow(ctx: RunContext, row: string | undefined): void {
     if (Object.keys(ctx.rowCaps).length === 0) return;
     if (row === undefined) throw new QlooBudgetError(`Run ${ctx.runId} has a budget table, and this call names no budget row`);
-    if (!(row in ctx.rowCaps)) throw new QlooBudgetError(`Run ${ctx.runId} has no budget row "${row}"`);
+    if (!Object.hasOwn(ctx.rowCaps, row)) throw new QlooBudgetError(`Run ${ctx.runId} has no budget row "${row}"`);
   }
 
   /** Turns a cached or fresh entry into typed data, or throws. */
@@ -292,10 +298,11 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     }
     const fetched = await limiter.run(flightKey, async () => {
       const response = await send(req.endpoint, canonicalQuery(req.params), () => {
-        // Retries draw on the run cap's slack (RUN_CAP minus the planned rows), not on the row, so one
-        // 503 never costs a world one of its planned calls.
-        if (budgetProblem(ctx)) return false;
+        // Retries draw on the run cap's slack (the cap minus the planned rows), not on the row, so one
+        // 503 never costs a world one of its planned calls, and retries can never eat a planned call.
+        if (budgetProblem(ctx) || retrySlackSpent(ctx)) return false;
         charge(ctx, req.stage, undefined);
+        ctx.retryCalls++;
         return true;
       });
 

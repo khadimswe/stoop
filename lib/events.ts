@@ -295,8 +295,8 @@ export function toReport(state: ReportState): Report {
   });
 }
 
-/** Worlds in the order Segments measured them (a live view and a replay agree), then any others as they arrived. */
-function inSegmentOrder(state: ReportState): World[] {
+/** Worlds in the order Segments measured them, then any others as they arrived. Live views use it too, so they match the replay. */
+export function inSegmentOrder(state: Pick<ReportState, "worlds" | "audience">): World[] {
   const order = state.audience.segments?.items.map((s) => s.id) ?? [];
   const at = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
   return state.worlds

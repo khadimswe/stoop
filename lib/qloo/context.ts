@@ -18,6 +18,8 @@ export interface RunContext {
   readonly rowCaps: Readonly<Record<string, number>>;
   /** Live calls spent per budget row. */
   rowCalls: Record<string, number>;
+  /** Live retries so far: with row caps, they may only use the cap's slack (cap minus the planned rows). */
+  retryCalls: number;
   readonly ledger: Ledger;
 }
 
@@ -31,6 +33,7 @@ export function createRunContext(options: { runId: string; cap?: number; monthly
     stageCalls: {},
     rowCaps: options.rowCaps ?? {},
     rowCalls: {},
+    retryCalls: 0,
     ledger: createLedger(),
   };
 }
