@@ -36,6 +36,7 @@ export interface Fixture {
 }
 
 export const FIXTURES_DIR = "fixtures";
+const EM_DASH_PATTERN = new RegExp(String.fromCharCode(0x2014), "g");
 export const GZIP_ABOVE_BYTES = 1_000_000;
 
 const JSON_EXT = ".json";
@@ -55,9 +56,11 @@ export function findFixture(name: string, dir = FIXTURES_DIR): string | undefine
  * before compression, so callers can check it (for example, that no API key appears) before writing.
  */
 export function encodeFixture(name: string, value: unknown, dir = FIXTURES_DIR): { file: string; text: string; data: string | Buffer } {
-  const pretty = `${JSON.stringify(value, null, 2)}\n`;
+  // Qloo's own text can hold U+2014; it is written as an escape (same JSON, no raw character in the repo).
+  const escaped = (json: string) => json.replace(EM_DASH_PATTERN, "\\u2014");
+  const pretty = escaped(`${JSON.stringify(value, null, 2)}\n`);
   if (pretty.length <= GZIP_ABOVE_BYTES) return { file: path.join(dir, `${name}${JSON_EXT}`), text: pretty, data: pretty };
-  const compact = `${JSON.stringify(value)}\n`;
+  const compact = escaped(`${JSON.stringify(value)}\n`);
   return { file: path.join(dir, `${name}${GZ_EXT}`), text: compact, data: gzipSync(compact, { level: 9 }) };
 }
 

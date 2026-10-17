@@ -89,7 +89,7 @@ export interface GuardResult {
 const LABEL_NOTE = /\binterpret(?:ation|ed)\b|\bnot from qloo\b|\bcreative suggestion\b/i;
 
 const textProblems = (path: string, text: string, ctx: GuardContext): string[] => [
-  ...checkText(text, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces }).map((issue) => `${path}: ${issue.message}`),
+  ...checkText(text, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces, exactCaseNames: true }).map((issue) => `${path}: ${issue.message}`),
   ...(LABEL_NOTE.test(text) ? [`${path}: leave out notes about labels or interpretation; write only the direction itself`] : []),
 ];
 
@@ -142,7 +142,7 @@ export function guardBrief(submission: BriefSubmission, ctx: GuardContext): Guar
       .map((item, i) => {
         const trimmed = unquote(item);
         // An avoid list names banned claims in order to forbid them.
-        const issues = checkText(trimmed, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces })
+        const issues = checkText(trimmed, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces, exactCaseNames: true })
           .filter((issue) => !avoidList || (issue.rule !== "health-claim" && issue.rule !== "fake-proof"))
           .map((issue) => `${path}.${i}: ${issue.message}`);
         problems.push(...issues);

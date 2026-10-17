@@ -20,7 +20,8 @@ import type { RunEvent } from "../events";
 import type { BriefSlots, Concept, PackSettings, ProductSpec } from "../prompts/brief";
 import type { PackProblem, ProductionPack } from "../prompts/pack";
 import type { Stage, StageStats } from "../report/schema";
-import { CONTROL_ID, type AdPlanEntry, type Comparison, type ConceptSet, type ControlFit, type CreatorBrief, type CultureFieldResult, type UgcScript, type World } from "../report/world";
+import { QlooBudgetError, QlooHttpError, QlooShapeError } from "../qloo/errors";
+import { CONTROL_ID, MIN_PANEL_FOR_MEDIAN, type AdPlanEntry, type Comparison, type ConceptSet, type ControlFit, type CreatorBrief, type CultureFieldResult, type UgcScript, type World } from "../report/world";
 import type { AgeBucket } from "../qloo/constants";
 import { ageBandLabel, type CreativeDirection } from "../types";
 import { measureAudience, stageTimer, type AudienceEnv, type AudienceRun, type MeasuredAudience } from "../stages/audience";
@@ -103,23 +104,46 @@ const median = (values: number[]) => {
   return sorted[Math.floor((sorted.length - 1) / 2)];
 };
 
+/** The scored types in the order the comparison names them. */
+const PANEL_TYPES = [
+  ["urn:entity:artist", "artists"],
+  ["urn:entity:brand", "brands"],
+  ["urn:entity:movie", "films"],
+  ["urn:entity:tv_show", "TV shows"],
+  ["urn:tag:genre:music", "music tags"],
+  ["urn:tag:emotional_tone:qloo", "mood tags"],
+] as const;
+
+/**
+ * How Qloo's own picks placed for one world, per type: the median pick's position against that
+ * type's panel (positions only compare within one scoring call, so types are never pooled). A type
+ * whose panel came back with fewer than 5 items gets no median.
+ */
+export function qlooLine(picks: readonly NonNullable<World["check"]>["picks"][number][]): string | null {
+  const parts = PANEL_TYPES.flatMap(([type, label]) => {
+    const placed = picks.filter((p) => p.from === "qloo" && p.type === type && p.position && p.position.of >= MIN_PANEL_FOR_MEDIAN);
+    const beats = median(placed.map((p) => p.position!.beats));
+    return beats === null ? [] : [`${label} ${beats} of ${placed[0].position!.of}`];
+  });
+  return parts.length ? `Qloo's own picks for this world, median against each reference panel: ${parts.join(", ")}` : null;
+}
+
 /** The comparison: per world, the Control's fit line next to how Qloo's own picks placed. */
-export function compareWorlds(worlds: readonly { segmentId: string; label: string; check: World["check"] }[], fits: readonly ControlFit[]): Comparison | null {
+export function compareWorlds(worlds: readonly { segmentId: string; band: string; check: World["check"] }[], fits: readonly ControlFit[]): Comparison | null {
   const lines = worlds.flatMap((world) => {
     const fit = fits.find((f) => f.segmentId === world.segmentId);
-    const picks = world.check?.picks.filter((p) => p.from === "qloo" && p.position) ?? [];
-    if (!fit || picks.length === 0) return [];
-    const beats = median(picks.map((p) => p.position!.beats));
-    const of = median(picks.map((p) => p.position!.of));
-    const evidenceIds = [...new Set(picks.flatMap((p) => p.evidenceIds))];
-    return [{ segmentId: world.segmentId, control: fit.line, qloo: `Qloo's own picks for this world beat a median ${beats} of ${of} reference picks`, cliches: world.check?.cliches.length ?? 0, evidenceIds }];
+    const picks = world.check?.picks ?? [];
+    const qloo = qlooLine(picks);
+    if (!fit || !qloo) return [];
+    const evidenceIds = [...new Set(picks.filter((p) => p.from === "qloo").flatMap((p) => p.evidenceIds))];
+    return [{ segmentId: world.segmentId, control: fit.line, qloo, cliches: world.check?.cliches.length ?? 0, evidenceIds }];
   });
   if (lines.length === 0) return null;
-  const counted = fits.filter((f) => lines.some((l) => l.segmentId === f.segmentId));
-  const same = counted.every((f) => f.below === counted[0].below && f.checkable === counted[0].checkable);
+  const counted = lines.map((l) => ({ fit: fits.find((f) => f.segmentId === l.segmentId) as ControlFit, band: worlds.find((w) => w.segmentId === l.segmentId)?.band ?? l.segmentId }));
+  const same = counted.every(({ fit }) => fit.below === counted[0].fit.below && fit.checkable === counted[0].fit.checkable);
   const missed = same
-    ? `${counted[0].below} of ${counted[0].checkable} checkable choices ${counted.length === 1 ? "in this world" : "in each world"}`
-    : counted.map((f) => `${f.below} of ${f.checkable}`).join(", then ") + " checkable choices across the worlds";
+    ? `${counted[0].fit.below} of ${counted[0].fit.checkable} checkable choices ${counted.length === 1 ? "in this world" : "in each world"}`
+    : counted.map(({ fit, band }) => `${fit.below} of ${fit.checkable} checkable choices for ${band}`).join(" and ");
   return { headline: `The generic brief missed ${missed}.`, worlds: lines };
 }
 
@@ -139,9 +163,14 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
     const control = run.control.find((r) => r.run === CONTROL_RUN);
     if (!control) throw new Error(`The run has no Control run ${CONTROL_RUN}.`);
     const runs = [control, ...run.control.filter((r) => r.run !== CONTROL_RUN)];
-    // Run-scoped culture: the audience's creators, and the Control mapped to Qloo once.
+    // Run-scoped culture: the audience's creators, and the Control mapped to Qloo once. Neither can
+    // stop the run: creators fall back to none, and a refused mapping leaves choices unverifiable.
     const { creators, maps } = await timer.timed("culture", async () => ({
-      creators: await sweepCreators(stageEnv, run.inputs.seeds),
+      creators: await sweepCreators(stageEnv, run.inputs.seeds).catch((error: unknown) => {
+        if (!(error instanceof QlooBudgetError || error instanceof QlooHttpError || error instanceof QlooShapeError)) throw error;
+        decide(stageEnv, "culture", "No creators for this run", `Qloo's people and podcasts could not be read (${error.message}), so creator briefs show no Qloo signal.`);
+        return [];
+      }),
       maps: await mapControl(stageEnv, runs, run.inputs.seeds),
     }));
     const cBrief = controlBrief(control);
@@ -174,6 +203,7 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
 interface WorldOutcome {
   segmentId: string;
   label: string;
+  band: string;
   check: World["check"];
   fit: ControlFit | null;
 }
@@ -193,7 +223,7 @@ async function runWorld(
   const wenv = forWorld({ client: env.client, ctx: env.ctx, emit: stages.counting, reference: env.reference, inReference: env.inReference }, segmentId);
   const { emit } = env.emitter;
   const band = ageBandLabel(segment.bucket);
-  const outcome: WorldOutcome = { segmentId, label: segment.label, check: null, fit: null };
+  const outcome: WorldOutcome = { segmentId, label: segment.label, band, check: null, fit: null };
   emit({ type: "world.started", segmentId, label: segment.label });
   try {
     // Culture, part 1: the sweep, in the setting city chosen for this world.
@@ -204,7 +234,17 @@ async function runWorld(
     // The check, which the agent reads.
     stages.started("score");
     const checked = await stages.time("score", () =>
-      checkWorld(wenv, { seeds: run.inputs.seeds, segment, candidates, control: maps, proof: measured.proof, segmentCells: raw.heatmap, parentCells: measured.heatmap, reference: env.reference }),
+      checkWorld(wenv, {
+        seeds: run.inputs.seeds,
+        segment,
+        candidates,
+        control: maps,
+        proof: measured.proof,
+        segmentCells: raw.heatmap,
+        heatmapEvidence: raw.evidence.heatmap,
+        parentCells: measured.heatmap,
+        reference: env.reference,
+      }),
     );
     stages.done("score", checked.stats);
     outcome.check = checked.result.check;
@@ -233,6 +273,7 @@ async function runWorld(
             direction: run.inputs.direction,
             names,
             talent,
+            chains: sweep.result.chains,
           },
           { model: env.model, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) },
         ),

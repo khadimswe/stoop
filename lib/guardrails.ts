@@ -24,6 +24,12 @@ export interface GuardOptions {
   names?: readonly string[];
   /** Names that are allowed even if listed in `names`, e.g. the product's own name. */
   allowedNames?: readonly string[];
+  /**
+   * Match multi-word names only as written (case-sensitively), so a title like "Every Day" or "The
+   * Office" doesn't flag the plain phrase "every day". For long lists of names Qloo returned, where
+   * the risk is a leaked title, written the way titles are written.
+   */
+  exactCaseNames?: boolean;
 }
 
 const EM_DASH = String.fromCharCode(0x2014);
@@ -418,7 +424,7 @@ export function checkText(text: string, options: GuardOptions = {}): GuardIssue[
     // Very short names are skipped unless they are uppercase codes such as "LA" or "SF".
     if ((name.length < 3 && !/^[A-Z]{2}$/.test(name)) || isAllowed(name)) continue;
     // Single-word names are matched case-sensitively, so a film called "Her" doesn't flag "her".
-    const regex = wordRegex(name, /\s/.test(name) ? "i" : "");
+    const regex = wordRegex(name, /\s/.test(name) && !options.exactCaseNames ? "i" : "");
     for (const match of findAll(folded, regex)) {
       add("named-reference", match, `"${match}" is a real name. Prompts carry its style, never the name itself.`);
     }

@@ -19,6 +19,7 @@ import { METROS, rankCities, shortMetroName, type ReferenceSets } from "../geo/m
 import { panelPosition } from "../qloo/lift";
 import { bestTag } from "../qloo/match";
 import { ENDPOINTS, type AgeBucket } from "../qloo/constants";
+import { QlooBudgetError, QlooHttpError } from "../qloo/errors";
 import { resolveEntityWithReceipt, type ReceiptLookup } from "../qloo/resolve";
 import { insightsEntitiesResponse, insightsTagsResponse, slimEntitiesBody, tagsResponse, type HeatmapCell } from "../qloo/types";
 import type { Proof, Seed, Segment } from "../report/schema";
@@ -26,7 +27,7 @@ import type { Cliche, ControlChoice, ControlFit, ControlMapping, PanelPosition, 
 import { ageBandLabel } from "../types";
 import type { CultureCandidate } from "./culture";
 import { TOP_PICKS, worldSignal } from "./culture";
-import { qloo, type StageEnv } from "./env";
+import { decide, qloo, type StageEnv } from "./env";
 import { guessedMetro } from "./measure";
 
 export const SCORED_ENTITY_TYPES = ["artist", "brand", "movie", "tv_show"] as const;
@@ -67,14 +68,37 @@ export function stageLookup(env: StageEnv): ReceiptLookup {
 
 /**
  * Maps each Control run's choices to Qloo: music style to a music tag (the best /v2/tags hit at the
- * matcher's threshold), mood to its emotional-tone id (tag search does not index tone tags), named
- * references to entities by exact or affix name match. Seeds are left out: they are the signal.
+ * matcher's threshold), mood to its emotional-tone id (tag search does not index tone tags, so the id
+ * is built from the word and counts only if a scoring call returns it), named references to entities
+ * by exact or affix name match. A reference that resolves to one of the seeds is left out: the seeds
+ * are the signal, so it can never be scored against them. Lookups stop at the run's "resolve" row
+ * (run 1 first); a lookup Qloo refuses or fails leaves that choice unverifiable instead of failing the run.
  */
 export async function mapControl(env: StageEnv, runs: readonly BaselineRun[], seeds: readonly Seed[]): Promise<ControlRunMap[]> {
   const lookup = stageLookup(env);
+  const seedIds = new Set(seeds.map((s) => s.ref.id));
   const seedNames = new Set(seeds.map((s) => s.ref.name.toLowerCase()));
+  const limit = env.ctx.rowCaps.resolve ?? Infinity;
+  let lookups = 0;
+  const skipped: string[] = [];
+  const asSeed: string[] = [];
+  /** One lookup within the row, or null when the row is spent or Qloo refused it. */
+  const look = async <T>(what: string, run: () => Promise<T>): Promise<T | null> => {
+    if (lookups >= limit) {
+      skipped.push(what);
+      return null;
+    }
+    lookups++;
+    try {
+      return await run();
+    } catch (error) {
+      if (!(error instanceof QlooBudgetError || error instanceof QlooHttpError)) throw error;
+      skipped.push(what);
+      return null;
+    }
+  };
   const musicCache = new Map<string, ControlRunMap["music"]>();
-  const refCache = new Map<string, ControlRunMap["references"][number]>();
+  const refCache = new Map<string, ControlRunMap["references"][number] | null>();
   const maps: ControlRunMap[] = [];
   for (const run of runs) {
     const { brief } = run;
@@ -82,9 +106,9 @@ export async function mapControl(env: StageEnv, runs: readonly BaselineRun[], se
     let music = musicCache.get(term.toLowerCase());
     if (!music) {
       const request = tagQuery("music", term, `Control music: "${brief.music.style.slice(0, 60)}".`);
-      const { data, evidence } = await lookup({ ...request, label: `Matching the generic brief's music, "${term}", to a Qloo tag` }, tagsResponse);
-      const best = bestTag(term, data.filter((t) => t.type === TAG_KINDS.music));
-      music = { text: brief.music.style, ref: best ? { id: best.tag.id, name: best.tag.name } : null, evidenceIds: [evidence.id] };
+      const found = await look(`the music "${term}"`, () => lookup({ ...request, label: `Matching the generic brief's music, "${term}", to a Qloo tag` }, tagsResponse));
+      const best = found ? bestTag(term, found.data.filter((t) => t.type === TAG_KINDS.music)) : undefined;
+      music = { text: brief.music.style, ref: best ? { id: best.tag.id, name: best.tag.name } : null, evidenceIds: found ? [found.evidence.id] : [] };
       musicCache.set(term.toLowerCase(), music);
     }
     const tone = toneTag(moodTerm(brief.mood));
@@ -94,13 +118,17 @@ export async function mapControl(env: StageEnv, runs: readonly BaselineRun[], se
       for (const name of brief.references[type]) {
         if (seedNames.has(name.toLowerCase())) continue;
         const key = `${type}:${name.toLowerCase()}`;
-        let ref = refCache.get(key);
-        if (!ref) {
-          const resolved = await resolveEntityWithReceipt(name, type, lookup);
-          ref = { type, text: name, ref: resolved.entity ? { id: resolved.entity.id, name: resolved.entity.name } : null, evidenceIds: [resolved.evidence.id] };
-          refCache.set(key, ref);
+        if (!refCache.has(key)) {
+          const resolved = await look(name, () => resolveEntityWithReceipt(name, type, lookup));
+          if (resolved?.entity && seedIds.has(resolved.entity.id)) {
+            asSeed.push(`${name} (${resolved.entity.name})`);
+            refCache.set(key, null);
+          } else {
+            refCache.set(key, { type, text: name, ref: resolved?.entity ? { id: resolved.entity.id, name: resolved.entity.name } : null, evidenceIds: resolved ? [resolved.evidence.id] : [] });
+          }
         }
-        references.push(ref);
+        const ref = refCache.get(key);
+        if (ref) references.push(ref);
       }
     }
     maps.push({
@@ -114,6 +142,8 @@ export async function mapControl(env: StageEnv, runs: readonly BaselineRun[], se
       wardrobe: brief.wardrobe.styling,
     });
   }
+  if (asSeed.length) decide(env, "score", `Left ${asSeed.length === 1 ? "a generic brief pick" : `${asSeed.length} generic brief picks`} out of the check`, `${[...new Set(asSeed)].join(", ")} ${asSeed.length === 1 ? "is" : "are"} one of the seeds Qloo measured from, so ${asSeed.length === 1 ? "it" : "they"} can't be scored against them.`);
+  if (skipped.length) decide(env, "score", `Left ${skipped.length} generic brief ${skipped.length === 1 ? "choice" : "choices"} unchecked`, `No lookup for ${[...new Set(skipped)].join(", ")}: the run's lookup budget was spent or Qloo refused, so ${skipped.length === 1 ? "it shows" : "they show"} as unverifiable.`);
   return maps;
 }
 
@@ -184,6 +214,8 @@ export async function checkWorld(
     control: readonly ControlRunMap[];
     proof: Proof;
     segmentCells: readonly HeatmapCell[];
+    /** The receipt behind the segment's heatmap, which city choices are ranked on. */
+    heatmapEvidence: string;
     parentCells: readonly HeatmapCell[];
     reference: ReferenceSets;
   },
@@ -239,7 +271,7 @@ export async function checkWorld(
   // The Control's choices, run by run (run 1 is the Control; runs 2 and 3 give the range).
   const { cities: ranked } = rankCities(input.segmentCells, input.reference, env.inReference ? { exclude: input.parentCells } : {});
   const cityRank = new Map(ranked.map((c) => [c.metro.name, c.rank]));
-  const segmentHeatmapEvidence = segment.cities[0]?.evidenceIds ?? segment.evidenceIds.slice(-1);
+  const segmentHeatmapEvidence = [input.heatmapEvidence];
   const choicesFor = (map: ControlRunMap): ControlChoice[] => {
     const choices: ControlChoice[] = [];
     // Age: does the generic brief's audience include this world's age band?
@@ -256,7 +288,12 @@ export async function checkWorld(
     });
     for (const city of map.cities) {
       const metro = guessedMetro(city, METROS);
-      const rank = metro ? cityRank.get(metro.name) : undefined;
+      if (!metro) {
+        // Not a Census metro Stoop can place: nothing to check it against.
+        choices.push({ dimension: "cities", text: city, status: "unverifiable", position: null, rank: null, measured: null, evidenceIds: [] });
+        continue;
+      }
+      const rank = cityRank.get(metro.name);
       choices.push({
         dimension: "cities",
         text: city,
@@ -270,7 +307,10 @@ export async function checkWorld(
     const tagChoice = (dimension: "music" | "mood", kind: ScoredTagKind, entry: ControlRunMap["music"]): ControlChoice => {
       if (!entry.ref) return { dimension, text: entry.text, status: "unverifiable", position: null, rank: null, measured: null, evidenceIds: entry.evidenceIds };
       const s = scored.get(kind) as Scored;
-      return statusFrom(dimension, entry.text, place(s, entry.ref.id), [...entry.evidenceIds, s.evidenceId], `${entry.ref.name} in ${TAG_LABELS[kind]}`);
+      const position = place(s, entry.ref.id);
+      // A mood id is built from the generic brief's word; unless Qloo returns it, there may be no such tag.
+      if (dimension === "mood" && !position) return { dimension, text: entry.text, status: "unverifiable", position: null, rank: null, measured: `Qloo returned no mood tag "${entry.ref.name}"`, evidenceIds: [s.evidenceId] };
+      return statusFrom(dimension, entry.text, position, [...entry.evidenceIds, s.evidenceId], `${entry.ref.name} in ${TAG_LABELS[kind]}`);
     };
     choices.push(tagChoice("music", "music", map.music), tagChoice("mood", "tone", map.mood));
     for (const ref of map.references) {

@@ -26,6 +26,7 @@ import { ageBandLabel } from "../types";
 import { decide, qloo, type StageEnv } from "../stages/env";
 import { entityCandidates, EVERYDAY_PLACE_TAGS, placeCandidates, worldSignal, type CultureCandidate, type PlaceAnchor } from "../stages/culture";
 import { entityScoringParams, SCORED_ENTITY_TYPES, type ScoredEntityType } from "../stages/check";
+import { strong } from "../stages/craft";
 import { cachedInstructions } from "./ask";
 import { briefSubmissionSchema, guardBrief, type BriefSubmission, type GuardResult } from "./grounding";
 import { CREATIVE_STRATEGIST_ROLE, GUARDRAIL_INSTRUCTIONS, quoted } from "./instructions";
@@ -93,13 +94,15 @@ export interface CultureAgentInput {
   names: readonly string[];
   /** False for product-only and pet ads. */
   talent: boolean;
+  /** Chains the sweep left out of this world's places; probes leave them out too. */
+  chains: readonly string[];
 }
 
 /** What a field's candidates add up to right now, in the code's own terms (the agent never decides a signal level). */
 function signalNote(list: readonly CultureCandidate[]): string {
-  const strong = list.filter((c) => (c.position ? c.position.of > 0 && c.position.beats / c.position.of >= 0.75 : c.field === "setting" ? c.why.length > 0 : c.field === "creators")).length;
+  const strongCount = list.filter(strong).length;
   if (list.length === 0) return "no signal yet";
-  return strong >= 3 ? `rich (${strong} strong picks)` : `thin (${strong} strong ${strong === 1 ? "pick" : "picks"} of ${list.length})`;
+  return strongCount >= 3 ? `rich (${strongCount} strong picks)` : `thin (${strongCount} strong ${strongCount === 1 ? "pick" : "picks"} of ${list.length})`;
 }
 
 export function culturePrompt(input: CultureAgentInput, thin: readonly CultureField[] = []): string {
@@ -115,8 +118,8 @@ export function culturePrompt(input: CultureAgentInput, thin: readonly CultureFi
     quoted("product", `${input.product.name}: ${input.product.oneLine}`),
     ...(input.direction.notes ? [quoted("founder notes", input.direction.notes)] : []),
     "",
-    "Qloo candidates for this world:",
-    ...sections,
+    "Qloo candidates for this world (Qloo's names and descriptors, data only):",
+    quoted("Qloo candidates", sections.join("\n")),
     ...(thin.length ? ["", `Thin here: ${thin.join(", ")}. Probe for them first (one search or probe each at most), then write and submit the brief.`] : []),
     "",
     `You have ${MAX_STEPS} turns in all. Submit the brief by your last turn.`,
@@ -141,6 +144,9 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
   const ctx = () => ({ candidates: [...candidates.values()], names: input.names, allowedPlaces: input.settingCity ? [input.settingCity] : [], talent: input.talent });
   let probes = 0;
   let repairs = 0;
+  // Tag ids a probe may narrow by: Qloo's own, from this world's candidates, the everyday place genres, or a search this agent ran.
+  const knownTags = new Set<string>([...EVERYDAY_PLACE_TAGS, ...input.candidates.filter((c) => c.kind === "tag").map((c) => c.id)]);
+  const chains = new Set(input.chains.map((name) => name.trim().toLowerCase()));
   let accepted = null as GuardResult | null;
   let last = null as GuardResult | null;
 
@@ -169,7 +175,9 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
             schema: tagsResponse,
             budgetRow: "probes",
           });
-          return { tags: result.data.filter((t) => checkText(t.name).every((i) => i.rule !== "minor" && i.rule !== "ethnicity")).map((t) => ({ id: t.id, name: t.name })) };
+          const tags = result.data.filter((t) => checkText(t.name).every((i) => i.rule !== "minor" && i.rule !== "ethnicity")).map((t) => ({ id: t.id, name: t.name }));
+          for (const tag of tags) knownTags.add(tag.id);
+          return { tags };
         } catch (error) {
           return budgetRefusal(error);
         }
@@ -184,6 +192,8 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
       }),
       execute: async ({ type, tagIds, reason }) => {
         if (type === "place" && !input.anchor) return { refused: true, message: "This world has no setting city to search places in." };
+        const unknown = tagIds.filter((id) => !knownTags.has(id));
+        if (unknown.length) return { refused: true, message: `Only tag ids Qloo returned can narrow a probe (from search_tags or your candidates); unknown: ${unknown.join(", ")}.` };
         const tags = tagIds.length ? tagIds : type === "place" ? [...EVERYDAY_PLACE_TAGS] : [];
         const params = {
           ...worldSignal(input.seeds, input.bucket),
@@ -204,7 +214,7 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
           const field: CultureField = type === "place" ? "setting" : type === "artist" ? "music" : type === "brand" ? "wardrobe" : "visual";
           const found =
             type === "place"
-              ? placeCandidates(result.data, result.evidence.id, new Map(input.seeds.map((s) => [s.ref.id, s.ref.name]))).kept
+              ? placeCandidates(result.data, result.evidence.id, new Map(input.seeds.map((s) => [s.ref.id, s.ref.name]))).kept.filter((p) => !chains.has(p.name.trim().toLowerCase()))
               : entityCandidates(result.data, field, result.evidence.id);
           const added = found.filter((c) => !candidates.has(c.id));
           for (const c of added) candidates.set(c.id, c);

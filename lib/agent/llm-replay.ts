@@ -92,7 +92,8 @@ export class LlmStore {
     mkdirSync(path.dirname(this.file), { recursive: true });
     const answers = [...this.answers.values()].sort((a, b) => a.id.localeCompare(b.id));
     const data: StoreFile = { name: this.name, recordedAt: this.now().toISOString(), answers };
-    writeFileSync(this.file, `${JSON.stringify(data, null, 2)}\n`);
+    // Claude's text can hold U+2014; it is written as an escape (same JSON, no raw character in the repo).
+    writeFileSync(this.file, `${JSON.stringify(data, null, 2)}\n`.replace(new RegExp(String.fromCharCode(0x2014), "g"), "\\u2014"));
     this.dirty = false;
     return true;
   }
@@ -100,17 +101,17 @@ export class LlmStore {
 
 type CallOptions = Parameters<NonNullable<LanguageModelMiddleware["wrapGenerate"]>>[0]["params"];
 
-/** The key for one model step: everything that decides the answer, nothing that varies per call. */
+/**
+ * The key for one model step: everything sent to the model (prompt, tools, tool choice, output
+ * format, limits, sampling, provider options), minus what varies per call and never changes the
+ * answer (the abort signal, request headers, raw-chunk streaming).
+ */
 export function stepKey(modelId: string, params: CallOptions): string {
-  return hashOf({
-    modelId,
-    prompt: params.prompt,
-    tools: params.tools ?? null,
-    toolChoice: params.toolChoice ?? null,
-    responseFormat: params.responseFormat ?? null,
-    maxOutputTokens: params.maxOutputTokens ?? null,
-    providerOptions: params.providerOptions ?? null,
-  });
+  const { abortSignal: _abort, headers: _headers, includeRawChunks: _raw, ...sent } = params;
+  void _abort;
+  void _headers;
+  void _raw;
+  return hashOf({ modelId, ...sent });
 }
 
 function hintOf(params: CallOptions): string {

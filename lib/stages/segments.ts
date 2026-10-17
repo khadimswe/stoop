@@ -89,6 +89,8 @@ export interface SegmentRaw {
   artists: QlooEntity[];
   brands: QlooEntity[];
   heatmap: HeatmapCell[];
+  /** The receipt behind each response. */
+  evidence: { artists: string; brands: string; heatmap: string };
 }
 
 /**
@@ -146,7 +148,12 @@ export async function segments(
     }));
     const genres = topGenres(artists.data);
     rawArtists.push(artists.data);
-    raw.set(segmentIdFor(bucket), { artists: artists.data, brands: brands.data, heatmap: heatmap.data });
+    raw.set(segmentIdFor(bucket), {
+      artists: artists.data,
+      brands: brands.data,
+      heatmap: heatmap.data,
+      evidence: { artists: artists.evidence.id, brands: brands.evidence.id, heatmap: heatmap.evidence.id },
+    });
     built.push({
       id: segmentIdFor(bucket),
       bucket,

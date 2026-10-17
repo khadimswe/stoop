@@ -26,8 +26,12 @@ function slotCue(cue: GuardedCue | null, fallback: string): Cue {
   return creative(cue?.text ?? fallback);
 }
 
-/** A strong source beats at least 75% of the panel; a place is strong when Qloo explained it. */
-const strong = (c: CultureCandidate) => (c.position ? c.position.of > 0 && c.position.beats / c.position.of >= STRONG_SHARE : c.field === "setting" ? c.why.length > 0 : c.field === "creators");
+/**
+ * A strong source is measured: it beats at least 75% of the panel, or it is a place Qloo explained.
+ * People and podcasts have no panel and no explanation, so they back a field (thin) but never make it rich.
+ */
+export const strong = (c: Pick<CultureCandidate, "position" | "field" | "why">) =>
+  c.position ? c.position.of > 0 && c.position.beats / c.position.of >= STRONG_SHARE : c.field === "setting" && c.why.length > 0;
 
 /** rich: 3 or more strong sources; thin: any cited source; none: nothing Qloo backs. */
 export function signalOf(cites: readonly CultureCandidate[]): CultureFieldResult["signal"] {
@@ -101,7 +105,8 @@ export function craftWorld(input: CraftInput): Crafted {
     ...(rich.has("music") && brief.music.origin === "interpreted" ? ["music"] : []),
     ...(rich.has("visual") && brief.visual.origin === "interpreted" ? ["visual"] : []),
     ...(rich.has("wardrobe") && brief.wardrobe?.origin === "interpreted" ? ["wardrobe"] : []),
-    ...(rich.has("setting") ? brief.setting.flatMap((cue, i) => (cue.origin === "interpreted" ? [`setting.${i}`] : [])) : []),
+    // The primary setting only: a scene can show one location, so the rest of the settings stay optional.
+    ...(rich.has("setting") && brief.setting[0]?.origin === "interpreted" ? ["setting.0"] : []),
     ...(rich.has("mood") && brief.mood.origin === "interpreted" ? ["mood"] : []),
     ...(rich.has("voice") && brief.voice.tone.origin === "interpreted" ? ["voice.tone"] : []),
   ];

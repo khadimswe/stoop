@@ -33,6 +33,7 @@ const input: CultureAgentInput = {
   direction: report.inputs.direction,
   names: candidates.filter((c) => c.kind === "entity").map((c) => c.name),
   talent: true,
+  chains: [],
 };
 
 const brief = (music = "Roots americana with a soulful edge, brushed drums, mid tempo."): BriefSubmission => ({
