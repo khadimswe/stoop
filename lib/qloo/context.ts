@@ -1,5 +1,5 @@
 import { createLedger, type Ledger } from "../evidence";
-import { RUN_BUDGET, RUN_CAP } from "./budget";
+import { MONTHLY_FLOOR, RUN_BUDGET, RUN_CAP } from "./budget";
 
 /** Per-run state shared by every Qloo call in one agent run. */
 export interface RunContext {
@@ -23,11 +23,12 @@ export interface RunContext {
   readonly ledger: Ledger;
 }
 
-export function createRunContext(options: { runId: string; cap?: number; monthlyFloor?: number; rowCaps?: Readonly<Record<string, number>> }): RunContext {
+export function createRunContext(options: { runId: string; cap?: number; monthlyFloor?: number; monthRemaining?: number; rowCaps?: Readonly<Record<string, number>> }): RunContext {
   return {
     runId: options.runId,
     cap: options.cap ?? RUN_CAP,
     monthlyFloor: options.monthlyFloor ?? 0,
+    ...(options.monthRemaining !== undefined ? { monthRemaining: options.monthRemaining } : {}),
     liveCalls: 0,
     cachedCalls: 0,
     stageCalls: {},
@@ -38,7 +39,10 @@ export function createRunContext(options: { runId: string; cap?: number; monthly
   };
 }
 
-/** A live run's context: the run cap plus the per-row table, so every call is planned and capped. */
-export function createLiveRunContext(runId: string, options: { monthlyFloor?: number } = {}): RunContext {
-  return createRunContext({ runId, cap: RUN_CAP, rowCaps: RUN_BUDGET, ...options });
+/**
+ * A live run's context: the run cap plus the per-row table, so every call is planned and capped, and
+ * the monthly floor, seeded with the last month-remaining Qloo reported (a fresh instance knows it too).
+ */
+export function createLiveRunContext(runId: string, options: { monthlyFloor?: number; monthRemaining?: number } = {}): RunContext {
+  return createRunContext({ runId, cap: RUN_CAP, rowCaps: RUN_BUDGET, monthlyFloor: MONTHLY_FLOOR, ...options });
 }

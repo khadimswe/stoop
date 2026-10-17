@@ -1,0 +1,143 @@
+// Starting a live run, safely (docs plan section 4.1). In order: the live switch, the visitor's hourly
+// limit, an idempotent start on the brief hash (a repeat joins the run already going), today's live-run
+// cap, and admission (at most 2 live runs at once, as leases that expire if an instance dies). Anything
+// refused becomes an example replay with a one-line reason, never an error screen. The run itself
+// starts in the background (`after()` in the route), so the founder gets the stream URL at once.
+import { after } from "next/server";
+import { runStartRequestSchema, type RunStartRequest } from "../api/requests";
+import type { RunStartResponse } from "../api/responses";
+import { dailyCaps, isLive } from "../config";
+import { LEAD_EXAMPLE } from "../demo/examples";
+import type { Evidence } from "../evidence";
+import { checkText } from "../guardrails";
+import { hashOf } from "../hash";
+import { defaultPackSettings } from "../prompts/brief";
+import type { Seed } from "../report/schema";
+import { statedFromText } from "../stages/gap";
+import { keys, TTL } from "../store/keys";
+import { getRunMeta, setRunMeta, type RunMeta } from "../store/runs";
+import type { Store } from "../store/types";
+import { ApiFailure, hourOf } from "./errors";
+import { randomHex } from "./intake";
+import { loadIntake, saveRunRecord } from "./record";
+import type { RequestContext } from "./types";
+
+/** At most this many live runs at once (CLAUDE.md section 2). */
+export const MAX_LIVE_RUNS = 2;
+/** A lease outlives the longest run (maxDuration 300 s) a little, so a crashed run frees its slot. */
+export const LEASE_MS = 320_000;
+export const RUNS_PER_HOUR = 10;
+export const RESUMES_PER_HOUR = 6;
+
+const REPLAY_MESSAGES = {
+  replay: "Live runs are off right now. Here is a full example run instead.",
+  busy: "Two live runs are going right now. Here is a full example while you wait.",
+  "daily-cap": "Today's live runs are used up. Here is a full example run.",
+  "rate-limited": "That is a lot of runs in an hour. Here is a full example run.",
+} as const;
+
+export const exampleReply = (reason: keyof typeof REPLAY_MESSAGES): RunStartResponse => ({ mode: "example", slug: LEAD_EXAMPLE.slug, reason, message: REPLAY_MESSAGES[reason] });
+
+const liveReply = (runId: string, joined: boolean): RunStartResponse => ({ mode: "live", runId, eventsUrl: `/api/run/${runId}/events`, reportUrl: `/report/${runId}`, joined });
+
+export interface StartDeps {
+  env?: Readonly<Record<string, string | undefined>>;
+  now?: () => number;
+  randomHex?: (bytes: number) => string;
+  /** Runs the live run in the background. Defaults to next/server `after()`. */
+  schedule?: (task: () => Promise<void>) => void;
+  /** The live run itself (lib/runtime/execute.ts), bound to its vendors by the route. */
+  execute: (runId: string) => Promise<void>;
+}
+
+/** Every seed the intake may confirm: the ones it proposed, and the ones the founder found through search. */
+async function confirmable(store: Store, intakeId: string, proposed: readonly Seed[], evidence: readonly Evidence[]) {
+  const searched = await store.range<{ seeds: Seed[]; evidence: Evidence }>(keys.intakeSearched(intakeId), 0, -1);
+  const seeds = new Map<string, Seed>();
+  for (const seed of [...proposed, ...searched.flatMap((s) => s.seeds)]) if (!seeds.has(seed.ref.id)) seeds.set(seed.ref.id, seed);
+  const receipts = new Map<string, Evidence>([...evidence, ...searched.map((s) => s.evidence)].map((e) => [e.id, e]));
+  return { seeds, receipts };
+}
+
+export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: RequestContext): Promise<RunStartResponse> {
+  const env = deps.env ?? process.env;
+  if (!isLive(env)) return exampleReply("replay");
+  const input = runStartRequestSchema.parse(raw);
+  const now = deps.now ?? Date.now;
+  const { store } = ctx;
+
+  const intake = await loadIntake(store, input.intakeId);
+  if (!intake) throw new ApiFailure("not_found", "That product read has expired. Start again from your link.", 404);
+  const { seeds: allowed, receipts } = await confirmable(store, input.intakeId, intake.seeds, intake.evidence);
+  const seeds = input.seedIds.map((id) => allowed.get(id));
+  if (seeds.some((s) => !s)) throw new ApiFailure("invalid", "Pick seeds from the list Qloo found for your product.", 422);
+  const chosen = seeds as Seed[];
+  // The founder's notes reach Claude as quoted data, after the same guardrails as generated text.
+  const noteIssues = input.direction.notes ? checkText(input.direction.notes) : [];
+  if (noteIssues.length) throw new ApiFailure("invalid", `Your notes can't be used: ${noteIssues[0].message}`, 422);
+
+  const inputs = { product: intake.product, seeds: chosen, statedCustomer: input.statedCustomer?.trim() || null, region: input.region, direction: input.direction };
+  // Idempotent on what the run would measure: the same brief joins the run already started for it.
+  const briefHash = hashOf({ ...inputs, seeds: chosen.map((s) => s.ref.id).sort() });
+  const existing = await joinable(store, briefHash);
+  if (existing) return liveReply(existing, true);
+
+  if ((await store.incr(keys.rate("run", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > RUNS_PER_HOUR) return exampleReply("rate-limited");
+  const dailyKey = keys.daily("live-runs");
+  if ((await store.incr(dailyKey, { ttlSeconds: TTL.daily })) > dailyCaps(env).liveRuns) return exampleReply("daily-cap");
+
+  const runId = `run_${(deps.randomHex ?? randomHex)(12)}`;
+  if (!(await store.leaseAcquire(keys.liveLeases, runId, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() }))) {
+    await store.incr(dailyKey, { by: -1 });
+    return exampleReply("busy");
+  }
+  // Two identical starts at once: the second finds the first's claim and joins it.
+  if (!(await store.set(keys.brief(briefHash), runId, { ifAbsent: true, ttlSeconds: TTL.runEvents }))) {
+    await Promise.all([store.leaseRelease(keys.liveLeases, runId), store.incr(dailyKey, { by: -1 })]);
+    const other = await joinable(store, briefHash);
+    return other ? liveReply(other, true) : exampleReply("busy");
+  }
+
+  const at = new Date(now()).toISOString();
+  const stated = inputs.statedCustomer === intake.statedCustomer ? intake.stated : inputs.statedCustomer ? statedFromText(inputs.statedCustomer) : null;
+  const seedEvidence = [...new Set(chosen.flatMap((s) => s.evidenceIds))].flatMap((id) => receipts.get(id) ?? []);
+  await saveRunRecord(store, runId, { inputs, stated, site: intake.site, seedEvidence, settings: defaultPackSettings(inputs.direction) });
+  const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash, createdAt: at, updatedAt: at };
+  await setRunMeta(store, meta);
+  (deps.schedule ?? after)(() => deps.execute(runId));
+  return liveReply(runId, false);
+}
+
+async function joinable(store: Store, briefHash: string): Promise<string | null> {
+  const runId = await store.get<string>(keys.brief(briefHash));
+  if (!runId) return null;
+  const meta = await getRunMeta(store, runId);
+  // A failed run is not joined: starting again gives the founder a fresh try.
+  return meta && meta.status !== "failed" ? runId : null;
+}
+
+/**
+ * Resumes a run that stopped (the deadline) or whose instance died (still "running", lease gone).
+ * The next attempt streams again from seq 0; its Qloo answers come from the shared cache and its
+ * Claude steps from the run's memo, so it costs nothing until it passes where the last attempt stopped.
+ */
+export async function resumeRun(deps: StartDeps, runId: string, ctx: RequestContext): Promise<RunStartResponse> {
+  if (!isLive(deps.env ?? process.env)) return exampleReply("replay");
+  const now = deps.now ?? Date.now;
+  const { store } = ctx;
+  const meta = await getRunMeta(store, runId);
+  if (!meta) throw new ApiFailure("not_found", "That run has expired.", 404);
+  if (meta.status === "done" || meta.status === "failed") return liveReply(runId, true);
+  // With room for none, a lease is only refreshed when this run already holds one: a live instance is still on it.
+  const holding = await store.leaseAcquire(keys.liveLeases, runId, { max: 0, ttlMs: LEASE_MS, now: now() });
+  if (meta.status === "running" && holding) return liveReply(runId, true);
+  if ((await store.incr(keys.rate("resume", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > RESUMES_PER_HOUR) {
+    throw new ApiFailure("rate_limited", "That run has been resumed a lot this hour. Try again a little later.", 429);
+  }
+  if (!(await store.leaseAcquire(keys.liveLeases, runId, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() }))) {
+    throw new ApiFailure("busy", "Two live runs are going right now. Try Resume again in a minute.", 503);
+  }
+  await setRunMeta(store, { ...meta, attempt: meta.attempt + 1, status: "running", updatedAt: new Date(now()).toISOString() });
+  (deps.schedule ?? after)(() => deps.execute(runId));
+  return liveReply(runId, false);
+}

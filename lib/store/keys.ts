@@ -34,6 +34,8 @@ export const keys = {
     /** The seq counter per attempt: every writer takes its seqs from it. */
     seq: (runId: string, attempt: number) => `run:${runId}:${attempt}:seq`,
     report: (runId: string) => `run:${runId}:report`,
+    /** What the run was started with (inputs, readings, receipts, settings), so a resume rebuilds it. */
+    input: (runId: string) => `run:${runId}:input`,
     /** Recorded Claude steps for a run (memoized stages): a resume replays them for free. */
     llm: (runId: string, stepHash: string) => `run:${runId}:llm:${stepHash}`,
     /**
@@ -48,6 +50,9 @@ export const keys = {
   /** Idempotent starts: the brief hash points at the run already started for it. */
   brief: (briefHash: string) => `brief:${briefHash}`,
   intake: (intakeId: string) => `intake:${intakeId}`,
+  /** Seeds the founder added through Qloo search for an intake, and how many searches it made. */
+  intakeSearched: (intakeId: string) => `intake:${intakeId}:searched`,
+  intakeSearches: (intakeId: string) => `intake:${intakeId}:searches`,
   /** The random salt for visitor hashes (lib/store/visitor.ts). */
   visitorSalt: "visitor:salt",
   /** Live-run admission leases (at most 2 at once). */

@@ -37,6 +37,15 @@ export interface QlooClientOptions {
   maxRetries?: number;
   /** Covers the whole request, including reading the body. */
   timeoutMs?: number;
+  /**
+   * Waits for the next start slot shared by every instance (the store's global pacer). Replaces the
+   * local limiter's spacing; in-flight sharing and concurrency stay local, since they are per run.
+   */
+  pacer?: () => Promise<void>;
+  /** Runs before every live attempt, retries included: the global daily cap. Throws QlooBudgetError when spent. */
+  admit?: () => Promise<void>;
+  /** Hears each x-month-ratelimit-remaining, so the next run starts with the latest value. */
+  onMonthRemaining?: (remaining: number) => void | Promise<void>;
 }
 
 export interface QlooRequest<T> {
@@ -115,6 +124,7 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const apiKey = options.apiKey?.trim() || undefined;
   const cache = options.cache;
+  const pace = options.pacer ?? (() => limiter.pace());
 
   const snippet = (text: string) => redact(text, apiKey).replace(/\s+/g, " ").trim().slice(0, 300);
 
@@ -168,7 +178,8 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     if (!apiKey) throw new QlooConfigError(MISSING_KEY);
     const url = `${baseUrl}${endpoint}${query ? `?${query}` : ""}`;
     for (let attempt = 0; ; attempt++) {
-      await limiter.pace();
+      await options.admit?.();
+      await pace();
       const started = now();
       let result: { response: Response; text: string };
       try {
@@ -307,7 +318,14 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
       });
 
       const remaining = response.headers["x-month-ratelimit-remaining"];
-      if (remaining !== undefined && Number.isFinite(Number(remaining))) ctx.monthRemaining = Number(remaining);
+      if (remaining !== undefined && Number.isFinite(Number(remaining))) {
+        ctx.monthRemaining = Number(remaining);
+        try {
+          await options.onMonthRemaining?.(ctx.monthRemaining);
+        } catch {
+          // Only a hint for the next run; the call itself succeeded.
+        }
+      }
 
       const deterministicMiss = response.status === 404 && req.onNotFound !== undefined;
       if (!deterministicMiss && (response.status < 200 || response.status >= 300)) {

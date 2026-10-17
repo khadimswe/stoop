@@ -2,9 +2,12 @@
 // any accidental import from a client component fail the build, so the key never reaches a browser.
 import "server-only";
 import path from "node:path";
-import { FileCache, MemoryCache } from "./cache";
+import { dailyCaps } from "../config";
+import { getStore } from "../store";
+import { FileCache } from "./cache";
 import { createQlooClient, type QlooClient } from "./client";
 import { FixtureCache } from "./fixtures";
+import { sharedClientOptions } from "./shared";
 
 export type QlooMode = "live" | "fixtures";
 
@@ -25,13 +28,14 @@ export function getQlooClient(): QlooClient {
     client = createQlooClient({ cache: FixtureCache.fromDir(path.join(process.cwd(), "fixtures"), { strict: true }) });
     return client;
   }
+  // The shared store paces, caps and caches every live call across instances (Upstash in production).
+  const store = getStore();
+  const shared = sharedClientOptions(store, { dailyCap: dailyCaps().qloo });
   client = createQlooClient({
     apiKey: process.env.QLOO_API_KEY,
-    // Dev restarts and hot reloads would otherwise re-spend quota. Upstash replaces MemoryCache in Gate 5.
-    cache:
-      process.env.NODE_ENV === "development"
-        ? new FileCache(path.join(process.cwd(), ".cache", "qloo"))
-        : new MemoryCache(),
+    ...shared,
+    // Without Upstash, local dev keeps its disk cache so restarts and hot reloads do not re-spend quota.
+    ...(store.kind === "memory" && process.env.NODE_ENV === "development" ? { cache: new FileCache(path.join(process.cwd(), ".cache", "qloo")) } : {}),
   });
   return client;
 }

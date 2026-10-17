@@ -3,8 +3,8 @@
 // run it without a key. AI SDK middleware (wrapLanguageModel) sits between the agent and the model:
 // each model step is keyed by a hash of exactly what was sent (prompt, tools, tool choice, output
 // format, limits, provider options), so a replay serves the answer to the same question and a
-// changed prompt misses instead of answering a different one. Scripts and tests only: app routes
-// never record or replay (Gate 5 runs live).
+// changed prompt misses instead of answering a different one. The files are for scripts and tests;
+// live runs keep their steps in the store instead (lib/runtime/memo.ts), so a resumed run replays them.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { wrapLanguageModel, type LanguageModel, type LanguageModelMiddleware } from "ai";
@@ -12,10 +12,10 @@ import { hashOf, stableStringify } from "../hash";
 
 export const LLM_FIXTURES_DIR = path.join("fixtures", "llm");
 
-type GenerateResult = Awaited<ReturnType<NonNullable<LanguageModelMiddleware["wrapGenerate"]>>>;
+export type GenerateResult = Awaited<ReturnType<NonNullable<LanguageModelMiddleware["wrapGenerate"]>>>;
 
 /** A recorded answer, without the request body or response headers (they repeat the prompt and carry nothing replay needs). */
-interface StoredAnswer {
+export interface StoredAnswer {
   /** The step's hash (stepKey). Named "id", not "key", so secret scanners don't read a hash as a credential. */
   id: string;
   modelId: string;
@@ -99,7 +99,7 @@ export class LlmStore {
   }
 }
 
-type CallOptions = Parameters<NonNullable<LanguageModelMiddleware["wrapGenerate"]>>[0]["params"];
+export type CallOptions = Parameters<NonNullable<LanguageModelMiddleware["wrapGenerate"]>>[0]["params"];
 
 /**
  * The key for one model step: everything sent to the model (prompt, tools, tool choice, output
@@ -120,7 +120,7 @@ function hintOf(params: CallOptions): string {
   return text.replace(/\s+/g, " ").slice(0, 120);
 }
 
-function stored(id: string, modelId: string, params: CallOptions, result: GenerateResult): StoredAnswer {
+export function stored(id: string, modelId: string, params: CallOptions, result: GenerateResult): StoredAnswer {
   const { request: _request, response, ...rest } = result;
   void _request;
   return {
@@ -136,7 +136,7 @@ function stored(id: string, modelId: string, params: CallOptions, result: Genera
   };
 }
 
-function revived(answer: StoredAnswer): GenerateResult {
+export function revived(answer: StoredAnswer): GenerateResult {
   const { response, ...rest } = answer.result;
   return {
     ...rest,

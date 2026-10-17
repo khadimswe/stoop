@@ -37,5 +37,7 @@ describe("getStore", () => {
     expect(() => getStore({ VERCEL: "1" })).toThrow(/local use only/);
     expect(getStore({}).kind).toBe("memory");
     setStore(null);
+    expect(getStore({ VERCEL: "1", UPSTASH_REDIS_REST_URL: "https://x.upstash.io", UPSTASH_REDIS_REST_TOKEN: "t" }).kind).toBe("upstash");
+    setStore(null);
   });
 });

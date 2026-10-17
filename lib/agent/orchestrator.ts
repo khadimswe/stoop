@@ -25,6 +25,7 @@ import { CONTROL_ID, MIN_PANEL_FOR_MEDIAN, type AdPlanEntry, type Comparison, ty
 import type { AgeBucket } from "../qloo/constants";
 import { ageBandLabel, type CreativeDirection } from "../types";
 import { measureAudience, stageTimer, type AudienceEnv, type AudienceRun, type MeasuredAudience } from "../stages/audience";
+import { realityCheck, type GenericAssumption } from "../stages/gap";
 import { checkWorld, controlMappings, mapControl, type ControlRunMap } from "../stages/check";
 import { craftWorld } from "../stages/craft";
 import { chooseSettingCities, measuredCandidates, sweepCreators, sweepWorld, type CultureCandidate, type SettingCityChoice } from "../stages/culture";
@@ -46,8 +47,12 @@ export interface Creative {
 }
 
 export interface BriefRun extends AudienceRun {
-  /** The LLM-only Control's runs, run 1 first (examples carry all 3 recorded runs, for the range). */
-  control: readonly BaselineRun[];
+  /**
+   * The LLM-only Control's runs, run 1 first (examples carry all 3 recorded runs, for the range). A
+   * live run passes a promise: the Control is written next to Prove, and the Reality Check gains its
+   * generic-brief line when it lands.
+   */
+  control: readonly BaselineRun[] | Promise<readonly BaselineRun[]>;
   settings: PackSettings;
 }
 
@@ -162,9 +167,19 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
       emit({ type: "run.done" });
       return env.emitter.events;
     }
-    const control = run.control.find((r) => r.run === CONTROL_RUN);
+    const controlRuns = await run.control;
+    const control = controlRuns.find((r) => r.run === CONTROL_RUN);
     if (!control) throw new Error(`The run has no Control run ${CONTROL_RUN}.`);
-    const runs = [control, ...run.control.filter((r) => r.run !== CONTROL_RUN)];
+    const runs = [control, ...controlRuns.filter((r) => r.run !== CONTROL_RUN)];
+    if (!run.generic) {
+      // A live run's Control landed after the Reality Check: send it again with what the generic brief
+      // assumed. Same Qloo calls (served from cache), so its trace steps are not repeated.
+      const quiet: StageEnv = { ...stageEnv, emit: (input) => (input.type === "trace.step" ? (undefined as never) : emit(input)) };
+      // Not timed as a stage again, so the progress rail never steps back to the Reality Check.
+      const gap = await realityCheck(quiet, { seeds: run.inputs.seeds, proof: measured.proof, stated: run.stated, site: run.site, generic: genericOf(control) });
+      emit({ type: "audience.gap", gap });
+      decide(stageEnv, "gap", "Added what the generic AI brief assumed to the Reality Check", "The LLM-only brief was written next to Prove, with no Qloo data.");
+    }
     // Run-scoped culture: the audience's creators, and the Control mapped to Qloo once. Neither can
     // stop the run: creators fall back to none, and a refused mapping leaves choices unverifiable.
     const { creators, maps } = await timer.timed("culture", async () => ({
@@ -197,9 +212,16 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
     if (comparison) emit({ type: "comparison.ready", comparison });
     emit({ type: "run.done" });
   } catch (error) {
+    // Hitting the deadline stops the run where it is, resumable: the caller records it, not a failure.
+    if (env.abortSignal?.aborted) throw error;
     emit({ type: "run.failed", stage: timer.current(), message: error instanceof Error ? error.message : String(error) });
   }
   return env.emitter.events;
+}
+
+/** What the LLM-only Control assumed, in the Reality Check's dimensions. */
+export function genericOf(control: BaselineRun): GenericAssumption {
+  return { ages: control.brief.audience.ageBands, gender: control.brief.audience.genderSkew, cities: control.brief.assumedCities };
 }
 
 interface WorldOutcome {
