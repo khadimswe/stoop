@@ -10,7 +10,7 @@ import { adPlanEntrySchema, type AdPlanEntry } from "../report/world";
 
 export const AD_PLAN_NOTE = "Targeting suggestions from aggregate taste data.";
 export const AD_PLAN_OPTIONAL =
-  "The age bands and cities are optional: use them only where a campaign allows them, and leave broad campaigns broad.";
+  "The age bands and cities are optional: use them only where a campaign allows them, and leave broad campaigns broad. The cities are where this world's age band clusters; the ad's own setting comes from the audience's headline cities.";
 /** Cities shown per world at most (the top of its ranked list). */
 export const AD_PLAN_MAX_CITIES = 5;
 

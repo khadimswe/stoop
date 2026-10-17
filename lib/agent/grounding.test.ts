@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import type { Report } from "../report/schema";
 import { craftWorld, signalOf } from "../stages/craft";
 import type { CultureCandidate } from "../stages/culture";
+import { CANDIDATES } from "../demo/candidates";
+import { sellerText } from "../prompts/brief";
+import { candidateProduct } from "./baseline-brief";
 import { guardBrief, type BriefSubmission } from "./grounding";
 
 const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
@@ -19,7 +22,9 @@ const soulFunk = world.check!.picks.find((p) => p.from === "control" && p.name =
 const belowMedian: CultureCandidate = { kind: "tag", id: soulFunk.id, name: soulFunk.name, type: soulFunk.type, field: "music", rank: 1, position: soulFunk.position, why: [], details: [], evidenceIds: soulFunk.evidenceIds };
 const ids = (field: CultureCandidate["field"]) => candidates.filter((c) => c.field === field).map((c) => c.id);
 const names = candidates.filter((c) => c.kind === "entity").map((c) => c.name);
-const ctx = { candidates: [...candidates, belowMedian], names, allowedPlaces: ["Baton Rouge, LA"], talent: true };
+// The founder's own words about the hot sauce, the only product facts wording may state.
+const seller = sellerText(candidateProduct(CANDIDATES.find((c) => c.slug === "food-hot-sauce")!));
+const ctx = { candidates: [...candidates, belowMedian], names, allowedPlaces: ["Baton Rouge, LA"], talent: true, sellerText: seller };
 
 const submission = (overrides: Partial<BriefSubmission> = {}): BriefSubmission => ({
   music: { text: "Roots americana with a soulful edge, brushed drums, mid tempo.", cites: ids("music").slice(0, 3) },
@@ -52,7 +57,7 @@ describe("guardBrief", () => {
   it("refuses an id that is not this world's, or one that backs another field", () => {
     const result = guardBrief(submission({ music: { text: "Roots americana.", cites: ["NOT-A-CANDIDATE", ids("visual")[0]] } }), ctx);
     expect(result.problems).toEqual([
-      "music: cites NOT-A-CANDIDATE, which is not one of this world's candidates",
+      "music: cites an id that is not one of this world's candidates",
       expect.stringMatching(/^music: cites .+, which backs visual, not music$/),
     ]);
     expect(result.brief.music?.cites).toEqual([]);
@@ -76,6 +81,18 @@ describe("guardBrief", () => {
     expect(result.brief.talent).toBeNull();
     expect(result.problems).toContain("talent: this ad has no on-screen person (product-only or pet), so leave talent null");
     expect(result.brief.productRole).toBe("The bottle finishes the plate.");
+  });
+
+  it("refuses a product fact the seller never gave, and keeps the ones they did", () => {
+    const invented = guardBrief(submission({ productRole: "The bottle finishes the plate, and it is gluten free with a 12-month shelf life." }), ctx);
+    expect(invented.problems).toEqual(expect.arrayContaining([expect.stringContaining("\"gluten free\" is a product fact"), expect.stringContaining("\"12-month\" is a product fact")]));
+    const given = guardBrief(submission({ productRole: "A 5 oz bottle, made in small batches, at $14." }), ctx);
+    expect(given.problems).toEqual([]);
+  });
+
+  it("refuses a setting that invites children into frame", () => {
+    const result = guardBrief(submission({ setting: [{ text: "A family friendly park in Baton Rouge.", cites: ids("setting").slice(0, 1) }] }), ctx);
+    expect(result.problems).toEqual([expect.stringContaining("\"family friendly\" invites children into frame")]);
   });
 
   it("lets an avoid list name banned claims in order to forbid them", () => {

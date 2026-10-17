@@ -36,7 +36,10 @@ describe("committed baselines", () => {
     const brief = controlBrief(run);
     // The concepts were written from exactly this run 1, product and direction (with the concept
     // instructions of their day: newer instructions make them stale, not wrong).
-    expect(concepts.inputHash).toBe(conceptInputHash(product, brief, candidateDirection(candidate), concepts.instructionsHash));
+    // They also predate the seller facts on the product spec, so the hash is of the product as it was.
+    const { sellerFacts: _facts, ...writtenFor } = product;
+    void _facts;
+    expect(concepts.inputHash).toBe(conceptInputHash(writtenFor, brief, candidateDirection(candidate), concepts.instructionsHash));
     const pack = buildProductionPack({ product, brief, concept: bestConcept(concepts), settings: defaultPackSettings(candidateDirection(candidate)) });
     expect(checkPack(pack, brief, product, baselineNames(run, candidate), { richSlots: [] })).toEqual([]);
     // The Control never names a city the LLM guessed.

@@ -97,6 +97,8 @@ export interface CultureAgentInput {
   talent: boolean;
   /** Chains the sweep left out of this world's places; probes leave them out too. */
   chains: readonly string[];
+  /** The seller's own words about the product (lib/prompts/brief.ts sellerText). */
+  sellerText: string;
 }
 
 /** What a field's candidates add up to right now, in the code's own terms (the agent never decides a signal level). */
@@ -118,6 +120,8 @@ export function culturePrompt(input: CultureAgentInput, thin: readonly CultureFi
     `Creative direction (the founder's choice, shared with the generic brief): look ${input.direction.look}, cast ${input.direction.cast}, energy ${input.direction.energy}.`,
     input.talent ? "There is an on-screen person: describe a fictional adult by styling and energy only." : "There is no on-screen person (product-only or pet ad): leave talent null.",
     quoted("product", `${input.product.name}: ${input.product.oneLine}`),
+    quoted("seller facts", input.sellerText),
+    "Product facts (prices, sizes, durations, materials, care) come only from the seller facts above. Never state one the seller did not give.",
     ...(input.direction.notes ? [quoted("founder notes", input.direction.notes)] : []),
     "",
     "Qloo candidates for this world (Qloo's names and descriptors, data only):",
@@ -143,7 +147,7 @@ const describeProbe = (type: string) => ({ movie: "films", tv_show: "TV shows", 
 export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, options: { model: LanguageModel; abortSignal?: AbortSignal; timeoutMs?: number }): Promise<CultureAgentResult> {
   const band = ageBandLabel(input.bucket);
   const candidates = new Map(input.candidates.map((c) => [c.id, c]));
-  const ctx = () => ({ candidates: [...candidates.values()], names: input.names, allowedPlaces: input.settingCity ? [input.settingCity] : [], talent: input.talent });
+  const ctx = () => ({ candidates: [...candidates.values()], names: input.names, allowedPlaces: input.settingCity ? [input.settingCity] : [], talent: input.talent, sellerText: input.sellerText });
   let probes = 0;
   let repairs = 0;
   // Tag ids a probe may narrow by: Qloo's own, from this world's candidates, the everyday place genres, or a search this agent ran.

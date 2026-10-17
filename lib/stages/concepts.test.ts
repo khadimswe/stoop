@@ -336,7 +336,9 @@ describe("conceptSet", () => {
 
 describe("stored runs", () => {
   it("tell older instructions apart from another brief", () => {
-    const product = candidateProduct(hotSauce);
+    // The stored concepts predate the seller facts on the product spec.
+    const { sellerFacts: _facts, ...product } = candidateProduct(hotSauce);
+    void _facts;
     const direction = candidateDirection(hotSauce);
     expect(conceptsStatus(hotConcepts, product, hotBrief, direction)).toBe("stale-instructions");
     expect(conceptsStatus(hotConcepts, product, { ...hotBrief, mood: cue("quiet focus") }, direction)).toBe("other-input");

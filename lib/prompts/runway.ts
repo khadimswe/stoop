@@ -22,7 +22,7 @@
 //     both pages refused the automated fetch on Oct 16, 2026, so their facts are not re-read here)
 import { CAMERA_PRESETS, type ModelConfig } from "./models.config";
 import type { BriefSlots, Concept, Location, PackSettings, ProductSpec } from "./brief";
-import { energyLine, fragment, lookLine, midSentence, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
+import { energyLine, fragment, lookLine, midSentence, petNoun, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
 import type { ShotStart } from "./kling";
 
 export interface RunwaySceneInput {
@@ -50,11 +50,11 @@ export function renderRunwayScene({ model, product, brief, concept, settings, ca
     cast === "adult_talent"
       ? sentence(`Character: an original fictional adult, ${midSentence(talentText(brief))}`)
       : cast === "pet"
-        ? "Character: a real pet that moves like a real animal."
+        ? `Character: ${petNoun(direction)} that moves like a real animal.`
         : "The product is the only subject on screen.";
   const lines = [
     sentence(`${CAMERA_PRESETS[scene.camera].phrasing[model.template]} as ${midSentence(scene.action)}`),
-    sentence(`Motion: ${scene.motion}; framing: ${fragment(scene.framing)}`),
+    sentence(`Motion: ${fragment(scene.motion)}; framing: ${fragment(scene.framing)}`),
     start === "previous"
       ? "The shot carries straight on from its start frame, the last frame of the previous shot."
       : sentence(`The start frame shows ${midSentence(place.description)}, ${fragment(place.timeOfDay)}, empty, and the action enters it`),

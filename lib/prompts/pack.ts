@@ -4,10 +4,10 @@
 // Product assets come from the product and settings alone, so the Control and the culture-made packs
 // share them byte for byte.
 import { z } from "zod";
-import { AVOID_LIST_EXEMPT, checkText, FAMOUS_PLACES, type GuardIssue } from "../guardrails";
+import { AVOID_LIST_EXEMPT, checkText, FAMOUS_PLACES, unsupportedClaims, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
 import { CASTS } from "../types";
-import { briefCueTexts, conceptSchema, packSettingsSchema, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "./brief";
+import { briefCueTexts, conceptSchema, packSettingsSchema, sellerText, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "./brief";
 import { AI_DISCLOSURE_NOTE, CHECKLIST_CONDITIONS, CHECKLIST_STAGES, checklistFor, HUMAN_REVIEW_CHECKLIST, type ChecklistItem } from "./critique-checklist";
 import { renderDirectorGuide } from "./director-guide";
 import { renderLocationPlate, renderMultiShot, renderPackshot, renderProductSheet, renderTalentSheet } from "./higgsfield";
@@ -499,6 +499,12 @@ export function checkPack(pack: ProductionPack, brief: BriefSlots, product: Prod
   }
   for (const a of pack.assets) {
     for (const ref of a.refs) if (people.has(ref)) problems.push({ where: a.file, message: "uses a source photo that shows a person" });
+  }
+  // Prompts and overlays state only product facts the seller gave.
+  const seller = sellerText(product);
+  const copy = pack.overlays.map((o) => ({ where: `overlay ${o.scene + 1}`, text: o.text, phrases: true }));
+  for (const { where, text, phrases } of [...texts.map((t) => ({ ...t, phrases: false })), ...copy]) {
+    for (const claim of unsupportedClaims(text, seller, { phrases })) problems.push({ where, message: `states "${claim}", a product fact the seller never gave` });
   }
   return problems;
 }

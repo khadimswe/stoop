@@ -5,7 +5,7 @@
 // guardrails and name nothing real: no artist, film, brand, person or place name (the setting city
 // is the one allowed place). Problems go back to the agent once; whatever still fails is dropped.
 import { z } from "zod";
-import { checkText, FAMOUS_PLACES, stripEmDashes } from "../guardrails";
+import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims } from "../guardrails";
 import type { CultureField } from "../report/world";
 import type { CultureCandidate } from "../stages/culture";
 
@@ -56,6 +56,8 @@ export interface GuardContext {
   allowedPlaces: readonly string[];
   /** False for product-only and pet ads: the talent cue is dropped. */
   talent: boolean;
+  /** Everything the seller said about the product: the only product facts wording may state. */
+  sellerText: string;
 }
 
 export interface GuardedCue {
@@ -88,7 +90,13 @@ export interface GuardResult {
 /** Notes about how a cue is labeled ("tempo is interpretation") would reach the prompts; the report labels cues itself. */
 const LABEL_NOTE = /\binterpret(?:ation|ed)\b|\bnot from qloo\b|\bcreative suggestion\b/i;
 
-const textProblems = (path: string, text: string, ctx: GuardContext): string[] => [
+/** Settings that invite children into frame. Every audience and every person on screen is an adult. */
+const CHILD_SETTING = /\bfamily[- ]friendly\b|\bkid[- ]friendly\b|\bfor the whole family\b|\bplayground\b/i;
+
+const textProblems = (path: string, text: string, ctx: GuardContext, copy = false): string[] => [
+  ...(CHILD_SETTING.test(text) ? [`${path}: "${text.match(CHILD_SETTING)?.[0]}" invites children into frame; every person on screen is an adult`] : []),
+  // Quantities and prices anywhere; claim words only in copy (the product's role, hooks, words to use).
+  ...unsupportedClaims(text, ctx.sellerText, { phrases: copy }).map((claim) => `${path}: "${claim}" is a product fact the seller never gave`),
   ...checkText(text, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces, exactCaseNames: true }).map((issue) => `${path}: ${issue.message}`),
   ...(LABEL_NOTE.test(text) ? [`${path}: leave out notes about labels or interpretation; write only the direction itself`] : []),
 ];
@@ -112,7 +120,7 @@ export function guardBrief(submission: BriefSubmission, ctx: GuardContext): Guar
     for (const id of [...new Set(value.cites)]) {
       const candidate = byId.get(id);
       if (!candidate) {
-        problems.push(`${path}: cites ${id}, which is not one of this world's candidates`);
+        problems.push(`${path}: cites an id that is not one of this world's candidates`);
         continue;
       }
       if (!(SLOT_FIELDS[slot] as readonly CultureField[]).includes(candidate.field)) {
@@ -132,7 +140,7 @@ export function guardBrief(submission: BriefSubmission, ctx: GuardContext): Guar
   const plain = (path: string, text: string): string | null => {
     const trimmed = unquote(text);
     if (!trimmed) return null;
-    const issues = textProblems(path, trimmed, ctx);
+    const issues = textProblems(path, trimmed, ctx, true);
     problems.push(...issues);
     return issues.length ? null : trimmed;
   };
@@ -145,6 +153,8 @@ export function guardBrief(submission: BriefSubmission, ctx: GuardContext): Guar
         const issues = checkText(trimmed, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces, exactCaseNames: true })
           .filter((issue) => !avoidList || (issue.rule !== "health-claim" && issue.rule !== "fake-proof"))
           .map((issue) => `${path}.${i}: ${issue.message}`);
+        // Hooks and words to use are copy: they state only facts the seller gave. An avoid list names claims to forbid them.
+        if (!avoidList) issues.push(...unsupportedClaims(trimmed, ctx.sellerText).map((claim) => `${path}.${i}: "${claim}" is a product fact the seller never gave`));
         problems.push(...issues);
         return trimmed && !issues.length ? trimmed : null;
       })

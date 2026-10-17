@@ -10,7 +10,7 @@
 //     (a negative prompt lists unwanted nouns, e.g. "wall, frame", instead of "no walls")
 import { CAMERA_PRESETS, type ModelConfig } from "./models.config";
 import type { BriefSlots, Concept, Location, PackSettings, ProductSpec } from "./brief";
-import { energyLine, FILES, fragment, lookLine, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
+import { energyLine, FILES, fragment, lookLine, petNoun, sceneExclusions, sentence, settingText, talentText, visualLine, type ResolvedCast } from "./lines";
 
 export interface SceneInput {
   model: ModelConfig;
@@ -33,7 +33,7 @@ export function renderScene({ model, product, brief, concept, settings, cast, sc
     cast === "adult_talent"
       ? `Subject: an original fictional adult as in ${FILES.talentSheet(brief.segment.id)}, ${talentText(brief)}`
       : cast === "pet"
-        ? "Subject: a real pet that behaves like a real animal and stays silent"
+        ? `Subject: ${petNoun(direction)} that behaves like a real animal and stays silent`
         : `Subject: the ${product.name} as in ${productRef}, alone in the frame`;
 
   const lines = [

@@ -92,15 +92,20 @@ function actorAge(brief: BriefSlots): string {
   return bands.length === 1 ? `an adult aged ${bands[0]}` : `an adult in one of these age bands: ${bands.join(", ")}`;
 }
 
-/** The format's beats, filled from the concept's scenes and lines (the brand's own words). */
+/**
+ * The format's beats, filled from the concept's scenes and lines (the brand's own words). Every scene
+ * keeps its place and its time, so the script runs the full 15 s with no gaps and keeps the concept's
+ * cultural and escalation moments: the hook, the demo (where the seller's own line is said), each
+ * moment, then the call to action. The presenter is styled from the brief only when the ad has an
+ * on-screen person; a pet or product-only brief styles the product, not the presenter.
+ */
 export function scriptPlan(product: ProductSpec, brief: BriefSlots, concept: Concept, format: UgcFormatSpec): ScriptPlan {
   const spans = timecodes(concept);
   const scenes = concept.scenes.map((scene, index) => ({ scene, ...spans[index] }));
   const hook = scenes[0];
   const payoff = scenes[scenes.length - 1];
   const middle = scenes.slice(1, -1);
-  const demo = middle.find((s) => s.scene.beat === "product") ?? middle.find((s) => s.scene.productVisible) ?? middle[0] ?? hook;
-  const proofScene = middle.find((s) => s !== demo && (s.scene.beat === "cultural" || s.scene.beat === "escalation")) ?? demo;
+  const demo = middle.find((s) => s.scene.beat === "product") ?? middle.find((s) => s.scene.productVisible) ?? null;
   const line = (s: (typeof scenes)[number]) => s.scene.dialogue ?? s.scene.overlayText;
 
   const hookSay = line(hook) ?? brief.hooks[0]?.text ?? null;
@@ -112,25 +117,40 @@ export function scriptPlan(product: ProductSpec, brief: BriefSlots, concept: Con
     said.add(text);
     return text;
   };
-  const beats: ScriptBeat[] = [
-    {
-      beat: "hook",
-      start: hook.start,
-      end: hook.end,
-      say: once([founderIntro, hookSay].filter(Boolean).join(" ") || null),
-      show: sentence(hook.scene.action),
-      onScreen: onScreenHook ? `${format.textPrefix}${format.textPrefix ? midSentence(onScreenHook) : onScreenHook}` : null,
-    },
-    { beat: "demo", start: demo.start, end: demo.end, say: demo === hook ? null : once(line(demo)), show: `${sentence(demo.scene.action)} ${format.demoBeat}`, onScreen: null },
-    { beat: "proof", start: proofScene.start, end: proofScene.end, say: once(proofLine(product)), show: `The ${product.name} up close, label to camera.`, onScreen: null },
-    { beat: "cta", start: payoff.start, end: payoff.end, say: once(line(payoff) ?? `${sentence(ctaLabelFor(format))}`), show: sentence(payoff.scene.action), onScreen: null },
-  ];
+  const proof = proofLine(product);
+  const beats: ScriptBeat[] = scenes.map((s, index): ScriptBeat => {
+    if (index === 0) {
+      return {
+        beat: "hook",
+        start: s.start,
+        end: s.end,
+        say: once([founderIntro, hookSay].filter(Boolean).join(" ") || null),
+        show: sentence(s.scene.action),
+        onScreen: onScreenHook ? `${format.textPrefix}${format.textPrefix ? midSentence(onScreenHook) : onScreenHook}` : null,
+      };
+    }
+    if (index === scenes.length - 1) {
+      return { beat: "cta", start: s.start, end: s.end, say: once(line(s) ?? sentence(ctaLabelFor(format))), show: sentence(s.scene.action), onScreen: null };
+    }
+    if (s === demo) {
+      const words = [once(line(s)), proof && !said.has(proof) ? once(proof) : null].filter(Boolean).join(" ");
+      return { beat: "demo", start: s.start, end: s.end, say: words || null, show: `${sentence(s.scene.action)} ${format.demoBeat}`, onScreen: null };
+    }
+    return { beat: "moment", start: s.start, end: s.end, say: once(line(s)), show: sentence(s.scene.action), onScreen: null };
+  });
+  // No product scene in the middle: the seller's line goes with the call to action.
+  if (!demo && proof && !said.has(proof)) {
+    const cta = beats[beats.length - 1];
+    cta.say = [proof, cta.say].filter(Boolean).join(" ");
+    said.add(proof);
+  }
   return {
     format,
     productName: product.name,
     beats,
+    proof: proof && said.has(proof) ? proof : null,
     actorAge: actorAge(brief),
-    styling: brief.wardrobe?.text ?? null,
+    styling: brief.talent ? (brief.wardrobe?.text ?? null) : null,
     voice: brief.voice.tone.text,
     avoid: brief.voice.avoid,
   };
@@ -148,11 +168,16 @@ function guardPlan(plan: ScriptPlan, product: ProductSpec, brief: BriefSlots, na
   if (issues.length + avoid.length > 0) throw new Error(`A kit script breaks the guardrails:\n${formatGuardIssues([...issues, ...avoid])}`);
 }
 
-/** Keeps the spoken lines inside Arcads' cap: drops the proof line, then the demo line, if it must. */
+/** Keeps the spoken lines inside Arcads' cap: drops the seller's proof line, then the moment and demo lines, if it must. */
 function fitArcads(plan: ScriptPlan): ScriptPlan {
   const spokenLength = (p: ScriptPlan) => p.beats.reduce((sum, beat) => sum + (beat.say ? beat.say.length + 30 : 0), 0);
   let fitted = plan;
-  for (const drop of ["proof", "demo"] as const) {
+  if (spokenLength(fitted) > ARCADS_MAX_CHARS && plan.proof) {
+    const proof = plan.proof;
+    const strip = (say: string | null) => (say ? say.replace(proof, "").trim() || null : say);
+    fitted = { ...fitted, proof: null, beats: fitted.beats.map((beat) => ({ ...beat, say: strip(beat.say) })) };
+  }
+  for (const drop of ["moment", "demo"] as const) {
     if (spokenLength(fitted) <= ARCADS_MAX_CHARS) break;
     fitted = { ...fitted, beats: fitted.beats.map((beat) => (beat.beat === drop ? { ...beat, say: null } : beat)) };
   }

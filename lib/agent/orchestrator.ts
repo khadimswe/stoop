@@ -17,7 +17,7 @@ import { ENTITY_PANELS } from "../culture/panels";
 import type { BaselineRun } from "./baseline";
 import { CONTROL_RUN, controlBrief } from "./baseline-brief";
 import type { RunEvent } from "../events";
-import type { BriefSlots, Concept, PackSettings, ProductSpec } from "../prompts/brief";
+import { sellerText, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "../prompts/brief";
 import type { PackProblem, ProductionPack } from "../prompts/pack";
 import type { Stage, StageStats } from "../report/schema";
 import { QlooBudgetError, QlooHttpError, QlooShapeError } from "../qloo/errors";
@@ -276,6 +276,7 @@ async function runWorld(
             names,
             talent,
             chains: sweep.result.chains,
+            sellerText: sellerText(run.inputs.product),
           },
           { model: env.model, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) },
         ),

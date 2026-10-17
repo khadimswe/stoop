@@ -117,7 +117,11 @@ export const fragment = (text: string) => {
   return /^[A-Z][a-z]/.test(trimmed) ? trimmed.charAt(0).toLowerCase() + trimmed.slice(1) : trimmed;
 };
 
-export const settingText = (brief: BriefSlots) => brief.setting.map((cue) => cue.text).join("; ");
+export const settingText = (brief: BriefSlots) => brief.setting.map((cue) => cue.text.trim().replace(/[.!?;,]+$/, "")).join("; ");
+
+const ANIMATED_LOOKS: ReadonlySet<string> = new Set(["animation_2d", "animation_3d", "stop_motion", "illustrated"]);
+/** The pet on screen: a real pet in live action, a stylized pet character in an animated look; it always moves like a real animal. */
+export const petNoun = (direction: CreativeDirection) => (ANIMATED_LOOKS.has(direction.look) ? "a stylized pet character" : "a real pet");
 
 /**
  * Like fragment(), and also lowercases an opening article ("A woman shakes" reads "a woman shakes"),

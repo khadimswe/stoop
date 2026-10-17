@@ -109,8 +109,9 @@ describe("buildKitScripts", () => {
     const spoken = arcads.split("What the actor should say:\n")[1].split("\n\n")[0];
     expect(spoken.split("\n")).toEqual([
       '"Your eggs called. They want a better hot sauce." <break time="0.5s" />',
-      '"Garlic. Fermented chile. A little fruit." <break time="0.5s" />',
-      '"A fermented red chile hot sauce made in small batches with garlic and a little fruit for sweetness." <break time="0.5s" />',
+      // The demo scene says its own line, then the seller's.
+      '"Garlic. Fermented chile. A little fruit. A fermented red chile hot sauce made in small batches with garlic and a little fruit for sweetness." <break time="0.5s" />',
+      '"Garlic, fermented chile, a little fruit." <break time="0.5s" />',
       '"Heat that waits a second. Try the bottle."',
     ]);
     expect(spoken.length).toBeLessThan(1500);
@@ -118,13 +119,23 @@ describe("buildKitScripts", () => {
     expect(script("tiktok", "arcads")).toContain("turn on TikTok's AI-generated content label");
   });
 
-  it("gives Creatify one scene per beat and the creator a shot list with the FTC disclosure", () => {
-    expect(script("meta", "creatify").match(/^Scene \d \(/gm)).toHaveLength(4);
+  it("gives Creatify one scene per concept scene, back to back over the full 15 s, and the creator a shot list with the FTC disclosure", () => {
+    const creatify = script("meta", "creatify");
+    expect(creatify.match(/^Scene \d \(/gm)).toHaveLength(hot.best.scenes.length);
+    const spans = [...creatify.matchAll(/^Scene \d \(\w+, (\d+) to (\d+) s\)/gm)].map((m) => [Number(m[1]), Number(m[2])]);
+    expect(spans[0][0]).toBe(0);
+    expect(spans.at(-1)![1]).toBe(15);
+    spans.slice(1).forEach(([start], i) => expect(start).toBe(spans[i][1]));
     expect(script("meta", "creatify")).toContain("aspect ratio 9x16");
     const creator = script("tiktok", "creator");
     expect(creator).toMatch(/say and show "ad" in the video itself \(#ad works\)/);
     expect(creator).toContain("not as your own review");
     expect(creator).toContain("Stay away from: Macho heat challenges or pain jokes");
+  });
+
+  it("styles the presenter from the brief only when the ad has an on-screen person", () => {
+    const noTalent = buildKitScripts({ product: hot.product, brief: { ...hot.brief, talent: null }, concept: hot.best }).ugc;
+    for (const { script: text } of noTalent) expect(text).not.toContain("styled as");
   });
 
   it("speaks as the brand, describes the actor without ethnicity, and proves only with the seller's words", () => {
