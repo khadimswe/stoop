@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { MobileMenu } from "./mobile-menu";
-import { NAV_LINKS } from "./nav-links";
+import { NAV_LINKS, TRY_LINK } from "./nav-links";
 import { WaitlistTrigger } from "./waitlist-trigger";
 
-/** Three links, "Try it free" for the live agent, and one pill: the waitlist. */
+/** The marketing header (landing, /judges, /mcp): three links, "Try it free" for the live agent, and one pill: the waitlist. */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 px-3 pt-3">
@@ -26,10 +26,10 @@ export function SiteHeader() {
         </ul>
         <div className="ml-auto flex items-center gap-2">
           <Link
-            href="/start"
+            href={TRY_LINK.href}
             className="hidden rounded-full px-3 py-2 text-[0.95rem] font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick sm:inline-block"
           >
-            Try it free
+            {TRY_LINK.label}
           </Link>
           <WaitlistTrigger />
           <MobileMenu />
