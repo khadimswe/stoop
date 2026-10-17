@@ -1,8 +1,9 @@
 // /api/mcp and /api/mcp/<token>: the bot check (agent kind: MCP clients are software, never asked to
-// prove they are browsers), a per-IP limit on every request, GET and POST alike, and a body cap. Then
-// who is calling: the token in "Authorization: Bearer", looked up by its hash (lib/mcp/auth.ts), handed
-// to the MCP handler as the request's AuthInfo. Each tool decides what needs a token (tools/call does;
-// initialize and tools/list do not) and adds its own tighter limits (lib/mcp/server.ts).
+// prove they are browsers), then who is calling: the token in "Authorization: Bearer", looked up by its
+// hash (lib/mcp/auth.ts) and handed to the MCP handler as the request's AuthInfo. Every request, GET and
+// POST alike, counts against a rate: the token's own with a valid token, else the IP's (raised, so a
+// hosted connector's shared IP is not starved). Then a body cap. Each tool decides what needs a token
+// (tools/call does; initialize and tools/list do not) and adds its own tighter limits (lib/mcp/server.ts).
 //
 // The path form is for clients that only take a URL: its token moves into the Authorization header and
 // the handler is handed /api/mcp, with no query, so no token is ever in a URL past this point. Logs
@@ -13,7 +14,8 @@ import { apiError, BodyError, readBody } from "../http";
 import { identify, toAuthInfo } from "../mcp/auth";
 import { isTokenShaped } from "../mcp/token";
 import { RATE_RULES } from "../rate-limit";
-import { failSafe, guard, type GuardDeps } from "./guard";
+import { tokenVisitorId } from "../store/visitor";
+import { admit, failSafe, limit, type GuardDeps } from "./guard";
 
 /** The largest tool call is a culture_brief with a 2,000-character description. */
 export const MCP_MAX_BYTES = 32_768;
@@ -48,8 +50,14 @@ function forwardedHeaders(request: Request, pathToken: string | undefined): Head
 }
 
 async function serve(request: Request, deps: McpRouteDeps, options: McpRouteOptions): Promise<Response> {
-  const guarded = await guard(request, deps, RATE_RULES.mcp, "agent");
-  if (!guarded.ok) return guarded.response;
+  const admitted = await admit(request, deps, "agent");
+  if (!admitted.ok) return admitted.response;
+  const headers = forwardedHeaders(request, options.pathToken);
+  const caller = await identify(admitted.store, headers, deps.now?.());
+  // A valid token counts its own requests, wherever it calls from (hosted connectors share server IPs);
+  // anything else counts against the IP, with room for a shared connector IP.
+  const limited = caller.status === "valid" ? await limit(admitted.store, RATE_RULES.mcpCaller, tokenVisitorId(caller.hash), deps.now?.()) : await limit(admitted.store, RATE_RULES.mcp, admitted.visitor, deps.now?.());
+  if (limited) return limited;
   let body: Uint8Array<ArrayBuffer> | null = null;
   if (request.method === "POST") {
     try {
@@ -60,10 +68,9 @@ async function serve(request: Request, deps: McpRouteDeps, options: McpRouteOpti
       throw error;
     }
   }
-  const headers = forwardedHeaders(request, options.pathToken);
   const forwarded: Request & { auth?: AuthInfo } = new Request(forwardedUrl(request), { method: request.method, headers, body, signal: request.signal });
   // mcp-handler hands `request.auth` to every tool as ctx.http.authInfo.
-  forwarded.auth = toAuthInfo(await identify(guarded.store, headers, deps.now?.()));
+  forwarded.auth = toAuthInfo(caller);
   return deps.handler(forwarded);
 }
 

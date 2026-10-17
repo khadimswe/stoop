@@ -12,6 +12,7 @@ import type { RequestContext } from "../runtime/types";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import type { Store } from "../store/types";
+import { tokenVisitorId } from "../store/visitor";
 import { allowAll } from "../bot-check";
 import { DAILY_RULES, EVERYONE, hitRate, rateUsed } from "../rate-limit";
 import { createMcpPost } from "../routes/mcp";
@@ -188,14 +189,29 @@ describe("/api/mcp tools over HTTP", () => {
     expect(qloo).not.toHaveBeenCalled();
   });
 
-  it("limits score_brief to 10 an hour per visitor", async () => {
-    const call = rpc(deps());
-    for (let i = 0; i < 10; i++) expect((await call("tools/call", { name: "score_brief", arguments: scoreArgs })).result?.isError).toBeFalsy();
-    const limited = await call("tools/call", { name: "score_brief", arguments: scoreArgs });
+  it("limits score_brief to 10 an hour per token: one token across IPs shares it, two tokens behind one IP each have their own", async () => {
+    const d = deps();
+    const call = rpc(d);
+    for (let i = 0; i < 10; i++) expect((await call("tools/call", { name: "score_brief", arguments: scoreArgs }, i % 2 ? "203.0.113.7" : "198.51.100.2")).result?.isError).toBeFalsy();
+    const limited = await call("tools/call", { name: "score_brief", arguments: scoreArgs }, "192.0.2.9");
     expect(limited.result?.isError).toBe(true);
-    expect(limited.result?.content?.[0].text).toContain("Too many scores from here");
-    // Another visitor is not affected.
-    expect((await call("tools/call", { name: "score_brief", arguments: scoreArgs }, "198.51.100.2")).result?.isError).toBeFalsy();
+    expect(limited.result?.content?.[0].text).toContain("Too many scores with this token");
+    // Another token behind the same IP is not affected.
+    expect((await rpc(d)("tools/call", { name: "score_brief", arguments: scoreArgs }, "203.0.113.7")).result?.isError).toBeFalsy();
+  });
+
+  it("limits culture_brief to 3 an hour per token, and starts its runs as the token, never as the shared IP", async () => {
+    const d = deps();
+    const a = await storeToken(d.store());
+    const b = await storeToken(d.store());
+    const shared = "203.0.113.7";
+    for (let i = 0; i < 3; i++) expect((await rpc(d, { token: a.token })("tools/call", { name: "culture_brief", arguments: { description: "Small-batch hot sauce made with smoked peppers." } }, shared)).result?.structuredContent?.mode).toBe("live");
+    expect((await rpc(d, { token: a.token })("tools/call", { name: "culture_brief", arguments: { description: "Small-batch hot sauce made with smoked peppers." } }, "198.51.100.2")).result?.structuredContent).toMatchObject({ mode: "example", reason: "rate-limited" });
+    // A second token behind the same IP gets its own 3.
+    for (let i = 0; i < 3; i++) expect((await rpc(d, { token: b.token })("tools/call", { name: "culture_brief", arguments: { description: "Small-batch hot sauce made with smoked peppers." } }, shared)).result?.structuredContent?.mode).toBe("live");
+    const contexts = vi.mocked(d.startRun).mock.calls.map(([, ctx]) => ctx);
+    expect(contexts.slice(0, 3).every((ctx) => ctx.visitor === tokenVisitorId(a.hash) && ctx.cookieVisitor === null)).toBe(true);
+    expect(contexts.slice(3).every((ctx) => ctx.visitor === tokenVisitorId(b.hash))).toBe(true);
   });
 
   it("spends only the day's score_brief slice of Qloo calls, counted from live calls, and stops at the monthly floor", async () => {
@@ -301,17 +317,19 @@ describe("MCP caps", () => {
   it("starts at most 3 culture briefs per token per day, even when calls arrive at once", async () => {
     const d = deps();
     const { token, hash } = await storeToken(d.store());
+    // One brief already used today (an earlier hour), so the daily cap binds before the hourly limit.
+    await d.store().incr(keys.mcp.cultureBriefs(hash));
     const call = rpc(d, { token });
-    const results = await Promise.all(Array.from({ length: 6 }, (_, i) => call("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i))));
-    expect(results.filter((r) => r.result?.structuredContent?.mode === "live")).toHaveLength(3);
+    const results = await Promise.all(Array.from({ length: 3 }, (_, i) => call("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i))));
+    expect(results.filter((r) => r.result?.structuredContent?.mode === "live")).toHaveLength(2);
     const capped = results.filter((r) => r.result?.structuredContent?.mode === "capped");
-    expect(capped).toHaveLength(3);
+    expect(capped).toHaveLength(1);
     expect(capped[0].result?.isError).toBe(true);
     expect(capped[0].result?.content?.[0].text).toContain("used its 3 culture briefs for today");
-    expect(d.runIntake).toHaveBeenCalledTimes(3);
+    expect(d.runIntake).toHaveBeenCalledTimes(2);
     expect(await counter(d.store(), keys.mcp.cultureBriefs(hash))).toBe(3);
-    expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(3);
-    expect(await counter(d.store(), keys.daily("mcp-calls"))).toBe(3);
+    expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(2);
+    expect(await counter(d.store(), keys.daily("mcp-calls"))).toBe(2);
   });
 
   it("allows 40 tool calls per token per day, never more under concurrent calls", async () => {

@@ -3,6 +3,8 @@
 // a day per signed visitor cookie and 15 a day per IP (a salted hash), blocked when either is over. The
 // cookie counts a browser next to its IP, never instead of it: clearing cookies makes a new cookie id,
 // but the IP count stays. Without STOOP_SIGNING_SECRET there is no cookie id, and the IP counts alone.
+// A run started over MCP counts against its token instead of the IP (the same 15 a day), because hosted
+// connectors call from servers many users share.
 //
 // A job counts against the visitor it renders for (FramesJob.visitor): the one who started the run, kept
 // in the run meta, when the runtime renders a world as its pack lands; the one who asks, in POST
@@ -14,7 +16,7 @@ import { STORYBOARD_LIMITS } from "../config";
 import { reserveEach, type Capped, type Reservation } from "../rate-limit";
 import { dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
-import type { CookieVisitorId, VisitorId } from "../store/visitor";
+import type { CookieVisitorId, TokenVisitorId, VisitorId } from "../store/visitor";
 import type { FramesOutcome } from "./frames";
 
 /** The world.frames reason when the day's frames are spent, globally or for this visitor: one message for both. */
@@ -22,7 +24,8 @@ export const PAUSED_REASON = "Storyboards paused today.";
 
 /** Who a storyboard job counts against. */
 export interface StoryboardVisitor {
-  ip: VisitorId;
+  /** The salted IP id (15 a day), or for a run started over MCP the token's id (the same 15 a day, per token). */
+  id: VisitorId | TokenVisitorId;
   /** The signed visitor cookie's id, or null (no secret configured, or a client with no cookie, like an MCP agent). */
   cookie: CookieVisitorId | null;
 }
@@ -33,12 +36,12 @@ export interface StoryboardLimits {
 }
 
 /** The counter of one visitor's storyboard jobs on one UTC day. */
-export const storyboardCounter = (visitor: VisitorId | CookieVisitorId, day: string = dayOf()) => keys.rate("storyboards", visitor, day);
+export const storyboardCounter = (visitor: VisitorId | CookieVisitorId | TokenVisitorId, day: string = dayOf()) => keys.rate("storyboards", visitor, day);
 
-function counters(visitor: StoryboardVisitor, day: string, limits: StoryboardLimits): Capped<"cookie" | "ip">[] {
+function counters(visitor: StoryboardVisitor, day: string, limits: StoryboardLimits): Capped<"cookie" | "id">[] {
   return [
     ...(visitor.cookie ? [{ name: "cookie" as const, key: storyboardCounter(visitor.cookie, day), cap: limits.perCookieDaily, ttlSeconds: TTL.daily }] : []),
-    { name: "ip", key: storyboardCounter(visitor.ip, day), cap: limits.perIpDaily, ttlSeconds: TTL.daily },
+    { name: "id", key: storyboardCounter(visitor.id, day), cap: limits.perIpDaily, ttlSeconds: TTL.daily },
   ];
 }
 

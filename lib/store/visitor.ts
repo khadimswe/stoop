@@ -13,6 +13,18 @@ export type SaltedHash = string & { readonly [brand]: "SaltedHash" };
 export type VisitorId = string & { readonly [brand]: "VisitorId" };
 /** "c_" plus 24 hex: a visitor, by the random id in their signed visitor cookie (lib/visitor-cookie.ts). Clearing cookies makes a new one, so limits count it next to the IP id, never instead of it. */
 export type CookieVisitorId = string & { readonly [brand]: "CookieVisitorId" };
+/**
+ * "t_" plus 24 hex: an MCP caller, by the first 24 hex of its token's hash (lib/mcp/token.ts tokenHash).
+ * Authenticated MCP work counts per token instead of per IP, because hosted connectors (claude.ai) call
+ * from servers that many users share.
+ */
+export type TokenVisitorId = string & { readonly [brand]: "TokenVisitorId" };
+
+/** The visitor id of an MCP token, from its hash (never from the token itself). */
+export function tokenVisitorId(tokenHash: string): TokenVisitorId {
+  if (!/^[0-9a-f]{64}$/.test(tokenHash)) throw new Error("A token visitor comes from a token hash: 64 hex.");
+  return `t_${tokenHash.slice(0, 24)}` as TokenVisitorId;
+}
 
 /**
  * The client IP: the first x-forwarded-for entry, else x-real-ip. This trusts the host to set the

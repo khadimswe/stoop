@@ -21,7 +21,7 @@ import { DAILY_RULES, EVERYONE, giveBack, hitRate, NOTHING_RESERVED, RATE_RULES,
 import type { RequestContext, RunIntake, StartRun } from "../runtime/types";
 import { keys } from "../store/keys";
 import type { Store } from "../store/types";
-import { visitorId } from "../store/visitor";
+import { tokenVisitorId, visitorId, type TokenVisitorId } from "../store/visitor";
 import { DEFAULT_DIRECTION } from "../types";
 import { callerOf, tokenRefusal, type Caller } from "./auth";
 import { capRefusal, reserveCall } from "./caps";
@@ -67,10 +67,16 @@ function originOf(request: Request | undefined): string {
   }
 }
 
-async function requestContext(deps: McpDeps, request: Request | undefined): Promise<RequestContext> {
+/**
+ * The context the tools and the runtime count by: the caller's token when it has one (hosted connectors
+ * share server IPs, so an IP would pool many users), else the salted IP. A run it starts keeps this id
+ * as its visitor, so the run's storyboards count against the token too (with no cookie id).
+ */
+async function requestContext(deps: McpDeps, request: Request | undefined, caller?: TokenVisitorId): Promise<RequestContext> {
   const store = deps.store();
   const startedAt = (deps.now ?? Date.now)();
-  return { store, visitor: await visitorId(store, request?.headers ?? new Headers()), source: "mcp", startedAt, ...(request?.signal ? { signal: request.signal } : {}) };
+  const visitor = caller ?? (await visitorId(store, request?.headers ?? new Headers()));
+  return { store, visitor, cookieVisitor: null, source: "mcp", startedAt, ...(request?.signal ? { signal: request.signal } : {}) };
 }
 
 // --- culture_brief --------------------------------------------------------------------------------
@@ -79,7 +85,7 @@ const REPLAY_MESSAGES: Record<(typeof REPLAY_REASONS)[number], string> = {
   replay: "Live runs are off right now. Here's an example report while you wait.",
   busy: "Live runs are busy right now. Here's an example report while you wait.",
   "daily-cap": "Today's live runs are used up. Here's an example report; live runs open again tomorrow.",
-  "rate-limited": "Too many briefs from here in the last hour. Here's an example report meanwhile.",
+  "rate-limited": "Too many briefs in the last hour. Here's an example report meanwhile.",
 };
 
 /** The answer StartRun gives when a start becomes an example replay. */
@@ -126,13 +132,20 @@ const exampleLink = (origin: string, slug: string) => `${origin}/examples/${slug
  */
 export type IntakeGate = () => Promise<{ ok: true; reservation: Reservation } | { ok: false; output: CultureBriefOutput }>;
 
-export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?: Request, gate?: IntakeGate): Promise<CultureBriefOutput> {
+export interface CultureBriefOptions {
+  gate?: IntakeGate;
+  /** The caller's token id: the hourly limit, StartRun's limits and the run's storyboards count by it instead of the IP. */
+  caller?: TokenVisitorId;
+}
+
+export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?: Request, options: CultureBriefOptions = {}): Promise<CultureBriefOutput> {
+  const { gate } = options;
   const origin = originOf(request);
   const example = (answer: Extract<RunStartResponse, { mode: "example" }>): CultureBriefOutput => ({ ...answer, reportUrl: exampleLink(origin, answer.slug) });
   const replay = (reason: (typeof REPLAY_REASONS)[number]) => example(replayAnswer(reason));
   // STOOP_LIVE off: intake would read a page and call Claude and Qloo, so nothing runs.
   if (!deps.live()) return replay("replay");
-  const ctx = await requestContext(deps, request);
+  const ctx = await requestContext(deps, request, options.caller);
   const rate = await hitRate(ctx.store, RATE_RULES.cultureBrief, ctx.visitor, deps.now?.());
   if (!rate.ok) return replay("rate-limited");
   // A spent daily cap answers before intake spends anything. Only a read: StartRun does the counting.
@@ -223,10 +236,10 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
         const auth = authorize(ctx);
         if (!auth.ok) return auth.result;
         if (!deps.scoring()) return text(`Live scoring is off right now. The examples show the same check: ${exampleLink(originOf(ctx.http?.req), LEAD_EXAMPLE.slug)}`, true);
-        const rc = await requestContext(deps, ctx.http?.req);
+        const rc = await requestContext(deps, ctx.http?.req, tokenVisitorId(auth.caller.hash));
         const now = deps.now?.() ?? Date.now();
         const rate = await hitRate(rc.store, RATE_RULES.scoreBrief, rc.visitor, now);
-        if (!rate.ok) return text(`Too many scores from here. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`, true);
+        if (!rate.ok) return text(`Too many scores with this token. Try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`, true);
         const caps = mcpCaps(deps.env);
         const calls = await reserveCall(rc.store, auth.caller.hash, "score_brief", caps, now);
         if (!calls.ok) return text(capRefusal(calls.full, caps), true);
@@ -262,9 +275,12 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
         if (!auth.ok) return auth.result;
         const caps = mcpCaps(deps.env);
         // The token's calls and briefs are taken right before intake, after the cheap refusals.
-        const output = await cultureBrief(input, deps, ctx.http?.req, async () => {
-          const reserved = await reserveCall(deps.store(), auth.caller.hash, "culture_brief", caps, deps.now?.() ?? Date.now());
-          return reserved.ok ? reserved : { ok: false, output: { mode: "capped", message: capRefusal(reserved.full, caps) } };
+        const output = await cultureBrief(input, deps, ctx.http?.req, {
+          caller: tokenVisitorId(auth.caller.hash),
+          gate: async () => {
+            const reserved = await reserveCall(deps.store(), auth.caller.hash, "culture_brief", caps, deps.now?.() ?? Date.now());
+            return reserved.ok ? reserved : { ok: false, output: { mode: "capped", message: capRefusal(reserved.full, caps) } };
+          },
         });
         return { content: [{ type: "text", text: cultureBriefText(output) }], structuredContent: output, ...(output.mode === "no_seeds" || output.mode === "capped" ? { isError: true } : {}) };
       },

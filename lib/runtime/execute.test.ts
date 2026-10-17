@@ -18,7 +18,7 @@ import type { Report } from "../report/schema";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { getRunMeta, loadReport, readRunEvents, runLease, setRunMeta } from "../store/runs";
-import type { CookieVisitorId, VisitorId } from "../store/visitor";
+import { tokenVisitorId, type CookieVisitorId, type VisitorId } from "../store/visitor";
 import { FrameRenderError, renderWorldFrames } from "../media/frames";
 import { PAUSED_REASON, storyboardCounter } from "../media/storyboards";
 import type { Storage } from "../storage";
@@ -207,8 +207,10 @@ describe("frames during a live run", () => {
     const ip = "v_aaaaaaaaaaaaaaaaaaaaaaaa" as VisitorId;
     const cookie = "c_bbbbbbbbbbbbbbbbbbbbbbbb" as CookieVisitorId;
     for (const [meta, expected] of [
-      [{ visitor: ip, cookieVisitor: cookie }, { ip, cookie }],
-      [{ visitor: ip, cookieVisitor: null }, { ip, cookie: null }],
+      [{ visitor: ip, cookieVisitor: cookie }, { id: ip, cookie }],
+      [{ visitor: ip, cookieVisitor: null }, { id: ip, cookie: null }],
+      // A culture_brief run counts against its MCP token.
+      [{ visitor: tokenVisitorId("e".repeat(64)), cookieVisitor: null }, { id: `t_${"e".repeat(24)}`, cookie: null }],
       [{}, null],
     ] as const) {
       const store = new MemoryStore();

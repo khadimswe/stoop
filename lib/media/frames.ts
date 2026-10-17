@@ -538,11 +538,12 @@ export async function requestFrames(deps: FramesRouteDeps, id: string, body: unk
   if (current?.status === "paused" && used >= (deps.framesCap ?? dailyCaps().frames)) return answer(200, { status: "paused", message: PAUSED_REASON });
 
   const now = deps.now?.() ?? Date.now();
-  const visitor: StoryboardVisitor = { ip: await visitorId(store, deps.headers), cookie: deps.cookieVisitor ?? null };
+  const ip = await visitorId(store, deps.headers);
+  const visitor: StoryboardVisitor = { id: ip, cookie: deps.cookieVisitor ?? null };
   // Only a read: the job takes its place in the visitor's day when it renders (so cached frames stay free).
   if (await storyboardsSpent(store, visitor, now, deps.storyboardLimits)) return answer(200, { status: "paused", message: PAUSED_REASON });
   const hour = new Date(now).toISOString().slice(0, 13);
-  const count = await store.incr(keys.rate("frames", visitor.ip, hour), { ttlSeconds: 60 * 60 + 60 });
+  const count = await store.incr(keys.rate("frames", ip, hour), { ttlSeconds: 60 * 60 + 60 });
   if (count > (deps.perVisitorHour ?? FRAMES_PER_VISITOR_HOUR)) return apiError("rate_limited", "That is a lot of storyboards in an hour. Try again later.");
 
   const job: FramesJob = { runId: runId.data, attempt: meta.attempt, segmentId: world.segmentId, world, revisionId, product: state.inputs.product, names: reportNames({ ...state, inputs: state.inputs }), visitor };

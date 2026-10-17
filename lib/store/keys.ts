@@ -1,7 +1,7 @@
 // Every store key and TTL in one place, so the runtime, frames, revise, the waitlist and votes share
 // one layout. Visitors and emails appear only as salted hashes (lib/store/visitor.ts): the keys take
 // branded types, so a raw IP or email cannot be passed by mistake.
-import type { CookieVisitorId, SaltedHash, VisitorId } from "./visitor";
+import type { CookieVisitorId, SaltedHash, TokenVisitorId, VisitorId } from "./visitor";
 
 export const DAY_SECONDS = 24 * 60 * 60;
 
@@ -101,7 +101,7 @@ export const keys = {
     cultureBriefs: (tokenHash: string, day: string = dayOf()) => `mcp:token:${tokenHash}:culture-briefs:${day}`,
   },
   /** Per-visitor limits in a time window: `window` is e.g. the hour or day the count belongs to. */
-  rate: (name: string, visitor: VisitorId | CookieVisitorId, window: string) => `rate:${name}:${visitor}:${window}`,
+  rate: (name: string, visitor: VisitorId | CookieVisitorId | TokenVisitorId, window: string) => `rate:${name}:${visitor}:${window}`,
   waitlist: {
     position: "waitlist:position",
     /** Keyed by the salted hash of the normalized email, so a repeat signup keeps its position. */

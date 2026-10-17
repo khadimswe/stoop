@@ -4,7 +4,10 @@
 // floods: the daily caps and the per-run budgets are the real cost guards.
 import { keys } from "./store/keys";
 import type { Store } from "./store/types";
-import type { VisitorId } from "./store/visitor";
+import type { TokenVisitorId, VisitorId } from "./store/visitor";
+
+/** Who a limit counts: a visitor by their IP, or an MCP caller by its token (lib/store/visitor.ts). */
+export type RateSubject = VisitorId | TokenVisitorId;
 
 export interface RateRule {
   /** The key's name segment: one counter per rule, visitor and window. */
@@ -24,14 +27,19 @@ export const RATE_RULES = {
   waitlistExport: { name: "waitlist-export", limit: 10, windowSeconds: HOUR },
   vote: { name: "vote", limit: 30, windowSeconds: HOUR },
   voteRead: { name: "vote-read", limit: 600, windowSeconds: HOUR },
-  /** Every JSON-RPC request to /api/mcp (listing tools included). */
-  mcp: { name: "mcp", limit: 120, windowSeconds: 10 * 60 },
-  /** score_brief spends Qloo calls (up to SCORE_BRIEF_CAP each). */
+  /**
+   * Requests to /api/mcp without a valid token (initialize, tools/list, refusals), per IP. High enough
+   * that a hosted connector's shared server IP is not starved; tool calls themselves need a token.
+   */
+  mcp: { name: "mcp", limit: 600, windowSeconds: 10 * 60 },
+  /** Requests to /api/mcp with a valid token, per token (never per IP). */
+  mcpCaller: { name: "mcp-caller", limit: 120, windowSeconds: 10 * 60 },
+  /** score_brief spends Qloo calls (up to SCORE_BRIEF_CAP each). Per token. */
   scoreBrief: { name: "mcp-score-brief", limit: 10, windowSeconds: HOUR },
-  /** culture_brief reads a page and runs intake before StartRun's own limits apply. */
+  /** culture_brief reads a page and runs intake before StartRun's own limits apply. Per token. */
   cultureBrief: { name: "mcp-culture-brief", limit: 3, windowSeconds: HOUR },
   /** Requests to POST /api/mcp/token (honeypot hits and refusals included); issuing itself is capped per day (mcpCaps().issue). */
-  mcpToken: { name: "mcp-token-requests", limit: 10, windowSeconds: HOUR },
+  mcpTokenIssue: { name: "mcp-token-requests", limit: 10, windowSeconds: HOUR },
 } as const satisfies Record<string, RateRule>;
 
 export interface RateResult {
@@ -49,7 +57,7 @@ function windowOf(rule: RateRule, now: number) {
 }
 
 /** Counts `by` (default one request) against a rule and says whether the window is still within its limit. */
-export async function hitRate(store: Store, rule: RateRule, visitor: VisitorId, now: number = Date.now(), by = 1): Promise<RateResult> {
+export async function hitRate(store: Store, rule: RateRule, visitor: RateSubject, now: number = Date.now(), by = 1): Promise<RateResult> {
   const { window, retryAfterSeconds } = windowOf(rule, now);
   // The counter outlives its window a little, then disappears.
   const count = await store.incr(keys.rate(rule.name, visitor, window), { by, ttlSeconds: rule.windowSeconds + 60 });
@@ -57,12 +65,12 @@ export async function hitRate(store: Store, rule: RateRule, visitor: VisitorId, 
 }
 
 /** What a rule's current window has counted so far, without counting anything. */
-export async function rateUsed(store: Store, rule: RateRule, visitor: VisitorId, now: number = Date.now()): Promise<number> {
+export async function rateUsed(store: Store, rule: RateRule, visitor: RateSubject, now: number = Date.now()): Promise<number> {
   return (await store.get<number>(keys.rate(rule.name, visitor, windowOf(rule, now).window))) ?? 0;
 }
 
 /** The counter a rule's current window counts in, for reserving against it (reserveUpTo). */
-export function ruleCounter(rule: RateRule, visitor: VisitorId, now: number = Date.now()): { key: string; ttlSeconds: number } {
+export function ruleCounter(rule: RateRule, visitor: RateSubject, now: number = Date.now()): { key: string; ttlSeconds: number } {
   return { key: keys.rate(rule.name, visitor, windowOf(rule, now).window), ttlSeconds: rule.windowSeconds + 60 };
 }
 

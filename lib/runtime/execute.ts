@@ -53,7 +53,7 @@ export interface ExecuteDeps {
  * meta says (older runs do not). Each job takes its place in that visitor's day at its first fresh render.
  */
 function starterOf(meta: RunMeta): StoryboardVisitor | null {
-  return meta.visitor ? { ip: meta.visitor, cookie: meta.cookieVisitor ?? null } : null;
+  return meta.visitor ? { id: meta.visitor, cookie: meta.cookieVisitor ?? null } : null;
 }
 
 export { estimateUsd, PRICES } from "./cost";

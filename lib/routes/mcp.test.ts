@@ -4,6 +4,7 @@ import { allowAll, type BotCheck } from "../bot-check";
 import { callerOf } from "../mcp/auth";
 import { storeToken } from "../mcp/fixture-token";
 import { newToken } from "../mcp/token";
+import { RATE_RULES } from "../rate-limit";
 import { MemoryStore } from "../store/memory";
 import { createMcpGet, createMcpPost, MCP_MAX_BYTES } from "./mcp";
 
@@ -14,6 +15,11 @@ function setup(botCheck: BotCheck = allowAll) {
 }
 
 const rpc = (body: string, ip = "203.0.113.7") => new Request("https://stoop.example/api/mcp", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip }, body });
+const withBearer = (request: Request, token: string) => {
+  const headers = new Headers(request.headers);
+  headers.set("authorization", `Bearer ${token}`);
+  return new Request(request.url, { method: request.method, headers, body: "{}" });
+};
 
 describe("POST /api/mcp", () => {
   it("hands the request on with its body intact", async () => {
@@ -24,14 +30,33 @@ describe("POST /api/mcp", () => {
     expect(handler).toHaveBeenCalledOnce();
   });
 
-  it("limits every visitor to 120 requests per 10 minutes", async () => {
-    const { post, handler } = setup();
-    for (let i = 0; i < 120; i++) expect((await post(rpc("{}"))).status).toBe(200);
+  it("counts requests without a valid token per IP, 600 per 10 minutes, and never against the token holders behind that IP", async () => {
+    const store = new MemoryStore();
+    const handler = vi.fn(async () => Response.json({}));
+    const post = createMcpPost({ store: () => store, botCheck: () => allowAll, handler });
+    for (let i = 0; i < RATE_RULES.mcp.limit; i++) expect((await post(rpc("{}"))).status).toBe(200);
     const limited = await post(rpc("{}"));
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
-    expect(handler).toHaveBeenCalledTimes(120);
+    // A wrong token is no way around it.
+    expect((await post(withBearer(rpc("{}"), newToken()))).status).toBe(429);
+    expect(handler).toHaveBeenCalledTimes(RATE_RULES.mcp.limit);
+    // A valid token behind the same shared IP counts its own requests.
+    const { token } = await storeToken(store);
+    expect((await post(withBearer(rpc("{}"), token))).status).toBe(200);
     expect((await post(rpc("{}", "198.51.100.2"))).status).toBe(200);
+  });
+
+  it("counts a valid token's requests per token: one token across IPs shares its limit, two tokens behind one IP each have their own", async () => {
+    const store = new MemoryStore();
+    const post = createMcpPost({ store: () => store, botCheck: () => allowAll, handler: async () => Response.json({}) });
+    const a = await storeToken(store);
+    const b = await storeToken(store);
+    for (let i = 0; i < RATE_RULES.mcpCaller.limit; i++) expect((await post(withBearer(rpc("{}", i % 2 ? "203.0.113.7" : "198.51.100.2"), a.token))).status).toBe(200);
+    expect((await post(withBearer(rpc("{}", "192.0.2.9"), a.token))).status).toBe(429);
+    expect((await post(withBearer(rpc("{}", "203.0.113.7"), b.token))).status).toBe(200);
+    // Unauthenticated traffic from that IP was never counted.
+    expect((await post(rpc("{}", "203.0.113.7"))).status).toBe(200);
   });
 
   it("refuses a body over the cap without reading it into the handler", async () => {
@@ -81,12 +106,12 @@ describe("POST /api/mcp", () => {
     const handler = vi.fn(async () => new Response(null, { status: 405 }));
     const get = createMcpGet({ store: () => store, botCheck: () => allowAll, handler });
     const request = (ip = "203.0.113.7") => new Request("https://stoop.example/api/mcp", { method: "GET", headers: { "x-forwarded-for": ip } });
-    for (let i = 0; i < 120; i++) expect((await get(request())).status).toBe(405);
+    for (let i = 0; i < RATE_RULES.mcp.limit; i++) expect((await get(request())).status).toBe(405);
     expect((await get(request())).status).toBe(429);
-    expect(handler).toHaveBeenCalledTimes(120);
+    expect(handler).toHaveBeenCalledTimes(RATE_RULES.mcp.limit);
     const blocked = createMcpGet({ store: () => store, botCheck: () => ({ name: "test", check: async () => ({ bot: true }) }), handler });
     expect((await blocked(request("198.51.100.2"))).status).toBe(403);
-    expect(handler).toHaveBeenCalledTimes(120);
+    expect(handler).toHaveBeenCalledTimes(RATE_RULES.mcp.limit);
   });
 
   it("never logs a full token: a path token or an error quoting one is redacted", async () => {

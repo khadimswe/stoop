@@ -50,7 +50,7 @@ const issueText = (error: z.ZodError) =>
 export function createMcpTokenPost(deps: McpTokenDeps) {
   return (request: Request) =>
     failSafe("POST /api/mcp/token", async () => {
-      const guarded = await guard(request, deps, RATE_RULES.mcpToken);
+      const guarded = await guard(request, deps, RATE_RULES.mcpTokenIssue);
       if (!guarded.ok) return guarded.response;
       const { store, visitor } = guarded;
 
