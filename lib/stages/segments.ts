@@ -84,6 +84,13 @@ export function segmentLabel(bucket: AgeBucket, genres: readonly string[]): stri
 /** Two segments this similar are one world. */
 export const shouldMerge = (distinctness: number) => distinctness < MERGE_BELOW;
 
+/** What Segments measured beyond the report: each segment's full responses, for Culture's settings and craft. */
+export interface SegmentRaw {
+  artists: QlooEntity[];
+  brands: QlooEntity[];
+  heatmap: HeatmapCell[];
+}
+
 /**
  * `parentHeatmap` is Prove's heatmap for the whole audience. A segment shares much of its parent's
  * signal, so the parent is left out of the reference mean when ranking the segment's cities.
@@ -91,7 +98,8 @@ export const shouldMerge = (distinctness: number) => distinctness < MERGE_BELOW;
 export async function segments(
   env: StageEnv,
   input: { seeds: readonly Seed[]; proof: Proof; region: string; parentHeatmap: readonly HeatmapCell[] },
-): Promise<Segments> {
+): Promise<{ segments: Segments; raw: Map<string, SegmentRaw> }> {
+  const raw = new Map<string, SegmentRaw>();
   const buckets = pickSegmentBuckets(input.proof.demographics.age);
   if (buckets.length === 1) {
     decide(env, "segments", `One measured segment: ${ageBandLabel(buckets[0])}`, "No other age band over-indexes, so there is no second world to build.");
@@ -138,6 +146,7 @@ export async function segments(
     }));
     const genres = topGenres(artists.data);
     rawArtists.push(artists.data);
+    raw.set(segmentIdFor(bucket), { artists: artists.data, brands: brands.data, heatmap: heatmap.data });
     built.push({
       id: segmentIdFor(bucket),
       bucket,
@@ -175,5 +184,5 @@ export async function segments(
       decide(env, "segments", `Kept two worlds: ${a.label} and ${b.label}`, `Distinctness ${distinctness}: their top artists and brands differ.`);
     }
   }
-  return { items: built, distinctness, merged };
+  return { segments: { items: built, distinctness, merged }, raw };
 }

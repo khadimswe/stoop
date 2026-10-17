@@ -21,7 +21,8 @@
     "prompts:export": "tsx scripts/export-pack.ts",
     "check:contrast": "tsx scripts/check-contrast.ts",
     "data-check": "tsx scripts/data-check.ts",
-    "audience": "tsx scripts/run-audience.ts"
+    "audience": "tsx scripts/run-audience.ts",
+    "example": "tsx scripts/run-example.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",
