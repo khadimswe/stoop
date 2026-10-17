@@ -1,0 +1,179 @@
+/* /byok: the app register (docs: light cards on paper, hairlines, one brick primary, nothing over 32px).
+   System fonts only: the page's policy loads nothing from elsewhere, fonts included. */
+:root {
+  --paper: #fbf5ec;
+  --ink: #1d1a2b;
+  --ink-soft: #4a4658;
+  --card: #ffffff;
+  --hairline: #ebe2d5;
+  --input-border: #8a857c;
+  --input-fill: #f4ece0;
+  --brick: #e8572e;
+  --dusk: #5b45e0;
+  --rose-deep: #a3243b;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/20px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.brand {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+h1 {
+  font-size: 28px;
+  line-height: 32px;
+  margin: 0 0 8px;
+}
+
+h2 {
+  font-size: 16px;
+  line-height: 24px;
+  margin: 0 0 8px;
+}
+
+.lede {
+  margin: 0 0 4px;
+}
+
+.note,
+.hint {
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.details dt {
+  color: var(--ink-soft);
+}
+
+.details dd {
+  margin: 0;
+}
+
+.thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.thumbs img {
+  width: 54px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  display: block;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+input {
+  width: 100%;
+  font: inherit;
+  padding: 8px 12px;
+  background: var(--input-fill);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--dusk);
+  outline-offset: 2px;
+}
+
+.primary {
+  font: inherit;
+  font-weight: 600;
+  background: var(--brick);
+  color: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 20px;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+video {
+  width: 100%;
+  max-height: 70vh;
+  background: #14121f;
+  border-radius: 8px;
+  display: block;
+  margin: 0 0 8px;
+}
+
+a {
+  color: var(--dusk);
+}
+
+.error {
+  color: var(--rose-deep);
+  font-weight: 600;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
