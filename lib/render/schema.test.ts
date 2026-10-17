@@ -24,6 +24,10 @@ const job: RenderJob = {
   endpoint: plan.endpoint,
   inputHash: plan.inputHash,
   passId: "b".repeat(24),
+  visitor: `v_${"d".repeat(24)}`,
+  day: "2026-11-03",
+  durationSeconds: 15,
+  charged: true,
   falRequestId: "fal-request-1",
   status: "done",
   videoUrl: "https://blob.example.com/renders/a.mp4",
@@ -49,6 +53,13 @@ describe("render schema", () => {
     expect(() => renderPlanSchema.parse({ ...plan, durationSeconds: 30 })).toThrow();
   });
 
+  it("bounds the references per endpoint", () => {
+    expect(() => renderPlanSchema.parse({ ...plan, imageUrls: [] })).toThrow(/1 to 30/);
+    const image = { ...plan, endpoint: VIDEO_MODELS.image.endpoint };
+    expect(renderPlanSchema.parse(image).endpoint).toBe(VIDEO_MODELS.image.endpoint);
+    expect(() => renderPlanSchema.parse({ ...image, imageUrls: Array.from({ length: 3 }, (_, i) => `https://blob.example.com/${i}.webp`) })).toThrow(/1 to 2/);
+  });
+
   it("takes only a target from the browser, never a prompt", () => {
     expect(renderRequestSchema.parse({ target: plan.target })).toEqual({ target: plan.target });
     expect(() => renderRequestSchema.parse({ target: plan.target, prompt: "anything" })).toThrow();
@@ -62,5 +73,6 @@ describe("render schema", () => {
     expect(status).toEqual({ id: job.id, target: job.target, status: "done", videoUrl: job.videoUrl, reason: null, cached: false });
     expect(Object.keys(renderStatusSchema.shape)).not.toContain("falRequestId");
     expect(Object.keys(renderStatusSchema.shape)).not.toContain("passId");
+    expect(Object.keys(renderStatusSchema.shape)).not.toContain("visitor");
   });
 });

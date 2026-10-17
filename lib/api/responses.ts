@@ -175,7 +175,6 @@ export const healthResponseSchema = z.strictObject({
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
-/** The trace footer: "completed in 48 s · 31 Qloo calls · $0.38". */
 // --- Draft video: GET /api/render/access, POST /api/render/plan, POST /api/render, GET /api/render/[job]
 
 /** Which video line the Output section shows this visitor, and how many server-paid drafts their pass has left. */
@@ -203,4 +202,5 @@ export const mcpTokenResponseSchema = z.strictObject({
 });
 export type McpTokenResponse = z.infer<typeof mcpTokenResponseSchema>;
 
+/** The trace footer: "completed in 48 s · 31 Qloo calls · $0.38". */
 export { costSchema };

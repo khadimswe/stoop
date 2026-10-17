@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byokEnabled, dailyCaps, isLive, mcpCaps, renderLimits, videoSwitches } from "./config";
+import { byokEnabled, dailyCaps, isLive, judgingEndsAt, mcpCaps, renderLimits, videoSwitches } from "./config";
 
 describe("runtime config", () => {
   it("stays in replay unless STOOP_LIVE is true (any case, trimmed)", () => {
@@ -27,6 +27,12 @@ describe("runtime config", () => {
     expect(renderLimits({ RENDERS_TOTAL_CAP: "40", RENDER_DRAFT_SECONDS: "10" })).toMatchObject({ total: 40, draftSeconds: 10 });
     expect(() => renderLimits({ RENDER_DRAFT_SECONDS: "30" })).toThrow(/4 to 15/);
     expect(() => renderLimits({ RENDER_DRAFT_SECONDS: "2" })).toThrow(/4 to 15/);
+  });
+
+  it("ends judge passes and MCP tokens after Nov 16 everywhere in the US", () => {
+    expect(new Date(judgingEndsAt({})).toISOString()).toBe("2026-11-17T08:00:00.000Z");
+    expect(judgingEndsAt({ JUDGING_ENDS_AT: "2026-12-01T00:00:00Z" })).toBe(Date.parse("2026-12-01T00:00:00Z"));
+    expect(() => judgingEndsAt({ JUDGING_ENDS_AT: "soon" })).toThrow(/ISO date/);
   });
 
   it("keeps BYOK on unless it is switched off", () => {

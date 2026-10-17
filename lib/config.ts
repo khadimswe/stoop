@@ -48,6 +48,19 @@ export function videoSwitches(env: Env = process.env): VideoSwitches {
   return { liveVideo: flag(env.ENABLE_LIVE_VIDEO), finalRender: flag(env.ENABLE_LIVE_VIDEO) && flag(env.ENABLE_FINAL_RENDER) };
 }
 
+/**
+ * When judging is over for good: judge passes and MCP tokens stop working (JUDGING_ENDS_AT). Judging runs
+ * Nov 2 to 16, 2026; the default is 3 am Eastern on Nov 17, so nothing ends while it is still Nov 16 in the US.
+ */
+export const DEFAULT_JUDGING_ENDS_AT = "2026-11-17T08:00:00Z";
+
+export function judgingEndsAt(env: Env = process.env): number {
+  const text = env.JUDGING_ENDS_AT?.trim() || DEFAULT_JUDGING_ENDS_AT;
+  const at = Date.parse(text);
+  if (Number.isNaN(at)) throw new Error(`JUDGING_ENDS_AT must be an ISO date, e.g. ${DEFAULT_JUDGING_ENDS_AT}.`);
+  return at;
+}
+
 /** Server-paid draft renders per judge pass, whatever the day's cap. */
 export const RENDERS_PER_PASS = 3;
 /** Server-paid draft renders per IP per day, so one shared judge code cannot drain the day. */
@@ -69,7 +82,10 @@ export function renderLimits(env: Env = process.env): RenderLimits {
   return { total: count(env.RENDERS_TOTAL_CAP, 0), perPass: RENDERS_PER_PASS, perIpDaily: RENDERS_PER_IP_DAILY, draftSeconds };
 }
 
-/** "Render with your fal key": on unless ENABLE_BYOK is "false". It costs Stoop nothing, so it stays on through judging. */
+/**
+ * "Render with your fal key": on unless ENABLE_BYOK is "false". It bills the visitor's own fal key and
+ * costs Stoop nothing, so it is independent of STOOP_LIVE and ENABLE_LIVE_VIDEO and stays on through judging.
+ */
 export function byokEnabled(env: Env = process.env): boolean {
   return env.ENABLE_BYOK?.trim().toLowerCase() !== "false";
 }

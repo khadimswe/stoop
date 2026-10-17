@@ -47,4 +47,11 @@ describe("getStore", () => {
     expect(getStore({ VERCEL: "1", KV_REST_API_URL: "https://x.upstash.io", KV_REST_API_TOKEN: "t" }).kind).toBe("upstash");
     setStore(null);
   });
+
+  it("never pairs a URL from one naming scheme with the token from the other", async () => {
+    const { upstashPair } = await import("./index");
+    expect(upstashPair({ UPSTASH_REDIS_REST_URL: "https://a.upstash.io", KV_REST_API_TOKEN: "t" })).toBeNull();
+    expect(upstashPair({ UPSTASH_REDIS_REST_URL: "https://a.upstash.io", UPSTASH_REDIS_REST_TOKEN: "u", KV_REST_API_URL: "https://b.upstash.io", KV_REST_API_TOKEN: "k" })).toEqual({ url: "https://a.upstash.io", token: "u" });
+    expect(upstashPair({ KV_REST_API_URL: "https://b.upstash.io", KV_REST_API_TOKEN: "k" })).toEqual({ url: "https://b.upstash.io", token: "k" });
+  });
 });

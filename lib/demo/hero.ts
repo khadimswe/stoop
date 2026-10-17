@@ -8,7 +8,7 @@ import type { DemoApprovals, DemoClip, DemoManifest } from "./manifest";
 export { approvalsSchema, manifestSchema, type DemoApprovals, type DemoClip, type DemoManifest } from "./manifest";
 
 /** The lead example's slug (lib/demo/examples.ts). The blind test still waits for its approved hook clips. */
-export const LEAD_EXAMPLE: string | null = LEAD.slug;
+export const LEAD_EXAMPLE: string = LEAD.slug;
 
 export type HeroMode =
   | { kind: "blind-test"; example: string; control: DemoClip; culture: DemoClip }

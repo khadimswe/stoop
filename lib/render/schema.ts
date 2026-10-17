@@ -23,8 +23,13 @@ export { CONTROL_SEGMENT, renderTargetSchema, type RenderTarget } from "../api/r
 
 export const renderJobIdSchema = z.string().regex(/^rj_[0-9a-f]{24}$/);
 
-/** Everything fal needs for one draft, built on the server from the world's pack and storyboard. */
-export const renderPlanSchema = z.strictObject({
+/**
+ * Everything fal needs for one draft, built on the server from the world's pack and storyboard.
+ * reference-to-video takes 1 to 30 references (@Image1..N); image-to-video takes a start frame and an
+ * optional end frame, and follows the start frame's shape, so the plan builder passes a 9:16 frame there.
+ */
+export const renderPlanSchema = z
+  .strictObject({
   target: renderTargetSchema,
   endpoint: renderEndpointSchema,
   /** The scene prompt, with references named @Image1..N in imageUrls order. */
@@ -43,18 +48,35 @@ export const renderPlanSchema = z.strictObject({
   estimatedUsd: z.number().nonnegative(),
   /** When the presigned references stop working; the BYOK page fetches a fresh plan after that. */
   expiresAt: z.iso.datetime(),
-});
+  })
+  .superRefine((plan, ctx) => {
+    const max = plan.endpoint === VIDEO_MODELS.image.endpoint ? VIDEO_MODELS.image.maxRefs : VIDEO_MODELS.reference.maxRefs;
+    if (plan.imageUrls.length < 1 || plan.imageUrls.length > max) {
+      ctx.addIssue({ code: "custom", path: ["imageUrls"], message: `${plan.endpoint} takes 1 to ${max} images` });
+    }
+  });
 export type RenderPlan = z.infer<typeof renderPlanSchema>;
 
 export const RENDER_STATUSES = ["queued", "rendering", "done", "failed"] as const;
 
-/** A server-paid draft, as stored. falRequestId and passId never leave the server. */
+/**
+ * A server-paid draft, as stored. falRequestId, passId and the visitor never leave the server.
+ * Refunds: a job that fails before fal accepts it gives back every counter it reserved (the day's cap,
+ * the lifetime total, the pass and the IP, recorded below); once fal has accepted a job it may have
+ * billed, so nothing is given back. A cached job reserved nothing (charged false).
+ */
 export const renderJobSchema = z.strictObject({
   id: renderJobIdSchema,
   target: renderTargetSchema,
   endpoint: renderEndpointSchema,
   inputHash: hex64,
   passId: z.string().regex(/^[0-9a-f]{24}$/),
+  /** The IP visitor id and UTC day the job was counted against, so a refund finds the same counters. */
+  visitor: z.string().regex(/^v_[0-9a-f]{24}$/),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationSeconds: z.number().int().min(4).max(15),
+  /** False for a cached result: nothing was reserved or billed. */
+  charged: z.boolean(),
   falRequestId: z.string().min(1).max(200).nullable(),
   status: z.enum(RENDER_STATUSES),
   /** The draft, stored on Stoop's public storage once fal finishes (never a fal URL, which expires). */

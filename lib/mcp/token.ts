@@ -1,15 +1,14 @@
 // MCP tokens for /api/mcp: "stp_" plus 32 random bytes in base64url (the prefix lets secret scanners
 // recognize a leaked one). The token is shown once, emailed once, and only its SHA-256 is stored, with
-// its caps and an expiry after judging. Prefer sending it as "Authorization: Bearer"; the path form
-// (/api/mcp/<token>) exists for clients that only take a URL, and hosting logs record paths, which is
-// why every token is capped, expiring and revocable (scripts/mcp-token.ts).
+// an expiry when judging ends (lib/config.ts judgingEndsAt); its caps are counted under keys.mcp.
+// Prefer sending it as "Authorization: Bearer"; the path form (/api/mcp/<token>) exists for clients
+// that only take a URL, and hosting logs record paths, which is why every token is capped, expiring and
+// revocable (scripts/mcp-token.ts).
 import { z } from "zod";
 import { sha256 } from "../hash";
 
 export const TOKEN_PREFIX = "stp_";
 export const TOKEN_PATTERN = /^stp_[A-Za-z0-9_-]{43}$/;
-/** Tokens stop working the day after judging closes. */
-export const TOKEN_EXPIRES_AT = "2026-11-17T00:00:00Z";
 
 export function newToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));

@@ -4,7 +4,7 @@ import { codeMatches, issuePass, judgeConfig, passMaxAge, verifyPass, withoutJud
 const CODE = "judge-code-0123456789";
 const SECRET = "s".repeat(32);
 const NOW = Date.parse("2026-11-03T12:00:00Z");
-const config: JudgeConfig = { code: CODE, secret: SECRET, until: Date.parse("2026-11-17T00:00:00Z") };
+const config: JudgeConfig = { code: CODE, secret: SECRET, until: Date.parse("2026-11-17T08:00:00Z") };
 
 describe("judge config", () => {
   it("stays off without a 16+ character code and a signing secret", () => {
@@ -14,9 +14,9 @@ describe("judge config", () => {
     expect(judgeConfig({ JUDGE_CODE: CODE, STOOP_SIGNING_SECRET: SECRET })).toEqual(config);
   });
 
-  it("reads the end date, and refuses one that is not a date", () => {
-    expect(judgeConfig({ JUDGE_CODE: CODE, STOOP_SIGNING_SECRET: SECRET, JUDGE_PASS_UNTIL: "2026-12-01T00:00:00Z" })?.until).toBe(Date.parse("2026-12-01T00:00:00Z"));
-    expect(() => judgeConfig({ JUDGE_CODE: CODE, STOOP_SIGNING_SECRET: SECRET, JUDGE_PASS_UNTIL: "soon" })).toThrow(/ISO date/);
+  it("ends passes when judging ends", () => {
+    expect(judgeConfig({ JUDGE_CODE: CODE, STOOP_SIGNING_SECRET: SECRET, JUDGING_ENDS_AT: "2026-12-01T00:00:00Z" })?.until).toBe(Date.parse("2026-12-01T00:00:00Z"));
+    expect(() => judgeConfig({ JUDGE_CODE: CODE, STOOP_SIGNING_SECRET: SECRET, JUDGING_ENDS_AT: "soon" })).toThrow(/ISO date/);
   });
 });
 

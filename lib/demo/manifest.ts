@@ -7,6 +7,7 @@
 // lists what the founder approved, by hand. Pages show only approved media. Files are served from our own
 // origin under /demo, never from a storage vendor.
 import { z } from "zod";
+import { CONTROL_SEGMENT, segmentIdSchema } from "../api/requests";
 import { frameCritiqueSchema } from "../report/world";
 import { EXAMPLES, type ExampleSlug } from "./examples";
 
@@ -24,7 +25,9 @@ function servedPath(extensions: readonly string[]) {
 const IMAGE = ["webp", "png", "jpg", "jpeg"] as const;
 
 /** A world's segment id, or null for the Control. */
-const segmentId = z.string().min(1).max(80).nullable();
+const segmentId = segmentIdSchema.nullable();
+/** Frames per storyboard: lib/prompts/frames.ts FRAMES_PER_WORLD (a test keeps the two equal; that module is not client-light). */
+export const MAX_DEMO_FRAMES = 4;
 
 const clipSchema = z
   .strictObject({
@@ -58,12 +61,14 @@ const demoFrameSchema = z.strictObject({
 });
 export type DemoFrame = z.infer<typeof demoFrameSchema>;
 
-const storyboardSchema = z.strictObject({
-  example: exampleSlug,
-  segmentId,
-  frames: z.array(demoFrameSchema).min(1).max(4),
-  critiques: z.array(frameCritiqueSchema),
-});
+const storyboardSchema = z
+  .strictObject({
+    example: exampleSlug,
+    segmentId,
+    frames: z.array(demoFrameSchema).min(1).max(MAX_DEMO_FRAMES),
+    critiques: z.array(frameCritiqueSchema),
+  })
+  .refine((board) => new Set(board.frames.map((f) => f.scene)).size === board.frames.length, { error: "each scene has one frame" });
 export type DemoStoryboard = z.infer<typeof storyboardSchema>;
 
 const packshotSchema = z.strictObject({
@@ -104,7 +109,7 @@ export const approvalsSchema = z.strictObject({
   version: z.literal(2),
   /** Prompt hashes approved for rendering (scripts/render-demo.ts refuses anything else). */
   prompts: z.array(sha256),
-  /** Rendered packshot and storyboard files approved after looking at them, by file hash. */
+  /** Rendered files (clips, packshots and storyboard frames) approved after watching or looking at them, by file hash. */
   files: z.array(sha256),
   /** Exact clips approved for the landing blind test, after watching them. */
   heroClips: z.array(z.strictObject({ id: z.string().min(1), promptHash: sha256, sha256 })),
@@ -116,11 +121,11 @@ export interface DemoMedia {
   packshot: DemoPackshot | null;
   /** Keyed by segment id, "control" for the Control. Only storyboards whose every frame is approved. */
   storyboards: Record<string, DemoStoryboard>;
-  /** Clips whose prompt is approved (the blind test needs more: lib/demo/hero.ts). */
+  /** Clips whose prompt and file are both approved (the blind test also needs heroClips: lib/demo/hero.ts). */
   clips: DemoClip[];
 }
 
-export const CONTROL_KEY = "control";
+export const CONTROL_KEY = CONTROL_SEGMENT;
 
 export function demoMediaFor(manifest: DemoManifest, approvals: DemoApprovals, example: ExampleSlug): DemoMedia {
   const prompt = new Set(approvals.prompts);
@@ -132,6 +137,6 @@ export function demoMediaFor(manifest: DemoManifest, approvals: DemoApprovals, e
     if (!board.frames.every((f) => prompt.has(f.promptHash) && file.has(f.sha256))) continue;
     storyboards[board.segmentId ?? CONTROL_KEY] = board;
   }
-  const clips = manifest.clips.filter((c) => c.example === example && prompt.has(c.promptHash));
+  const clips = manifest.clips.filter((c) => c.example === example && prompt.has(c.promptHash) && file.has(c.sha256));
   return { packshot, storyboards, clips };
 }

@@ -97,6 +97,8 @@ export const keys = {
     tokens: "mcp:tokens",
     /** One token's tool calls on one day. */
     calls: (tokenHash: string, day: string = dayOf()) => `mcp:token:${tokenHash}:calls:${day}`,
+    /** One token's culture_brief runs on one day (they also count against LIVE_RUNS_DAILY_CAP). */
+    cultureBriefs: (tokenHash: string, day: string = dayOf()) => `mcp:token:${tokenHash}:culture-briefs:${day}`,
   },
   /** Per-visitor limits in a time window: `window` is e.g. the hour or day the count belongs to. */
   rate: (name: string, visitor: VisitorId | CookieVisitorId, window: string) => `rate:${name}:${visitor}:${window}`,
