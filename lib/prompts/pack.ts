@@ -11,10 +11,42 @@ import { briefCueTexts, conceptSchema, packSettingsSchema, type BriefSlots, type
 import { AI_DISCLOSURE_NOTE, CHECKLIST_CONDITIONS, CHECKLIST_STAGES, checklistFor, HUMAN_REVIEW_CHECKLIST, type ChecklistItem } from "./critique-checklist";
 import { renderDirectorGuide } from "./director-guide";
 import { renderLocationPlate, renderMultiShot, renderPackshot, renderProductSheet, renderTalentSheet } from "./higgsfield";
+import { renderKlingMultiShot, renderKlingShot } from "./kling";
 import { FILES, negativeNouns, productFiles, resolveCast, sourcePhotos, usesSourcePhotos, type ResolvedCast } from "./lines";
 import { renderShotList } from "./master";
-import { getModel, MODEL_IDS, renderLength, type ModelConfig, type ModelId } from "./models.config";
+import { getModel, MODEL_IDS, PER_SCENE_EXTRAS, renderLength, type ModelConfig, type ModelId, type TemplateFamily } from "./models.config";
+import { renderRunwayScene } from "./runway";
 import { estimateTokens, renderScene } from "./veo";
+
+/**
+ * Families whose scene jobs chain by start frames: each scene starts from the previous scene's last
+ * frame while the location holds, otherwise from its location plate. Kling: Higgsfield's Kling page
+ * ("use the last frame of one scene as the next scene's start frame"). Runway: 9:16 needs a start
+ * frame, and its guide chains longer sequences by last frames.
+ */
+const CHAINED_FAMILIES: ReadonlySet<TemplateFamily> = new Set(["kling", "runway"]);
+
+/**
+ * A model that takes no reference images sees the product only through the prompt's words, so it can
+ * show a product described in text, but not one known only from the brand's photos.
+ */
+const canShowProduct = (model: ModelConfig, product: ProductSpec) => model.supportsImageRefs || product.source.kind === "description";
+
+/**
+ * The settings' per-scene model, then the extras, one per template family. An extra that cannot show
+ * this product is skipped (Runway with a brand's photos), so the pack never offers a prompt whose
+ * product the model would invent.
+ */
+function sceneModels(perScene: ModelConfig | null, product: ProductSpec): { models: ModelConfig[]; skipped: ModelConfig[] } {
+  const models: ModelConfig[] = perScene ? [perScene] : [];
+  const skipped: ModelConfig[] = [];
+  for (const model of PER_SCENE_EXTRAS.map(getModel)) {
+    if (models.some((m) => m.template === model.template)) continue;
+    if (canShowProduct(model, product)) models.push(model);
+    else skipped.push(model);
+  }
+  return { models, skipped };
+}
 
 export const ASSET_KINDS = ["packshot", "product_sheet", "talent_sheet", "location"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
@@ -229,22 +261,27 @@ export function buildProductionPack({ product, brief, concept, settings }: PackI
 
   // Models that take few references get one product file; the rest get every product photo.
   const productRefsFor = (model: ModelConfig) => (model.maxRefs > 3 ? productRefs : productRefs.slice(0, 1));
-  const sceneRefs = (model: ModelConfig, indexes: number[]) => {
-    const refs: string[] = [...productRefsFor(model)];
-    if (cast === "adult_talent") refs.push(FILES.talentSheet(brief.segment.id));
+  const talentRefs = cast === "adult_talent" ? [FILES.talentSheet(brief.segment.id)] : [];
+  const locationFile = (index: number) => FILES.location(brief.segment.id, concept.scenes[index].location);
+  const sceneRefs = (products: string[], indexes: number[]) => {
+    const refs: string[] = [...products, ...talentRefs];
     for (const index of indexes) {
-      const file = FILES.location(brief.segment.id, concept.scenes[index].location);
+      const file = locationFile(index);
       if (!refs.includes(file)) refs.push(file);
     }
     return refs;
   };
 
-  const job = (id: string, kind: RenderJob["kind"], model: ModelConfig, indexes: number[], prompt: string, startFrame: StartFrame | null = null): RenderJob => {
-    const refs = sceneRefs(model, indexes);
+  const jobHashes = new Map<string, string>();
+  const job = (id: string, kind: RenderJob["kind"], model: ModelConfig, indexes: number[], prompt: string, opts: { refs?: string[]; startFrame?: StartFrame | null } = {}): RenderJob => {
+    const refs = opts.refs ?? sceneRefs(productRefsFor(model), indexes);
+    const startFrame = opts.startFrame ?? null;
     const trimTo = indexes.reduce((sum, index) => sum + concept.scenes[index].seconds, 0);
     const renderSeconds = renderLength(model, trimTo, { hasRefs: refs.length > 0 && model.supportsImageRefs });
     const negative = negativeNouns(model, "scene");
-    return {
+    // A start frame is hashed with what it shows: the plate's hash, or the earlier job's hash.
+    const startHash = startFrame ? (startFrame.kind === "asset" ? (known.get(startFrame.file) ?? startFrame.file) : (jobHashes.get(startFrame.job) ?? startFrame.job)) : null;
+    const render: RenderJob = {
       id,
       kind,
       modelId: model.id,
@@ -265,20 +302,54 @@ export function buildProductionPack({ product, brief, concept, settings }: PackI
         refHashes: refs.map((ref) => known.get(ref) ?? ref).sort(),
         prompt: prompt + (negative ? `\nNEGATIVE: ${negative}` : ""),
         // Only jobs that start from a frame hash it, so prompt-only jobs keep their hashes.
-        ...(startFrame ? { startFrame } : {}),
+        ...(startFrame ? { startFrame: { ...startFrame, hash: startHash } } : {}),
       }),
     };
+    jobHashes.set(id, render.promptHash);
+    return render;
   };
 
   const all = concept.scenes.map((_, index) => index);
-  const renders: RenderJob[] = [
-    job(`${multiShotModel.template}-${settings.seconds}s`, "multi-shot", multiShotModel, all, renderMultiShot({ model: multiShotModel, product, brief, concept, settings, cast, productRefs: productRefsFor(multiShotModel) })),
-  ];
-  if (perSceneModel) {
+  const multiShotPrompt = (() => {
+    switch (multiShotModel.template) {
+      case "seedance":
+        return renderMultiShot({ model: multiShotModel, product, brief, concept, settings, cast, productRefs: productRefsFor(multiShotModel) });
+      case "kling":
+        return renderKlingMultiShot({ model: multiShotModel, product, brief, concept, settings, cast, productRef: productRefs[0] });
+      default:
+        throw new Error(`${multiShotModel.displayName} has no multi-shot template; pick it as the per-scene model.`);
+    }
+  })();
+  // Kling's Elements count against its reference limit, so it gets one product file.
+  const multiShotRefs = multiShotModel.template === "kling" ? sceneRefs(productRefs.slice(0, 1), all) : undefined;
+  const renders: RenderJob[] = [job(`${multiShotModel.template}-${settings.seconds}s`, "multi-shot", multiShotModel, all, multiShotPrompt, { refs: multiShotRefs })];
+
+  const scenes = sceneModels(perSceneModel, product);
+  for (const model of scenes.models) {
+    const id = (index: number) => `${model.template}-scene-${index + 1}`;
+    const chained = CHAINED_FAMILIES.has(model.template);
     for (const index of all) {
-      renders.push(
-        job(`${perSceneModel.template}-scene-${index + 1}`, "scene", perSceneModel, [index], renderScene({ model: perSceneModel, product, brief, concept, settings, cast, sceneIndex: index, productRef: productRefs[0] })),
-      );
+      // Chained families start every scene from a frame: the previous scene's last frame while the
+      // location holds, otherwise this scene's location plate.
+      const sameLocation = index > 0 && concept.scenes[index - 1].location === concept.scenes[index].location;
+      const start = chained ? (sameLocation ? "previous" : "plate") : null;
+      const startFrame: StartFrame | null = start === "previous" ? { kind: "last-frame", job: id(index - 1) } : start === "plate" ? { kind: "asset", file: locationFile(index) } : null;
+      const input = { model, product, brief, concept, settings, cast, sceneIndex: index };
+      switch (model.template) {
+        case "veo":
+          renders.push(job(id(index), "scene", model, [index], renderScene({ ...input, productRef: productRefs[0] })));
+          break;
+        case "kling":
+          // The location comes in as the start frame, so the references are the Elements only.
+          renders.push(job(id(index), "scene", model, [index], renderKlingShot({ ...input, productRef: productRefs[0], start }), { refs: [productRefs[0], ...talentRefs], startFrame }));
+          break;
+        case "runway":
+          // No reference images: the start frame is the only image the model sees.
+          renders.push(job(id(index), "scene", model, [index], renderRunwayScene({ ...input, start: start ?? "plate" }), { refs: [], startFrame }));
+          break;
+        default:
+          throw new Error(`${model.displayName} has no per-scene template; it renders the whole ad as one multi-shot clip.`);
+      }
     }
   }
 
@@ -310,6 +381,8 @@ export function buildProductionPack({ product, brief, concept, settings }: PackI
       draftModel: multiShotModel,
       finalModel: multiShotModel,
       perSceneModel: perSceneModel ?? undefined,
+      extraSceneModels: scenes.models.filter((model) => model.id !== perSceneModel?.id),
+      skippedSceneModels: scenes.skipped,
       checklist,
       takesPerPrompt: 1,
       maxRevisions: 1,
@@ -324,38 +397,84 @@ export interface PackProblem {
   message: string;
 }
 
+export interface CheckOptions {
+  /** Brief slots Qloo backed richly (World.richSlots). A render prompt that drops one fails with its own message. Empty for the Control. */
+  richSlots: readonly string[];
+}
+
+/** How a slot reads in a problem message: "music", "first setting". */
+function slotLabel(slot: string): string {
+  const setting = /^setting\.(\d)$/.exec(slot);
+  if (setting) return `${["first", "second", "third"][Number(setting[1])] ?? `setting ${setting[1]}`} setting`;
+  return ({ productRole: "product role", visual: "visual language", "voice.tone": "voice" } as Record<string, string>)[slot] ?? slot;
+}
+
+/** "the Kling 3.0 scene 2 prompt", "the Seedance 2.5 multi-shot prompt". */
+function promptLabel(render: RenderJob): string {
+  const name = getModel(render.modelId).displayName;
+  return render.kind === "multi-shot" ? `the ${name} multi-shot prompt` : `the ${name} scene ${render.sceneIndexes.map((i) => i + 1).join(", ")} prompt`;
+}
+
 /**
  * Deterministic checks on a finished pack. An empty list means it passes.
  * - every cue the brief carries appears word for word in every render prompt
- * - every render references product_sheet.png, within the model's reference limit
+ * - every slot in richSlots appears in every render prompt (the hard requirement for Qloo's rich
+ *   fields, with its own message naming the prompt and the slot)
+ * - a render whose model takes references references the product file, within the model's limit;
+ *   one whose model takes none names the product in words
+ * - a start frame names an asset of the pack or an earlier job, and a Runway job always has one
  * - prompts stay under the model's token cap
  * - no guardrail issue (names, minors, ethnicity, likeness, claims) in any prompt
  * - a source photo that shows a person is never a reference
  */
-export function checkPack(pack: ProductionPack, brief: BriefSlots, product: ProductSpec, names: readonly string[]): PackProblem[] {
+export function checkPack(pack: ProductionPack, brief: BriefSlots, product: ProductSpec, names: readonly string[], { richSlots }: CheckOptions): PackProblem[] {
   const problems: PackProblem[] = [];
-  const cues = briefCueTexts(brief).filter((cue) => cue.slot !== "talent" || pack.cast === "adult_talent");
+  const allCues = briefCueTexts(brief);
+  // The talent cue only reaches prompts that cast talent.
+  const reachesPrompts = (slot: string) => slot !== "talent" || pack.cast === "adult_talent";
+  const cues = allCues.filter((cue) => reachesPrompts(cue.slot));
   // Case-insensitive and without closing punctuation: a cue that opens a sentence is capitalized,
   // and one placed mid-sentence loses its full stop.
   const normalize = (text: string) => text.trim().replace(/[.!?]+$/, "").toLowerCase();
   const productRef = productFiles(product, pack.settings.direction)[0];
+  const rich = [...new Set(richSlots)].filter(reachesPrompts);
+  for (const slot of rich) {
+    if (!allCues.some((cue) => cue.slot === slot)) {
+      problems.push({ where: "brief", message: `Qloo backed the ${slotLabel(slot)} richly, but the brief carries no ${slotLabel(slot)} cue` });
+    }
+  }
+  const assetFiles = new Set(pack.assets.map((a) => a.file));
 
-  for (const render of pack.renders) {
+  pack.renders.forEach((render, position) => {
     const model = getModel(render.modelId);
     const promptText = render.prompt.toLowerCase();
     for (const cue of cues) {
       if (!promptText.includes(normalize(cue.text))) problems.push({ where: render.id, message: `drops the brief's ${cue.slot} cue` });
     }
-    if (!render.refs.includes(productRef) || !render.prompt.includes(productRef)) {
-      problems.push({ where: render.id, message: `does not reference ${productRef}` });
+    for (const slot of rich) {
+      const cue = allCues.find((c) => c.slot === slot);
+      if (cue && !promptText.includes(normalize(cue.text))) {
+        problems.push({ where: render.id, message: `${promptLabel(render)} drops the ${slotLabel(slot)} cue Qloo backed richly` });
+      }
     }
-    if (model.supportsImageRefs && render.refs.length > model.maxRefs) {
-      problems.push({ where: render.id, message: `uses ${render.refs.length} references; the model takes ${model.maxRefs}` });
+    if (model.supportsImageRefs) {
+      if (!render.refs.includes(productRef) || !render.prompt.includes(productRef)) problems.push({ where: render.id, message: `does not reference ${productRef}` });
+      if (render.refs.length > model.maxRefs) problems.push({ where: render.id, message: `uses ${render.refs.length} references; the model takes ${model.maxRefs}` });
+    } else if (!promptText.includes(product.name.toLowerCase())) {
+      problems.push({ where: render.id, message: `does not name the ${product.name}; the model takes no reference images` });
+    } else if (!canShowProduct(model, product)) {
+      problems.push({ where: render.id, message: "takes no reference images, and this product is known only from the brand's photos, so the model would invent its look" });
     }
+    const start = render.startFrame;
+    if (start?.kind === "asset" && !assetFiles.has(start.file)) problems.push({ where: render.id, message: `starts from ${start.file}, which the pack does not have` });
+    if (start?.kind === "last-frame" && !pack.renders.slice(0, position).some((r) => r.id === start.job)) {
+      problems.push({ where: render.id, message: `starts from the last frame of ${start.job}, which does not come before it` });
+    }
+    if (model.template === "runway" && !start) problems.push({ where: render.id, message: "needs a start frame: text-to-video renders 16:9 only" });
     if (model.maxPromptTokens !== null && estimateTokens(render.prompt) > model.maxPromptTokens) {
       problems.push({ where: render.id, message: `is about ${estimateTokens(render.prompt)} tokens; the cap is ${model.maxPromptTokens}` });
     }
-  }
+  });
 
   const people = new Set(product.source.kind === "images" ? product.source.images.filter((i) => i.showsPerson).map((i) => i.url) : []);
   const allowedNames = [...brief.allowedPlaces, ...(product.brandName ? [product.brandName] : [])];

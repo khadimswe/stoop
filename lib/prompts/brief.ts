@@ -80,15 +80,19 @@ export const briefSlotsSchema = z.strictObject({
 });
 export type BriefSlots = z.infer<typeof briefSlotsSchema>;
 
+/** Every brief slot key, as briefCueTexts names them (BRIEF_SLOT in lib/report/world.ts matches each). */
+export const BRIEF_SLOTS = ["productRole", "mood", "music", "visual", "voice.tone", "setting.0", "setting.1", "setting.2", "wardrobe", "talent"] as const;
+export type BriefSlot = (typeof BRIEF_SLOTS)[number];
+
 /** The cue slots a pack must carry, by key, for the coverage check. */
-export function briefCueTexts(brief: BriefSlots): { slot: string; text: string }[] {
-  const cues: { slot: string; text: string }[] = [
+export function briefCueTexts(brief: BriefSlots): { slot: BriefSlot; text: string }[] {
+  const cues: { slot: BriefSlot; text: string }[] = [
     { slot: "productRole", text: brief.productRole.text },
     { slot: "mood", text: brief.mood.text },
     { slot: "music", text: brief.music.text },
     { slot: "visual", text: brief.visual.text },
     { slot: "voice.tone", text: brief.voice.tone.text },
-    ...brief.setting.map((cue, index) => ({ slot: `setting.${index}`, text: cue.text })),
+    ...brief.setting.map((cue, index) => ({ slot: `setting.${index}` as BriefSlot, text: cue.text })),
   ];
   if (brief.wardrobe) cues.push({ slot: "wardrobe", text: brief.wardrobe.text });
   if (brief.talent) cues.push({ slot: "talent", text: brief.talent.text });
@@ -177,6 +181,8 @@ export const packSettingsSchema = z.strictObject({
   models: z.strictObject({
     image: z.enum(MODEL_IDS),
     multiShot: z.enum(MODEL_IDS),
+    // Null means no per-scene model of your own. Either way the pack also writes scene prompts for
+    // PER_SCENE_EXTRAS (models.config.ts), one set per template family, when the model can show the product.
     perScene: z.enum(MODEL_IDS).nullable(),
   }),
 });
