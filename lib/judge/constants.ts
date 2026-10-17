@@ -15,9 +15,11 @@ export const JUDGE_CODE_MIN = 16;
 export const JUDGE_CODE_ATTEMPTS_PER_HOUR = 10;
 
 /**
- * Cookie options for the pass and its hint. SameSite=Lax and the browser-only Origin check on POST
- * /api/render (lib/routes/guard.ts browserOnly) together keep a cookie-authenticated paid action safe
- * from cross-site requests; never loosen these to SameSite=None. Secure is set on https.
+ * Cookie options for the pass and its hint. SameSite=Lax, plus an exact Origin match on POST /api/render
+ * (a request without an Origin header, or from another origin, is refused before anything is reserved),
+ * keep a cookie-authenticated paid action safe from cross-site requests. browserOnly alone is not enough
+ * there: it reads Sec-Fetch-Site and lets requests without it through. Never loosen these to
+ * SameSite=None. Secure is set on https.
  */
 export const JUDGE_COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax", path: "/" } as const;
 export const JUDGE_HINT_COOKIE_OPTIONS = { httpOnly: false, sameSite: "lax", path: "/" } as const;
