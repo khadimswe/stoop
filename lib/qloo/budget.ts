@@ -46,3 +46,18 @@ export type IntakeBudgetRow = keyof typeof INTAKE_BUDGET;
 
 /** Hard cap for one intake. */
 export const INTAKE_CAP = 14;
+
+/**
+ * Planned live calls for one MCP `score_brief` (Qloo only, no LLM). Its own context with these rows
+ * as rowCaps, so a request can never spend more, whatever it asks. The rows reuse the run table's
+ * names because every Qloo request names a BudgetRow. The tool's input caps (5 seeds, 8 choices that
+ * need a lookup) keep a request inside the plan; cached calls are free.
+ */
+export const SCORE_BRIEF_BUDGET = {
+  resolve: 13, // /search for each seed (up to 5) and each named choice, /v2/tags for each music style (up to 8 together)
+  prove: 6, // Qloo's own top list for this audience, per scored type the choices touch (artist, brand, film, TV, music, mood)
+  scoring: 6, // one filter.results call per scored type: Qloo's picks, the choices and the frozen panel together
+} as const satisfies Partial<Record<BudgetRow, number>>;
+
+/** Hard cap for one score_brief: the planned rows plus two retries. */
+export const SCORE_BRIEF_CAP = Object.values(SCORE_BRIEF_BUDGET).reduce((sum, calls) => sum + calls, 0) + 2;

@@ -358,8 +358,8 @@ export async function checkWorld(
 
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
 
-/** A choice's status from its panel position: above the median supports, below is a cliche, no median is unverifiable, no score is missing. */
-function statusFrom(dimension: ControlChoice["dimension"], text: string, position: PanelPosition | null, evidenceIds: string[], what: string): ControlChoice {
+/** A choice's status from its panel position: above the median supports, below is a cliche, no median is unverifiable, no score is missing. Shared with MCP's score_brief. */
+export function statusFrom(dimension: ControlChoice["dimension"], text: string, position: PanelPosition | null, evidenceIds: string[], what: string): ControlChoice {
   const ids = [...new Set(evidenceIds)];
   if (!position) return { dimension, text, status: "missing", position: null, rank: null, measured: `no measurable affinity for ${what}`, evidenceIds: ids };
   const status = position.aboveMedian === null ? "unverifiable" : position.aboveMedian ? "supported" : "below";
