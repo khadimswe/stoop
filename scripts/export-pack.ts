@@ -21,6 +21,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { baselineNames, baselineRunSchema, type BaselineRun } from "../lib/agent/baseline";
 import { candidateDirection, candidateProduct, CONTROL_RUN, controlBrief } from "../lib/agent/baseline-brief";
+import { parseCliArgs, type CliArgs } from "../lib/cli-args";
 import { CANDIDATES, type Candidate } from "../lib/demo/candidates";
 import { EXAMPLES, type ExampleSlug } from "../lib/demo/examples";
 import { approvalsSchema } from "../lib/demo/manifest";
@@ -180,15 +181,26 @@ async function exportReport(slug: ExampleSlug, freeze: boolean): Promise<boolean
   return result.refused.length === 0;
 }
 
+const USAGE = ["Usage:", "  npm run prompts:export -- <slug>|--all-examples [--from-report] [--freeze]", "  npm run prompts:export -- <slug>|--all [--freeze] [--baseline]"].join("\n");
+
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const slug = args.find((arg) => !arg.startsWith("--"));
-  const all = args.includes("--all");
-  const freeze = args.includes("--freeze");
-  const allExamples = args.includes("--all-examples");
-  const baseline = args.includes("--baseline");
+  let parsed: CliArgs;
+  try {
+    parsed = parseCliArgs(process.argv.slice(2), { flags: ["--all", "--all-examples", "--from-report", "--freeze", "--baseline"], options: [], positionals: { min: 0, max: 1 } });
+  } catch (error) {
+    fail(`${error instanceof Error ? error.message : String(error)}\n${USAGE}`);
+  }
+  const has = (flag: string) => parsed.flags.has(flag);
+  const [slug] = parsed.positional;
+  const all = has("--all");
+  const freeze = has("--freeze");
+  const allExamples = has("--all-examples");
+  const baseline = has("--baseline");
+  if (slug && (all || allExamples)) fail(`Pass a slug or ${all ? "--all" : "--all-examples"}, not both.\n${USAGE}`);
+  if (all && allExamples) fail(`Pass --all or --all-examples, not both.\n${USAGE}`);
+  if (baseline && (has("--from-report") || allExamples)) fail(`--baseline exports the older Control; it does not go with --from-report or --all-examples.\n${USAGE}`);
   // An example exports from its report unless --baseline asks for its older Control.
-  if (args.includes("--from-report") || allExamples || (slug && isExampleSlug(slug) && !baseline)) {
+  if (has("--from-report") || allExamples || (slug && isExampleSlug(slug) && !baseline)) {
     if (!slug && !allExamples) fail("Usage: npm run prompts:export -- <slug>|--all-examples --from-report [--freeze]");
     if (freeze && allExamples) fail("--freeze takes one slug at a time, after the founder approves that example's packs.");
     if (slug && !isExampleSlug(slug)) fail(`"${slug}" is not an example. Examples: ${EXAMPLES.map((e) => e.slug).join(", ")}`);

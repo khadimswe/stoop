@@ -37,6 +37,7 @@ import {
   packshotPlan,
   rewritePlan,
   selectBoards,
+  sizeLabel,
   storyboardPlan,
   usd,
   type BoardPlan,
@@ -232,7 +233,7 @@ export async function packshotCommand(deps: DemoDeps, slugArg: string, flags: Sp
   const approvals = await readApprovals(deps.root);
   const approved = approvals.prompts.includes(plan.promptHash);
   log(`${slug}: packshot from the packs' ${plan.asset.file} asset (pack hash ${plan.asset.promptHash})`);
-  log(`  model ${plan.model.displayName} (${plan.model.endpoint}), ${plan.imageSize}, ${plan.format}, text to image, no reference`);
+  log(`  model ${plan.model.displayName} (${plan.model.endpoint}), ${sizeLabel(plan.imageSize)}, ${plan.format}, text to image, no reference`);
   log(`  promptHash ${plan.promptHash} (${approved ? "approved" : "NOT approved"})`);
   log(`  writes ${plan.file}`);
   log(`  prompt: ${plan.prompt}`);
@@ -247,11 +248,13 @@ export async function packshotCommand(deps: DemoDeps, slugArg: string, flags: Sp
 
   const renderer = cappedRenderer(deps.renderers.packshot, { used: 0, max: capOf(deps) });
   const bytes = checkedImage(await renderer.render({ model: plan.model, prompt: plan.prompt, referenceUrls: [] }), plan.format);
-  await writeDemoFile(deps.root, slug, plan.file, bytes);
   const entry: DemoPackshot = { example: slug, file: plan.file, promptHash: plan.promptHash, sha256: sha256Of(bytes), modelId: plan.model.endpoint };
   const manifest = await readManifest(deps.root);
+  // The manifest is validated before any file lands, so a schema failure leaves no orphan.
+  const next = manifestSchema.parse({ ...manifest, packshots: [...manifest.packshots.filter((p) => p.example !== slug), entry] });
+  await writeDemoFile(deps.root, slug, plan.file, bytes);
   for (const old of existing) if (old.file !== entry.file) await removeDemoFile(deps.root, slug, old.file);
-  await writeManifest(deps.root, { ...manifest, packshots: [...manifest.packshots.filter((p) => p.example !== slug), entry] });
+  await writeManifest(deps.root, next);
   log(`${slug}: wrote ${entry.file} (sha256 ${entry.sha256}). View it, then approve the file:`);
   for (const line of approvedLines("files", [entry.sha256])) log(line);
   return { status: "done", written: [entry.file] };
@@ -407,19 +410,42 @@ export async function storyboardsCommand(deps: DemoDeps, slugArg: string, select
   for (const board of boards) {
     const outcome = await renderBoard({ deps, slug, report, names, renderer, refUrls, board });
     if (!outcome) continue;
-    // Each storyboard lands as soon as it is done, so a later failure keeps it.
+    const label = `${slug}/${board.entry.key}`;
+    // Each storyboard lands as soon as it is done, so a later failure keeps it. Only a scene with a new
+    // reviewed, safe frame changes: every other scene keeps its earlier frame and file (a partial fal
+    // failure or an unsafe render never deletes one), with its earlier critique.
     const current = await readManifest(deps.root);
     const old = current.storyboards.find((s) => s.example === slug && s.segmentId === board.entry.segmentId);
-    const keep = new Set(outcome.storyboard?.frames.map((f) => f.file) ?? []);
-    for (const frame of old?.frames ?? []) if (!keep.has(frame.file)) await removeDemoFile(deps.root, slug, frame.file);
+    const landed = new Set(outcome.landed.map((l) => l.frame.scene));
+    const kept = (old?.frames ?? []).filter((f) => !landed.has(f.scene));
+    const planned = new Map(board.frames.map((f) => [f.scene, f]));
+    for (const f of kept) {
+      if (f.modelId !== planned.get(f.scene)?.model.endpoint || (f.attempt === 1 && f.promptHash !== planned.get(f.scene)?.promptHash)) {
+        log(`${label} shot ${f.scene + 1}: keeps its earlier frame, made with another model or packshot; render this storyboard again for a consistent board.`);
+      }
+    }
+    const frames = [...kept, ...outcome.landed.map((l) => l.frame)].sort((a, b) => a.scene - b.scene);
+    const critiques = [...(old?.critiques ?? []).filter((c) => !landed.has(c.scene)), ...outcome.critiques.filter((c) => landed.has(c.scene))].sort((a, b) => a.scene - b.scene);
     const others = current.storyboards.filter((s) => s !== old);
-    await writeManifest(deps.root, { ...current, storyboards: outcome.storyboard ? [...others, outcome.storyboard] : others });
-    // This pass supersedes the board's earlier rewrites.
-    const pending = (await readPending(deps.root, slug)).filter((p) => p.segmentId !== board.entry.segmentId);
-    await writePending(deps.root, slug, [...pending, ...outcome.rewrites]);
-    written.push(...(outcome.storyboard?.frames.map((f) => f.file) ?? []));
-    for (const r of outcome.rewrites) {
-      log(`${slug}/${board.entry.key} shot ${r.scene + 1}: rewrite pending approval, promptHash ${r.promptHash}`);
+    const next = manifestSchema.parse({ ...current, storyboards: frames.length ? [...others, { example: slug, segmentId: board.entry.segmentId, frames, critiques }] : others });
+    // Files land only after the manifest that lists them is valid.
+    for (const { frame, bytes } of outcome.landed) await writeDemoFile(deps.root, slug, frame.file, bytes);
+    for (const f of old?.frames ?? []) {
+      const replacement = outcome.landed.find((l) => l.frame.scene === f.scene);
+      if (replacement && replacement.frame.file !== f.file) await removeDemoFile(deps.root, slug, f.file);
+    }
+    await writeManifest(deps.root, next);
+    // A reviewed scene's earlier rewrite is superseded; an unreviewed scene's stays.
+    const byScene = new Map(frames.map((f) => [f.scene, f]));
+    const rewrites: PendingRewrite[] = outcome.rewrites.map((r) => {
+      const frame = byScene.get(r.scene);
+      return { ...r, replaces: frame ? { promptHash: frame.promptHash, sha256: frame.sha256 } : null };
+    });
+    const pending = (await readPending(deps.root, slug)).filter((p) => p.segmentId !== board.entry.segmentId || !outcome.reviewed.has(p.scene));
+    await writePending(deps.root, slug, [...pending, ...rewrites]);
+    written.push(...outcome.landed.map((l) => l.frame.file));
+    for (const r of rewrites) {
+      log(`${label} shot ${r.scene + 1}: rewrite pending approval, promptHash ${r.promptHash}`);
       log(`    ${r.prompt.replace(/\n+/g, " ")}`);
     }
   }
@@ -461,12 +487,24 @@ async function renderPlans(renderer: FrameRenderer, plans: readonly FramePlan[],
   return settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
 }
 
+interface BoardOutcome {
+  /** New frames to save: rendered, reviewed and not marked unsafe (attempt 1). */
+  landed: { frame: DemoFrame; bytes: Uint8Array }[];
+  /** The review of the landed frames, with no rewrite (nothing re-rendered in this pass). */
+  critiques: FrameCritique[];
+  /** Scenes Claude reviewed in this pass (their earlier pending rewrites are superseded). */
+  reviewed: Set<number>;
+  /** Guardrailed rewrites to record; `replaces` is filled in against the merged board. */
+  rewrites: Omit<PendingRewrite, "replaces">[];
+}
+
 /**
- * One storyboard's first pass: the renders, Claude's review, and the outcome. Every rendered frame
- * stays as attempt 1 except the ones Claude marks unsafe, which are never written; each guardrailed
- * rewrite becomes a pending prompt. Null when no frame came back (the board is left as it was).
+ * One storyboard's first pass: the renders, then Claude's review. A frame lands (attempt 1) only once
+ * reviewed and not marked unsafe; an unsafe frame is never written. Each guardrailed rewrite becomes a
+ * pending prompt. Null, with nothing saved, when no frame came back or the review failed: frames are
+ * never saved as if reviewed.
  */
-async function renderBoard(ctx: BoardContext): Promise<{ storyboard: DemoStoryboard | null; rewrites: PendingRewrite[] } | null> {
+async function renderBoard(ctx: BoardContext): Promise<BoardOutcome | null> {
   const { deps, slug, report, board, renderer } = ctx;
   const { log } = deps;
   const { entry } = board;
@@ -492,23 +530,29 @@ async function renderBoard(ctx: BoardContext): Promise<{ storyboard: DemoStorybo
   } catch (error) {
     review = { critiques: [], refused: [], unsafe: [], failure: error instanceof Error ? error.message : String(error) };
   }
-  if (review.failure) log(`${label}: no review (${review.failure}); the frames stand as rendered.`);
+  if (review.failure) {
+    log(`${label}: Claude's review failed (${review.failure}), so nothing is saved for this storyboard: frames are never kept unreviewed. Render it again.`);
+    return null;
+  }
   for (const refused of review.refused) log(`${label} shot ${refused.scene + 1}: no rewrite recorded, it was refused: ${refused.reason}`);
   for (const c of review.critiques.filter((x) => x.issues.length > 0)) log(`${label} shot ${c.scene + 1}: ${c.issues.join("; ")}`);
 
+  const reviewed = new Set(review.critiques.map((c) => c.scene));
   const unsafe = new Set(review.unsafe);
-  const kept = firsts.filter((r) => !unsafe.has(r.plan.scene)).sort((a, b) => a.plan.scene - b.plan.scene);
-  for (const r of firsts.filter((x) => unsafe.has(x.plan.scene))) log(`${label} shot ${r.plan.scene + 1}: held back, Claude marked it unsafe; it is not written.`);
-  const frames: DemoFrame[] = [];
-  for (const r of kept) {
-    const file = framePath(slug, entry.key, r.plan.scene, r.format);
-    await writeDemoFile(deps.root, slug, file, r.bytes);
-    frames.push({ scene: r.plan.scene, file, promptHash: r.plan.promptHash, sha256: sha256Of(r.bytes), modelId: r.plan.model.endpoint, attempt: 1 });
+  for (const r of firsts) {
+    if (!reviewed.has(r.plan.scene)) log(`${label} shot ${r.plan.scene + 1}: Claude's review left it out, so it is not saved.`);
+    else if (unsafe.has(r.plan.scene)) log(`${label} shot ${r.plan.scene + 1}: held back, Claude marked it unsafe; it is not written.`);
   }
+  const landed = firsts
+    .filter((r) => reviewed.has(r.plan.scene) && !unsafe.has(r.plan.scene))
+    .sort((a, b) => a.plan.scene - b.plan.scene)
+    .map((r) => ({
+      frame: { scene: r.plan.scene, file: framePath(slug, entry.key, r.plan.scene, r.format), promptHash: r.plan.promptHash, sha256: sha256Of(r.bytes), modelId: r.plan.model.endpoint, attempt: 1 as const },
+      bytes: r.bytes,
+    }));
 
   const byScene = new Map(firsts.map((r) => [r.plan.scene, r]));
-  const frameOf = new Map(frames.map((f) => [f.scene, f]));
-  const rewrites: PendingRewrite[] = review.critiques.flatMap((c) => {
+  const rewrites: BoardOutcome["rewrites"] = review.critiques.flatMap((c) => {
     const first = byScene.get(c.scene);
     if (c.rewrite === null || !first) return [];
     const plan = rewritePlan(first.plan, c.rewrite, board.reference);
@@ -517,13 +561,11 @@ async function renderBoard(ctx: BoardContext): Promise<{ storyboard: DemoStorybo
       log(`${label} shot ${c.scene + 1}: no rewrite recorded, the rewritten prompt was refused: ${issues[0].message}`);
       return [];
     }
-    const frame = frameOf.get(c.scene);
-    return [{ segmentId: entry.segmentId, scene: c.scene, issues: c.issues, body: plan.body, prompt: plan.prompt, promptHash: plan.promptHash, modelId: plan.model.endpoint, referenceIds: plan.referenceIds, replaces: frame ? { promptHash: frame.promptHash, sha256: frame.sha256 } : null }];
+    return [{ segmentId: entry.segmentId, scene: c.scene, issues: c.issues, body: plan.body, prompt: plan.prompt, promptHash: plan.promptHash, modelId: plan.model.endpoint, referenceIds: plan.referenceIds }];
   });
   // Nothing re-rendered in this pass, so no critique carries a rewrite yet (the report's rule).
   const critiques: FrameCritique[] = review.critiques.map((c) => ({ ...c, rewrite: null }));
-  if (frames.length === 0) log(`${label}: every frame was held back; the board is removed until a rewrite is approved and re-rendered.`);
-  return { storyboard: frames.length > 0 ? { example: slug, segmentId: entry.segmentId, frames, critiques } : null, rewrites };
+  return { landed, critiques, reviewed, rewrites };
 }
 
 // --- storyboards --rerender --------------------------------------------------------------------------
@@ -615,21 +657,21 @@ export async function rerenderCommand(deps: DemoDeps, slugArg: string, select: S
     const item = ready.find((i) => i.plan === r.plan)!;
     const { segmentId, scene, issues, body } = item.pending;
     const file = framePath(slug, item.key, scene, r.format);
-    await writeDemoFile(deps.root, slug, file, r.bytes);
     const frame: DemoFrame = { scene, file, promptHash: r.plan.promptHash, sha256: sha256Of(r.bytes), modelId: r.plan.model.endpoint, attempt: 2 };
     const old = current.storyboards.find((s) => s.example === slug && s.segmentId === segmentId);
     const replacedFrame = old?.frames.find((f) => f.scene === scene);
-    if (replacedFrame && replacedFrame.file !== file) await removeDemoFile(deps.root, slug, replacedFrame.file);
-    const critiques = old?.critiques.some((c) => c.scene === scene)
-      ? old.critiques.map((c) => (c.scene === scene ? { ...c, rewrite: body } : c))
-      : [...(old?.critiques ?? []), { scene, issues: issues.slice(0, 6), rewrite: body }].sort((a, b) => a.scene - b.scene);
+    // The scene's critique is the one this rewrite answers, now shown with the rewrite that re-rendered.
+    const critiques = [...(old?.critiques.filter((c) => c.scene !== scene) ?? []), { scene, issues: issues.slice(0, 6), rewrite: body }].sort((a, b) => a.scene - b.scene);
     const board: DemoStoryboard = {
       example: slug,
       segmentId,
       frames: [...(old?.frames.filter((f) => f.scene !== scene) ?? []), frame].sort((a, b) => a.scene - b.scene),
       critiques,
     };
-    current = { ...current, storyboards: [...current.storyboards.filter((s) => s !== old), board] };
+    // Validated before the file lands, so a schema failure leaves no orphan.
+    current = manifestSchema.parse({ ...current, storyboards: [...current.storyboards.filter((s) => s !== old), board] });
+    await writeDemoFile(deps.root, slug, file, r.bytes);
+    if (replacedFrame && replacedFrame.file !== file) await removeDemoFile(deps.root, slug, replacedFrame.file);
     await writeManifest(deps.root, current);
     current = await readManifest(deps.root);
     remaining = remaining.filter((p) => !(p.segmentId === segmentId && p.scene === scene));
@@ -709,9 +751,12 @@ export async function clipCommand(deps: DemoDeps, args: ClipArgs): Promise<Comma
   let captions: Uint8Array | null = null;
   if (args.captions) {
     if (!existsSync(path.resolve(args.captions))) throw new DemoRefusal(`No captions at ${args.captions}.`);
-    const text = await readFile(path.resolve(args.captions), "utf8");
-    if (!text.startsWith("WEBVTT") || Buffer.byteLength(text) > MAX_CAPTION_BYTES) throw new DemoRefusal(`${args.captions} is not a WebVTT file under ${MAX_CAPTION_BYTES} bytes.`);
-    captions = new TextEncoder().encode(text);
+    // Copied byte for byte; WebVTT may open with a UTF-8 byte order mark before its "WEBVTT" line.
+    const raw = new Uint8Array(await readFile(path.resolve(args.captions)));
+    const bom = raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf ? 3 : 0;
+    const head = Buffer.from(raw.subarray(bom, bom + 6)).toString("latin1");
+    if (head !== "WEBVTT" || raw.byteLength > MAX_CAPTION_BYTES) throw new DemoRefusal(`${args.captions} is not a WebVTT file under ${MAX_CAPTION_BYTES} bytes.`);
+    captions = raw;
   }
 
   const base = `${role}${segment ? `-${segment}` : ""}`;
@@ -720,10 +765,12 @@ export async function clipCommand(deps: DemoDeps, args: ClipArgs): Promise<Comma
   const posterFile = poster ? `/demo/${slug}/${base}.poster.${EXTENSIONS[poster.format]}` : null;
   const captionsFile = captions ? `/demo/${slug}/${base}.vtt` : null;
   const clip: DemoClip = { id, example: slug, role, segmentId: segment, file: clipFile, poster: posterFile, captions: captionsFile, promptHash: args.promptHash, sha256: sha256Of(bytes) };
-  manifestSchema.parse({ version: 2, clips: [clip], storyboards: [], packshots: [] });
+  const manifest = await readManifest(deps.root);
+  // The whole next manifest is validated before any file lands, so a schema failure leaves no orphan.
+  const next = manifestSchema.parse({ ...manifest, clips: [...manifest.clips.filter((c) => c.id !== id), clip] });
   log(`${slug}: clip ${id} from ${render.id} (${entry.key}), ${size} bytes, sha256 ${clip.sha256}`);
   log(`  writes ${[clipFile, posterFile, captionsFile].filter(Boolean).join(", ")}`);
-  const existing = (await readManifest(deps.root)).clips.filter((c) => c.id === id);
+  const existing = manifest.clips.filter((c) => c.id === id);
   guardApproved(existing, approvals, args.replace, log, args.dryRun);
   if (args.dryRun) return { status: "dry-run", written: [] };
 
@@ -733,8 +780,7 @@ export async function clipCommand(deps: DemoDeps, args: ClipArgs): Promise<Comma
   for (const old of existing) {
     for (const file of [old.file, old.poster, old.captions]) if (file && ![clipFile, posterFile, captionsFile].includes(file)) await removeDemoFile(deps.root, slug, file);
   }
-  const manifest = await readManifest(deps.root);
-  await writeManifest(deps.root, { ...manifest, clips: [...manifest.clips.filter((c) => c.id !== id), clip] });
+  await writeManifest(deps.root, next);
   for (const line of await approveList(deps, slug)) log(line);
   return { status: "done", written: [clipFile, posterFile, captionsFile].filter((f): f is string => f !== null) };
 }
@@ -767,9 +813,8 @@ export async function approveList(deps: Pick<DemoDeps, "root">, slugArg: string)
       if (!files.has(f.sha256)) needFile.set(f.sha256, `storyboard ${key} shot ${f.scene + 1}, ${f.file}`);
     }
   }
-  for (const p of pending) {
-    if (!prompts.has(p.promptHash)) needPrompt.set(p.promptHash, `storyboard ${p.segmentId ?? CONTROL_KEY} shot ${p.scene + 1} rewrite, pending (then: storyboards ${slug} --rerender --yes)`);
-  }
+  // Rewrites are prompts nobody has seen yet: they get their own block, so they are never approved in bulk with the files.
+  const needRewrite = pending.filter((p) => !prompts.has(p.promptHash));
   for (const c of manifest.clips.filter((x) => x.example === slug)) {
     if (!prompts.has(c.promptHash)) needPrompt.set(c.promptHash, `clip ${c.id}`);
     if (!files.has(c.sha256)) needFile.set(c.sha256, `clip ${c.id}, ${c.file} (after watching it)`);
@@ -779,15 +824,26 @@ export async function approveList(deps: Pick<DemoDeps, "root">, slugArg: string)
   }
   const ready = pending.filter((p) => prompts.has(p.promptHash));
   const readyLine = ready.length ? [`${ready.length} approved rewrite(s) wait to re-render: npm run render:demo -- storyboards ${slug} --rerender --yes`] : [];
-  if (needPrompt.size + needFile.size + heroes.length === 0) return [`${slug}: everything in the manifest is approved.`, ...readyLine];
-  return [
-    `${slug}: not approved yet. Read each prompt and view each file before approving it.`,
-    ...[...needPrompt].map(([hash, what]) => `  prompt ${hash}  ${what}`),
-    ...[...needFile].map(([hash, what]) => `  file   ${hash}  ${what}`),
-    ...heroes.map((h) => `  hero   ${h.id} (after watching it)`),
-    ...approvedLines("prompts", [...needPrompt.keys()]),
-    ...approvedLines("files", [...needFile.keys()]),
-    ...(heroes.length ? ['Add to approvals.json "heroClips":', ...heroes.map((h) => `  ${JSON.stringify(h)},`)] : []),
-    ...readyLine,
-  ];
+  const rewriteBlock = needRewrite.length
+    ? [
+        "",
+        `Pending critique rewrites (not rendered). Read each prompt in ${path.join("exports", slug, "pending-rewrites.json")} first; approve only the ones you want re-rendered:`,
+        ...needRewrite.flatMap((p) => [`  rewrite ${p.promptHash}  storyboard ${p.segmentId ?? CONTROL_KEY} shot ${p.scene + 1}: ${p.issues.join("; ") || "no issue listed"}`, `    ${p.prompt.replace(/\n+/g, " ")}`]),
+        ...approvedLines("prompts", needRewrite.map((p) => p.promptHash)),
+        `Then: npm run render:demo -- storyboards ${slug} --rerender --yes`,
+      ]
+    : [];
+  const manifestBlock =
+    needPrompt.size + needFile.size + heroes.length === 0
+      ? [`${slug}: everything in the manifest is approved.`]
+      : [
+          `${slug}: in the manifest but not approved. Read each prompt and view each file before approving it.`,
+          ...[...needPrompt].map(([hash, what]) => `  prompt ${hash}  ${what}`),
+          ...[...needFile].map(([hash, what]) => `  file   ${hash}  ${what}`),
+          ...heroes.map((h) => `  hero   ${h.id} (after watching it)`),
+          ...approvedLines("prompts", [...needPrompt.keys()]),
+          ...approvedLines("files", [...needFile.keys()]),
+          ...(heroes.length ? ['Add to approvals.json "heroClips":', ...heroes.map((h) => `  ${JSON.stringify(h)},`)] : []),
+        ];
+  return [...manifestBlock, ...rewriteBlock, ...readyLine];
 }

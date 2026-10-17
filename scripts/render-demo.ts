@@ -1,7 +1,7 @@
 // The examples' demo media, made offline by the founder only (no public route ever runs this). Nothing
 // renders a prompt hash that is not in public/demo/approvals.json. Every command that spends prints the
 // prompts, hashes, model and estimated cost first, renders nothing without --yes and nothing at all with
-// --dry-run, and stops at 24 images per invocation. An approved file is never rendered over without
+// --dry-run, and stops at 16 images per invocation. An approved file is never rendered over without
 // --replace. fal's bytes are written as they come. Approvals stay hand-edited; this never writes them.
 //
 //   npm run render:demo -- packshot <slug> [--dry-run] [--yes] [--replace]
@@ -16,6 +16,7 @@
 // Keys (FAL_KEY, ANTHROPIC_API_KEY) are read from the local env file only when --yes renders.
 import path from "node:path";
 import { stoopModel, stoopModelId } from "../lib/agent/model";
+import { parseCliArgs, type CliArgs, type CliSpec } from "../lib/cli-args";
 import { approveList, clipCommand, DemoRefusal, falRenderers, packshotCommand, rerenderCommand, storyboardsCommand, type DemoDeps, type SpendFlags } from "../lib/demo/render-demo";
 import { loadLocalEnv } from "./env";
 
@@ -32,33 +33,22 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-/** What each command accepts: flags, and options that take a value. Anything else fails, so a typo never widens a render. */
-const ACCEPTS: Record<string, { flags: string[]; options: string[] }> = {
-  packshot: { flags: ["--dry-run", "--yes", "--replace"], options: [] },
-  storyboards: { flags: ["--dry-run", "--yes", "--replace", "--control", "--rerender"], options: ["--segment"] },
-  clip: { flags: ["--dry-run", "--replace"], options: ["--example", "--role", "--segment", "--prompt-hash", "--poster", "--captions"] },
-  "approve-list": { flags: [], options: [] },
+/** What each command accepts (lib/cli-args.ts refuses anything else, so a typo never widens a render). */
+const ACCEPTS: Record<string, CliSpec> = {
+  packshot: { flags: ["--dry-run", "--yes", "--replace"], options: [], positionals: { min: 1, max: 1 } },
+  storyboards: { flags: ["--dry-run", "--yes", "--replace", "--control", "--rerender"], options: ["--segment"], positionals: { min: 1, max: 1 } },
+  clip: { flags: ["--dry-run", "--replace"], options: ["--example", "--role", "--segment", "--prompt-hash", "--poster", "--captions"], positionals: { min: 1, max: 1 } },
+  "approve-list": { flags: [], options: [], positionals: { min: 1, max: 1 } },
 };
 
-function parseArgs(command: string, argv: readonly string[]): { positional: string[]; options: Map<string, string>; flags: Set<string> } {
-  const accepts = ACCEPTS[command];
-  if (!accepts) fail(USAGE);
-  const positional: string[] = [];
-  const options = new Map<string, string>();
-  const flags = new Set<string>();
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (accepts.flags.includes(arg)) flags.add(arg);
-    else if (accepts.options.includes(arg)) {
-      const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--")) fail(`${arg} needs a value.\n${USAGE}`);
-      options.set(arg, value);
-      i++;
-    } else if (arg.startsWith("--")) fail(`${command} does not take ${arg}.\n${USAGE}`);
-    else positional.push(arg);
+function parseArgs(command: string, argv: readonly string[]): CliArgs {
+  const spec = ACCEPTS[command];
+  if (!spec) fail(USAGE);
+  try {
+    return parseCliArgs(argv, spec);
+  } catch (error) {
+    fail(`${command}: ${error instanceof Error ? error.message : String(error)}\n${USAGE}`);
   }
-  if (positional.length !== 1) fail(`${command} takes exactly one ${command === "clip" ? "file" : "slug"}.\n${USAGE}`);
-  return { positional, options, flags };
 }
 
 /**

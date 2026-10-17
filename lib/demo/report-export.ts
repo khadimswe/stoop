@@ -11,7 +11,7 @@ import { pickUgcFormat } from "../prompts/ugc";
 import type { Report } from "../report/schema";
 import type { CultureSource } from "../report/world";
 import { ageBandLabel, type Cue } from "../types";
-import { exportHashes, packshotPlan, usd } from "./demo-renders";
+import { exportHashes, packshotPlan, sizeLabel, usd } from "./demo-renders";
 import { EXAMPLES } from "./examples";
 import { block, conceptLines, hashLines, packLines } from "./pack-markdown";
 import { reportFile, reportPacks, type ReportPack } from "./report-packs";
@@ -156,7 +156,7 @@ function readme(report: Report, entries: readonly ReportPack[], brandName: strin
     "",
     `### ${packshot.file.split("/").pop()} (the reference image for the storyboards)`,
     "",
-    `- Model: ${packshot.model.displayName} (\`${packshot.model.endpoint}\`), ${packshot.imageSize}, ${packshot.format} as fal sends it (never re-encoded), text to image. Estimated ${usd(packshot.usd)}.`,
+    `- Model: ${packshot.model.displayName} (\`${packshot.model.endpoint}\`), ${sizeLabel(packshot.imageSize)}, ${packshot.format} as fal sends it (never re-encoded), text to image. Estimated ${usd(packshot.usd)}.`,
     `- From the packs' \`${packshot.asset.file}\` asset (promptHash \`${packshot.asset.promptHash}\`). Served at \`${packshot.file}\`.`,
     `- promptHash: \`${packshot.promptHash}\``,
     "",

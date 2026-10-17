@@ -28,11 +28,20 @@ import { reportPacks, type ReportPack } from "./report-packs";
 
 /** Bump when the demo packshot wording or settings change: earlier approvals then stop matching. */
 export const DEMO_RENDER_VERSION = 1;
-/** fal FLUX [schnell]'s square preset (1024 x 1024, one megapixel). */
-export const PACKSHOT_IMAGE_SIZE = "square_hd";
+/**
+ * A square under one million pixels. FLUX [schnell] bills $0.003 per megapixel, "rounding up to the
+ * nearest megapixel", and fal does not say whether a megapixel is 1,000,000 or 1,048,576 pixels: the
+ * square_hd preset (1024 x 1024 = 1,048,576) could bill as 2. 992 x 992 = 984,064 bills as 1 either way
+ * (and stays a multiple of 16). Source: https://fal.ai/models/fal-ai/flux/schnell (read Oct 17, 2026).
+ */
+export const PACKSHOT_IMAGE_SIZE = { width: 992, height: 992 } as const;
 export const PACKSHOT_MODEL: FrameModel = FRAME_MODELS.text;
-/** 3 storyboards of 4 frames: the most images one render-demo invocation may request from fal. */
-export const MAX_IMAGES_PER_INVOCATION = 24;
+/**
+ * The most images one render-demo invocation may request from fal: an example has at most 3 worlds plus
+ * the Control, so 4 storyboards of FRAMES_PER_WORLD (4) frames.
+ */
+export const MAX_IMAGES_PER_INVOCATION = 4 * FRAMES_PER_WORLD;
+export const sizeLabel = (size: { width: number; height: number }) => `${size.width} x ${size.height}`;
 /** Claude's frame review, per storyboard: 4 images and the brief in, the review out (list prices, an estimate). */
 export const CRITIQUE_TOKENS_ESTIMATE = { inputTokens: 12_000, outputTokens: 5_000, cachedInputTokens: 0 } as const;
 export const CRITIQUE_USD_ESTIMATE = claudeUsd(CRITIQUE_TOKENS_ESTIMATE);
@@ -113,11 +122,16 @@ export interface BoardPlan {
 
 export const referenceId = (packshot: Pick<DemoPackshot, "file" | "sha256">) => `${packshot.file}#sha256=${packshot.sha256}`;
 
+/** The live frame hash (template, endpoint, aspect, prompt, references) plus the format fal is asked for. */
+export function demoFrameHash(model: FrameModel, prompt: string, referenceIds: readonly string[]): string {
+  return hashOf({ kind: "demo-frame", version: DEMO_RENDER_VERSION, frame: framePromptHash(model, prompt, referenceIds), format: outputFormat(model) });
+}
+
 function framePlan(scene: number, body: string, closing: string, reference: DemoPackshot | null): FramePlan {
   const model = reference ? FRAME_MODELS.edit : FRAME_MODELS.text;
   const referenceIds = reference ? [referenceId(reference)] : [];
   const prompt = `${body.trim()}\n\n${closing}`;
-  return { scene, model, body: body.trim(), closing, prompt, referenceIds, promptHash: framePromptHash(model, prompt, referenceIds) };
+  return { scene, model, body: body.trim(), closing, prompt, referenceIds, promptHash: demoFrameHash(model, prompt, referenceIds) };
 }
 
 export const frameGuard = (text: string, names: readonly string[], brief: BriefSlots, product: ProductSpec) =>
