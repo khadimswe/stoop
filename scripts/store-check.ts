@@ -1,6 +1,6 @@
 // Checks the real Upstash database the way the tests check the fake one: JSON values, set-if-absent,
-// TTLs (with real waits), counters, lists, admission leases and the pacer, the last two through their
-// Lua scripts. Every key lives under one random prefix and is deleted at the end. Prints pass or
+// TTLs (with real waits), counters, lists, admission leases, the pacer and compare-and-delete, the
+// last three through their Lua scripts. Every key lives under one random prefix and is deleted at the end. Prints pass or
 // fail per check, never a value from the env.
 //
 //   npm run store:check
@@ -67,6 +67,16 @@ async function main() {
     await store.leaseAcquire(key("short"), "a", { max: 1, ttlMs: 500 });
     await sleep(800);
     return store.leaseAcquire(k("short"), "b", { max: 1, ttlMs: 500 });
+  });
+  await check("deletes a key only while it holds the expected value (Lua)", async () => {
+    await store.set(key("claim"), { runId: "run-a", at: 1 });
+    const wrong = await store.deleteIfEquals(k("claim"), { runId: "run-b", at: 1 });
+    const right = await store.deleteIfEquals(k("claim"), { runId: "run-a", at: 1 });
+    return !wrong && right && (await store.get(k("claim"))) === null;
+  });
+  await check("tells whether a lease is held, read only", async () => {
+    await store.leaseAcquire(key("held"), "a", { max: 1, ttlMs: 60_000 });
+    return (await store.leaseHeld(k("held"), "a")) && !(await store.leaseHeld(k("held"), "b"));
   });
   await check("spaces pacer slots 250 ms apart (Lua)", async () => {
     const now = Date.now();
