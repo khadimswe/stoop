@@ -33,6 +33,16 @@ export async function guard(request: Request, deps: GuardDeps, rule: RateRule, k
   return { ok: true, store, visitor };
 }
 
+/**
+ * The first checks of any browser route that spends (runs, intake, frames, revise): another site's
+ * request (Sec-Fetch-Site: cross-site) and what the bot check flags are refused. Null lets it through.
+ */
+export async function browserOnly(request: Request, botCheck: () => BotCheck): Promise<Response | null> {
+  if (request.headers.get("sec-fetch-site") === "cross-site") return apiError("invalid", MESSAGES.crossSite, 403);
+  if ((await botCheck().check(request, { kind: "browser" })).bot) return apiError("bot", MESSAGES.bot, 403);
+  return null;
+}
+
 /** Runs a handler and turns an unexpected throw into the API's "failed" answer (logged without request data). */
 export async function failSafe(name: string, run: () => Promise<Response>): Promise<Response> {
   try {

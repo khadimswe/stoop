@@ -72,7 +72,7 @@ describe("POST /api/waitlist", () => {
     await send(post, body({}));
     expect(sent).not.toHaveBeenCalled();
     expect(await flush()).toEqual(["sent"]);
-    expect(sent).toHaveBeenCalledWith(expect.objectContaining({ to: "ana@shop.example", subject: "You're on the Stoop waitlist", idempotencyKey: expect.stringMatching(/^waitlist-confirm-[0-9a-f]{32}$/) }));
+    expect(sent).toHaveBeenCalledWith(expect.objectContaining({ to: "ana@shop.example", subject: "You're on the Stoop waitlist", idempotencyKey: expect.stringMatching(/^waitlist-confirm-h_[0-9a-f]{32}$/) }));
     await send(post, body({ productLink: "https://shop.example/p" }));
     expect(await flush()).toEqual([]);
     // Consent covers emails beyond the confirmation, so a first signup without it is still confirmed.

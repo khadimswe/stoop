@@ -2,6 +2,8 @@
 // checks answer right away (lib/media/frames.ts requestFrames); the rendering, the critique and the
 // re-renders run after the response, and stream to the page as world.frames events.
 import { after } from "next/server";
+import { getBotCheck } from "@/lib/bot-check";
+import { browserOnly } from "@/lib/routes/guard";
 import { stoopModel } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
 import { readJson, respond } from "@/lib/route-answer";
@@ -25,6 +27,8 @@ function storageOrNull() {
 }
 
 export async function POST(request: Request, ctx: RouteContext<"/api/frames/[id]">) {
+  const refused = await browserOnly(request, getBotCheck);
+  if (refused) return refused;
   const { id } = await ctx.params;
   const body = await readJson(request);
   const renderer = frameRendererFromEnv();

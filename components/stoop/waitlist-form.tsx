@@ -55,7 +55,8 @@ export function WaitlistForm({
     event.preventDefault();
     if (!onSubmit) return;
     // Honeypot: humans never see or fill this field. It goes to the server, which answers like a signup.
-    const company = new FormData(event.currentTarget).get("company")?.toString() || undefined;
+    // The honeypot's field has a name browsers never autofill, so a real person never trips it.
+    const company = new FormData(event.currentTarget).get("stoop_hp")?.toString() || undefined;
     const signup: WaitlistSignup = { email, sellsOn, consent, ...(company ? { company } : {}) };
     setState({ kind: "sending" });
     try {
@@ -121,7 +122,7 @@ export function WaitlistForm({
       {/* Honeypot: off-screen, unfocusable, ignored by assistive tech. */}
       <input
         type="text"
-        name="company"
+        name="stoop_hp"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
@@ -207,7 +208,6 @@ export function WaitlistSuccess({
           That didn&apos;t go through. Check the link, or try again in a little while.
         </p>
       )}
-      <p className="text-xs text-ink-soft">Check your inbox for a confirmation.</p>
     </div>
   );
 }

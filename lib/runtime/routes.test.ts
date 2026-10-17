@@ -84,6 +84,14 @@ describe("the runtime routes in replay mode (no store at all)", () => {
     expect(await store.get(keys.daily("live-runs"))).toBeNull();
   });
 
+  it("refuses a start posted from another site", async () => {
+    const store = new MemoryStore();
+    const crossSite = new Request("http://localhost/api/run", { method: "POST", body: JSON.stringify(start), headers: { "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site" } });
+    const res = await postRun(crossSite, deps({ STOOP_LIVE: "true" }, store));
+    expect(res.status).toBe(403);
+    expect(await store.get(keys.daily("live-runs"))).toBeNull();
+  });
+
   it("reports an unreachable store in health, with no secrets", async () => {
     const res = await getHealth(replay);
     expect(res.status).toBe(503);

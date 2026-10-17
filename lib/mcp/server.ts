@@ -65,7 +65,8 @@ function originOf(request: Request | undefined): string {
 
 async function requestContext(deps: McpDeps, request: Request | undefined): Promise<RequestContext> {
   const store = deps.store();
-  return { store, visitor: await visitorId(store, request?.headers ?? new Headers()), source: "mcp", ...(request?.signal ? { signal: request.signal } : {}) };
+  const startedAt = (deps.now ?? Date.now)();
+  return { store, visitor: await visitorId(store, request?.headers ?? new Headers()), source: "mcp", startedAt, ...(request?.signal ? { signal: request.signal } : {}) };
 }
 
 // --- culture_brief --------------------------------------------------------------------------------

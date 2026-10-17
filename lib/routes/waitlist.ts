@@ -6,6 +6,7 @@ import { waitlistResponseSchema } from "../api/responses";
 import { toCsv } from "../csv";
 import { sendConfirmation, type Mailer } from "../email";
 import { sha256 } from "../hash";
+import { saltedHash } from "../store/visitor";
 import { apiError, BodyError, cookieHeader, json, readCookie, readJson } from "../http";
 import { DAILY_RULES, EVERYONE, hitRate, RATE_RULES } from "../rate-limit";
 import { joinWaitlist, listEntries, newSignupToken, nextPosition, SIGNUP_COOKIE, SIGNUP_COOKIE_MAX_AGE, validSignupToken, type WaitlistEntry } from "../waitlist";
@@ -65,7 +66,7 @@ export function createWaitlistPost(deps: WaitlistDeps) {
       // and within a global daily cap. Consent covers emails beyond it (lib/api/requests.ts).
       const mailer = deps.mailer();
       if (created && mailer && (await hitRate(store, DAILY_RULES.confirmationEmails, EVERYONE, deps.now?.())).ok) {
-        const key = `waitlist-confirm-${sha256(entry.email).slice(0, 32)}`;
+        const key = `waitlist-confirm-${await saltedHash(store, entry.email)}`;
         deps.defer(() => sendConfirmation(mailer, entry.email, entry.position, key));
       }
       const headers = existingToken ? undefined : { "Set-Cookie": cookieHeader(request, SIGNUP_COOKIE, token, SIGNUP_COOKIE_MAX_AGE) };
