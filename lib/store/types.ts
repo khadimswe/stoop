@@ -26,12 +26,19 @@ export interface LeaseOptions {
   now?: number;
 }
 
+/** No shared store is set up where one is needed (on Vercel without Upstash keys): routes fail closed. */
+export class StoreUnavailableError extends Error {
+  override name = "StoreUnavailableError";
+}
+
 export interface Store {
   readonly kind: "memory" | "upstash";
   get<T>(key: string): Promise<T | null>;
   /** Returns false when `ifAbsent` was set and the key already existed (nothing written). */
   set(key: string, value: unknown, options?: SetOptions): Promise<boolean>;
   del(key: string): Promise<void>;
+  /** Deletes the key only while it still holds exactly this value (compare and delete). Atomic. */
+  deleteIfEquals(key: string, value: unknown): Promise<boolean>;
   /** Sets a key's TTL from now, if the key exists. */
   expire(key: string, ttlSeconds: number): Promise<void>;
   /** Returns the new value. */

@@ -4,7 +4,7 @@
 import { ZodError } from "zod";
 import type { ApiError } from "../api/responses";
 import { QlooBudgetError } from "../qloo/errors";
-import type { Store } from "../store/types";
+import { StoreUnavailableError, type Store } from "../store/types";
 import { UpstashError } from "../store/upstash";
 import { visitorId } from "../store/visitor";
 import { ApiFailure } from "./errors";
@@ -19,8 +19,8 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof ApiFailure) return failure(error.code, error.message, error.status);
   if (error instanceof ZodError) return failure("invalid", error.issues[0]?.message ?? "That request is not valid.", 400);
   if (error instanceof SyntaxError) return failure("invalid", "The request body must be JSON.", 400);
-  if (error instanceof QlooBudgetError) return failure("daily_cap", "Today's live Qloo calls are used up. The examples still show a full run.", 503);
-  if (error instanceof UpstashError) return failure("failed", "Stoop's records are not answering right now. The examples still work.", 503);
+  if (error instanceof QlooBudgetError) return failure("daily_cap", "Stoop has used its Qloo calls for now. The examples still show a full run.", 503);
+  if (error instanceof UpstashError || error instanceof StoreUnavailableError) return failure("failed", "Live runs are not available here right now. The examples still work.", 503);
   console.error(`API error: ${error instanceof Error ? error.name : "unknown"}`);
   return failure("failed", "Something went wrong on our side. The examples still work.", 500);
 }

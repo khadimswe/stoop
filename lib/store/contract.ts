@@ -39,6 +39,16 @@ export function describeStore(name: string, make: (clock: { now: () => number })
       expect(await store.set("k", "third", { ifAbsent: true })).toBe(true);
     });
 
+    it("deletes a key only while it holds the expected value", async () => {
+      const store = make(clock);
+      await store.set("claim", { runId: "run-a", at: 1 });
+      expect(await store.deleteIfEquals("claim", { runId: "run-b", at: 1 })).toBe(false);
+      expect(await store.get("claim")).toEqual({ runId: "run-a", at: 1 });
+      expect(await store.deleteIfEquals("claim", { runId: "run-a", at: 1 })).toBe(true);
+      expect(await store.get("claim")).toBeNull();
+      expect(await store.deleteIfEquals("claim", { runId: "run-a", at: 1 })).toBe(false);
+    });
+
     it("expires a value after its TTL", async () => {
       const store = make(clock);
       await store.set("k", "v", { ttlSeconds: 10 });

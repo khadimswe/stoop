@@ -1,7 +1,7 @@
 // A fake Upstash REST endpoint for tests: the Redis commands UpstashStore sends, with TTLs on an
 // injectable clock, as a `fetch`. The two Lua scripts are mirrored line by line in TypeScript (the
 // real ones run in `npm run store:check`). Test-only.
-import { LEASE_SCRIPT, SLOT_SCRIPT } from "./upstash";
+import { DELETE_IF_SCRIPT, LEASE_SCRIPT, SLOT_SCRIPT } from "./upstash";
 
 type Value = { type: "string"; value: string } | { type: "list"; items: string[] } | { type: "zset"; scores: Map<string, number> };
 
@@ -136,6 +136,10 @@ export function fakeUpstash(options: { now: () => number; token?: string }): Fak
           run(["ZADD", keys[0], at + ttl, argv[0]]);
           run(["PEXPIRE", keys[0], ttl + 60000]);
           return 1;
+        }
+        if (script === DELETE_IF_SCRIPT) {
+          // Mirrors DELETE_IF_SCRIPT.
+          return run(["GET", keys[0]]) === argv[0] ? run(["DEL", keys[0]]) : 0;
         }
         if (script === SLOT_SCRIPT) {
           // Mirrors SLOT_SCRIPT line by line.

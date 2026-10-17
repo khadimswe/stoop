@@ -108,7 +108,48 @@ describe("starting a live run", () => {
     await store.leaseRelease(keys.liveLeases, runLease(first, 1));
     const second = liveId(await start());
     expect(second).not.toBe(first);
-    expect(await store.get(keys.brief(meta.briefHash))).toBe(second);
+    expect(await store.get(keys.brief(meta.briefHash))).toMatchObject({ runId: second });
+  });
+
+  it("runs a brief once when Start is pressed twice, wherever the second press lands in the first start", async () => {
+    // Every store call takes a few ms, as over the network, so the second press can land mid-start.
+    const slow = (memory: MemoryStore): Store =>
+      new Proxy(memory, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver) as unknown;
+          if (typeof value !== "function") return value;
+          return async (...args: unknown[]) => {
+            await new Promise((resolve) => setTimeout(resolve, 3));
+            return (value as (...a: unknown[]) => unknown).apply(target, args);
+          };
+        },
+      });
+    for (const offset of [0, 10, 20, 30, 45, 60, 90]) {
+      const { start, scheduled } = await setup(LIVE, slow);
+      const first = start();
+      await new Promise((resolve) => setTimeout(resolve, offset));
+      const [a, b] = await Promise.all([first, start()]);
+      expect(liveId(a), `second press at ${offset} ms`).toBe(liveId(b));
+      expect(scheduled, `second press at ${offset} ms`).toHaveLength(1);
+    }
+  });
+
+  it("waits for a start still writing its run, says busy if it never lands, and replaces a claim left by a crash", async () => {
+    let now = Date.parse("2026-10-17T12:00:00.000Z");
+    const { start, store, deps, scheduled } = await setup();
+    deps.now = () => now;
+    deps.sleep = async () => undefined;
+    const first = liveId(await start());
+    const meta = (await getRunMeta(store, first))!;
+    // A start that claimed the brief but has not written its run yet (or crashed doing so).
+    await store.del(keys.run.meta(first));
+    await store.leaseRelease(keys.liveLeases, runLease(first, 1));
+    expect(await start()).toMatchObject({ mode: "example", reason: "busy" });
+    now += 31_000;
+    const fresh = liveId(await start());
+    expect(fresh).not.toBe(first);
+    expect(await store.get(keys.brief(meta.briefHash))).toMatchObject({ runId: fresh });
+    expect(scheduled).toEqual([first, fresh]);
   });
 
   it("gives back the lease, the day's count and the claim when a start fails halfway", async () => {

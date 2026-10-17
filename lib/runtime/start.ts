@@ -29,6 +29,10 @@ export const MAX_LIVE_RUNS = 2;
 export const LEASE_MS = 320_000;
 export const RUNS_PER_HOUR = 10;
 export const RESUMES_PER_HOUR = 6;
+/** A claim with no run meta this old belongs to a start that crashed midway; it is replaced. */
+export const STALE_CLAIM_MS = 30_000;
+/** How long a repeat start waits for a claim's run to appear (a double click lands mid-start). */
+export const CLAIM_WAITS_MS = [100, 200, 300, 400] as const;
 
 const REPLAY_MESSAGES = {
   replay: "Live runs are off right now. Here is a full example run instead.",
@@ -49,6 +53,30 @@ export interface StartDeps {
   schedule?: (task: () => Promise<void>) => void;
   /** The live run itself (lib/runtime/execute.ts), bound to its vendors by the route. */
   execute: (runId: string) => Promise<void>;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** The brief hash's claim: which run measures this brief, and since when. */
+interface Claim {
+  runId: string;
+  at: number;
+}
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * What a start does about an existing claim: join its run, replace it (its run failed, or its start
+ * crashed before writing the run), or wait briefly for a start still in progress and then join it.
+ */
+async function settle(store: Store, claim: Claim, deps: StartDeps): Promise<"join" | "replace" | "busy"> {
+  const now = deps.now ?? Date.now;
+  for (const wait of [0, ...CLAIM_WAITS_MS]) {
+    if (wait) await (deps.sleep ?? pause)(wait);
+    const meta = await getRunMeta(store, claim.runId);
+    if (meta) return meta.status === "failed" ? "replace" : "join";
+    if (now() - claim.at > STALE_CLAIM_MS) return "replace";
+  }
+  return "busy";
 }
 
 /** Every seed the intake may confirm: the ones it proposed, and the ones the founder found through search. */
@@ -94,8 +122,12 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
   // Idempotent on what the run would measure: the same brief joins the run already started for it.
   const briefHash = hashOf({ ...inputs, seeds: chosen.map((s) => s.ref.id).sort() });
   const claimKey = keys.brief(briefHash);
-  const claimed = await store.get<string>(claimKey);
-  if (claimed && (await joinable(store, claimed))) return liveReply(claimed, true);
+  const claimed = await store.get<Claim>(claimKey);
+  if (claimed) {
+    const outcome = await settle(store, claimed, deps);
+    if (outcome === "join") return liveReply(claimed.runId, true);
+    if (outcome === "busy") return exampleReply("busy");
+  }
 
   if ((await store.incr(keys.rate("run", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > RUNS_PER_HOUR) return exampleReply("rate-limited");
   const dailyKey = keys.daily("live-runs");
@@ -103,18 +135,20 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
 
   const runId = `run_${(deps.randomHex ?? randomHex)(12)}`;
   const lease = runLease(runId, 1);
+  const claimedAt = now();
   let leased = false;
   let ours = false;
   let scheduled = false;
   try {
     leased = await store.leaseAcquire(keys.liveLeases, lease, { max: MAX_LIVE_RUNS, ttlMs: LEASE_MS, now: now() });
     if (!leased) return exampleReply("busy");
-    // A claim left by a failed run (or a start that died before its meta) is replaced; a live one is joined.
-    if (claimed && (await store.get<string>(claimKey)) === claimed) await store.del(claimKey);
-    ours = await store.set(claimKey, runId, { ifAbsent: true, ttlSeconds: TTL.runEvents });
+    // A claim left by a failed run (or a start that crashed before its meta) is replaced, only while
+    // it is still that claim: if another start replaced it first, this one joins theirs.
+    if (claimed) await store.deleteIfEquals(claimKey, claimed);
+    ours = await store.set(claimKey, { runId, at: claimedAt } satisfies Claim, { ifAbsent: true, ttlSeconds: TTL.runEvents });
     if (!ours) {
-      const other = await store.get<string>(claimKey);
-      return other && (await joinable(store, other)) ? liveReply(other, true) : exampleReply("busy");
+      const other = await store.get<Claim>(claimKey);
+      return other && (await settle(store, other, deps)) === "join" ? liveReply(other.runId, true) : exampleReply("busy");
     }
     const at = new Date(now()).toISOString();
     const stated = statedCustomer === intake.statedCustomer ? intake.stated : statedCustomer ? statedFromText(statedCustomer) : null;
@@ -131,16 +165,10 @@ export async function startRun(deps: StartDeps, raw: RunStartRequest, ctx: Reque
       await Promise.allSettled([
         leased ? store.leaseRelease(keys.liveLeases, lease) : Promise.resolve(),
         store.incr(dailyKey, { by: -1 }),
-        ours ? store.del(claimKey) : Promise.resolve(),
+        ours ? store.deleteIfEquals(claimKey, { runId, at: claimedAt }) : Promise.resolve(),
       ]);
     }
   }
-}
-
-/** A run a repeat start may join: one that exists and has not failed. */
-async function joinable(store: Store, runId: string): Promise<boolean> {
-  const meta = await getRunMeta(store, runId);
-  return meta !== null && meta.status !== "failed";
 }
 
 /**

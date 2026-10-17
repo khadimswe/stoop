@@ -68,6 +68,13 @@ export class MemoryStore implements Store {
     this.entries.delete(key);
   }
 
+  async deleteIfEquals(key: string, value: unknown): Promise<boolean> {
+    const entry = this.live(key);
+    if (!entry || entry.kind !== "value" || entry.value !== copy(value)) return false;
+    this.entries.delete(key);
+    return true;
+  }
+
   async expire(key: string, ttlSeconds: number): Promise<void> {
     const entry = this.live(key);
     if (entry) this.put(key, entry, this.now() + ttlSeconds * 1000);

@@ -2,7 +2,7 @@
 // local dev. Serverless instances do not share memory, so on Vercel the memory store would split
 // votes, signups and the visitor salt per instance: there it refuses, and routes fail closed.
 import { MemoryStore } from "./memory";
-import type { Store } from "./types";
+import { StoreUnavailableError, type Store } from "./types";
 import { UpstashStore } from "./upstash";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -14,7 +14,7 @@ export function getStore(env: Env = process.env): Store {
   const url = env.UPSTASH_REDIS_REST_URL?.trim();
   const token = env.UPSTASH_REDIS_REST_TOKEN?.trim();
   if (url && token) return (current = new UpstashStore({ url, token }));
-  if (env.VERCEL === "1") throw new Error("No shared store is configured: the in-memory store is for local use only.");
+  if (env.VERCEL === "1") throw new StoreUnavailableError("No shared store is configured: the in-memory store is for local use only.");
   return (current = new MemoryStore());
 }
 

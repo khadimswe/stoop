@@ -8,7 +8,11 @@ import type { Store } from "../store/types";
 
 /** Events emitted within this many ms are written together. */
 export const FLUSH_MS = 150;
-/** A failed write is tried again after these waits, then the store counts as down. */
+/**
+ * A failed write is tried again after these waits, then the store counts as down. If a write landed but
+ * its answer was lost, the retry repeats the batch under new seqs: the reducer keeps one copy of every
+ * receipt and result, and only a trace line can show twice.
+ */
 export const RETRY_WAITS_MS = [200, 800] as const;
 
 export interface StoreEmitter extends Emitter {

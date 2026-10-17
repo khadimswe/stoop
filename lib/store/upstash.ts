@@ -2,7 +2,7 @@
 // atomic transaction). Plain fetch, no SDK: values are JSON this adapter encodes and decodes itself,
 // so a stored "123" stays a string. Errors never carry the URL or the token.
 //
-// The two steps that need a condition (admission leases, the pacer's next slot) are Lua scripts, so
+// The steps that need a condition (admission leases, the pacer's next slot, compare and delete) are Lua scripts, so
 // they stay atomic across every instance. `npm run store:check` runs them against the real database.
 import type { IncrOptions, LeaseOptions, SetOptions, Store } from "./types";
 
@@ -30,6 +30,12 @@ if not held and redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[3]) then return 0 
 redis.call('ZADD', KEYS[1], now + ttl, ARGV[1])
 redis.call('PEXPIRE', KEYS[1], ttl + 60000)
 return 1
+`.trim();
+
+/** Deletes a key only while it still holds this exact value. */
+export const DELETE_IF_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
+return 0
 `.trim();
 
 /** Reserves the next start slot `spacing` ms after the last one; returns the wait in ms. */
@@ -117,6 +123,10 @@ export class UpstashStore implements Store {
 
   async del(key: string): Promise<void> {
     await this.call(["DEL", key]);
+  }
+
+  async deleteIfEquals(key: string, value: unknown): Promise<boolean> {
+    return Number(await this.evalScript(DELETE_IF_SCRIPT, [key], [encode(value)])) === 1;
   }
 
   async expire(key: string, ttlSeconds: number): Promise<void> {
