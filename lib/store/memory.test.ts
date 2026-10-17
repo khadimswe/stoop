@@ -40,4 +40,11 @@ describe("getStore", () => {
     expect(getStore({ VERCEL: "1", UPSTASH_REDIS_REST_URL: "https://x.upstash.io", UPSTASH_REDIS_REST_TOKEN: "t" }).kind).toBe("upstash");
     setStore(null);
   });
+
+  it("also reads the names Vercel's Upstash integration sets", async () => {
+    const { getStore, setStore } = await import("./index");
+    setStore(null);
+    expect(getStore({ VERCEL: "1", KV_REST_API_URL: "https://x.upstash.io", KV_REST_API_TOKEN: "t" }).kind).toBe("upstash");
+    setStore(null);
+  });
 });

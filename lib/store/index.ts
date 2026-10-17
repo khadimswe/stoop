@@ -11,8 +11,9 @@ let current: Store | null = null;
 
 export function getStore(env: Env = process.env): Store {
   if (current) return current;
-  const url = env.UPSTASH_REDIS_REST_URL?.trim();
-  const token = env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  // Vercel's Upstash integration names the same two values KV_REST_API_URL and KV_REST_API_TOKEN.
+  const url = (env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL)?.trim();
+  const token = (env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN)?.trim();
   if (url && token) return (current = new UpstashStore({ url, token }));
   if (env.VERCEL === "1") throw new StoreUnavailableError("No shared store is configured: the in-memory store is for local use only.");
   return (current = new MemoryStore());
