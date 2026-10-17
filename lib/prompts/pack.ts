@@ -4,7 +4,7 @@
 // Product assets come from the product and settings alone, so the Control and the culture-made packs
 // share them byte for byte.
 import { z } from "zod";
-import { AVOID_LIST_EXEMPT, checkText, FAMOUS_PLACES, unsupportedClaims, type GuardIssue } from "../guardrails";
+import { AVOID_LIST_EXEMPT, checkText, childSetting, FAMOUS_PLACES, unsupportedClaims, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
 import { CASTS } from "../types";
 import { briefCueTexts, conceptSchema, packSettingsSchema, sellerText, type BriefSlots, type Concept, type PackSettings, type ProductSpec } from "./brief";
@@ -505,6 +505,8 @@ export function checkPack(pack: ProductionPack, brief: BriefSlots, product: Prod
   const copy = pack.overlays.map((o) => ({ where: `overlay ${o.scene + 1}`, text: o.text, phrases: true }));
   for (const { where, text, phrases } of [...texts.map((t) => ({ ...t, phrases: false })), ...copy]) {
     for (const claim of unsupportedClaims(text, seller, { phrases })) problems.push({ where, message: `states "${claim}", a product fact the seller never gave` });
+    const phrase = childSetting(text);
+    if (phrase) problems.push({ where, message: `says "${phrase}", which invites children into frame; every person on screen is an adult` });
   }
   return problems;
 }

@@ -472,6 +472,16 @@ export function stripEmDashes<T>(value: T): T {
 /** Rules relaxed inside an "avoid" list, which names banned claims in order to forbid them. */
 export const AVOID_LIST_EXEMPT: ReadonlySet<GuardRule> = new Set<GuardRule>(["health-claim", "fake-proof"]);
 
+// --- Settings for adults ------------------------------------------------------------------------
+
+/** Settings that invite children into frame. Every audience and every person on screen is an adult. */
+export const CHILD_SETTING = /\bfamily[- ]friendly\b|\bkid[- ]friendly\b|\bfor the whole family\b|\bplayground\b/i;
+
+/** The phrase that invites children into frame, or null. */
+export function childSetting(text: string): string | null {
+  return text.match(CHILD_SETTING)?.[0] ?? null;
+}
+
 // --- Seller facts --------------------------------------------------------------------------------
 
 /** Product claims a concept, script or prompt may make only when the seller's own text makes them. */

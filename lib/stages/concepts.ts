@@ -11,7 +11,7 @@ import { z } from "zod";
 import { askOnce, cachedInstructions } from "../agent/ask";
 import { CREATIVE_STRATEGIST_ROLE, GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
 import { STOOP_EFFORT } from "../agent/model";
-import { checkText, checkValue, FAMOUS_PLACES, formatGuardIssues, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
+import { checkText, checkValue, childSetting, FAMOUS_PLACES, formatGuardIssues, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
 import { CAMERA_PRESETS, CAMERA_PRESET_IDS, ENERGY_PRESETS, LOOK_PRESETS } from "../prompts/models.config";
 import {
@@ -414,6 +414,11 @@ export function validateConcepts(
     );
     if (invented.length > 0) return { ok: false, problems: invented.join("\n") };
   }
+  const forKids = concepts.flatMap((c, i) => {
+    const phrase = childSetting(conceptText(c.concept));
+    return phrase ? [`- concepts.${i}: "${phrase}" invites children into frame. Every person on screen is an adult; use adult settings.`] : [];
+  });
+  if (forKids.length > 0) return { ok: false, problems: forKids.join("\n") };
   if (rankConcepts(concepts, brief).best === null) {
     return { ok: false, problems: "- Every concept failed a hard gate (stereotype or missing surprise beat). Write new ones." };
   }

@@ -5,7 +5,7 @@
 // guardrails and name nothing real: no artist, film, brand, person or place name (the setting city
 // is the one allowed place). Problems go back to the agent once; whatever still fails is dropped.
 import { z } from "zod";
-import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims } from "../guardrails";
+import { checkText, childSetting, FAMOUS_PLACES, stripEmDashes, unsupportedClaims } from "../guardrails";
 import type { CultureField } from "../report/world";
 import type { CultureCandidate } from "../stages/culture";
 
@@ -90,11 +90,8 @@ export interface GuardResult {
 /** Notes about how a cue is labeled ("tempo is interpretation") would reach the prompts; the report labels cues itself. */
 const LABEL_NOTE = /\binterpret(?:ation|ed)\b|\bnot from qloo\b|\bcreative suggestion\b/i;
 
-/** Settings that invite children into frame. Every audience and every person on screen is an adult. */
-const CHILD_SETTING = /\bfamily[- ]friendly\b|\bkid[- ]friendly\b|\bfor the whole family\b|\bplayground\b/i;
-
 const textProblems = (path: string, text: string, ctx: GuardContext, copy = false): string[] => [
-  ...(CHILD_SETTING.test(text) ? [`${path}: "${text.match(CHILD_SETTING)?.[0]}" invites children into frame; every person on screen is an adult`] : []),
+  ...(childSetting(text) ? [`${path}: "${childSetting(text)}" invites children into frame; every person on screen is an adult`] : []),
   // Quantities and prices anywhere; claim words only in copy (the product's role, hooks, words to use).
   ...unsupportedClaims(text, ctx.sellerText, { phrases: copy }).map((claim) => `${path}: "${claim}" is a product fact the seller never gave`),
   ...checkText(text, { names: [...ctx.names, ...FAMOUS_PLACES], allowedNames: ctx.allowedPlaces, exactCaseNames: true }).map((issue) => `${path}: ${issue.message}`),
