@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree, Geist_Mono } from "next/font/google";
-import { SiteHeader } from "@/components/stoop/site-header";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -32,14 +31,13 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
+// Fonts and providers only. Each route group brings its own header: (marketing) the floating pill,
+// (app) the 56 px top bar, so no page renders two.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${bricolage.variable} ${figtree.variable} ${geistMono.variable} h-full`}>
       <body className="flex min-h-full flex-col">
-        <TooltipProvider>
-          <SiteHeader />
-          {children}
-        </TooltipProvider>
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );

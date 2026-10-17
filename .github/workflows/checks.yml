@@ -85,3 +85,10 @@ jobs:
         run: npm ci
       - if: steps.pkg.outputs.exists == 'true'
         run: npm run check
+      # Cache Components and prerender errors only show up in a build. Replay mode, no secrets.
+      - if: steps.pkg.outputs.exists == 'true'
+        name: Build
+        run: npx next build
+        env:
+          STOOP_LIVE: "false"
+          NEXT_TELEMETRY_DISABLED: "1"
