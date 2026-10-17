@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dailyCaps, isLive, videoSwitches } from "./config";
+import { byokEnabled, dailyCaps, isLive, mcpCaps, renderLimits, videoSwitches } from "./config";
 
 describe("runtime config", () => {
   it("stays in replay unless STOOP_LIVE is true (any case, trimmed)", () => {
@@ -20,5 +20,22 @@ describe("runtime config", () => {
     expect(videoSwitches({})).toEqual({ liveVideo: false, finalRender: false });
     expect(videoSwitches({ ENABLE_FINAL_RENDER: "true" })).toEqual({ liveVideo: false, finalRender: false });
     expect(videoSwitches({ ENABLE_LIVE_VIDEO: "true", ENABLE_FINAL_RENDER: "true" })).toEqual({ liveVideo: true, finalRender: true });
+  });
+
+  it("keeps server-paid renders at zero until a lifetime cap is set, with per-pass and per-IP limits", () => {
+    expect(renderLimits({})).toEqual({ total: 0, perPass: 3, perIpDaily: 6, draftSeconds: 15 });
+    expect(renderLimits({ RENDERS_TOTAL_CAP: "40", RENDER_DRAFT_SECONDS: "10" })).toMatchObject({ total: 40, draftSeconds: 10 });
+    expect(() => renderLimits({ RENDER_DRAFT_SECONDS: "30" })).toThrow(/4 to 15/);
+    expect(() => renderLimits({ RENDER_DRAFT_SECONDS: "2" })).toThrow(/4 to 15/);
+  });
+
+  it("keeps BYOK on unless it is switched off", () => {
+    expect(byokEnabled({})).toBe(true);
+    expect(byokEnabled({ ENABLE_BYOK: " FALSE " })).toBe(false);
+  });
+
+  it("caps MCP tool calls across all tokens", () => {
+    expect(mcpCaps({}).daily).toBe(200);
+    expect(mcpCaps({ MCP_DAILY_CAP: "0" }).daily).toBe(0);
   });
 });

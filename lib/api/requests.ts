@@ -128,3 +128,29 @@ export type WaitlistRequest = z.infer<typeof waitlistRequestSchema>;
 export const VOTE_CHOICES = ["culture", "control"] as const;
 export const voteRequestSchema = z.strictObject({ example: exampleSlugSchema, choice: z.enum(VOTE_CHOICES) });
 export type VoteRequest = z.infer<typeof voteRequestSchema>;
+
+// --- POST /api/render/plan (BYOK) and POST /api/render (judge pass) --------------------------------
+
+export const CONTROL_SEGMENT = "control";
+
+/** Which world of which report: an example ("example-<slug>") or a live run, and a segment id or the Control. */
+export const renderTargetSchema = z.strictObject({
+  reportId: runIdSchema,
+  segment: z.union([segmentIdSchema, z.literal(CONTROL_SEGMENT)]),
+});
+export type RenderTarget = z.infer<typeof renderTargetSchema>;
+
+/** Only the target: the server builds the prompt from the report's own pack, never from the request. */
+export const renderRequestSchema = z.strictObject({ target: renderTargetSchema });
+export type RenderRequest = z.infer<typeof renderRequestSchema>;
+
+// --- POST /api/mcp/token --------------------------------------------------------------------------
+
+export const mcpTokenRequestSchema = z.strictObject({
+  email: z.email().max(254),
+  /** Consent to product emails beyond the token email itself. */
+  consent: z.boolean(),
+  /** Honeypot, as on the waitlist: a filled one is answered like a success and dropped. */
+  company: z.string().max(200).optional(),
+});
+export type McpTokenRequest = z.infer<typeof mcpTokenRequestSchema>;

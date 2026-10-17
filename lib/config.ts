@@ -47,3 +47,45 @@ export interface VideoSwitches {
 export function videoSwitches(env: Env = process.env): VideoSwitches {
   return { liveVideo: flag(env.ENABLE_LIVE_VIDEO), finalRender: flag(env.ENABLE_LIVE_VIDEO) && flag(env.ENABLE_FINAL_RENDER) };
 }
+
+/** Server-paid draft renders per judge pass, whatever the day's cap. */
+export const RENDERS_PER_PASS = 3;
+/** Server-paid draft renders per IP per day, so one shared judge code cannot drain the day. */
+export const RENDERS_PER_IP_DAILY = 6;
+
+export interface RenderLimits {
+  /** Server-paid drafts ever, across judging (RENDERS_TOTAL_CAP). 0 keeps server renders off. */
+  total: number;
+  perPass: number;
+  perIpDaily: number;
+  /** Seconds per draft (RENDER_DRAFT_SECONDS, 4 to 15): fal bills per second of video. */
+  draftSeconds: number;
+}
+
+/** Limits on server-paid draft video, on top of dailyCaps().renders. BYOK renders bill the visitor's own fal key and pass none of these. */
+export function renderLimits(env: Env = process.env): RenderLimits {
+  const draftSeconds = count(env.RENDER_DRAFT_SECONDS, 15);
+  if (draftSeconds < 4 || draftSeconds > 15) throw new Error(`RENDER_DRAFT_SECONDS must be 4 to 15, got ${draftSeconds}.`);
+  return { total: count(env.RENDERS_TOTAL_CAP, 0), perPass: RENDERS_PER_PASS, perIpDaily: RENDERS_PER_IP_DAILY, draftSeconds };
+}
+
+/** "Render with your fal key": on unless ENABLE_BYOK is "false". It costs Stoop nothing, so it stays on through judging. */
+export function byokEnabled(env: Env = process.env): boolean {
+  return env.ENABLE_BYOK?.trim().toLowerCase() !== "false";
+}
+
+/** Storyboard world jobs (up to 8 frames each, with the re-renders) per visitor per day, on top of FRAMES_DAILY_CAP. */
+export const STORYBOARD_LIMITS = { perCookieDaily: 6, perIpDaily: 15 } as const;
+
+export interface McpCaps {
+  /** Tool calls per day across every token (MCP_DAILY_CAP). */
+  daily: number;
+  /** Per token per day. culture_brief also counts against LIVE_RUNS_DAILY_CAP. */
+  perToken: { calls: number; cultureBriefs: number };
+  /** Token issuing, per IP per day and overall per day. */
+  issue: { perIpDaily: number; daily: number };
+}
+
+export function mcpCaps(env: Env = process.env): McpCaps {
+  return { daily: count(env.MCP_DAILY_CAP, 200), perToken: { calls: 40, cultureBriefs: 3 }, issue: { perIpDaily: 3, daily: 50 } };
+}

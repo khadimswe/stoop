@@ -584,6 +584,77 @@ export const FRAME_MODELS: Readonly<Record<FrameModelRole, FrameModel>> = Object
   },
 });
 
+// Draft video on fal -------------------------------------------------------------------------------
+// The one public video path (CLAUDE.md section 6): a 480p draft of the kept concept, rendered on fal
+// either with the visitor's own fal key (BYOK, from the browser) or, with a judge pass, Stoop's key.
+// Never Higgsfield. fal endpoint ids, so not ModelIds. Prices are fal's published approximations (fal
+// bills by tokens), for the estimate shown before a render and for the caps.
+
+export const VIDEO_MODELS_VERIFIED_AT = "2026-10-17";
+
+export const VIDEO_MODEL_ROLES = ["reference", "image"] as const;
+export type VideoModelRole = (typeof VIDEO_MODEL_ROLES)[number];
+
+export interface VideoModel {
+  role: VideoModelRole;
+  /** fal's endpoint id. */
+  endpoint: string;
+  displayName: string;
+  /** Reference images it takes, named @Image1..N in the prompt (image-to-video: a start frame, plus an optional end frame). */
+  maxRefs: number;
+  /** Approximate dollars per second of generated 480p video, with audio. */
+  usdPerSecond480p: number;
+  minSeconds: number;
+  maxSeconds: number;
+  /** Whether aspect_ratio can be set (image-to-video always follows its start frame). */
+  setsAspectRatio: boolean;
+  notes: string[];
+  verifiedAt: typeof VIDEO_MODELS_VERIFIED_AT;
+  sourceUrls: string[];
+}
+
+export const VIDEO_MODELS: Readonly<Record<VideoModelRole, VideoModel>> = Object.freeze({
+  // The default: the storyboard frames and the product image as references, so the draft follows the board.
+  reference: {
+    role: "reference",
+    endpoint: "bytedance/seedance-2.5/reference-to-video",
+    displayName: "Seedance 2.5 reference to video (fal)",
+    maxRefs: 30,
+    usdPerSecond480p: 0.2205,
+    minSeconds: 4,
+    maxSeconds: 30,
+    setsAspectRatio: true,
+    notes: [
+      "Input: prompt, task (reference by default), image_urls (up to 30, referenced as @Image1..N), resolution (480p, 720p, 1080p; default 720p), draft (a 480p preview that overrides resolution and returns a draft_id, completable at 1080p within 7 days), duration (auto or 4 to 30), aspect_ratio (9:16 among them), generate_audio (default true), seed, end_user_id.",
+      "Output: video (url, content_type, file_name, file_size), seed, draft_id.",
+      "About $0.2205 per second at 480p with audio; image references are not billed. Billing is token-based, so the per-second figure is fal's approximation.",
+      "Face filtering of reference images is not documented: test it before relying on frames with people.",
+    ],
+    verifiedAt: VIDEO_MODELS_VERIFIED_AT,
+    sourceUrls: ["https://fal.ai/models/bytedance/seedance-2.5/reference-to-video/api", "https://fal.ai/models/bytedance/seedance-2.5/reference-to-video"],
+  },
+  // The fallback when references are refused: one product-only frame as the start frame.
+  image: {
+    role: "image",
+    endpoint: "bytedance/seedance-2.5/image-to-video",
+    displayName: "Seedance 2.5 image to video (fal)",
+    maxRefs: 2,
+    usdPerSecond480p: 0.2205,
+    minSeconds: 4,
+    maxSeconds: 30,
+    setsAspectRatio: false,
+    notes: [
+      "Input: prompt, image_url (the start frame), end_image_url, resolution, draft, duration (auto or 4 to 30), aspect_ratio (always auto: it follows the start frame), generate_audio (same cost either way), end_user_id. No seed input.",
+      "Output: video (url, content_type, file_name, file_size), seed, draft_id.",
+    ],
+    verifiedAt: VIDEO_MODELS_VERIFIED_AT,
+    sourceUrls: ["https://fal.ai/models/bytedance/seedance-2.5/image-to-video/api"],
+  },
+});
+
+/** The estimate shown before a draft renders, in dollars. */
+export const draftUsd = (model: VideoModel, seconds: number) => Math.round(model.usdPerSecond480p * seconds * 100) / 100;
+
 // Camera presets ---------------------------------------------------------------------------------
 // Camera moves are always creative or interpreted cues, never Qloo data. Each preset will later get a
 // looping preview card in the UI. Phrasings carry no trailing period, so a template can end the

@@ -11,6 +11,8 @@ declare const brand: unique symbol;
 export type SaltedHash = string & { readonly [brand]: "SaltedHash" };
 /** "v_" plus 24 hex: a visitor, by the salted hash of their IP. */
 export type VisitorId = string & { readonly [brand]: "VisitorId" };
+/** "c_" plus 24 hex: a visitor, by the random id in their signed visitor cookie (lib/visitor-cookie.ts). Clearing cookies makes a new one, so limits count it next to the IP id, never instead of it. */
+export type CookieVisitorId = string & { readonly [brand]: "CookieVisitorId" };
 
 /**
  * The client IP: the first x-forwarded-for entry, else x-real-ip. This trusts the host to set the
