@@ -15,6 +15,11 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // iPhone-size, the width the report is designed at. Chromium with touch, so no WebKit install.
+    {
+      name: "phone-390",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    },
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
