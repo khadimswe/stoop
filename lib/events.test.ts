@@ -10,6 +10,7 @@ import { totalScore } from "./prompts/rubric";
 import { conceptRunSchema } from "./stages/concepts";
 import { controlChoiceSchema, controlFitSchema, cultureFieldSchema, panelPositionSchema } from "./report/world";
 import { cueSchema } from "./types";
+import { reportSchema } from "./report/schema";
 
 // A real recorded run (data/runs/, produced by `npm run audience -- --picks` from fixtures).
 const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.events.json", "utf8")) as RunEvent[];
@@ -290,5 +291,137 @@ describe("honesty rules in the world contract", () => {
     expect(controlFitSchema.safeParse(fit).success).toBe(true);
     expect(controlFitSchema.safeParse({ ...fit, below: 2 }).success).toBe(false);
     expect(controlFitSchema.safeParse({ ...fit, checkable: 4 }).success).toBe(false);
+  });
+});
+
+describe("after the run: frames, revisions, cost and resumes", () => {
+  // A real recorded full run: audience, worlds, the Control and the comparison.
+  const full = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
+  const done = reduce(full);
+  const segmentId = done.worlds[0].segmentId;
+  let seq = full.length;
+  const at = "2026-10-16T20:10:00.000Z";
+  const next = <T extends object>(event: T) => runEventSchema.parse({ ...event, seq: seq++, at });
+
+  const frames = {
+    revisionId: null,
+    status: "done",
+    reason: null,
+    frames: [{ scene: 0, url: "https://blob.example/frames/0.png", promptHash: "a".repeat(64), modelId: "fal-ai/nano-banana-2/edit", attempt: 2 }],
+    critiques: [{ scene: 0, issues: ["The product is hidden behind the hand."], rewrite: "The bottle sits label-out on the porch rail." }],
+  };
+  const revisionOf = (id: string) => {
+    const world = done.worlds[0];
+    return {
+      id,
+      field: "music",
+      reason: "Less rock, please.",
+      excluded: [],
+      changes: [{ slot: "music", before: world.brief!.music, after: world.brief!.music }],
+      brief: world.brief,
+      culture: world.culture,
+      richSlots: world.richSlots,
+      concepts: world.concepts,
+      pack: world.pack,
+      kit: world.kit,
+      evidenceIds: [],
+    };
+  };
+
+  it("takes frames and revisions after run.done, and nothing else", () => {
+    const after = reduce([
+      ...full,
+      next({ type: "world.frames", segmentId, frames }),
+      next({ type: "world.revised", segmentId, revision: revisionOf("rev-000000000001") }),
+      next({ type: "audience.segments", segments: done.audience.segments! }),
+      next({ type: "run.failed", stage: null, message: "late" }),
+    ]);
+    const world = after.worlds.find((w) => w.segmentId === segmentId)!;
+    expect(world.frames).toEqual(frames);
+    expect(world.revisions.map((r) => r.id)).toEqual(["rev-000000000001"]);
+    expect(after.status).toBe("done");
+    expect(after.error).toBeNull();
+    const report = toReport(after);
+    expect(report.worlds.find((w) => w.segmentId === segmentId)?.frames?.critiques[0].rewrite).toMatch(/label-out/);
+  });
+
+  it("appends a new revision and replaces a repeated one in place", () => {
+    const first = next({ type: "world.revised", segmentId, revision: revisionOf("rev-000000000002") });
+    const second = next({ type: "world.revised", segmentId, revision: revisionOf("rev-000000000003") });
+    const again = next({ type: "world.revised", segmentId, revision: { ...revisionOf("rev-000000000002"), reason: "Edited." } });
+    const world = reduce([...full, first, second, again]).worlds.find((w) => w.segmentId === segmentId)!;
+    expect(world.revisions.map((r) => [r.id, r.reason])).toEqual([
+      ["rev-000000000002", "Edited."],
+      ["rev-000000000003", "Less rock, please."],
+    ]);
+  });
+
+  it("never adds a world after the run: frames or revisions for an unknown world, the Control or another world's brief are ignored", () => {
+    const other = done.worlds[1].brief!;
+    const state = reduce([
+      ...full,
+      next({ type: "world.frames", segmentId: "seg-not-measured", frames }),
+      next({ type: "world.frames", segmentId: "control", frames }),
+      next({ type: "world.revised", segmentId: "seg-not-measured", revision: revisionOf("rev-000000000005") }),
+      next({ type: "world.revised", segmentId, revision: { ...revisionOf("rev-000000000004"), brief: other } }),
+    ]);
+    expect(state.worlds.map((w) => w.segmentId)).toEqual(done.worlds.map((w) => w.segmentId));
+    expect(state.worlds.every((w) => w.frames === null && w.revisions.length === 0)).toBe(true);
+    expect(() => toReport(state)).not.toThrow();
+    // The report schema still refuses a mismatched revision written some other way.
+    const report = toReport(done);
+    const bad = { ...report, worlds: report.worlds.map((w, i) => (i === 0 ? { ...w, revisions: [{ ...revisionOf("rev-000000000004"), brief: other }] } : w)) };
+    expect(reportSchema.safeParse(bad).error?.issues.map((i) => i.message)).toContainEqual(expect.stringMatching(/carries the brief of/));
+  });
+
+  it("drops a revision citing a receipt the ledger lacks, and frames for a revision the world does not have", () => {
+    const missing = "ev_ffffffffffff";
+    const revision = { ...revisionOf("rev-000000000006"), evidenceIds: [missing] };
+    const state = reduce([
+      ...full,
+      next({ type: "world.revised", segmentId, revision }),
+      next({ type: "world.frames", segmentId, frames: { ...frames, revisionId: "rev-0000000000aa" } }),
+    ]);
+    const world = state.worlds.find((w) => w.segmentId === segmentId)!;
+    expect(world.revisions).toEqual([]);
+    expect(world.frames).toBeNull();
+    expect(() => toReport(state)).not.toThrow();
+    // Frames for a revision the world has are kept.
+    const kept = reduce([
+      ...full,
+      next({ type: "world.revised", segmentId, revision: revisionOf("rev-000000000007") }),
+      next({ type: "world.frames", segmentId, frames: { ...frames, revisionId: "rev-000000000007" } }),
+    ]);
+    expect(toReport(kept).worlds.find((w) => w.segmentId === segmentId)?.frames?.revisionId).toBe("rev-000000000007");
+  });
+
+  it("puts the run's cost in the report", () => {
+    const cost = { durationMs: 48_000, qloo: { live: 31, cached: 4 }, claude: { calls: 12, inputTokens: 90_000, outputTokens: 9_000, cachedInputTokens: 40_000 }, frames: 0, estimateUsd: 0.38 };
+    const runDone = full.findIndex((e) => e.type === "run.done");
+    const events = [...full.slice(0, runDone), runEventSchema.parse({ type: "run.cost", cost, seq: full[runDone].seq, at }), { ...full[runDone], seq: full[runDone].seq + 1 }];
+    expect(toReport(reduce(events)).cost).toEqual(cost);
+    expect(toReport(done).cost).toBeNull();
+  });
+
+  it("starts over when a resumed run streams again under a higher attempt, and ignores the old attempt after", () => {
+    const stopped = reduce(full.slice(0, 60));
+    expect(stopped.status).toBe("running");
+    const resumed = full.map((e) => ({ ...e, attempt: 2 }));
+    const state = resumed.reduce(apply, stopped);
+    expect(state.attempt).toBe(2);
+    expect(toReport(state)).toEqual(toReport(done));
+    // Late events from attempt 1 (its start, a trace step) change nothing.
+    expect(apply(state, full[0])).toBe(state);
+    const lateStep = full.find((e) => e.type === "trace.step")!;
+    expect(apply(state, { ...lateStep, seq: 9_999 })).toBe(state);
+    // Mixed attempts reduce to the newer one alone.
+    expect(toReport(reduce([...full.slice(0, 60), ...resumed]))).toEqual(toReport(done));
+  });
+
+  it("applies an attempt's events even when one arrives before its run.started", () => {
+    const resumed = full.map((e) => ({ ...e, attempt: 2 }));
+    const [start, first, ...rest] = resumed;
+    const state = [first, start, ...rest].reduce(apply, reduce(full.slice(0, 60)));
+    expect(toReport(state)).toEqual(toReport(done));
   });
 });

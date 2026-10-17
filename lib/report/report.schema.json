@@ -3707,6 +3707,2436 @@
                 "type": "null"
               }
             ]
+          },
+          "frames": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "revisionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^rev-[0-9a-f]{12}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "rendering",
+                      "done",
+                      "paused",
+                      "failed"
+                    ]
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "frames": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "scene": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "promptHash": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9./-]{0,99}$"
+                        },
+                        "attempt": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "const": 1
+                            },
+                            {
+                              "type": "number",
+                              "const": 2
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "scene",
+                        "url",
+                        "promptHash",
+                        "modelId",
+                        "attempt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "critiques": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "scene": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "issues": {
+                          "maxItems": 6,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "rewrite": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "scene",
+                        "issues",
+                        "rewrite"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "revisionId",
+                  "status",
+                  "reason",
+                  "frames",
+                  "critiques"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^rev-[0-9a-f]{12}$"
+                },
+                "field": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "music",
+                        "visual",
+                        "wardrobe",
+                        "setting",
+                        "mood",
+                        "voice",
+                        "creators"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "const": "world"
+                    }
+                  ]
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 280
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "excluded": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "changes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "slot": {
+                        "type": "string",
+                        "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                      },
+                      "before": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "origin": {
+                                "type": "string",
+                                "enum": [
+                                  "qloo",
+                                  "interpreted",
+                                  "creative",
+                                  "yours"
+                                ]
+                              },
+                              "evidenceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "origin",
+                              "evidenceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "after": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "origin": {
+                                "type": "string",
+                                "enum": [
+                                  "qloo",
+                                  "interpreted",
+                                  "creative",
+                                  "yours"
+                                ]
+                              },
+                              "evidenceIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "origin",
+                              "evidenceIds"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "slot",
+                      "before",
+                      "after"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "brief": {
+                  "type": "object",
+                  "properties": {
+                    "segment": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "ageBands": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "24_and_younger",
+                              "25_to_29",
+                              "30_to_34",
+                              "35_to_44",
+                              "45_to_54",
+                              "55_and_older"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "label",
+                        "ageBands"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "productRole": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "origin": {
+                          "type": "string",
+                          "enum": [
+                            "qloo",
+                            "interpreted",
+                            "creative",
+                            "yours"
+                          ]
+                        },
+                        "evidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "origin",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "mood": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "origin": {
+                          "type": "string",
+                          "enum": [
+                            "qloo",
+                            "interpreted",
+                            "creative",
+                            "yours"
+                          ]
+                        },
+                        "evidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "origin",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "music": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "origin": {
+                          "type": "string",
+                          "enum": [
+                            "qloo",
+                            "interpreted",
+                            "creative",
+                            "yours"
+                          ]
+                        },
+                        "evidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "origin",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "visual": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "origin": {
+                          "type": "string",
+                          "enum": [
+                            "qloo",
+                            "interpreted",
+                            "creative",
+                            "yours"
+                          ]
+                        },
+                        "evidenceIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "origin",
+                        "evidenceIds"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "wardrobe": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "origin": {
+                              "type": "string",
+                              "enum": [
+                                "qloo",
+                                "interpreted",
+                                "creative",
+                                "yours"
+                              ]
+                            },
+                            "evidenceIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "origin",
+                            "evidenceIds"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "setting": {
+                      "minItems": 1,
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "origin": {
+                            "type": "string",
+                            "enum": [
+                              "qloo",
+                              "interpreted",
+                              "creative",
+                              "yours"
+                            ]
+                          },
+                          "evidenceIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "text",
+                          "origin",
+                          "evidenceIds"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "voice": {
+                      "type": "object",
+                      "properties": {
+                        "tone": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "origin": {
+                              "type": "string",
+                              "enum": [
+                                "qloo",
+                                "interpreted",
+                                "creative",
+                                "yours"
+                              ]
+                            },
+                            "evidenceIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "origin",
+                            "evidenceIds"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "use": {
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "avoid": {
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "tone",
+                        "use",
+                        "avoid"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "talent": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "origin": {
+                              "type": "string",
+                              "enum": [
+                                "qloo",
+                                "interpreted",
+                                "creative",
+                                "yours"
+                              ]
+                            },
+                            "evidenceIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "origin",
+                            "evidenceIds"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "hooks": {
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "origin": {
+                            "type": "string",
+                            "enum": [
+                              "qloo",
+                              "interpreted",
+                              "creative",
+                              "yours"
+                            ]
+                          },
+                          "evidenceIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "required": [
+                          "text",
+                          "origin",
+                          "evidenceIds"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "allowedPlaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "segment",
+                    "productRole",
+                    "mood",
+                    "music",
+                    "visual",
+                    "wardrobe",
+                    "setting",
+                    "voice",
+                    "talent",
+                    "hooks",
+                    "allowedPlaces"
+                  ],
+                  "additionalProperties": false
+                },
+                "culture": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": [
+                          "music",
+                          "visual",
+                          "wardrobe",
+                          "setting",
+                          "mood",
+                          "voice",
+                          "creators"
+                        ]
+                      },
+                      "signal": {
+                        "type": "string",
+                        "enum": [
+                          "rich",
+                          "thin",
+                          "none"
+                        ]
+                      },
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "segment",
+                          "audience"
+                        ]
+                      },
+                      "sources": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "entity",
+                                "tag"
+                              ]
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "type": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "rank": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "position": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "beats": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "of": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "aboveMedian": {
+                                      "type": [
+                                        "boolean",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "beats",
+                                    "of",
+                                    "aboveMedian"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "why": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "evidenceIds": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^ev_[0-9a-f]{12}$"
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id",
+                            "name",
+                            "type",
+                            "rank",
+                            "position",
+                            "why",
+                            "evidenceIds"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "cues": {
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "origin": {
+                              "type": "string",
+                              "enum": [
+                                "qloo",
+                                "interpreted",
+                                "creative",
+                                "yours"
+                              ]
+                            },
+                            "evidenceIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "origin",
+                            "evidenceIds"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "field",
+                      "signal",
+                      "scope",
+                      "sources",
+                      "cues"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "richSlots": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                  }
+                },
+                "concepts": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "best": {
+                          "type": "object",
+                          "properties": {
+                            "concept": {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "hook": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "emotion": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "surpriseBeat": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "testHypothesis": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "locations": {
+                                  "minItems": 1,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slug": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                      },
+                                      "description": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "timeOfDay": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "lighting": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "slug",
+                                      "description",
+                                      "timeOfDay",
+                                      "lighting"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "scenes": {
+                                  "minItems": 3,
+                                  "maxItems": 5,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "beat": {
+                                        "type": "string",
+                                        "enum": [
+                                          "hook",
+                                          "product",
+                                          "cultural",
+                                          "escalation",
+                                          "payoff"
+                                        ]
+                                      },
+                                      "seconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8
+                                      },
+                                      "action": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "camera": {
+                                        "type": "string",
+                                        "enum": [
+                                          "static",
+                                          "handheld",
+                                          "dolly_in",
+                                          "dolly_out",
+                                          "push_in_slow",
+                                          "pull_out_reveal",
+                                          "tracking_side",
+                                          "orbit",
+                                          "crash_zoom_in",
+                                          "whip_pan",
+                                          "fpv_drone",
+                                          "snorricam",
+                                          "dolly_zoom",
+                                          "object_pov",
+                                          "overhead_top_down",
+                                          "tilt_up_reveal"
+                                        ]
+                                      },
+                                      "framing": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "motion": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "lighting": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "productVisible": {
+                                        "type": "boolean"
+                                      },
+                                      "location": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                      },
+                                      "overlayText": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "dialogue": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "sound": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "beat",
+                                      "seconds",
+                                      "action",
+                                      "camera",
+                                      "framing",
+                                      "motion",
+                                      "lighting",
+                                      "productVisible",
+                                      "location",
+                                      "overlayText",
+                                      "dialogue",
+                                      "sound"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "title",
+                                "hook",
+                                "emotion",
+                                "surpriseBeat",
+                                "locations",
+                                "scenes"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "rubric": {
+                              "type": "object",
+                              "properties": {
+                                "scores": {
+                                  "type": "object",
+                                  "properties": {
+                                    "scroll_stop": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    },
+                                    "specificity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    },
+                                    "product_role": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    },
+                                    "emotional_clarity": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    },
+                                    "insider_not_outsider": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    },
+                                    "surprise": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5
+                                    }
+                                  },
+                                  "required": [
+                                    "scroll_stop",
+                                    "specificity",
+                                    "product_role",
+                                    "emotional_clarity",
+                                    "insider_not_outsider",
+                                    "surprise"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "gates": {
+                                  "type": "object",
+                                  "properties": {
+                                    "no_stereotype": {
+                                      "type": "boolean"
+                                    },
+                                    "has_surprise_beat": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "no_stereotype",
+                                    "has_surprise_beat"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "reason": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              },
+                              "required": [
+                                "scores",
+                                "gates",
+                                "reason"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "uses": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                              }
+                            },
+                            "verifiedUses": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                              }
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": 6,
+                              "maximum": 30
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "kept",
+                                "ranked",
+                                "discarded"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "concept",
+                            "rubric",
+                            "uses",
+                            "verifiedUses",
+                            "total",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "others": {
+                          "maxItems": 2,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "concept": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "hook": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "emotion": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "surpriseBeat": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "testHypothesis": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "locations": {
+                                    "minItems": 1,
+                                    "maxItems": 2,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "slug": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                        },
+                                        "description": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "timeOfDay": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "lighting": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "slug",
+                                        "description",
+                                        "timeOfDay",
+                                        "lighting"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "scenes": {
+                                    "minItems": 3,
+                                    "maxItems": 5,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "beat": {
+                                          "type": "string",
+                                          "enum": [
+                                            "hook",
+                                            "product",
+                                            "cultural",
+                                            "escalation",
+                                            "payoff"
+                                          ]
+                                        },
+                                        "seconds": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 8
+                                        },
+                                        "action": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "camera": {
+                                          "type": "string",
+                                          "enum": [
+                                            "static",
+                                            "handheld",
+                                            "dolly_in",
+                                            "dolly_out",
+                                            "push_in_slow",
+                                            "pull_out_reveal",
+                                            "tracking_side",
+                                            "orbit",
+                                            "crash_zoom_in",
+                                            "whip_pan",
+                                            "fpv_drone",
+                                            "snorricam",
+                                            "dolly_zoom",
+                                            "object_pov",
+                                            "overhead_top_down",
+                                            "tilt_up_reveal"
+                                          ]
+                                        },
+                                        "framing": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "motion": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "lighting": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "productVisible": {
+                                          "type": "boolean"
+                                        },
+                                        "location": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                        },
+                                        "overlayText": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "dialogue": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "sound": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "beat",
+                                        "seconds",
+                                        "action",
+                                        "camera",
+                                        "framing",
+                                        "motion",
+                                        "lighting",
+                                        "productVisible",
+                                        "location",
+                                        "overlayText",
+                                        "dialogue",
+                                        "sound"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "hook",
+                                  "emotion",
+                                  "surpriseBeat",
+                                  "locations",
+                                  "scenes"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "rubric": {
+                                "type": "object",
+                                "properties": {
+                                  "scores": {
+                                    "type": "object",
+                                    "properties": {
+                                      "scroll_stop": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      },
+                                      "specificity": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      },
+                                      "product_role": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      },
+                                      "emotional_clarity": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      },
+                                      "insider_not_outsider": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      },
+                                      "surprise": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                      }
+                                    },
+                                    "required": [
+                                      "scroll_stop",
+                                      "specificity",
+                                      "product_role",
+                                      "emotional_clarity",
+                                      "insider_not_outsider",
+                                      "surprise"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "gates": {
+                                    "type": "object",
+                                    "properties": {
+                                      "no_stereotype": {
+                                        "type": "boolean"
+                                      },
+                                      "has_surprise_beat": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "no_stereotype",
+                                      "has_surprise_beat"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "scores",
+                                  "gates",
+                                  "reason"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "uses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                                }
+                              },
+                              "verifiedUses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:productRole|mood|music|visual|voice\\.tone|wardrobe|talent|setting\\.[0-2])$"
+                                }
+                              },
+                              "total": {
+                                "type": "integer",
+                                "minimum": 6,
+                                "maximum": 30
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "kept",
+                                  "ranked",
+                                  "discarded"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "concept",
+                              "rubric",
+                              "uses",
+                              "verifiedUses",
+                              "total",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "usage": {
+                          "type": "object",
+                          "properties": {
+                            "inputTokens": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "outputTokens": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "inputTokens",
+                            "outputTokens"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "best",
+                        "others",
+                        "modelId",
+                        "usage"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pack": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number",
+                          "const": 1
+                        },
+                        "templateVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "productSlug": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "segmentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9-]+$"
+                        },
+                        "segmentLabel": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "cast": {
+                          "type": "string",
+                          "enum": [
+                            "adult_talent",
+                            "product_only",
+                            "pet"
+                          ]
+                        },
+                        "settings": {
+                          "type": "object",
+                          "properties": {
+                            "aspect": {
+                              "type": "string",
+                              "const": "9:16"
+                            },
+                            "seconds": {
+                              "type": "number",
+                              "const": 15
+                            },
+                            "templateVersion": {
+                              "type": "number",
+                              "const": 1
+                            },
+                            "direction": {
+                              "type": "object",
+                              "properties": {
+                                "look": {
+                                  "default": "auto",
+                                  "type": "string",
+                                  "enum": [
+                                    "auto",
+                                    "live_action",
+                                    "animation_2d",
+                                    "animation_3d",
+                                    "stop_motion",
+                                    "illustrated"
+                                  ]
+                                },
+                                "cast": {
+                                  "default": "auto",
+                                  "type": "string",
+                                  "enum": [
+                                    "auto",
+                                    "adult_talent",
+                                    "product_only",
+                                    "pet"
+                                  ]
+                                },
+                                "energy": {
+                                  "default": "auto",
+                                  "type": "string",
+                                  "enum": [
+                                    "auto",
+                                    "calm",
+                                    "upbeat",
+                                    "high"
+                                  ]
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 280
+                                }
+                              },
+                              "required": [
+                                "look",
+                                "cast",
+                                "energy"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "models": {
+                              "type": "object",
+                              "properties": {
+                                "image": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nano-banana-pro",
+                                    "soul-2",
+                                    "seedance-2-5",
+                                    "cinema-studio-4",
+                                    "kling-3",
+                                    "kling-3-turbo",
+                                    "veo-3-1",
+                                    "veo-3-1-fast",
+                                    "runway-gen-4-5"
+                                  ]
+                                },
+                                "multiShot": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nano-banana-pro",
+                                    "soul-2",
+                                    "seedance-2-5",
+                                    "cinema-studio-4",
+                                    "kling-3",
+                                    "kling-3-turbo",
+                                    "veo-3-1",
+                                    "veo-3-1-fast",
+                                    "runway-gen-4-5"
+                                  ]
+                                },
+                                "perScene": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "nano-banana-pro",
+                                        "soul-2",
+                                        "seedance-2-5",
+                                        "cinema-studio-4",
+                                        "kling-3",
+                                        "kling-3-turbo",
+                                        "veo-3-1",
+                                        "veo-3-1-fast",
+                                        "runway-gen-4-5"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "image",
+                                "multiShot",
+                                "perScene"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "aspect",
+                            "seconds",
+                            "templateVersion",
+                            "direction",
+                            "models"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "settingsHash": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "assets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "file": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "packshot",
+                                  "product_sheet",
+                                  "talent_sheet",
+                                  "location"
+                                ]
+                              },
+                              "modelId": {
+                                "type": "string",
+                                "enum": [
+                                  "nano-banana-pro",
+                                  "soul-2",
+                                  "seedance-2-5",
+                                  "cinema-studio-4",
+                                  "kling-3",
+                                  "kling-3-turbo",
+                                  "veo-3-1",
+                                  "veo-3-1-fast",
+                                  "runway-gen-4-5"
+                                ]
+                              },
+                              "aspect": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "prompt": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "refs": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "negative": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "promptHash": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "file",
+                              "kind",
+                              "modelId",
+                              "aspect",
+                              "prompt",
+                              "refs",
+                              "negative",
+                              "promptHash"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "concept": {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "hook": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "emotion": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "surpriseBeat": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "testHypothesis": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "locations": {
+                              "minItems": 1,
+                              "maxItems": 2,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slug": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                  },
+                                  "description": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "timeOfDay": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "lighting": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "slug",
+                                  "description",
+                                  "timeOfDay",
+                                  "lighting"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "scenes": {
+                              "minItems": 3,
+                              "maxItems": 5,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "beat": {
+                                    "type": "string",
+                                    "enum": [
+                                      "hook",
+                                      "product",
+                                      "cultural",
+                                      "escalation",
+                                      "payoff"
+                                    ]
+                                  },
+                                  "seconds": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 8
+                                  },
+                                  "action": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "camera": {
+                                    "type": "string",
+                                    "enum": [
+                                      "static",
+                                      "handheld",
+                                      "dolly_in",
+                                      "dolly_out",
+                                      "push_in_slow",
+                                      "pull_out_reveal",
+                                      "tracking_side",
+                                      "orbit",
+                                      "crash_zoom_in",
+                                      "whip_pan",
+                                      "fpv_drone",
+                                      "snorricam",
+                                      "dolly_zoom",
+                                      "object_pov",
+                                      "overhead_top_down",
+                                      "tilt_up_reveal"
+                                    ]
+                                  },
+                                  "framing": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "motion": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "lighting": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "productVisible": {
+                                    "type": "boolean"
+                                  },
+                                  "location": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                  },
+                                  "overlayText": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dialogue": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "sound": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "beat",
+                                  "seconds",
+                                  "action",
+                                  "camera",
+                                  "framing",
+                                  "motion",
+                                  "lighting",
+                                  "productVisible",
+                                  "location",
+                                  "overlayText",
+                                  "dialogue",
+                                  "sound"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "hook",
+                            "emotion",
+                            "surpriseBeat",
+                            "locations",
+                            "scenes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "renders": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "multi-shot",
+                                  "scene"
+                                ]
+                              },
+                              "modelId": {
+                                "type": "string",
+                                "enum": [
+                                  "nano-banana-pro",
+                                  "soul-2",
+                                  "seedance-2-5",
+                                  "cinema-studio-4",
+                                  "kling-3",
+                                  "kling-3-turbo",
+                                  "veo-3-1",
+                                  "veo-3-1-fast",
+                                  "runway-gen-4-5"
+                                ]
+                              },
+                              "sceneIndexes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "renderSeconds": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                              },
+                              "trimTo": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                              },
+                              "refs": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "prompt": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "negative": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "startFrame": {
+                                "anyOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "const": "asset"
+                                          },
+                                          "file": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "file"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "const": "last-frame"
+                                          },
+                                          "job": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "job"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "promptHash": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "modelId",
+                              "sceneIndexes",
+                              "renderSeconds",
+                              "trimTo",
+                              "refs",
+                              "prompt",
+                              "negative",
+                              "startFrame",
+                              "promptHash"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "shotList": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "overlays": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "scene": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "text": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "scene",
+                              "text"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "sourcePhotos": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "file": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri"
+                              }
+                            },
+                            "required": [
+                              "file",
+                              "url"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "musicForEdit": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "checklist": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "text": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "appliesTo": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "frame",
+                                    "clip"
+                                  ]
+                                }
+                              },
+                              "blocking": {
+                                "type": "boolean"
+                              },
+                              "when": {
+                                "type": "string",
+                                "enum": [
+                                  "always",
+                                  "talent",
+                                  "source-images",
+                                  "pet"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "text",
+                              "appliesTo",
+                              "blocking",
+                              "when"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "directorGuide": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "reviewChecklist": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "disclosure": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "templateVersion",
+                        "productSlug",
+                        "segmentId",
+                        "segmentLabel",
+                        "cast",
+                        "settings",
+                        "settingsHash",
+                        "assets",
+                        "concept",
+                        "renders",
+                        "shotList",
+                        "overlays",
+                        "sourcePhotos",
+                        "musicForEdit",
+                        "checklist",
+                        "directorGuide",
+                        "reviewChecklist",
+                        "disclosure"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "kit": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "captions": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "starts_with",
+                              "pattern": "^WEBVTT.*"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "ugc": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "format": {
+                                "type": "string",
+                                "enum": [
+                                  "product_demo",
+                                  "before_after",
+                                  "founder_story",
+                                  "problem_solution",
+                                  "pov",
+                                  "unboxing",
+                                  "first_try"
+                                ]
+                              },
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "meta",
+                                  "tiktok"
+                                ]
+                              },
+                              "tool": {
+                                "type": "string",
+                                "enum": [
+                                  "arcads",
+                                  "creatify",
+                                  "creator"
+                                ]
+                              },
+                              "script": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "cta": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "format",
+                              "platform",
+                              "tool",
+                              "script",
+                              "cta"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "adPlan": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "ageBands": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "24_and_younger",
+                                      "25_to_29",
+                                      "30_to_34",
+                                      "35_to_44",
+                                      "45_to_54",
+                                      "55_and_older"
+                                    ]
+                                  }
+                                },
+                                "cities": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "watch": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "note": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "evidenceIds": {
+                                  "minItems": 1,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^ev_[0-9a-f]{12}$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "ageBands",
+                                "cities",
+                                "watch",
+                                "note",
+                                "evidenceIds"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "creatorBrief": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "profile": {
+                                  "type": "object",
+                                  "properties": {
+                                    "text": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "origin": {
+                                      "type": "string",
+                                      "enum": [
+                                        "qloo",
+                                        "interpreted",
+                                        "creative",
+                                        "yours"
+                                      ]
+                                    },
+                                    "evidenceIds": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "text",
+                                    "origin",
+                                    "evidenceIds"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "hooks": {
+                                  "maxItems": 3,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "hit": {
+                                  "maxItems": 6,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "avoid": {
+                                  "maxItems": 6,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "disclosure": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "profile",
+                                "hooks",
+                                "hit",
+                                "avoid",
+                                "disclosure"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "captions",
+                        "ugc",
+                        "adPlan",
+                        "creatorBrief"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^ev_[0-9a-f]{12}$"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "field",
+                "reason",
+                "excluded",
+                "changes",
+                "brief",
+                "culture",
+                "richSlots",
+                "concepts",
+                "pack",
+                "kit",
+                "evidenceIds"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -3721,7 +6151,9 @@
           "pack",
           "kit",
           "stats",
-          "partial"
+          "partial",
+          "frames",
+          "revisions"
         ],
         "additionalProperties": false
       }
@@ -6189,7 +8621,9 @@
               "culture",
               "concepts",
               "prompts",
-              "score"
+              "score",
+              "frames",
+              "revise"
             ]
           },
           "kind": {
@@ -6306,6 +8740,91 @@
           "type": "null"
         }
       ]
+    },
+    "cost": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "durationMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "qloo": {
+              "type": "object",
+              "properties": {
+                "live": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cached": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "live",
+                "cached"
+              ],
+              "additionalProperties": false
+            },
+            "claude": {
+              "type": "object",
+              "properties": {
+                "calls": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "inputTokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "outputTokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cachedInputTokens": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "calls",
+                "inputTokens",
+                "outputTokens",
+                "cachedInputTokens"
+              ],
+              "additionalProperties": false
+            },
+            "frames": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "estimateUsd": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "durationMs",
+            "qloo",
+            "claude",
+            "frames",
+            "estimateUsd"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -6319,7 +8838,8 @@
     "comparison",
     "trace",
     "stats",
-    "partial"
+    "partial",
+    "cost"
   ],
   "additionalProperties": false
 }

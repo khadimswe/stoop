@@ -1,4 +1,4 @@
-// "I sell on" choices for the waitlist. A plain module, so server code (the Gate 5 waitlist route) can
+// "I sell on" choices for the waitlist. A plain module, so server code (the waitlist route) can
 // import it: a value exported from a "use client" file reaches the server only as a client reference.
 export const SELLS_ON = [
   { value: "shopify", label: "Shopify" },

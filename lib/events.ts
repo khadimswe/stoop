@@ -4,6 +4,8 @@
 import { z } from "zod";
 import { evidenceSchema, type Evidence } from "./evidence";
 import {
+  citedEvidence,
+  costSchema,
   gapSchema,
   inputsSchema,
   proofSchema,
@@ -13,6 +15,7 @@ import {
   stageSchema,
   stageStatsSchema,
   traceStepSchema,
+  type Cost,
   type Report,
   type Stage,
 } from "./report/schema";
@@ -25,8 +28,10 @@ import {
   controlSchema,
   cultureFieldSchema,
   kitSchema,
+  revisionSchema,
   settingCitySchema,
   worldCheckSchema,
+  worldFramesSchema,
   type Comparison,
   type Control,
   type World,
@@ -34,7 +39,12 @@ import {
 import { briefSlotsSchema } from "./prompts/brief";
 import { productionPackSchema } from "./prompts/pack";
 
-const base = { seq: z.number().int().nonnegative(), at: z.iso.datetime() };
+const base = {
+  seq: z.number().int().nonnegative(),
+  at: z.iso.datetime(),
+  /** 1 (or absent) for a fresh run, 2 and up after a resume: each attempt streams again from seq 0. */
+  attempt: z.number().int().min(1).optional(),
+};
 const segmentIdSchema = z.string().regex(/^[a-z0-9-]+$/);
 const world = { ...base, segmentId: segmentIdSchema };
 
@@ -75,13 +85,17 @@ export const runEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ ...base, type: z.literal("control.pack"), pack: productionPackSchema, kit: kitSchema }),
   z.strictObject({ ...base, type: z.literal("control.partial"), stage: stageSchema, reason: z.string().min(1) }),
   z.strictObject({ ...base, type: z.literal("comparison.ready"), comparison: comparisonSchema }),
+  z.strictObject({ ...base, type: z.literal("run.cost"), cost: costSchema }),
+  // After the run: storyboard frames (their own invocation) and "Not this vibe" revisions.
+  z.strictObject({ ...world, type: z.literal("world.frames"), frames: worldFramesSchema }),
+  z.strictObject({ ...world, type: z.literal("world.revised"), revision: revisionSchema }),
   z.strictObject({ ...base, type: z.literal("run.partial"), stage: stageSchema, reason: z.string().min(1) }),
   z.strictObject({ ...base, type: z.literal("run.done") }),
   z.strictObject({ ...base, type: z.literal("run.failed"), stage: stageSchema.nullable(), message: z.string().min(1) }),
 ]);
 export type RunEvent = z.infer<typeof runEventSchema>;
 /** An event before the emitter stamps `seq` and `at`. */
-export type RunEventInput = RunEvent extends infer E ? (E extends RunEvent ? Omit<E, "seq" | "at"> : never) : never;
+export type RunEventInput = RunEvent extends infer E ? (E extends RunEvent ? Omit<E, "seq" | "at" | "attempt"> : never) : never;
 
 export type RunStatus = "idle" | "running" | "done" | "partial" | "failed";
 
@@ -113,6 +127,9 @@ export interface ReportState {
   trace: Report["trace"];
   stats: Report["stats"];
   partial: Report["partial"];
+  cost: Cost | null;
+  /** The attempt this state was built from: a resumed run streams again from seq 0 under a higher attempt. */
+  attempt: number;
   error: string | null;
 }
 
@@ -133,6 +150,8 @@ export const initialState: ReportState = {
   trace: [],
   stats: { stages: {} },
   partial: null,
+  cost: null,
+  attempt: 1,
   error: null,
 };
 
@@ -151,6 +170,8 @@ const emptyWorld = (segmentId: string, label: string): World => ({
   kit: null,
   stats: {},
   partial: null,
+  frames: null,
+  revisions: [],
 });
 
 /** Updates one world, creating it if its world.started has not arrived yet (it keeps the id as a label until then). */
@@ -175,6 +196,8 @@ const emptyControl: ControlState = {
 
 type Scope = { stats: World["stats"]; partial: World["partial"] };
 
+const hasWorld = (state: ReportState, segmentId: string) => segmentId !== CONTROL_ID && state.worlds.some((w) => w.segmentId === segmentId);
+
 /** A world-scoped stage event lands on its world, or on the Control. */
 function scoped(state: ReportState, segmentId: string, change: (scope: Scope) => Scope): Pick<ReportState, "worlds" | "control"> {
   if (segmentId === CONTROL_ID) {
@@ -185,14 +208,25 @@ function scoped(state: ReportState, segmentId: string, change: (scope: Scope) =>
 }
 
 /**
+ * What may still arrive after a run ended: storyboard frames and revisions, with their own receipts
+ * and trace steps. Nothing else changes a finished run.
+ */
+const AFTER_RUN: ReadonlySet<RunEvent["type"]> = new Set(["world.frames", "world.revised", "run.cost", "evidence.added", "trace.step"]);
+
+/**
  * Applies one event. A repeat (same seq, e.g. an SSE reconnect) changes nothing; a late event with a
- * lower, unseen seq still applies. Once a run ended (done or failed), nothing else changes it, and
- * a second run.started never replaces the first.
+ * lower, unseen seq still applies. Once a run ended (done or failed), only frames, revisions and
+ * their receipts and trace steps still apply, and a second run.started never replaces the first.
  */
 export function apply(state: ReportState, event: RunEvent): ReportState {
+  // A resumed run replays from seq 0 under a higher attempt: its first event starts a fresh state,
+  // and anything from an older attempt that arrives late is ignored.
+  const attempt = event.attempt ?? 1;
+  if (attempt < state.attempt) return state;
+  if (attempt > state.attempt) return apply({ ...initialState, attempt }, event);
   if (state.seen.includes(event.seq)) return state;
   const ended = state.status === "done" || state.status === "failed" || (state.status === "partial" && state.stage === null);
-  if (ended && event.seq > state.lastSeq) return state;
+  if (ended && event.seq > state.lastSeq && !AFTER_RUN.has(event.type)) return state;
   if (event.type === "run.started" && state.runId !== null) return state;
   const next: ReportState = { ...state, lastSeq: Math.max(state.lastSeq, event.seq), seen: [...state.seen, event.seq] };
   switch (event.type) {
@@ -254,6 +288,31 @@ export function apply(state: ReportState, event: RunEvent): ReportState {
       return { ...next, control: { ...(state.control ?? emptyControl), partial: { stage: event.stage, reason: event.reason } } };
     case "comparison.ready":
       return { ...next, comparison: event.comparison };
+    case "run.cost":
+      return { ...next, cost: event.cost };
+    case "world.frames": {
+      // Frames and revisions land only on a world the run built, so a stray one can never add a world
+      // or break the report: frames must render that world's pack or one of its revisions.
+      const { revisionId } = event.frames;
+      const world = state.worlds.find((w) => w.segmentId === event.segmentId);
+      if (!hasWorld(state, event.segmentId) || (revisionId !== null && !world?.revisions.some((r) => r.id === revisionId))) return next;
+      return { ...next, worlds: withWorld(state.worlds, event.segmentId, (w) => ({ ...w, frames: event.frames })) };
+    }
+    case "world.revised": {
+      // A revision's receipts arrive first, in the same write; one citing a receipt the ledger lacks is dropped.
+      const { revision } = event;
+      const ledger = new Set(state.ledger.map((e) => e.id));
+      const wrongWorld = revision.brief.segment.id !== event.segmentId || (revision.pack !== null && revision.pack.segmentId !== event.segmentId);
+      if (!hasWorld(state, event.segmentId) || wrongWorld || !citedEvidence(revision).every((id) => ledger.has(id))) return next;
+      // A repeat of the same revision replaces it in place.
+      return {
+        ...next,
+        worlds: withWorld(state.worlds, event.segmentId, (w) => {
+          const index = w.revisions.findIndex((r) => r.id === event.revision.id);
+          return { ...w, revisions: index === -1 ? [...w.revisions, event.revision] : w.revisions.map((r, i) => (i === index ? event.revision : r)) };
+        }),
+      };
+    }
     case "run.partial":
       return { ...next, status: "partial", partial: { stage: event.stage, reason: event.reason } };
     case "run.done":
@@ -263,9 +322,9 @@ export function apply(state: ReportState, event: RunEvent): ReportState {
   }
 }
 
-/** Folds events in `seq` order (they may arrive out of order), ignoring duplicates. */
+/** Folds events in attempt, then `seq` order (they may arrive out of order), ignoring duplicates. */
 export function reduce(events: readonly RunEvent[], from: ReportState = initialState): ReportState {
-  return [...events].sort((a, b) => a.seq - b.seq).reduce(apply, from);
+  return [...events].sort((a, b) => (a.attempt ?? 1) - (b.attempt ?? 1) || a.seq - b.seq).reduce(apply, from);
 }
 
 /**
@@ -292,6 +351,7 @@ export function toReport(state: ReportState): Report {
     trace: state.trace,
     stats: state.stats,
     partial: state.partial,
+    cost: state.cost,
   });
 }
 
@@ -316,13 +376,17 @@ function finishedControl(control: ControlState | null, worlds: readonly World[])
   return { ...control, run: control.run, brief: control.brief, assumed: control.assumed, fits };
 }
 
-/** Stamps events with `seq` and `at` as stages emit them. The clock is injectable for reproducible recordings. */
-export function createEmitter(now: () => Date = () => new Date()) {
+/**
+ * Stamps events with `seq` and `at` as stages emit them, numbering seqs itself. For recordings and
+ * tests: live runs take their seqs from the store (lib/store/runs.ts appendRunEvents), batched. The
+ * clock is injectable for reproducible recordings.
+ */
+export function createEmitter(now: () => Date = () => new Date(), options: { attempt?: number } = {}) {
   const events: RunEvent[] = [];
   return {
     events,
     emit(input: RunEventInput): RunEvent {
-      const event = runEventSchema.parse({ ...input, seq: events.length, at: now().toISOString() });
+      const event = runEventSchema.parse({ ...input, seq: events.length, at: now().toISOString(), ...(options.attempt ? { attempt: options.attempt } : {}) });
       events.push(event);
       return event;
     },
