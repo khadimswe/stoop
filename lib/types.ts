@@ -73,3 +73,7 @@ export type CreativeDirection = z.infer<typeof creativeDirectionSchema>;
 export type CreativeDirectionInput = z.input<typeof creativeDirectionSchema>;
 
 export const DEFAULT_DIRECTION: CreativeDirection = { look: "auto", cast: "auto", energy: "auto" };
+
+/** The Culture Brief fields a world reports on (lib/report/world.ts), each with how much Qloo evidence backs it. */
+export const CULTURE_FIELDS = ["music", "visual", "wardrobe", "setting", "mood", "voice", "creators"] as const;
+export type CultureField = (typeof CULTURE_FIELDS)[number];

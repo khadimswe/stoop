@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "../hash";
 import type { Endpoint } from "./constants";
 
 export type ParamScalar = string | number | boolean;
@@ -31,5 +31,5 @@ export function paramsRecord(params: QlooParams): Record<string, string> {
 }
 
 export function cacheKey(endpoint: Endpoint, params: QlooParams): string {
-  return createHash("sha256").update(`${endpoint}?${canonicalQuery(params)}`).digest("hex");
+  return sha256(`${endpoint}?${canonicalQuery(params)}`);
 }

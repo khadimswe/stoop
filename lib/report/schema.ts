@@ -7,10 +7,10 @@ import { evidenceSchema } from "../evidence";
 import { AGE_BUCKETS } from "../qloo/constants";
 import { productSpecSchema } from "../prompts/brief";
 import { creativeDirectionSchema } from "../types";
-import { partialSchema, stageSchema, stageStatsSchema } from "./stages";
+import { costSchema, partialSchema, stageSchema, stageStatsSchema, traceStageSchema } from "./stages";
 import { CONTROL_ID, comparisonSchema, controlSchema, worldSchema } from "./world";
 
-export { STAGES, stageSchema, stageStatsSchema, partialSchema, type Stage, type StageStats } from "./stages";
+export { AFTER_RUN_STAGES, STAGES, costSchema, traceStageSchema, type TraceStage, stageSchema, stageStatsSchema, partialSchema, type Cost, type Stage, type StageStats } from "./stages";
 
 export const REPORT_VERSION = 1;
 
@@ -196,7 +196,7 @@ export type Segments = z.infer<typeof segmentsSchema>;
 // --- Trace and stats -------------------------------------------------------------------------
 
 export const traceStepSchema = z.strictObject({
-  stage: stageSchema,
+  stage: traceStageSchema,
   kind: z.enum(["tool", "decision"]),
   /** Human label, e.g. "Measuring age and gender skew from 4 seeds". */
   label: z.string().min(1),
@@ -235,6 +235,8 @@ const reportShape = z.strictObject({
   stats: z.strictObject({ stages: z.partialRecord(stageSchema, stageStatsSchema) }),
   /** Set when the run stopped early; the report still shows what was measured. */
   partial: partialSchema.nullable(),
+  /** Live runs only: what the run cost (the trace footer). Null for recorded examples. */
+  cost: costSchema.nullable(),
 });
 
 /** Every evidence id anywhere in a value (evidenceIds arrays and single evidenceId fields). */
@@ -274,6 +276,12 @@ export const reportSchema = reportShape.superRefine((report, ctx) => {
     if (segmentIds && !segmentIds.has(world.segmentId)) issue(`world ${world.segmentId} is not a measured segment`, ["worlds", i]);
     if (world.brief && world.brief.segment.id !== world.segmentId) issue(`world ${world.segmentId} carries the brief of ${world.brief.segment.id}`, ["worlds", i, "brief"]);
     if (world.pack && world.pack.segmentId !== world.segmentId) issue(`world ${world.segmentId} carries the pack of ${world.pack.segmentId}`, ["worlds", i, "pack"]);
+    world.revisions.forEach((revision, r) => {
+      if (revision.brief.segment.id !== world.segmentId) issue(`revision ${revision.id} of ${world.segmentId} carries the brief of ${revision.brief.segment.id}`, ["worlds", i, "revisions", r]);
+      if (revision.pack && revision.pack.segmentId !== world.segmentId) issue(`revision ${revision.id} of ${world.segmentId} carries the pack of ${revision.pack.segmentId}`, ["worlds", i, "revisions", r]);
+    });
+    const framed = world.frames?.revisionId;
+    if (framed && !world.revisions.some((r) => r.id === framed)) issue(`world ${world.segmentId} has frames for ${framed}, which is not one of its revisions`, ["worlds", i, "frames"]);
   });
   if (report.control) {
     if (report.control.brief.segment.id !== CONTROL_ID) issue(`the Control's brief is for ${report.control.brief.segment.id}`, ["control", "brief"]);

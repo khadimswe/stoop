@@ -11,7 +11,7 @@ import { productionPackSchema } from "../prompts/pack";
 import { rubricScoreSchema } from "../prompts/rubric";
 import { AGE_BUCKETS } from "../qloo/constants";
 import { MIN_PANEL_FOR_MEDIAN } from "../qloo/lift";
-import { cueSchema, SIGNALS } from "../types";
+import { CULTURE_FIELDS, cueSchema, SIGNALS } from "../types";
 import { partialSchema, stageSchema, stageStatsSchema } from "./stages";
 
 export { MIN_PANEL_FOR_MEDIAN };
@@ -50,9 +50,7 @@ export type PanelPosition = z.infer<typeof panelPositionSchema>;
 
 // --- The Culture Brief ---------------------------------------------------------------------------
 
-/** The brief fields a world reports on, each with how much Qloo evidence backs it. */
-export const CULTURE_FIELDS = ["music", "visual", "wardrobe", "setting", "mood", "voice", "creators"] as const;
-export type CultureField = (typeof CULTURE_FIELDS)[number];
+export { CULTURE_FIELDS, type CultureField } from "../types";
 
 /** One Qloo item behind a field: an entity or tag this world's calls returned. */
 export const cultureSourceSchema = z.strictObject({
@@ -274,6 +272,67 @@ export const kitSchema = z.strictObject({
 });
 export type Kit = z.infer<typeof kitSchema>;
 
+// --- Frames and revisions (after the run) ----------------------------------------------------------
+
+const hex64 = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** One storyboard frame for a scene of the kept concept: the first render, or the re-render after the critique. */
+export const frameSchema = z.strictObject({
+  /** Index into the kept concept's scenes. */
+  scene: z.number().int().min(0),
+  url: z.url({ protocol: /^https$/ }),
+  promptHash: hex64,
+  /** The image model's id as its vendor names it, e.g. a fal endpoint. */
+  modelId: z.string().regex(/^[a-z0-9][a-z0-9./-]{0,99}$/),
+  /** 1: the first render; 2: the re-render after the critique. */
+  attempt: z.union([z.literal(1), z.literal(2)]),
+});
+export type Frame = z.infer<typeof frameSchema>;
+
+/** Claude's review of one frame against the critique checklist, the concept and the brief. */
+export const frameCritiqueSchema = z.strictObject({
+  scene: z.number().int().min(0),
+  /** Concrete issues, e.g. "product hidden", "setting reads generic". Empty when the frame passes. */
+  issues: z.array(z.string().min(1)).max(6),
+  /** The rewritten prompt when the frame is re-rendered, else null. */
+  rewrite: z.string().min(1).nullable(),
+});
+export type FrameCritique = z.infer<typeof frameCritiqueSchema>;
+
+const revisionId = z.string().regex(/^rev-[0-9a-f]{12}$/);
+
+export const worldFramesSchema = z.strictObject({
+  /** The pack these frames render: null for the world's own pack, else the revision's, so frames never sit next to a pack they did not come from. */
+  revisionId: revisionId.nullable(),
+  /** rendering: in progress; done: frames and critique in; paused: the daily frame cap (or no frame service); failed: see reason. */
+  status: z.enum(["rendering", "done", "paused", "failed"]),
+  reason: z.string().min(1).nullable(),
+  frames: z.array(frameSchema),
+  critiques: z.array(frameCritiqueSchema),
+});
+export type WorldFrames = z.infer<typeof worldFramesSchema>;
+
+/** One "Not this vibe" revision of a world: what was rejected, what changed, and the new brief, concepts and pack. */
+export const revisionSchema = z.strictObject({
+  /** "rev-" plus 12 hex. A revision runs as its own child run, with its own Qloo cap. */
+  id: revisionId,
+  field: z.union([z.enum(CULTURE_FIELDS), z.literal("world")]),
+  /** The founder's note, guardrailed, shown as their words. Null when they gave none. */
+  reason: z.string().min(1).max(280).nullable(),
+  /** Qloo entity or tag ids the founder rejected (from this world's sources); the agent may not cite them again. */
+  excluded: z.array(z.string().min(1)),
+  changes: z.array(z.strictObject({ slot: briefSlot, before: cueSchema.nullable(), after: cueSchema.nullable() })),
+  brief: briefSlotsSchema,
+  culture: z.array(cultureFieldSchema),
+  richSlots: z.array(briefSlot),
+  concepts: conceptSetSchema.nullable(),
+  pack: productionPackSchema.nullable(),
+  /** The Campaign Kit rebuilt from the new pack. The setting city stays: it comes from the audience's cities, not the brief. */
+  kit: kitSchema.nullable(),
+  evidenceIds,
+});
+export type Revision = z.infer<typeof revisionSchema>;
+
 // --- A world -------------------------------------------------------------------------------------
 
 /**
@@ -296,6 +355,10 @@ export const worldSchema = z.strictObject({
   /** This world's own stage timings and calls (world-scoped stages only). */
   stats: statsSchema,
   partial: partialSchema.nullable(),
+  /** Storyboard frames, rendered after the run in their own invocation; null until requested. */
+  frames: worldFramesSchema.nullable(),
+  /** "Not this vibe" revisions, oldest first. */
+  revisions: z.array(revisionSchema),
 });
 export type World = z.infer<typeof worldSchema>;
 
