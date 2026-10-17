@@ -23,7 +23,8 @@ import { QlooBudgetError, QlooHttpError } from "../qloo/errors";
 import type { ReceiptLookup } from "../qloo/resolve";
 import { statedFromText, type StatedAudience } from "../stages/gap";
 import { ageBandLabel, ageBucketSchema } from "../types";
-import { askOnce, looksLikeInstructions, usageSchema } from "./claude";
+import { askOnce, usageSchema } from "../agent/ask";
+import { looksLikeInstructions } from "./claude";
 import { capText, collapse } from "./html";
 import { resolveTag, TASTE_KIND_NAMES } from "./tags";
 

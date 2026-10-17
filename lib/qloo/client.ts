@@ -17,6 +17,7 @@ import {
   RETRYABLE_STATUSES,
   type Endpoint,
 } from "./constants";
+import type { BudgetRow } from "./budget";
 import type { RunContext } from "./context";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooShapeError, redact } from "./errors";
 import { createLimiter, realSleep, type Limiter } from "./limiter";
@@ -46,6 +47,11 @@ export interface QlooRequest<T> {
   /** Human label for the trace, e.g. "Resolving Olipop to a brand entity". */
   label?: string;
   stage?: string;
+  /**
+   * The budget row this call spends (lib/qloo/budget.ts). Refused once the run's cap for that row is
+   * reached; a run with row caps refuses any call without a known row, so nothing slips past the table.
+   */
+  budgetRow?: BudgetRow;
   /** Trims large bodies (heatmaps) before they are cached. */
   slim?: (body: unknown) => unknown;
   /** Returned when Qloo answers 404 (search with no match). Without it, a 404 throws. */
@@ -195,22 +201,40 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     }
   }
 
-  function budgetProblem(ctx: RunContext): string | null {
+  function budgetProblem(ctx: RunContext, row?: string): string | null {
     if (ctx.liveCalls >= ctx.cap) return `Run ${ctx.runId} reached its cap of ${ctx.cap} live Qloo calls`;
+    const rowCap = row === undefined ? undefined : ctx.rowCaps[row];
+    if (row !== undefined && rowCap !== undefined && (ctx.rowCalls[row] ?? 0) >= rowCap) {
+      return `Run ${ctx.runId} spent its ${rowCap} ${row} calls`;
+    }
     if (ctx.monthRemaining !== undefined && ctx.monthRemaining < ctx.monthlyFloor) {
       return `Qloo monthly quota is below the floor (${ctx.monthRemaining} calls left)`;
     }
     return null;
   }
 
-  function assertBudget(ctx: RunContext): void {
-    const problem = budgetProblem(ctx);
+  function assertBudget(ctx: RunContext, row?: string): void {
+    const problem = budgetProblem(ctx, row);
     if (problem) throw new QlooBudgetError(problem);
   }
 
-  function charge(ctx: RunContext, stage: string | undefined): void {
+  function charge(ctx: RunContext, stage: string | undefined, row: string | undefined): void {
     ctx.liveCalls++;
     if (stage) ctx.stageCalls[stage] = (ctx.stageCalls[stage] ?? 0) + 1;
+    if (row) ctx.rowCalls[row] = (ctx.rowCalls[row] ?? 0) + 1;
+  }
+
+  /** With row caps, retries may only use the calls the table leaves unplanned. */
+  function retrySlackSpent(ctx: RunContext): boolean {
+    const planned = Object.values(ctx.rowCaps).reduce((sum, calls) => sum + calls, 0);
+    return planned > 0 && ctx.retryCalls >= Math.max(0, ctx.cap - planned);
+  }
+
+  /** In a run with row caps, every call names a row the table knows. */
+  function assertRow(ctx: RunContext, row: string | undefined): void {
+    if (Object.keys(ctx.rowCaps).length === 0) return;
+    if (row === undefined) throw new QlooBudgetError(`Run ${ctx.runId} has a budget table, and this call names no budget row`);
+    if (!Object.hasOwn(ctx.rowCaps, row)) throw new QlooBudgetError(`Run ${ctx.runId} has no budget row "${row}"`);
   }
 
   /** Turns a cached or fresh entry into typed data, or throws. */
@@ -250,6 +274,7 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
 
   async function request<T>(ctx: RunContext, req: QlooRequest<T>): Promise<QlooResult<T>> {
     validateParams(req.endpoint, req.params);
+    assertRow(ctx, req.budgetRow);
     const key = cacheKey(req.endpoint, req.params);
 
     const hit = await cache?.get(key, `${req.endpoint}?${canonicalQuery(req.params)}`);
@@ -268,13 +293,16 @@ export function createQlooClient(options: QlooClientOptions = {}): QlooClient {
     const flightKey = `${ctx.runId}:${key}`;
     const joining = limiter.inFlight(flightKey);
     if (!joining) {
-      assertBudget(ctx);
-      charge(ctx, req.stage);
+      assertBudget(ctx, req.budgetRow);
+      charge(ctx, req.stage, req.budgetRow);
     }
     const fetched = await limiter.run(flightKey, async () => {
       const response = await send(req.endpoint, canonicalQuery(req.params), () => {
-        if (budgetProblem(ctx)) return false;
-        charge(ctx, req.stage);
+        // Retries draw on the run cap's slack (the cap minus the planned rows), not on the row, so one
+        // 503 never costs a world one of its planned calls, and retries can never eat a planned call.
+        if (budgetProblem(ctx) || retrySlackSpent(ctx)) return false;
+        charge(ctx, req.stage, undefined);
+        ctx.retryCalls++;
         return true;
       });
 

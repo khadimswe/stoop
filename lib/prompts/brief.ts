@@ -136,6 +136,12 @@ export const conceptSchema = z
     hook: z.string().trim().min(1),
     emotion: z.string().trim().min(1),
     surpriseBeat: z.string().trim().min(1),
+    /**
+     * What running this concept tests (plan 13.2), e.g. "whether a weekend-dinner moment beats a
+     * late-night snack moment for this world". The ad plan's "what to watch" ties to it. Concepts
+     * written before Gate 4 have none.
+     */
+    testHypothesis: z.string().trim().min(1).optional(),
     locations: z.array(locationSchema).min(1).max(2),
     scenes: z.array(sceneSchema).min(3).max(5),
   })

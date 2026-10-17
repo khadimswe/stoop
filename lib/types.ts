@@ -17,12 +17,19 @@ export type CueOrigin = (typeof CUE_ORIGINS)[number];
 export const SIGNALS = ["rich", "thin", "none"] as const;
 export type Signal = (typeof SIGNALS)[number];
 
-export const cueSchema = z.strictObject({
-  text: z.string().trim().min(1),
-  origin: z.enum(CUE_ORIGINS),
-  /** Ledger ids of the Qloo calls behind this cue. Empty for creative and yours. */
-  evidenceIds: z.array(z.string().min(1)),
-});
+export const cueSchema = z
+  .strictObject({
+    text: z.string().trim().min(1),
+    origin: z.enum(CUE_ORIGINS),
+    /** Ledger ids of the Qloo calls behind this cue. Empty for creative and yours. */
+    evidenceIds: z.array(z.string().min(1)),
+  })
+  .superRefine((cue, ctx) => {
+    // No evidence, no Qloo label: a cue that claims Qloo (or cites it) carries its receipts.
+    if ((cue.origin === "qloo" || cue.origin === "interpreted") && cue.evidenceIds.length === 0) {
+      ctx.addIssue({ code: "custom", message: `a ${cue.origin} cue needs at least one receipt`, path: ["evidenceIds"] });
+    }
+  });
 export type Cue = z.infer<typeof cueSchema>;
 
 /** Qloo's youngest bucket includes minors, so Stoop always shows it as 18 to 24. */

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { conceptSchema, defaultPackSettings, productSpecSchema, type BriefSlots, type Concept, type ProductSpec } from "./brief";
 import { MODELS } from "./models.config";
-import { buildProductAssets, buildProductionPack, checkPack, packHashes } from "./pack";
+import { buildProductAssets, buildProductionPack, checkPack, packHashes, productionPackSchema } from "./pack";
 import { estimateTokens } from "./veo";
 
 // Hand-written inputs use only the creative origin: no fake Qloo data.
@@ -96,6 +96,11 @@ describe("buildProductionPack", () => {
       [8, 5],
       [8, 3],
     ]);
+  });
+
+  it("parses with the report's pack schema, unchanged", () => {
+    const pack = build();
+    expect(productionPackSchema.parse(pack)).toEqual(pack);
   });
 
   it("passes every deterministic check on a clean brief", () => {

@@ -6,6 +6,11 @@ describe("run budget", () => {
     expect(PLANNED_CALLS).toBeLessThanOrEqual(RUN_CAP);
   });
 
+  it("plans 44 calls across the rows the stages charge", () => {
+    expect(PLANNED_CALLS).toBe(44);
+    expect(Object.keys(RUN_BUDGET)).toEqual(["prove", "gap", "segments", "culture", "localities", "scoring", "probes", "resolve", "searchReserve"]);
+  });
+
   it("gives every stage a positive allowance", () => {
     for (const calls of Object.values(RUN_BUDGET)) expect(calls).toBeGreaterThan(0);
   });

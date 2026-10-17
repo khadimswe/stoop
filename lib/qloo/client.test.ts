@@ -6,7 +6,8 @@ import { z } from "zod";
 import { MemoryCache } from "./cache";
 import { createQlooClient, type QlooClientOptions } from "./client";
 import { ENDPOINTS } from "./constants";
-import { createRunContext } from "./context";
+import { RUN_BUDGET, RUN_CAP } from "./budget";
+import { createLiveRunContext, createRunContext } from "./context";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooParamError, QlooShapeError } from "./errors";
 import { createLimiter, type Limiter } from "./limiter";
 import type { QlooParams } from "./params";
@@ -265,6 +266,54 @@ describe("budget", () => {
       client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything }),
     ).rejects.toBeInstanceOf(QlooBudgetError);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a call once its budget row is spent, while other rows go on", async () => {
+    const { client, fetchMock } = setup([ok(), ok(), ok()]);
+    const ctx = createRunContext({ runId: "run_rows", rowCaps: { probes: 1, scoring: 2 } });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything, budgetRow: "probes" }),
+    ).rejects.toThrow(new QlooBudgetError("Run run_rows spent its 1 probes calls"));
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID2), schema: anything, budgetRow: "scoring" });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: { ...artistParams(ID), take: 5 }, schema: anything, budgetRow: "scoring" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(ctx.rowCalls).toEqual({ probes: 1, scoring: 2 });
+  });
+
+  it("draws a retry on the run cap's slack, not on the row", async () => {
+    const { client, fetchMock } = setup([status(503), ok()]);
+    const ctx = createRunContext({ runId: "run_row_retry", cap: 3, rowCaps: { probes: 1 } });
+    await client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" });
+    expect(ctx.rowCalls.probes).toBe(1);
+    expect(ctx.liveCalls).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops retrying once the retries have used the cap's unplanned calls", async () => {
+    const { client, fetchMock } = setup([status(503), status(503), status(503), ok()]);
+    // 3 calls of cap, 2 planned in rows: one retry of slack.
+    const ctx = createRunContext({ runId: "run_slack", cap: 3, rowCaps: { probes: 2 } });
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "probes" }),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(ctx.retryCalls).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a call with no row, or an unknown one, in a run with a budget table", async () => {
+    const { client, fetchMock } = setup([]);
+    const ctx = createLiveRunContext("run_live");
+    await expect(client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything })).rejects.toThrow(/names no budget row/);
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "critique" as never }),
+    ).rejects.toThrow(/no budget row "critique"/);
+    await expect(
+      client.request(ctx, { endpoint: ENDPOINTS.insights, params: artistParams(ID), schema: anything, budgetRow: "toString" as never }),
+    ).rejects.toThrow(/no budget row "toString"/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ctx.rowCaps).toEqual(RUN_BUDGET);
+    expect(ctx.cap).toBe(RUN_CAP);
   });
 
   it("does not count cached calls against the cap", async () => {
