@@ -1,27 +1,28 @@
-// The examples' demo media, made offline by the founder only (no public route ever runs this). Every
-// command that spends refuses an unapproved prompt hash, prints the prompts, hashes, model and estimated
-// cost first, renders nothing without --yes and nothing at all with --dry-run, and stops at 24 images
-// per invocation. An approved file is never rendered over without --replace. Approvals stay hand-edited
-// in public/demo/approvals.json; this never writes it.
+// The examples' demo media, made offline by the founder only (no public route ever runs this). Nothing
+// renders a prompt hash that is not in public/demo/approvals.json. Every command that spends prints the
+// prompts, hashes, model and estimated cost first, renders nothing without --yes and nothing at all with
+// --dry-run, and stops at 24 images per invocation. An approved file is never rendered over without
+// --replace. fal's bytes are written as they come. Approvals stay hand-edited; this never writes them.
 //
 //   npm run render:demo -- packshot <slug> [--dry-run] [--yes] [--replace]
-//   npm run render:demo -- storyboards <slug> [--segment <id>|--control] [--dry-run] [--yes] [--replace]
+//   npm run render:demo -- storyboards <slug> [--segment <id>|--control] [--rerender] [--dry-run] [--yes] [--replace]
 //   npm run render:demo -- clip <file> --example <slug> --role <role> [--segment <id>] --prompt-hash <hash> [--poster <image>] [--captions <vtt>] [--dry-run] [--replace]
 //   npm run render:demo -- approve-list <slug>
 //
-// Order: export and review (npm run prompts:export -- <slug> --from-report), approve the pack hashes,
-// packshot, approve its file, storyboards (their prompts pin the approved packshot), approve the frame
-// files and any rewrite hashes, then register the founder's Higgsfield clips.
+// Order: export and review (npm run prompts:export -- <slug>), approve the pack hashes, packshot,
+// approve its file, storyboards (their prompts pin the approved packshot; Claude's rewrites are only
+// recorded in exports/<slug>/pending-rewrites.json), approve the frame files and the rewrites you want,
+// storyboards --rerender for those, approve the new files, then register the founder's Higgsfield clips.
 // Keys (FAL_KEY, ANTHROPIC_API_KEY) are read from the local env file only when --yes renders.
 import path from "node:path";
 import { stoopModel, stoopModelId } from "../lib/agent/model";
-import { approveList, clipCommand, DemoRefusal, falRenderers, packshotCommand, storyboardsCommand, type DemoDeps, type SpendFlags } from "../lib/demo/render-demo";
+import { approveList, clipCommand, DemoRefusal, falRenderers, packshotCommand, rerenderCommand, storyboardsCommand, type DemoDeps, type SpendFlags } from "../lib/demo/render-demo";
 import { loadLocalEnv } from "./env";
 
 const USAGE = [
   "Usage:",
   "  npm run render:demo -- packshot <slug> [--dry-run] [--yes] [--replace]",
-  "  npm run render:demo -- storyboards <slug> [--segment <id>|--control] [--dry-run] [--yes] [--replace]",
+  "  npm run render:demo -- storyboards <slug> [--segment <id>|--control] [--rerender] [--dry-run] [--yes] [--replace]",
   "  npm run render:demo -- clip <file> --example <slug> --role <hero-control|hero-culture|control|culture> [--segment <id>] --prompt-hash <hash> [--poster <image>] [--captions <vtt>] [--dry-run] [--replace]",
   "  npm run render:demo -- approve-list <slug>",
 ].join("\n");
@@ -34,7 +35,7 @@ function fail(message: string): never {
 /** What each command accepts: flags, and options that take a value. Anything else fails, so a typo never widens a render. */
 const ACCEPTS: Record<string, { flags: string[]; options: string[] }> = {
   packshot: { flags: ["--dry-run", "--yes", "--replace"], options: [] },
-  storyboards: { flags: ["--dry-run", "--yes", "--replace", "--control"], options: ["--segment"] },
+  storyboards: { flags: ["--dry-run", "--yes", "--replace", "--control", "--rerender"], options: ["--segment"] },
   clip: { flags: ["--dry-run", "--replace"], options: ["--example", "--role", "--segment", "--prompt-hash", "--poster", "--captions"] },
   "approve-list": { flags: [], options: [] },
 };
@@ -79,34 +80,29 @@ async function main(): Promise<void> {
   const spend: SpendFlags = { dryRun: flags.has("--dry-run"), yes: flags.has("--yes"), replace: flags.has("--replace") };
   const live = spend.yes && !spend.dryRun;
   const base = { root: process.cwd(), log: (line: string) => console.log(line) };
+  const [target] = positional;
   switch (command) {
-    case "packshot": {
-      const [slug] = positional;
-      if (!slug) fail(USAGE);
-      await packshotCommand({ ...base, ...liveDeps(live, false) }, slug, spend);
+    case "packshot":
+      await packshotCommand({ ...base, ...liveDeps(live, false) }, target, spend);
       return;
-    }
     case "storyboards": {
-      const [slug] = positional;
-      if (!slug) fail(USAGE);
-      await storyboardsCommand({ ...base, ...liveDeps(live, true) }, slug, { segment: options.get("--segment") ?? null, control: flags.has("--control") }, spend);
+      const select = { segment: options.get("--segment") ?? null, control: flags.has("--control") };
+      // A re-render takes no review: only the first pass calls Claude.
+      if (flags.has("--rerender")) await rerenderCommand({ ...base, ...liveDeps(live, false) }, target, select, spend);
+      else await storyboardsCommand({ ...base, ...liveDeps(live, true) }, target, select, spend);
       return;
     }
     case "clip": {
-      const [file] = positional;
       const example = options.get("--example");
       const role = options.get("--role");
       const promptHash = options.get("--prompt-hash");
-      if (!file || !example || !role || !promptHash) fail(USAGE);
-      await clipCommand({ ...base, renderers: null, model: null }, { file, example, role, segment: options.get("--segment") ?? null, promptHash, poster: options.get("--poster") ?? null, captions: options.get("--captions") ?? null, dryRun: spend.dryRun, replace: spend.replace });
+      if (!example || !role || !promptHash) fail(USAGE);
+      await clipCommand({ ...base, renderers: null, model: null }, { file: target, example, role, segment: options.get("--segment") ?? null, promptHash, poster: options.get("--poster") ?? null, captions: options.get("--captions") ?? null, dryRun: spend.dryRun, replace: spend.replace });
       return;
     }
-    case "approve-list": {
-      const [slug] = positional;
-      if (!slug) fail(USAGE);
-      for (const line of await approveList(base, slug)) console.log(line);
+    case "approve-list":
+      for (const line of await approveList(base, target)) console.log(line);
       return;
-    }
     default:
       fail(USAGE);
   }

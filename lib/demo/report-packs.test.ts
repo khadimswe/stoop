@@ -73,7 +73,9 @@ describe("the export from the reports", () => {
     expect(plan.asset.file).toBe("packshot.png");
     expect(plan.prompt).toBe(report.control!.pack!.assets.find((a) => a.kind === "packshot")!.prompt);
     expect(plan.prompt).toMatch(/free of text, props and people/);
-    expect(plan.file).toBe("/demo/food-hot-sauce/packshot.webp");
+    // FLUX [schnell] is asked for JPEG, and its bytes are kept as they come.
+    expect(plan.format).toBe("jpeg");
+    expect(plan.file).toBe("/demo/food-hot-sauce/packshot.jpg");
   });
 });
 

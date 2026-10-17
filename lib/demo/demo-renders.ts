@@ -3,18 +3,22 @@
 // prompt with its own hash. Pure planning, no I/O: lib/demo/render-demo.ts runs the plans.
 //
 //   packshot     the report pack's packshot.png asset prompt (a text description of a fictional product,
-//                no people, no logos but the product's own), text to image, square. Its hash covers the
-//                endpoint, the size, the prompt and the asset's own pack hash.
+//                no people, no logos but the product's own), text to image, square, as JPEG. Its hash
+//                covers the endpoint, the size, the format, the prompt and the asset's own pack hash.
 //   storyboards  the live frame template (lib/prompts/frames.ts) on the world's pack. With an approved
 //                packshot, the edit model takes it as the reference image and the hash pins that exact
 //                file (its sha256); without one, the text model renders from the product description.
+//   rewrites     a critique rewrite is a new prompt: it is recorded for approval, never rendered in the
+//                pass that wrote it (storyboards --rerender renders approved ones only).
+// fal's bytes are kept exactly as they come (no re-encoding), so provenance marks survive; fal is asked
+// for a compact format instead (DEMO_OUTPUT_FORMATS).
 // The reports' products stay text-only (inputs.product is never changed): the packshot is a reference
 // override at render time, recorded in the manifest.
 import { hashOf } from "../hash";
 import { checkText, FAMOUS_PLACES } from "../guardrails";
 import type { BriefSlots, ProductSpec } from "../prompts/brief";
 import { frameBody, frameClosing, framePromptHash, frameScenes, FRAMES_PER_WORLD } from "../prompts/frames";
-import { FRAME_MODELS, type FrameModel } from "../prompts/models.config";
+import { FRAME_MODELS, type FrameModel, type FrameModelRole } from "../prompts/models.config";
 import { packHashes, type PackAsset } from "../prompts/pack";
 import type { Report } from "../report/schema";
 import { claudeUsd } from "../runtime/cost";
@@ -27,18 +31,28 @@ export const DEMO_RENDER_VERSION = 1;
 /** fal FLUX [schnell]'s square preset (1024 x 1024, one megapixel). */
 export const PACKSHOT_IMAGE_SIZE = "square_hd";
 export const PACKSHOT_MODEL: FrameModel = FRAME_MODELS.text;
-/**
- * The most images one render-demo invocation may request from fal, re-renders included: 3 storyboards
- * of 4 frames, each frame re-rendered once at most.
- */
+/** 3 storyboards of 4 frames: the most images one render-demo invocation may request from fal. */
 export const MAX_IMAGES_PER_INVOCATION = 24;
 /** Claude's frame review, per storyboard: 4 images and the brief in, the review out (list prices, an estimate). */
 export const CRITIQUE_TOKENS_ESTIMATE = { inputTokens: 12_000, outputTokens: 5_000, cachedInputTokens: 0 } as const;
 export const CRITIQUE_USD_ESTIMATE = claudeUsd(CRITIQUE_TOKENS_ESTIMATE);
 
+// --- Formats -----------------------------------------------------------------------------------------
+
+export const IMAGE_FORMATS = ["webp", "jpeg", "png"] as const;
+export type ImageFormat = (typeof IMAGE_FORMATS)[number];
+export const CONTENT_TYPES: Record<ImageFormat, string> = { webp: "image/webp", jpeg: "image/jpeg", png: "image/png" };
+export const EXTENSIONS: Record<ImageFormat, string> = { webp: "webp", jpeg: "jpg", png: "png" };
+/**
+ * What fal is asked to send for each frame model: the edit model offers webp, jpeg and png; FLUX
+ * [schnell] offers jpeg and png (models.config.ts FRAME_MODELS notes).
+ */
+export const DEMO_OUTPUT_FORMATS: Record<FrameModelRole, ImageFormat> = { edit: "webp", text: "jpeg" };
+export const outputFormat = (model: FrameModel): ImageFormat => DEMO_OUTPUT_FORMATS[model.role];
+
 export const demoDir = (slug: string) => `/demo/${slug}`;
-export const packshotPath = (slug: string) => `${demoDir(slug)}/packshot.webp`;
-export const framePath = (slug: string, key: string, scene: number) => `${demoDir(slug)}/frames/${key}-shot-${scene + 1}.webp`;
+export const packshotPath = (slug: string, format: ImageFormat = outputFormat(PACKSHOT_MODEL)) => `${demoDir(slug)}/packshot.${EXTENSIONS[format]}`;
+export const framePath = (slug: string, key: string, scene: number, format: ImageFormat) => `${demoDir(slug)}/frames/${key}-shot-${scene + 1}.${EXTENSIONS[format]}`;
 
 // --- The packshot ----------------------------------------------------------------------------------
 
@@ -48,15 +62,16 @@ export interface PackshotPlan {
   asset: PackAsset;
   model: FrameModel;
   imageSize: typeof PACKSHOT_IMAGE_SIZE;
+  format: ImageFormat;
   prompt: string;
   promptHash: string;
-  /** Served path, e.g. /demo/food-hot-sauce/packshot.webp. */
+  /** Served path, e.g. /demo/food-hot-sauce/packshot.jpg. */
   file: string;
   usd: number;
 }
 
 export function packshotHash(model: FrameModel, prompt: string, assetHash: string): string {
-  return hashOf({ kind: "demo-packshot", version: DEMO_RENDER_VERSION, endpoint: model.endpoint, imageSize: PACKSHOT_IMAGE_SIZE, prompt, assetHash });
+  return hashOf({ kind: "demo-packshot", version: DEMO_RENDER_VERSION, endpoint: model.endpoint, imageSize: PACKSHOT_IMAGE_SIZE, format: outputFormat(model), prompt, assetHash });
 }
 
 /** The packshot every pack of the report shares. Throws when the packs disagree or the product has photos instead. */
@@ -67,7 +82,8 @@ export function packshotPlan(report: Report): PackshotPlan {
   const asset = assets[0];
   if (!asset || assets.some((a) => a?.promptHash !== asset.promptHash)) throw new Error(`${slug}: the packs do not share one packshot asset.`);
   const prompt = asset.prompt;
-  return { slug, asset, model: PACKSHOT_MODEL, imageSize: PACKSHOT_IMAGE_SIZE, prompt, promptHash: packshotHash(PACKSHOT_MODEL, prompt, asset.promptHash), file: packshotPath(slug), usd: PACKSHOT_MODEL.usdPerFrame };
+  const format = outputFormat(PACKSHOT_MODEL);
+  return { slug, asset, model: PACKSHOT_MODEL, imageSize: PACKSHOT_IMAGE_SIZE, format, prompt, promptHash: packshotHash(PACKSHOT_MODEL, prompt, asset.promptHash), file: packshotPath(slug, format), usd: PACKSHOT_MODEL.usdPerFrame };
 }
 
 // --- Storyboards -----------------------------------------------------------------------------------
@@ -121,7 +137,7 @@ export function storyboardPlan(report: Report, entry: ReportPack, reference: Dem
   return { slug: product.slug, entry, reference, frames, blocked };
 }
 
-/** The re-render after a critique: the rewritten body with the same closing, model and reference. */
+/** A critique rewrite as a prompt: the rewritten body with the same closing, model and reference. */
 export function rewritePlan(plan: FramePlan, rewrite: string, reference: DemoPackshot | null): FramePlan {
   return framePlan(plan.scene, rewrite, plan.closing, reference);
 }
@@ -140,11 +156,12 @@ export function selectBoards(report: Report, select: { segment?: string | null; 
 }
 
 export interface BoardCost {
+  /** Images this pass renders: one per planned frame. */
   firstRenders: number;
-  /** Re-renders at most: one per flagged frame, up to MAX_REWRITES. */
+  /** Re-renders a later --rerender may take, one per flagged frame, up to MAX_REWRITES (only approved rewrites render). */
   maxRerenders: number;
-  /** Dollars: first renders, worst-case re-renders, and the Claude review. */
-  usd: { renders: number; rerenders: number; critique: number; total: number };
+  /** Dollars: this pass's renders and Claude's review, the later re-renders at most, and both steps together. */
+  usd: { renders: number; critique: number; pass: number; rerenders: number; total: number };
 }
 
 export function boardCost(plan: BoardPlan): BoardCost {
@@ -154,7 +171,7 @@ export function boardCost(plan: BoardPlan): BoardCost {
   const renders = firstRenders * perFrame;
   const rerenders = maxRerenders * perFrame;
   const critique = firstRenders > 0 ? CRITIQUE_USD_ESTIMATE : 0;
-  return { firstRenders, maxRerenders, usd: { renders, rerenders, critique, total: renders + rerenders + critique } };
+  return { firstRenders, maxRerenders, usd: { renders, critique, pass: renders + critique, rerenders, total: renders + critique + rerenders } };
 }
 
 /** "$0.32"; amounts under a cent keep three decimals ("$0.003"). */
@@ -171,6 +188,6 @@ export function exportHashes(report: Report): { id: string; promptHash: string }
   };
   for (const entry of reportPacks(report)) packHashes(entry.pack).forEach(add);
   const packshot = packshotPlan(report);
-  add({ id: `${packshot.slug}/demo/packshot.webp (${packshot.model.endpoint})`, promptHash: packshot.promptHash });
+  add({ id: `${packshot.slug}/demo/${packshot.file.split("/").pop()} (${packshot.model.endpoint})`, promptHash: packshot.promptHash });
   return out;
 }
