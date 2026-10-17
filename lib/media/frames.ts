@@ -386,7 +386,7 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
       );
     } catch (error) {
       if (env.abortSignal?.aborted) throw error;
-      review = { critiques: [], refused: [], failure: error instanceof Error ? error.name : "the review failed" };
+      review = { critiques: [], refused: [], unsafe: [], failure: error instanceof Error ? error.name : "the review failed" };
     }
     if (review.failure) steps.push(step("Skipped the frame review", `${review.failure}; the frames stand as rendered.`));
     for (const refused of review.refused) steps.push(step(`Kept frame ${refused.scene + 1}'s prompt`, `The rewrite was refused: ${refused.reason}.`));
@@ -417,7 +417,13 @@ async function render(env: FramesEnv, job: FramesJob, source: { pack: Production
     const passing = critiques.filter((c) => c.issues.length === 0).map((c) => c.scene);
     if (passing.length) steps.push(step(`Frame${passing.length === 1 ? "" : "s"} ${shots(passing)} ${passing.length === 1 ? "passes" : "pass"} the checklist`));
 
-    const frames = [...firsts.map((r) => r.frame), ...[...reRendered.values()].map((r) => r.frame)].sort((a, b) => a.scene - b.scene || a.attempt - b.attempt);
+    // A first render that breaks a blocking guardrail is never shown; only its re-render, from a rewrite that passed the guardrails, may stand.
+    const unsafe = new Set(review.unsafe);
+    for (const scene of [...unsafe].sort((a, b) => a - b)) {
+      steps.push(step(`Held back frame ${scene + 1}`, reRendered.has(scene) ? "It broke a blocking guardrail; only its re-render is shown." : "It broke a blocking guardrail and no clean re-render replaced it, so it is not shown."));
+    }
+    const kept = firsts.filter((r) => !unsafe.has(r.plan.scene)).map((r) => r.frame);
+    const frames = [...kept, ...[...reRendered.values()].map((r) => r.frame)].sort((a, b) => a.scene - b.scene || a.attempt - b.attempt);
     return finish({ revisionId, status: "done", reason: null, frames, critiques }, steps, "done");
   } catch (error) {
     // The job's deadline (the route's time limit) ends it as a failure the viewer can see.

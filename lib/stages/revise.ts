@@ -18,10 +18,11 @@ import type { ReferenceSets } from "../geo/metros";
 import { checkText, childSetting, FAMOUS_PLACES } from "../guardrails";
 import { apiError, type RouteAnswer } from "../route-answer";
 import { BRIEF_SLOTS, briefCueTexts, type BriefSlots } from "../prompts/brief";
-import { REVISE_CAP } from "../qloo/budget";
+import { MONTHLY_FLOOR, REVISE_CAP } from "../qloo/budget";
 import type { QlooClient } from "../qloo/client";
 import { ENDPOINTS, type AgeBucket } from "../qloo/constants";
 import { createRunContext } from "../qloo/context";
+import { lastMonthRemaining } from "../qloo/shared";
 import { QlooBudgetError, QlooHttpError, QlooShapeError } from "../qloo/errors";
 import { heatmapResponse, insightsEntitiesResponse, slimEntitiesBody, slimHeatmapBody, type HeatmapCell } from "../qloo/types";
 import type { RealityCheck } from "../report/schema";
@@ -273,7 +274,9 @@ export async function runRevision(env: ReviseEnv, job: RevisionJob): Promise<Rev
     ),
   ]);
 
-  const ctx = createRunContext({ runId: job.revisionId, cap: REVISE_CAP });
+  // Its own cap, and the monthly floor live runs keep, from the last month-remaining Qloo reported.
+  const monthRemaining = await lastMonthRemaining(env.store);
+  const ctx = createRunContext({ runId: job.revisionId, cap: REVISE_CAP, ...(monthRemaining !== undefined ? { monthlyFloor: MONTHLY_FLOOR, monthRemaining } : {}) });
   const capture = createEmitter(now);
   const stageEnv: StageEnv = { client: env.client, ctx, emit: capture.emit, reference: env.reference, inReference: env.inReference, segmentId: job.segmentId };
   const counted = countingModel(env.model, cost.claude);

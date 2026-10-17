@@ -21,7 +21,7 @@ import { getRunMeta, refreshReport, runLease, setRunMeta } from "../store/runs";
 import type { Store } from "../store/types";
 import { storeEmitter, type StoreEmitter } from "./emitter";
 import { estimateUsd } from "./cost";
-import { emptyTally, memoizedModel, type ClaudeTally } from "./memo";
+import { emptyTally, memoizedModel } from "./memo";
 import { loadRunRecord, type RunRecord } from "./record";
 
 /** The run stops here, leaving the function (maxDuration 300 s) time to write what it has. */
@@ -145,12 +145,12 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
         const message = stop.signal.reason instanceof StoreDownError ? stop.signal.reason.message : error instanceof Error ? error.message : String(error);
         emitter.emit({ type: "run.failed", stage: null, message });
       }
-    } finally {
-      clearTimeout(timer);
     }
 
-    // Frames already started go on until they finish (or the deadline stops them); their cost joins the run's.
+    // Frames already started go on until they finish, or until the deadline (still running) stops them;
+    // their cost joins the run's.
     const framed = await Promise.all(framing);
+    clearTimeout(timer);
     if (status !== "stopped") {
       let cost: Cost = {
         durationMs: now() - started,

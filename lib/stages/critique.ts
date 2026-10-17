@@ -17,7 +17,7 @@ import { checklistFor, type ChecklistItem } from "../prompts/critique-checklist"
 import type { ProductionPack } from "../prompts/pack";
 import type { FrameCritique } from "../report/world";
 
-export const CRITIQUE_VERSION = 1;
+export const CRITIQUE_VERSION = 2;
 /** Issues kept per frame (the report's limit). */
 export const MAX_ISSUES = 6;
 /** Re-renders per world at most: one per flagged frame. */
@@ -40,6 +40,7 @@ export function critiqueInstructions(): string {
     "- Look at each frame against the checklist, the concept and the brief you are given.",
     "- List only concrete issues you can see in the image, each in a few words: \"product hidden behind the hand\", \"setting reads generic, not a coffee counter\", \"readable text on the sign\", \"a second logo on the mug\". Never guess at what you cannot see.",
     "- A frame that passes gets an empty issues list and a null rewrite.",
+    "- Mark a frame unsafe when anyone in it may be under 18, when anyone resembles a real celebrity or public figure, or when it shows a logo or brand mark other than the product's own. An unsafe frame is never shown, so say why in its issues and write the rewrite that fixes it.",
     "- For a frame with issues, write one rewritten frame description that fixes them: what the frame shows (subject and action, location, composition, light, style) in plain words, under 700 characters. Keep the brief's setting, styling, visual language and mood.",
     "- Do not restate the rules about reference photos, people and exclusions: they are added to every prompt by code.",
     "- Your wording never contains a real name: no person, artist, film, show, brand, business or podcast. The setting city in the brief is the one place you may name.",
@@ -54,6 +55,7 @@ const outputSchema = z.object({
       shot: z.number().int().describe("The shot number of the frame, as labeled"),
       issues: z.array(z.string()).describe("Concrete issues you can see, a few words each; empty when the frame passes"),
       rewrite: z.string().nullable().describe("One rewritten frame description that fixes the issues, or null when it passes"),
+      unsafe: z.boolean().optional().describe("True when someone may be under 18, resembles a real public figure, or a logo other than the product's own shows"),
     }),
   ),
 });
@@ -82,6 +84,8 @@ export interface CritiqueResult {
   critiques: FrameCritique[];
   /** Rewrites the guardrails refused, with why (for the trace). */
   refused: { scene: number; reason: string }[];
+  /** Frames that break a blocking guardrail (a possible minor, a likeness, a third-party logo): never shown as rendered. */
+  unsafe: number[];
   /** Why there is no review at all (a timeout, a malformed answer); null when it came back. */
   failure: string | null;
 }
@@ -162,7 +166,7 @@ const tidyIssue = (issue: string) => {
 /** Turns Claude's answer into critiques: known shots only, issues capped and guardrailed, at most MAX_REWRITES rewrites. */
 export function readCritique(raw: unknown, input: CritiqueInput): Omit<CritiqueResult, "failure"> {
   const parsed = outputSchema.safeParse(raw);
-  if (!parsed.success) return { critiques: [], refused: [] };
+  if (!parsed.success) return { critiques: [], refused: [], unsafe: [] };
   const reviewed = new Set(input.frames.map((f) => f.scene));
   const byScene = new Map<number, (typeof parsed.data.frames)[number]>();
   for (const entry of parsed.data.frames) {
@@ -171,6 +175,7 @@ export function readCritique(raw: unknown, input: CritiqueInput): Omit<CritiqueR
   }
   const critiques: FrameCritique[] = [];
   const refused: CritiqueResult["refused"] = [];
+  const unsafe: number[] = [];
   let rewrites = 0;
   for (const scene of [...byScene.keys()].sort((a, b) => a - b)) {
     const entry = byScene.get(scene)!;
@@ -191,14 +196,15 @@ export function readCritique(raw: unknown, input: CritiqueInput): Omit<CritiqueR
         } else refused.push({ scene, reason: guarded.reason });
       }
     }
+    if (entry.unsafe === true) unsafe.push(scene);
     critiques.push({ scene, issues, rewrite });
   }
-  return { critiques, refused };
+  return { critiques, refused, unsafe };
 }
 
 /** Claude's review of a world's frames. A timeout or a malformed answer is a failure line, never an error; a cancelled call rejects. */
 export async function critiqueFrames(model: LanguageModel, input: CritiqueInput, options: { abortSignal?: AbortSignal; timeoutMs?: number } = {}): Promise<CritiqueResult> {
-  if (input.frames.length === 0) return { critiques: [], refused: [], failure: null };
+  if (input.frames.length === 0) return { critiques: [], refused: [], unsafe: [], failure: null };
   const timeoutMs = options.timeoutMs ?? CRITIQUE_TIMEOUT_MS;
   const timeout = AbortSignal.timeout(timeoutMs);
   const abortSignal = options.abortSignal ? AbortSignal.any([timeout, options.abortSignal]) : timeout;
@@ -218,12 +224,12 @@ export async function critiqueFrames(model: LanguageModel, input: CritiqueInput,
       output = result.output;
     } catch (error) {
       if (!NoOutputGeneratedError.isInstance(error)) throw error;
-      return { critiques: [], refused: [], failure: "the review ended before it was complete" };
+      return { critiques: [], refused: [], unsafe: [], failure: "the review ended before it was complete" };
     }
     return { ...readCritique(output, input), failure: null };
   } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error)) return { critiques: [], refused: [], failure: "the review was not valid JSON for the schema" };
-    if (timeout.aborted && !options.abortSignal?.aborted) return { critiques: [], refused: [], failure: `Claude did not answer within ${timeoutMs / 1000} s` };
+    if (NoObjectGeneratedError.isInstance(error)) return { critiques: [], refused: [], unsafe: [], failure: "the review was not valid JSON for the schema" };
+    if (timeout.aborted && !options.abortSignal?.aborted) return { critiques: [], refused: [], unsafe: [], failure: `Claude did not answer within ${timeoutMs / 1000} s` };
     throw error;
   }
 }

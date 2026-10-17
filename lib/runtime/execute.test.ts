@@ -197,3 +197,31 @@ describe("frames during a live run", () => {
     expect((await getRunMeta(store, runId))?.status).toBe("done");
   });
 });
+
+describe("frames that outlast the run", () => {
+  it("are stopped by the run's deadline, and the run still ends with its cost and report", async () => {
+    const store = new MemoryStore();
+    const { options, deps } = await liveRun(store);
+    let aborted = 0;
+    const started = Date.now();
+    await executeRun(
+      {
+        ...deps(counted(options.model, options.modelId, []), { deadlineMs: 3_000 }),
+        // A frames job that only ends when it is stopped, like a slow render.
+        frames: (_job, _model, signal) =>
+          new Promise((resolve) =>
+            signal.addEventListener("abort", () => {
+              aborted++;
+              resolve({ status: "failed", frames: null, cost: { durationMs: 0, qloo: { live: 0, cached: 0 }, claude: { calls: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }, frames: 0, estimateUsd: 0 } });
+            }),
+          ),
+      },
+      runId,
+    );
+    expect(aborted).toBe(stored.worlds.length);
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect((await getRunMeta(store, runId))?.status).toBe("done");
+    expect((await loadReport(store, runId))?.cost).not.toBeNull();
+    expect(await store.leaseCount(keys.liveLeases)).toBe(0);
+  });
+});
