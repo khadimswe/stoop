@@ -1,21 +1,34 @@
-// Writes the full Control Production Pack for one candidate (or all) for the founder to review before
-// any render: the brief with its origins, all three concepts with rubric scores, every asset and render
-// prompt with its hash and start frame, the shot list, the kit scripts and captions, the critique
-// checklist and the Director's Guide. Concepts written with older instructions still export, with a warning.
+// Writes Production Packs for the founder to review before any render: the brief with its origins, all
+// three concepts with rubric scores, every asset and render prompt with its hash and start frame, the
+// shot list, the kit scripts and captions, the critique checklist and the Director's Guide.
+//
+// From the example reports (the source of truth for demo approvals since Oct 17; an example's slug
+// always exports from here unless --baseline is given):
+//   npm run prompts:export -- <slug>|--all-examples [--from-report] [--freeze]
+// writes exports/<slug>/ with README.md, control.md, one <segmentId>.md per world and hashes.json.
+// --freeze (one slug at a time) writes data/packs/<slug>/<key>.json for every pack whose hashes are all
+// in public/demo/approvals.json, and refuses the rest.
+//
+// From the baselines (the older Control of the candidates; --all leaves the examples out):
 //   npm run prompts:export -- <slug>|--all [--freeze]
-// Review files go to exports/<slug>/ (gitignored). --freeze also writes data/packs/<slug>/control.json,
-// the committed record of an approved pack; approved hashes then go in public/demo/approvals.json.
-// Zero API calls: it reads the committed baseline and concepts.
+//   npm run prompts:export -- <example slug> --baseline
+// writes exports/<slug>/production-pack.md and hashes.json (exports/<slug>/baseline/ for an example, so
+// it never replaces the report's review files). Concepts written with older instructions still export,
+// with a warning. --freeze writes data/packs/<slug>/control.json; the examples freeze from their reports.
+// Review files go to exports/ (gitignored). Zero API calls: it reads committed files only.
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { baselineNames, baselineRunSchema, type BaselineRun } from "../lib/agent/baseline";
 import { candidateDirection, candidateProduct, CONTROL_RUN, controlBrief } from "../lib/agent/baseline-brief";
 import { CANDIDATES, type Candidate } from "../lib/demo/candidates";
+import { EXAMPLES, type ExampleSlug } from "../lib/demo/examples";
+import { approvalsSchema } from "../lib/demo/manifest";
+import { conceptLines, hashLines, packLines } from "../lib/demo/pack-markdown";
+import { reportExport } from "../lib/demo/report-export";
+import { freezeReportPacks, isExampleSlug, loadExampleReport, reportPackProblems, reportPacks } from "../lib/demo/report-packs";
 import { defaultPackSettings, type BriefSlots, type ProductSpec } from "../lib/prompts/brief";
-import { getModel } from "../lib/prompts/models.config";
 import { buildProductionPack, checkPack, packHashes, type ProductionPack } from "../lib/prompts/pack";
-import { totalScore } from "../lib/prompts/rubric";
 import { buildKitScripts, pickUgcFormat } from "../lib/prompts/ugc";
 import { bestConcept, conceptRunSchema, conceptSet, conceptsStatus, type ConceptRun } from "../lib/stages/concepts";
 import { ageBandLabel, type Cue } from "../lib/types";
@@ -40,7 +53,6 @@ export async function loadControl(candidate: Candidate): Promise<{ run: Baseline
 }
 
 const origin = (cue: Cue) => (cue.origin === "creative" ? "not from Qloo" : cue.origin);
-const block = (text: string) => `\`\`\`text\n${text}\n\`\`\``;
 
 function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, brief: BriefSlots, product: ProductSpec, pack: ProductionPack): string {
   const hashes = packHashes(pack);
@@ -85,86 +97,9 @@ function markdown(candidate: Candidate, run: BaselineRun, concepts: ConceptRun, 
     ...Object.entries(references).map(([type, names]) => `- ${type}: ${names.length ? names.join(", ") : "-"}`),
     `- assumed cities: ${assumedCities.length ? assumedCities.join(", ") : "-"}`,
     "",
-    "## Concepts",
-    "",
-    "Specificity counts at most 1 plus the brief slots the concept declared and its own words verify; the total below is after that bound.",
-    "",
-    ...[ranked.best, ...ranked.others].flatMap(({ concept, rubric, uses, verifiedUses, total, status }, index) => {
-      const scores = Object.entries(rubric.scores)
-        .map(([id, score]) => `${id} ${score}`)
-        .join(", ");
-      return [
-        `### ${index + 1}. ${concept.title} (${status === "kept" ? "**kept**" : status === "discarded" ? "discarded (failed a hard gate)" : "not kept"})`,
-        "",
-        `- Hook: ${concept.hook}`,
-        `- Feeling: ${concept.emotion}. Surprise beat: ${concept.surpriseBeat}`,
-        `- Tests: ${concept.testHypothesis ?? "(none: written before test hypotheses)"}`,
-        `- Brief slots: declared ${uses.length ? uses.join(", ") : "none"}; verified ${verifiedUses.length ? verifiedUses.join(", ") : "none"}`,
-        `- Rubric: total ${total} after the bound, ${totalScore(rubric)} as scored (${scores}); no stereotype ${rubric.gates.no_stereotype ? "pass" : "FAIL"}, surprise beat ${rubric.gates.has_surprise_beat ? "pass" : "FAIL"}`,
-        `- Why: ${rubric.reason}`,
-        "",
-      ];
-    }),
-    "## Shot list",
-    "",
-    block(pack.shotList),
-    "",
-    "## Asset prompts (render these first)",
-    "",
-    ...pack.assets.flatMap((asset) => [
-      `### ${asset.file}`,
-      "",
-      `- Model: ${getModel(asset.modelId).displayName}, aspect ${asset.aspect}. Draft: ${getModel(asset.modelId).draftSetting}. Final: ${getModel(asset.modelId).finalSetting}.`,
-      `- References: ${asset.refs.length ? asset.refs.join(", ") : "none"}`,
-      ...(asset.negative ? [`- Negative field: ${asset.negative}`] : []),
-      `- promptHash: \`${asset.promptHash}\``,
-      "",
-      block(asset.prompt),
-      "",
-    ]),
-    "## Render prompts",
-    "",
-    ...pack.renders.flatMap((render) => [
-      `### ${render.id}`,
-      "",
-      `- Model: ${getModel(render.modelId).displayName}. Request ${render.renderSeconds} s, cut to ${render.trimTo} s. Scenes ${render.sceneIndexes.map((i) => i + 1).join(", ")}.`,
-      `- References: ${render.refs.length ? render.refs.join(", ") : "none (the model takes no reference images)"}`,
-      ...(render.startFrame
-        ? [`- Start frame: ${render.startFrame.kind === "asset" ? render.startFrame.file : `the last frame of ${render.startFrame.job}`}`]
-        : []),
-      ...(render.negative ? [`- Negative field: ${render.negative}`] : []),
-      `- promptHash: \`${render.promptHash}\``,
-      "",
-      block(render.prompt),
-      "",
-    ]),
-    "## Music for the edit",
-    "",
-    `Drafts may keep the model's own music. For the final, add a licensed track that matches: ${pack.musicForEdit}`,
-    "",
-    ...(pack.sourcePhotos.length
-      ? ["## Product photos (the brand's own, used as references)", "", ...pack.sourcePhotos.map((p) => `- ${p.file}: ${p.url}`), ""]
-      : []),
-    "## Overlay text (added in the edit)",
-    "",
-    ...(pack.overlays.length ? pack.overlays.map((o) => `- Scene ${o.scene}: "${o.text}"`) : ["- none"]),
-    "",
-    "## Kit scripts (short-form, for AI UGC tools and creators)",
-    "",
-    `Format: ${format.reason}`,
-    "",
-    ...kit.ugc.flatMap((script) => [`### ${script.platform} / ${script.tool} (CTA: ${script.cta})`, "", block(script.script), ""]),
-    "### Captions (WebVTT)",
-    "",
-    kit.captions ? block(kit.captions.trimEnd()) : "None: the concept has no spoken lines or overlay text.",
-    "",
-    // The guide is its own document; shift its headings one level so it nests under this pack.
-    pack.directorGuide.replace(/^(#+) /gm, "#$1 "),
-    "",
-    "## Hashes to approve",
-    "",
-    ...hashes.map((h) => `- \`${h.promptHash}\` ${h.id}`),
-    "",
+    ...conceptLines(ranked),
+    ...packLines(pack, kit, format.reason),
+    ...hashLines(hashes),
   ];
   return lines.join("\n");
 }
@@ -178,6 +113,10 @@ async function writeChecked(file: string, text: string): Promise<void> {
 }
 
 async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean> {
+  if (freeze && isExampleSlug(candidate.slug)) {
+    console.error(`${candidate.slug} is an example: its packs freeze from its report. Run npm run prompts:export -- ${candidate.slug} --from-report --freeze.`);
+    return false;
+  }
   const { run, concepts } = await loadControl(candidate);
   const product = candidateProduct(candidate);
   const settings = defaultPackSettings(candidateDirection(candidate));
@@ -203,7 +142,8 @@ async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean
     for (const p of problems) console.error(`  ${p.where}: ${p.message}`);
     return false;
   }
-  const dir = path.join("exports", candidate.slug);
+  // An example's report export owns exports/<slug>/; its older Control goes beside it.
+  const dir = isExampleSlug(candidate.slug) ? path.join("exports", candidate.slug, "baseline") : path.join("exports", candidate.slug);
   await writeChecked(path.join(dir, "production-pack.md"), markdown(candidate, run, concepts, brief, product, pack));
   await writeChecked(path.join(dir, "hashes.json"), `${JSON.stringify(packHashes(pack), null, 2)}\n`);
   if (freeze) await writeChecked(path.join("data", "packs", candidate.slug, "control.json"), `${JSON.stringify(pack, null, 2)}\n`);
@@ -211,14 +151,57 @@ async function exportOne(candidate: Candidate, freeze: boolean): Promise<boolean
   return true;
 }
 
+/** The review files from an example's report, after the pack checks pass; with freeze, the approved packs too. */
+async function exportReport(slug: ExampleSlug, freeze: boolean): Promise<boolean> {
+  const report = loadExampleReport(slug);
+  const entries = reportPacks(report);
+  let ok = true;
+  for (const entry of entries) {
+    const problems = reportPackProblems(report, entry);
+    if (problems.length === 0) continue;
+    ok = false;
+    console.error(`${slug}/${entry.key}: ${problems.length} problem(s), nothing written:`);
+    for (const p of problems) console.error(`  ${p.where}: ${p.message}`);
+  }
+  if (!ok) return false;
+  const dir = path.join("exports", slug);
+  for (const file of reportExport(report)) await writeChecked(path.join(dir, file.name), file.text);
+  const prompts = entries.reduce((sum, e) => sum + e.pack.assets.length + e.pack.renders.length, 0);
+  console.log(`${slug}: ${entries.length} packs (${entries.map((e) => e.key).join(", ")}), ${prompts} asset and render prompts -> ${dir}/README.md`);
+  if (existsSync(path.join(dir, "production-pack.md"))) console.warn(`${slug}: ${dir}/production-pack.md is left from an older baselines export; approve from the report files instead.`);
+  if (!freeze) return true;
+  const approvals = approvalsSchema.parse(JSON.parse(await readFile(path.join("public", "demo", "approvals.json"), "utf8")));
+  const result = await freezeReportPacks(slug, approvals);
+  for (const file of result.written) console.log(`${slug}: frozen ${file}`);
+  for (const { key, missing } of result.refused) {
+    console.error(`${slug}/${key}: not frozen, ${missing.length} hash(es) not in public/demo/approvals.json "prompts":`);
+    for (const h of missing) console.error(`  ${h.promptHash} ${h.id}`);
+  }
+  return result.refused.length === 0;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const slug = args.find((arg) => !arg.startsWith("--"));
   const all = args.includes("--all");
   const freeze = args.includes("--freeze");
-  if (!slug && !all) fail("Usage: npm run prompts:export -- <slug>|--all [--freeze]");
+  const allExamples = args.includes("--all-examples");
+  const baseline = args.includes("--baseline");
+  // An example exports from its report unless --baseline asks for its older Control.
+  if (args.includes("--from-report") || allExamples || (slug && isExampleSlug(slug) && !baseline)) {
+    if (!slug && !allExamples) fail("Usage: npm run prompts:export -- <slug>|--all-examples --from-report [--freeze]");
+    if (freeze && allExamples) fail("--freeze takes one slug at a time, after the founder approves that example's packs.");
+    if (slug && !isExampleSlug(slug)) fail(`"${slug}" is not an example. Examples: ${EXAMPLES.map((e) => e.slug).join(", ")}`);
+    const targets: ExampleSlug[] = allExamples ? EXAMPLES.map((e) => e.slug) : [slug as ExampleSlug];
+    let ok = true;
+    for (const target of targets) ok = (await exportReport(target, freeze)) && ok;
+    if (!ok) process.exit(1);
+    return;
+  }
+  if (!slug && !all) fail("Usage: npm run prompts:export -- <slug>|--all [--freeze] [--baseline]");
   if (freeze && all) fail("--freeze takes one slug at a time, after the founder approves that pack.");
-  const targets = all ? CANDIDATES : CANDIDATES.filter((c) => c.slug === slug);
+  const targets = all ? CANDIDATES.filter((c) => !isExampleSlug(c.slug)) : CANDIDATES.filter((c) => c.slug === slug);
+  if (all) console.log(`Skipping the examples (${EXAMPLES.map((e) => e.slug).join(", ")}): they export from their reports (--all-examples). Pass <slug> --baseline for an example's older Control.`);
   if (targets.length === 0) fail(`Unknown candidate "${slug}". Known: ${CANDIDATES.map((c) => c.slug).join(", ")}`);
   let ok = true;
   for (const candidate of targets) ok = (await exportOne(candidate, freeze)) && ok;
