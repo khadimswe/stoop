@@ -3,8 +3,8 @@
 // same slots: a hook type, an on-screen text line, a product-demo beat, a proof beat (seller-supplied
 // facts only) and a CTA per platform. There is no testimonial format: AI-actor scripts speak as the
 // brand, never as a customer who "tried it". Customer-voice formats (first try, unboxing) go to human
-// creators only; AI-actor tools get the product demo of the same concept (plan section 12: "The
-// default for customer-voice formats (first_try, review) is a human-creator teleprompter export").
+// creators only; AI-actor tools get the product demo of the same concept (the
+// default for customer-voice formats, first_try and review, is a human-creator teleprompter export).
 //
 // Sources (read Oct 16, 2026):
 //   Meta CTA buttons: https://developers.facebook.com/docs/marketing-api/reference/ad-creative-link-data-call-to-action/

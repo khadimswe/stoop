@@ -6,8 +6,10 @@ import type { RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
-import { appendRunEvents, runLease, setRunMeta, type RunMeta } from "../store/runs";
+import { appendRunEvents, getRunMeta, runLease, setRunMeta, type RunMeta } from "../store/runs";
 import type { Store } from "../store/types";
+import { readVisitorCookie } from "../visitor-cookie";
+import { saveIntake } from "./record";
 import { getEvents, getHealth, getReport, getSearch, postIntake, postResume, postRun, type RouteDeps } from "./routes";
 
 const slug = "food-hot-sauce";
@@ -116,6 +118,61 @@ describe("the runtime routes with a store", () => {
     const reconnect = (id: string) => getEvents(new Request(`http://localhost/api/run/${runId}/events`, { headers: { "Last-Event-ID": id } }), runId, deps({}, store));
     expect((await reconnect(`1:${written[0].seq}`)).status).toBe(204);
     expect((await getEvents(new Request(`http://localhost/api/run/${"run_" + "0".repeat(24)}/events`), `run_${"0".repeat(24)}`, deps({}, store))).status).toBe(404);
+  });
+
+  describe("the signed visitor cookie on POST /api/run", () => {
+    const SECRET = "s".repeat(40);
+    const intakeId = `in_${"1".repeat(24)}`;
+    async function withIntake() {
+      const store = new MemoryStore();
+      const receipts = new Set(report.inputs.seeds.flatMap((s) => s.evidenceIds));
+      await saveIntake(store, {
+        intakeId,
+        createdAt: at,
+        product: report.inputs.product,
+        region: report.inputs.region,
+        statedCustomer: null,
+        site: null,
+        stated: null,
+        seeds: report.inputs.seeds,
+        evidence: report.ledger.filter((e) => receipts.has(e.id)),
+      });
+      return store;
+    }
+    const startBody = (region: string) => ({ intakeId, seedIds: report.inputs.seeds.slice(0, 3).map((s) => s.ref.id), statedCustomer: null, region });
+    const postAt = (url: string, body: unknown, cookie?: string) =>
+      new Request(url, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) } });
+    const runIdOf = async (response: Response) => ((await response.json()) as { runId: string }).runId;
+
+    it("is minted with a signing secret when the browser has none, and the run counts it", async () => {
+      const store = await withIntake();
+      const live = deps({ STOOP_LIVE: "true", STOOP_SIGNING_SECRET: SECRET }, store);
+      const first = await postRun(postAt("https://stoop.example/api/run", startBody("Texas")), live);
+      const setCookie = first.headers.get("set-cookie") ?? "";
+      expect(setCookie).toMatch(/^stoop_visitor=c_[0-9a-f]{24}\.[A-Za-z0-9_-]+; Path=\/; Max-Age=\d+; HttpOnly; SameSite=Lax; Secure$/);
+      const id = readVisitorCookie(SECRET, setCookie.split(";")[0].split("=")[1]);
+      expect(id).toMatch(/^c_[0-9a-f]{24}$/);
+      expect((await getRunMeta(store, await runIdOf(first)))?.cookieVisitor).toBe(id);
+      // The browser sends it back: no new cookie, and the next run counts the same id.
+      const again = await postRun(postAt("https://stoop.example/api/run", startBody("Ohio"), setCookie.split(";")[0]), live);
+      expect(again.headers.get("set-cookie")).toBeNull();
+      expect((await getRunMeta(store, await runIdOf(again)))?.cookieVisitor).toBe(id);
+    });
+
+    it("is not Secure over plain http, and a cookie this server did not sign is replaced", async () => {
+      const store = await withIntake();
+      const res = await postRun(postAt("http://localhost/api/run", startBody("Texas"), `stoop_visitor=c_${"0".repeat(24)}.forged`), deps({ STOOP_LIVE: "true", STOOP_SIGNING_SECRET: SECRET }, store));
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).toMatch(/HttpOnly; SameSite=Lax$/);
+      expect(setCookie).not.toContain(`c_${"0".repeat(24)}`);
+    });
+
+    it("is never minted without STOOP_SIGNING_SECRET: the run counts the IP alone", async () => {
+      const store = await withIntake();
+      const res = await postRun(postAt("https://stoop.example/api/run", startBody("Texas")), deps({ STOOP_LIVE: "true" }, store));
+      expect(res.headers.get("set-cookie")).toBeNull();
+      expect(await getRunMeta(store, await runIdOf(res))).toMatchObject({ visitor: expect.stringMatching(/^v_[0-9a-f]{24}$/), cookieVisitor: null });
+    });
   });
 
   it("shows today's caps and the store kind in health", async () => {

@@ -24,7 +24,8 @@
     "data-check": "tsx scripts/data-check.ts",
     "audience": "tsx scripts/run-audience.ts",
     "example": "tsx scripts/run-example.ts",
-    "store:check": "tsx scripts/store-check.ts"
+    "store:check": "tsx scripts/store-check.ts",
+    "mcp:token": "tsx scripts/mcp-token.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",
