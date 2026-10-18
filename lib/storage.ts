@@ -5,7 +5,14 @@
 //   STORAGE_DRIVER=r2              R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL
 // Objects are public (frames are shown on shared report pages) and live at fixed paths, so the same
 // path always holds the same file. Server only: each adapter reads its own keys and never logs them.
-import { BlobNotFoundError, del as blobDel, head as blobHead, put as blobPut } from "@vercel/blob";
+//
+// The private store (PrivateStorage, below) keeps what Stoop hands fal that no page shows publicly
+// (re-encoded brand photos for draft video, uploads later). Nothing there has a public URL: each read
+// is a GET URL presigned for an hour (PRESIGN_SECONDS), made fresh for every render plan. The store
+// keeps paths, never signed URLs.
+//   STORAGE_DRIVER=blob (default)  PRIVATE_BLOB_READ_WRITE_TOKEN (a second Blob store, created as private)
+//   STORAGE_DRIVER=r2              the R2 keys above plus R2_REFS_BUCKET (a bucket with no public access)
+import { BlobNotFoundError, del as blobDel, head as blobHead, issueSignedToken as blobIssueSignedToken, presignUrl as blobPresignUrl, put as blobPut } from "@vercel/blob";
 import { AwsClient } from "aws4fetch";
 
 if (typeof window !== "undefined") {
@@ -212,4 +219,167 @@ export function getStorage(env: Env = process.env): Storage {
 /** Tests swap in their own storage (null rebuilds from the environment on the next getStorage). */
 export function setStorage(storage: Storage | null): void {
   current = storage;
+}
+
+// --- Private storage: presigned reads only ------------------------------------------------------
+
+/** How long a presigned read works: one hour, the render plan's expiresAt. */
+export const PRESIGN_SECONDS = 60 * 60;
+
+export interface PrivateStorage {
+  readonly kind: "blob" | "r2";
+  /** Writes (or overwrites) the object at `path`. It gets no public URL. */
+  put(path: string, bytes: Uint8Array, contentType: string, options?: { abortSignal?: AbortSignal }): Promise<{ path: string }>;
+  exists(path: string): Promise<boolean>;
+  /** A GET URL for the object that stops working `seconds` (default PRESIGN_SECONDS) after `now`. */
+  presign(path: string, options?: { seconds?: number; now?: number }): Promise<string>;
+}
+
+/** The @vercel/blob calls the private adapter uses, injectable so tests never reach Vercel. */
+export interface PrivateBlobSdk {
+  put: typeof blobPut;
+  head: typeof blobHead;
+  issueSignedToken: typeof blobIssueSignedToken;
+  presignUrl: typeof blobPresignUrl;
+}
+
+const PRIVATE_BLOB_SDK: PrivateBlobSdk = { put: blobPut, head: blobHead, issueSignedToken: blobIssueSignedToken, presignUrl: blobPresignUrl };
+
+function presignWindow(options: { seconds?: number; now?: number }): { seconds: number; now: number } {
+  const seconds = options.seconds ?? PRESIGN_SECONDS;
+  if (!Number.isInteger(seconds) || seconds < 60 || seconds > PRESIGN_SECONDS) throw new StorageError(`A presigned read lasts 60 to ${PRESIGN_SECONDS} seconds, not ${seconds}.`);
+  return { seconds, now: options.now ?? Date.now() };
+}
+
+/**
+ * A private Vercel Blob store (created with private access). Reads go through a delegation token
+ * scoped to one path and to GET only, issued for the hour, and a URL signed with it
+ * (`https://<store>.private.blob.vercel-storage.com/<path>?vercel-blob-delegation=...&vercel-blob-signature=...`).
+ */
+export function createPrivateBlobStorage(options: { token: string; sdk?: PrivateBlobSdk }): PrivateStorage {
+  const token = options.token.trim();
+  if (!token) throw new StorageConfigError("PRIVATE_BLOB_READ_WRITE_TOKEN is missing.");
+  const sdk = options.sdk ?? PRIVATE_BLOB_SDK;
+  return {
+    kind: "blob",
+    async put(path, bytes, contentType, options = {}) {
+      checkPath(path);
+      try {
+        await sdk.put(path, Buffer.from(bytes), { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true, token, ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}) });
+        return { path };
+      } catch (error) {
+        throw new StorageError(`The private Blob store could not keep ${path}: ${error instanceof Error ? error.name : "error"}.`);
+      }
+    },
+    async exists(path) {
+      checkPath(path);
+      try {
+        await sdk.head(path, { token });
+        return true;
+      } catch (error) {
+        if (error instanceof BlobNotFoundError) return false;
+        throw new StorageError(`The private Blob store could not look up ${path}: ${error instanceof Error ? error.name : "error"}.`);
+      }
+    },
+    async presign(path, options = {}) {
+      checkPath(path);
+      const { seconds, now } = presignWindow(options);
+      const validUntil = now + seconds * 1000;
+      try {
+        const signed = await sdk.issueSignedToken({ token, pathname: path, operations: ["get"], validUntil });
+        const { presignedUrl } = await sdk.presignUrl(signed, { operation: "get", pathname: path, access: "private", validUntil });
+        return presignedUrl;
+      } catch (error) {
+        throw new StorageError(`The private Blob store could not sign a read of ${path}: ${error instanceof Error ? error.name : "error"}.`);
+      }
+    },
+  };
+}
+
+export interface PrivateR2Options {
+  accountId: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** A bucket with no public access (R2_REFS_BUCKET), never the public one. */
+  bucket: string;
+  fetch?: typeof fetch;
+}
+
+/** SigV4's basic ISO time, "20261103T120000Z". */
+const amzDate = (now: number) => new Date(now).toISOString().replace(/[:-]|\.\d{3}/g, "");
+
+/** A private R2 bucket through the S3 API: writes signed in headers, reads presigned in the query (X-Amz-Expires). */
+export function createPrivateR2Storage(options: PrivateR2Options): PrivateStorage {
+  const accountId = options.accountId.trim();
+  const bucket = options.bucket.trim();
+  if (!/^[a-f0-9]{32}$/.test(accountId)) throw new StorageConfigError("R2_ACCOUNT_ID must be the 32-character Cloudflare account id.");
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)) throw new StorageConfigError("R2_REFS_BUCKET must be an R2 bucket name.");
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  const aws = new AwsClient({ accessKeyId: options.accessKeyId.trim(), secretAccessKey: options.secretAccessKey.trim(), service: "s3", region: "auto", retries: 0 });
+  const endpoint = (path: string) => `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${checkPath(path)}`;
+
+  async function send(method: "PUT" | "HEAD", path: string, init: { body?: Uint8Array; contentType?: string; abortSignal?: AbortSignal } = {}): Promise<Response> {
+    const headers: Record<string, string> = init.contentType ? { "content-type": init.contentType } : {};
+    const signed = await aws.sign(endpoint(path), { method, headers, ...(init.body ? { body: new Uint8Array(init.body) } : {}) });
+    try {
+      return await fetchImpl(signed, init.abortSignal ? { signal: init.abortSignal } : undefined);
+    } catch (error) {
+      throw new StorageError(`R2 ${method} ${path} failed: ${error instanceof Error ? error.name : "network error"}.`);
+    }
+  }
+
+  return {
+    kind: "r2",
+    async put(path, bytes, contentType, options = {}) {
+      const response = await send("PUT", path, { body: bytes, contentType, ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}) });
+      if (!response.ok) throw new StorageError(`R2 could not keep ${path} (HTTP ${response.status}).`);
+      return { path };
+    },
+    async exists(path) {
+      const response = await send("HEAD", path);
+      if (response.status === 404) return false;
+      if (!response.ok) throw new StorageError(`R2 could not look up ${path} (HTTP ${response.status}).`);
+      return true;
+    },
+    async presign(path, options = {}) {
+      const { seconds, now } = presignWindow(options);
+      const url = new URL(endpoint(path));
+      url.searchParams.set("X-Amz-Expires", String(seconds));
+      const signed = await aws.sign(url.toString(), { method: "GET", aws: { signQuery: true, datetime: amzDate(now) } });
+      return signed.url;
+    },
+  };
+}
+
+/** Builds the private adapter for STORAGE_DRIVER, or fails naming every missing key. It never shares the public store. */
+export function privateStorageFromEnv(env: Env = process.env, deps: { fetch?: typeof fetch; blobSdk?: PrivateBlobSdk } = {}): PrivateStorage {
+  const driver = storageDriver(env);
+  const value = (name: string) => env[name]?.trim() || "";
+  const required = driver === "blob" ? ["PRIVATE_BLOB_READ_WRITE_TOKEN"] : ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_REFS_BUCKET"];
+  const missing = required.filter((name) => !value(name));
+  if (missing.length) throw new StorageConfigError(`Private storage for driver "${driver}" needs ${missing.join(", ")}.`);
+  if (driver === "blob") {
+    if (value("PRIVATE_BLOB_READ_WRITE_TOKEN") === value("BLOB_READ_WRITE_TOKEN")) throw new StorageConfigError("PRIVATE_BLOB_READ_WRITE_TOKEN must belong to a separate private Blob store, not the public one.");
+    return createPrivateBlobStorage({ token: value("PRIVATE_BLOB_READ_WRITE_TOKEN"), ...(deps.blobSdk ? { sdk: deps.blobSdk } : {}) });
+  }
+  if (value("R2_REFS_BUCKET") === value("R2_BUCKET")) throw new StorageConfigError("R2_REFS_BUCKET must be a private bucket, not the public R2_BUCKET.");
+  return createPrivateR2Storage({
+    accountId: value("R2_ACCOUNT_ID"),
+    accessKeyId: value("R2_ACCESS_KEY_ID"),
+    secretAccessKey: value("R2_SECRET_ACCESS_KEY"),
+    bucket: value("R2_REFS_BUCKET"),
+    ...(deps.fetch ? { fetch: deps.fetch } : {}),
+  });
+}
+
+let currentPrivate: PrivateStorage | null = null;
+
+/** The process's private storage, built once from the environment. Throws StorageConfigError when its keys are missing. */
+export function getPrivateStorage(env: Env = process.env): PrivateStorage {
+  return (currentPrivate ??= privateStorageFromEnv(env));
+}
+
+/** Tests swap in their own private storage (null rebuilds from the environment on the next call). */
+export function setPrivateStorage(storage: PrivateStorage | null): void {
+  currentPrivate = storage;
 }
