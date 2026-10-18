@@ -19,11 +19,13 @@
     "fixtures:record": "tsx scripts/record-fixture.ts",
     "baseline": "tsx scripts/generate-baseline.ts",
     "prompts:export": "tsx scripts/export-pack.ts",
+    "render:demo": "tsx scripts/render-demo.ts",
     "check:contrast": "tsx scripts/check-contrast.ts",
     "data-check": "tsx scripts/data-check.ts",
     "audience": "tsx scripts/run-audience.ts",
     "example": "tsx scripts/run-example.ts",
-    "store:check": "tsx scripts/store-check.ts"
+    "store:check": "tsx scripts/store-check.ts",
+    "mcp:token": "tsx scripts/mcp-token.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",

@@ -1,5 +1,5 @@
-// The production Qloo cache: request hash to response in the shared store, 7 days (CLAUDE.md
-// section 2), so every instance and every resumed run reuses what was already paid for. Large answers
+// The production Qloo cache: request hash to response in the shared store, 7 days
+// (the cache TTL), so every instance and every resumed run reuses what was already paid for. Large answers
 // (heatmaps run to about 2 MB of JSON) are stored gzipped, about a quarter of the size; one
 // still too big for a single store value is simply not cached.
 import { gunzipSync, gzipSync } from "node:zlib";

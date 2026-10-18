@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CANDIDATES } from "../demo/candidates";
+import { isExampleSlug } from "../demo/report-packs";
 import { defaultPackSettings } from "../prompts/brief";
 import { buildProductionPack, checkPack, packHashes, type ProductionPack } from "../prompts/pack";
 import { bestConcept, conceptInputHash, conceptRunSchema } from "../stages/concepts";
@@ -52,8 +53,9 @@ describe("committed baselines", () => {
 describe("frozen packs", () => {
   // A frozen pack is what the founder approved. Re-rendering it from the committed inputs must give
   // the same hashes; a template change breaks this test and forces a new review and render.
+  // The examples' packs freeze from their reports instead (lib/demo/report-packs.test.ts).
   const dir = path.join(root, "data/packs");
-  const frozen = existsSync(dir) ? readdirSync(dir).filter((slug) => existsSync(path.join(dir, slug, "control.json"))) : [];
+  const frozen = existsSync(dir) ? readdirSync(dir).filter((slug) => !isExampleSlug(slug) && existsSync(path.join(dir, slug, "control.json"))) : [];
 
   it.each(frozen.map((slug) => [slug] as const))("%s re-renders to the approved hashes", (slug) => {
     const candidate = CANDIDATES.find((c) => c.slug === slug);

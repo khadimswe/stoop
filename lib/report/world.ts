@@ -378,7 +378,7 @@ export type ControlMapping = z.infer<typeof controlMappingSchema>;
 /**
  * How the Control fits one world: "4 of 7 checkable LLM-only choices below this audience's reference
  * median (2 unverifiable)". Checkable = supported + below + missing; every count is the count of its
- * choices. `range` spans the 3 recorded Control runs for examples (plan section 5); null for live runs.
+ * choices. `range` spans the 3 recorded Control runs for examples; null for live runs.
  */
 export const controlFitSchema = z
   .strictObject({

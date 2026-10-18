@@ -585,7 +585,7 @@ export const FRAME_MODELS: Readonly<Record<FrameModelRole, FrameModel>> = Object
 });
 
 // Draft video on fal -------------------------------------------------------------------------------
-// The one public video path (CLAUDE.md section 6): a 480p draft of the kept concept, rendered on fal
+// The one public video path (cost protection: never Higgsfield, behind its own caps): a 480p draft of the kept concept, rendered on fal
 // either with the visitor's own fal key (BYOK, from the browser) or, with a judge pass, Stoop's key.
 // Never Higgsfield. fal endpoint ids, so not ModelIds. Prices are fal's published approximations (fal
 // bills by tokens), for the estimate shown before a render and for the caps.

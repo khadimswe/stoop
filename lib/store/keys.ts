@@ -1,7 +1,7 @@
 // Every store key and TTL in one place, so the runtime, frames, revise, the waitlist and votes share
 // one layout. Visitors and emails appear only as salted hashes (lib/store/visitor.ts): the keys take
 // branded types, so a raw IP or email cannot be passed by mistake.
-import type { CookieVisitorId, SaltedHash, VisitorId } from "./visitor";
+import type { CookieVisitorId, SaltedHash, TokenVisitorId, VisitorId } from "./visitor";
 
 export const DAY_SECONDS = 24 * 60 * 60;
 
@@ -14,7 +14,7 @@ export const TTL = {
   intake: DAY_SECONDS,
   /** A rendered storyboard frame's URL, by prompt hash. */
   frameRender: 30 * DAY_SECONDS,
-  /** Qloo responses (CLAUDE.md section 2). */
+  /** Qloo responses: 7 days, so repeat and resumed runs reuse what was paid for. */
   qlooCache: 7 * DAY_SECONDS,
   /** Daily counters outlive their day a little, so a counter never resets mid-day by clock skew. */
   daily: DAY_SECONDS + 60 * 60,
@@ -30,7 +30,7 @@ export const TTL = {
 /** The UTC day a daily counter belongs to: "2026-10-17". */
 export const dayOf = (now: number = Date.now()) => new Date(now).toISOString().slice(0, 10);
 
-/** Names of the global daily caps (CLAUDE.md section 6), plus per-visitor limits. */
+/** Names of the global daily caps (live runs, frames, fresh Qloo calls, renders and MCP), plus per-visitor limits. */
 export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes" | "mcp-calls" | "mcp-tokens";
 
 export const keys = {
@@ -100,8 +100,11 @@ export const keys = {
     /** One token's culture_brief runs on one day (they also count against LIVE_RUNS_DAILY_CAP). */
     cultureBriefs: (tokenHash: string, day: string = dayOf()) => `mcp:token:${tokenHash}:culture-briefs:${day}`,
   },
-  /** Per-visitor limits in a time window: `window` is e.g. the hour or day the count belongs to. */
-  rate: (name: string, visitor: VisitorId | CookieVisitorId, window: string) => `rate:${name}:${visitor}:${window}`,
+  /**
+   * Per-visitor limits in a time window: `window` is e.g. the hour or day the count belongs to. An
+   * email's own limit (token emails per address) takes the email's salted hash.
+   */
+  rate: (name: string, visitor: VisitorId | CookieVisitorId | TokenVisitorId | SaltedHash, window: string) => `rate:${name}:${visitor}:${window}`,
   waitlist: {
     position: "waitlist:position",
     /** Keyed by the salted hash of the normalized email, so a repeat signup keeps its position. */
