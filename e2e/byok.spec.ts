@@ -32,9 +32,12 @@ test("the /byok script runs under that policy without a violation", async ({ pag
   page.on("console", (message) => {
     if (/Content Security Policy|Trusted Type/i.test(message.text())) violations.push(message.text());
   });
+  const plan = page.waitForResponse((response) => response.url().endsWith("/api/render/plan") && response.request().method() === "POST");
   await page.goto(BYOK);
   await expect(page.getByRole("heading", { level: 1, name: "Render with your fal key" })).toBeVisible();
-  // The plan request finishes either way (no approved storyboard yet answers a plain line), so the script ran.
+  // The page's own plan request passes the exact Origin check: a 403 would mean BYOK silently broke.
+  // (Without approved storyboards it is refused for that reason instead, with a plain line on the page.)
+  expect((await plan).status()).not.toBe(403);
   await expect(page.locator("#plan-status")).not.toHaveText("Loading the draft plan...");
   await expect(page.getByRole("link", { name: "Back to the report" })).toHaveAttribute("href", "/examples/food-hot-sauce");
   expect(violations).toEqual([]);

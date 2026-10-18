@@ -1,10 +1,10 @@
-// The face-filter check (docs: "test whether fal's face filter blocks our talent sheets"): two 4 second
-// 480p draft videos of the same world, one with storyboard frames that show a fictional adult as
-// references, one with only a product image, to see whether fal refuses references with a person in
-// them before relying on them. It prints both plans and their cost; nothing is sent to fal unless
-// --yes is given, and then only these two drafts, billed to FAL_KEY.
+// The face-filter check: before draft videos rely on storyboard frames with people in them, test
+// whether fal's face filter refuses such references. Two 4 second 480p draft videos of the same world,
+// one with storyboard frames that show a fictional adult as references, one with only a product
+// image. It prints both plans and their cost; nothing is sent to fal unless --yes is given, and then
+// only these two drafts, billed to FAL_KEY, and only from a prompt approved in public/demo/approvals.json.
 //
-//   npx tsx scripts/render-check.ts                          dry run: print the plans and the cost
+//   npx tsx scripts/render-check.ts                          dry run (or --dry-run): print the plans and the cost
 //   npx tsx scripts/render-check.ts --yes                    render both (about $1.76 at 4 s each)
 //   options: --example <slug> (default the lead), --segment <world> (default its first world with talent),
 //            --base <https origin fal fetches /demo from> (default RENDER_REFS_BASE_URL or NEXT_PUBLIC_APP_URL),
@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createFalClient } from "@fal-ai/client";
+import { CliError, parseCliArgs, type CliArgs } from "../lib/cli-args";
 import { EXAMPLES, LEAD_EXAMPLE, type ExampleSlug } from "../lib/demo/examples";
 import { approvalsSchema, demoMediaFor, manifestSchema } from "../lib/demo/manifest";
 import { sha256 } from "../lib/hash";
@@ -27,12 +28,26 @@ const SECONDS = 4;
 const POLL_MS = 5_000;
 const MAX_WAIT_MS = 10 * 60_000;
 
-function arg(name: string): string | undefined {
-  const index = process.argv.indexOf(`--${name}`);
-  return index === -1 ? undefined : process.argv[index + 1];
+// Strict: an unknown or repeated option is an error, never ignored (a typo must not change what renders).
+function readCli(): CliArgs {
+  try {
+    const parsed = parseCliArgs(process.argv.slice(2), {
+      flags: ["--yes", "--dry-run"],
+      options: ["--example", "--segment", "--base", "--talent-frames", "--product-frame"],
+      positionals: { min: 0, max: 0 },
+    });
+    if (parsed.flags.has("--yes") && parsed.flags.has("--dry-run")) throw new CliError("Pass --yes or --dry-run, not both.");
+    return parsed;
+  } catch (error) {
+    if (!(error instanceof CliError)) throw error;
+    console.error(error.message);
+    process.exit(1);
+  }
 }
+const cli = readCli();
+const arg = (name: string): string | undefined => cli.options.get(`--${name}`);
 
-const spend = process.argv.includes("--yes");
+const spend = cli.flags.has("--yes");
 if (spend) loadLocalEnv();
 
 const readJson = (...parts: string[]) => JSON.parse(readFileSync(path.join(process.cwd(), ...parts), "utf8")) as unknown;
@@ -63,16 +78,18 @@ async function plans(): Promise<{ talent: RenderPlan | null; productOnly: Render
   const deps = { now: Date.now(), draftSeconds: SECONDS, demoBase: base ?? "https://stoop.invalid", photoUrl: async () => "" };
   const target = { reportId: report.meta.id, segment: world.segmentId };
 
-  // The approved storyboard and packshot, unless images are passed in.
+  // The approved storyboard and packshot, unless images are passed in. The prompt is let through here
+  // so a dry run can show the plan before it is approved; --yes checks the real approvals below.
+  const planned = world.pack ? multiShotJob(world.pack) : null;
   let source: RenderSource | null = null;
   try {
-    source = renderSource(report, target, demo);
+    source = renderSource(report, target, { demo, approvedPrompts: new Set(planned ? [planned.promptHash] : []) });
   } catch (error) {
     notes.push(`Approved media: ${error instanceof Error ? error.message : "none"} Approve the storyboard and packshot in public/demo/approvals.json, or pass --talent-frames and --product-frame.`);
   }
   const talentFrames = arg("talent-frames");
   const productFrame = arg("product-frame");
-  const job = source?.job ?? (world.pack ? multiShotJob(world.pack) : null);
+  const job = source?.job ?? planned;
   // Like scripts/render-demo.ts: nothing renders from a prompt the founder has not approved.
   const approved = job !== null && approvals.prompts.includes(job.promptHash);
   notes.push(job ? `Prompt ${job.id} (${job.promptHash.slice(0, 12)}): ${approved ? "approved" : "not in public/demo/approvals.json yet, so --yes refuses"}.` : "This world has no multi-shot prompt.");

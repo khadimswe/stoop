@@ -1,7 +1,7 @@
 // Maps a pack's multi-shot prompt onto the images fal actually receives. Packs name their assets by
 // filename in Higgsfield's "@name (file.png)" form (lib/prompts/higgsfield.ts), but a draft render only
 // has the storyboard frames and one product image, and fal numbers its references @Image1..N in
-// image_urls order (docs/spec.md "In-app rendering"). So:
+// image_urls order. So:
 //   - the product image is @Image1, then the storyboard frames by shot as @Image2..N
 //   - every mention of the product's files (product sheet, packshot, the brand's photos) becomes @Image1
 //   - mentions of sheets that were never rendered (talent sheets, location plates) become plain words

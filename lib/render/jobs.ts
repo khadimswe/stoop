@@ -6,10 +6,13 @@
 //      requests for the same draft (a double click, two judges) share one render.
 //   2. Every cap is reserved before anything is spent, one INCR each, and given back on overflow:
 //      the pass (3), the IP for the day (6), the day (RENDERS_DAILY_CAP) and the lifetime total
-//      (RENDERS_TOTAL_CAP). A counter is never left above its cap.
+//      (RENDERS_TOTAL_CAP). A counter is never left above its cap. A judge who clears cookies and opens
+//      the judge link again gets a new pass, so the per-pass count starts over; the per-IP, daily and
+//      lifetime caps still bound what any number of passes can spend.
 //   3. fal's queue takes the job with Stoop's key. A refusal before fal accepts it gives every counter
 //      back (the job records the IP and day it counted against); once fal may have accepted it, nothing
-//      is given back, since fal may bill it.
+//      is given back, since fal may bill it, and the job is never failed or freed because a later store
+//      write failed: the pending marker stays, so the same inputs cannot be billed twice.
 //   4. Status polls and an after() poller advance the job: the result must come from fal's media
 //      hosts, is downloaded under a size cap, and is stored on Stoop's public storage (fal's URLs
 //      expire). The draft's URL lands on the job and in the render cache.
@@ -32,8 +35,9 @@ if (typeof window !== "undefined") {
 
 export const MAX_VIDEO_BYTES = 64 * 1024 * 1024;
 export const DOWNLOAD_TIMEOUT_MS = 60_000;
-/** A pending marker outlives a slow render, then frees the inputs for a fresh try. */
-/** A job with no fal request id this long after it started never reached fal. */
+/** Waits between tries to save fal's request id after fal took a job (the store hiccupped). */
+export const SAVE_BACKOFF_MS = [200, 1_000, 3_000] as const;
+/** A job with no fal request id this long after it started never reached fal, or Stoop lost track of it. */
 export const UNSUBMITTED_MS = 5 * 60_000;
 /** A job still not stored this long after it started ends, whatever kept failing. */
 export const MAX_FINISH_MS = 2 * 60 * 60_000;
@@ -60,6 +64,8 @@ export interface RenderEnv {
   /** Downloads the result (tests pass a fake). */
   fetch?: typeof fetch;
   newJobId?: () => string;
+  /** Waits between save retries (tests pass one that returns at once). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 // --- Caps -------------------------------------------------------------------------------------------
@@ -128,6 +134,11 @@ const pendingMarker = (jobId: string): CacheEntry => ({ state: "pending", jobId 
 
 export const isTerminal = (job: RenderJob) => job.status === "done" || job.status === "failed";
 
+/** Ended without a request id while counted: fal may have taken it, so its inputs stay held. */
+export const mayStillBeOnFal = (job: RenderJob) => job.status === "failed" && job.charged && job.falRequestId === null;
+
+export const LOST_REASON = "The draft never reached fal, or Stoop lost track of it. The same draft can be tried again in about two hours.";
+
 export async function loadJob(store: Store, jobId: string): Promise<RenderJob | null> {
   if (!renderJobIdSchema.safeParse(jobId).success) return null;
   const parsed = renderJobSchema.safeParse(await store.get(keys.render.job(jobId)));
@@ -164,6 +175,8 @@ export type StartOutcome =
   | { kind: "joined"; job: RenderJob }
   /** A cap is spent; nothing was reserved. */
   | { kind: "capped"; full: CounterName }
+  /** An earlier try at these inputs may still be on fal (Stoop lost track of it): nothing new starts until its marker expires. */
+  | { kind: "held"; job: RenderJob }
   /** fal did not take the job (refunded when it surely refused). */
   | { kind: "failed"; job: RenderJob };
 
@@ -193,7 +206,9 @@ export async function startRender(env: RenderEnv, input: StartInput): Promise<St
     }
     const running = await loadJob(store, entry.jobId);
     if (running && running.status !== "failed") return { kind: "joined", job: running };
-    // A marker whose job failed or vanished frees the inputs.
+    // A job fal may hold without Stoop knowing its request id keeps its inputs until the marker expires.
+    if (running && mayStillBeOnFal(running)) return { kind: "held", job: running };
+    // A marker whose job surely failed, or vanished, frees the inputs.
     await store.deleteIfEquals(cacheKey, pendingMarker(entry.jobId));
     return null;
   };
@@ -230,19 +245,35 @@ export async function startRender(env: RenderEnv, input: StartInput): Promise<St
   }
   if (!claimed) throw new Error("The render cache kept changing; try again.");
 
-  let job = await saveJob(store, queued);
+  const job = await saveJob(store, queued);
+  let requestId: string;
   try {
-    const { requestId } = await env.queue.submit(plan.endpoint, falInput);
-    job = await saveJob(store, { ...job, falRequestId: requestId, updatedAt: stamp() });
-    return { kind: "started", job };
+    ({ requestId } = await env.queue.submit(plan.endpoint, falInput));
   } catch (error) {
     const surelyRefused = error instanceof QueueError ? !error.accepted : false;
     // A sure refusal gives every counter back; an unknown outcome stays counted (fal may bill it).
     if (surelyRefused) await giveBackAll(store, counters);
     const reason = error instanceof QueueError ? error.message : "The draft could not be started.";
-    job = await saveJob(store, { ...job, status: "failed", charged: !surelyRefused, reason, updatedAt: stamp() });
-    await store.deleteIfEquals(cacheKey, pendingMarker(id));
-    return { kind: "failed", job };
+    const failed = await saveJob(store, { ...job, status: "failed", charged: !surelyRefused, reason, updatedAt: stamp() });
+    // Only a sure refusal frees the inputs; otherwise fal may be rendering them, and the marker stays.
+    if (surelyRefused) await store.deleteIfEquals(cacheKey, pendingMarker(id));
+    return { kind: "failed", job: failed };
+  }
+
+  // fal took the job. From here on it is never refunded, failed or freed for a store hiccup: the request
+  // id is saved with retries, and if the store still refuses, the job stays as it is (its marker too).
+  const accepted: RenderJob = { ...job, falRequestId: requestId, updatedAt: stamp() };
+  const sleep = env.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return { kind: "started", job: await saveJob(store, accepted) };
+    } catch (error) {
+      if (attempt >= SAVE_BACKOFF_MS.length) {
+        console.error(`Draft render ${job.id}: fal took it, but its request id could not be saved (${error instanceof Error ? error.name : "error"}). Its marker stays, so these inputs are not billed twice.`);
+        return { kind: "started", job: accepted };
+      }
+      await sleep(SAVE_BACKOFF_MS[attempt]);
+    }
   }
 }
 
@@ -348,23 +379,25 @@ export async function advanceRender(env: RenderEnv, jobId: string, options: Adva
     const entry = await readCache(store, job.inputHash);
     return entry?.state === "done" && entry.jobId === job.id ? save({ status: "done", videoUrl: entry.videoUrl, reason: null, usd: draftUsd(videoModelFor(job.endpoint), job.durationSeconds) }) : null;
   };
-  const fail = async (reason: string) => {
+  /** Ends the job. `free` lets the same inputs render again now; a job fal may still hold keeps its marker until it expires. */
+  const fail = async (reason: string, { free = true }: { free?: boolean } = {}) => {
     const current = await loadJob(store, job.id);
     if (current && isTerminal(current)) return current;
     const failed = await save({ status: "failed", reason: reason.slice(0, 300) });
     // Another checker may have stored the draft meanwhile: its result wins.
     const done = await finishedElsewhere();
     if (done) return done;
-    await store.deleteIfEquals(cacheKey, pendingMarker(job.id));
+    if (free) await store.deleteIfEquals(cacheKey, pendingMarker(job.id));
     return failed;
   };
   /** A failure worth another try: keep the job as it is, unless it has been finishing for too long. */
   const later = async (reason: string) => (now() - Date.parse(job.createdAt) > MAX_FINISH_MS ? fail(reason) : options.touch ? save({}) : job);
 
   if (!job.falRequestId) {
-    // The start died between reserving and hearing back from fal: end it rather than leave it queued
-    // forever. Nothing is given back, since fal may have taken it.
-    return now() - Date.parse(job.createdAt) > UNSUBMITTED_MS ? fail("The draft never reached fal. Try again.") : job;
+    // The start died between reserving and hearing back from fal, or fal took it and the request id
+    // could not be saved: end it rather than leave it queued forever. Nothing is given back and the
+    // marker stays until it expires, since fal may be rendering (and billing) these inputs.
+    return now() - Date.parse(job.createdAt) > UNSUBMITTED_MS ? fail(LOST_REASON, { free: false }) : job;
   }
   const requestId = job.falRequestId;
 

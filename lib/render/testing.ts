@@ -11,6 +11,7 @@ import { FRAME_MODELS } from "../prompts/models.config";
 import { reportSchema, type Report } from "../report/schema";
 import type { PrivateStorage, Storage } from "../storage";
 import { QueueError, type QueueState, type VideoQueue } from "./fal";
+import type { ExampleMedia } from "./plan";
 
 export const SLUGS: ExampleSlug[] = ["food-hot-sauce", "home-candles", "pets-outfits"];
 
@@ -43,6 +44,17 @@ export function demoFor(report: Report, options: { packshot?: boolean } = {}): D
     storyboards,
     clips: [],
   };
+}
+
+/** Every multi-shot prompt hash of a report, as if the founder had approved them all. */
+export function approvedFor(report: Report): Set<string> {
+  const packs = [...report.worlds.flatMap((w) => [w.pack, ...w.revisions.map((r) => r.pack)]), report.control?.pack ?? null];
+  return new Set(packs.flatMap((pack) => (pack ? pack.renders.filter((r) => r.kind === "multi-shot").map((r) => r.promptHash) : [])));
+}
+
+/** The example media renderSource takes: approved-looking demo media and every prompt approved. */
+export function exampleFor(report: Report, options: { packshot?: boolean } = {}): ExampleMedia {
+  return { demo: demoFor(report, options), approvedPrompts: approvedFor(report) };
 }
 
 export const LIVE_RUN_ID = `run_${"a".repeat(24)}`;

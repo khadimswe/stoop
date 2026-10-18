@@ -110,11 +110,18 @@ function bestFrames(frames: readonly Frame[]): Frame[] {
 
 const NO_WORLD = "This report has no world with that id.";
 
+/** An example's founder-approved media (lib/demo/manifest.ts demoMediaFor) and the prompt hashes approved for rendering. */
+export interface ExampleMedia {
+  demo: DemoMedia;
+  approvedPrompts: ReadonlySet<string>;
+}
+
 /**
  * What one world (or the Control) of a report renders from. Throws RenderError when the target has
- * no pack, no Seedance prompt, or nothing to use as a reference yet.
+ * no pack, no multi-shot prompt, nothing to use as a reference yet, or (for an example) a prompt the
+ * founder has not approved for rendering: examples render approved prompts only, as their demo clips do.
  */
-export function renderSource(report: Report, target: RenderTarget, demo: DemoMedia | null): RenderSource {
+export function renderSource(report: Report, target: RenderTarget, example: ExampleMedia | null): RenderSource {
   if (report.meta.id !== target.reportId) throw new RenderError("not_found", "No report with that id.", 404);
   const isExample = exampleOf(report.meta.id) !== null;
   const product = report.inputs.product;
@@ -138,9 +145,11 @@ export function renderSource(report: Report, target: RenderTarget, demo: DemoMed
   if (!pack) throw new RenderError("invalid", "This world has no Production Pack yet.", 409);
   const job = multiShotJob(pack);
   if (!job) throw new RenderError("invalid", "This world's pack has no multi-shot prompt a draft can render.", 409);
+  if (isExample && !example?.approvedPrompts.has(job.promptHash)) throw new RenderError("off", "This example's prompt is not approved for rendering yet.", 409);
 
   let productRef: ReferenceSource | null = null;
-  if (isExample && demo) {
+  if (isExample && example) {
+    const { demo } = example;
     const board = demo.storyboards[target.segment];
     frames = [...(board?.frames ?? [])].sort((a, b) => a.scene - b.scene).map((f) => ({ kind: "demo", role: "frame", scene: f.scene, path: f.file, sha256: f.sha256 }));
     if (demo.packshot) productRef = { kind: "demo", role: "product", scene: null, path: demo.packshot.file, sha256: demo.packshot.sha256 };
@@ -153,9 +162,10 @@ export function renderSource(report: Report, target: RenderTarget, demo: DemoMed
   return { target, report: isExample ? "example" : "live", pack, job, product, references };
 }
 
-/** Whether a source can be planned here: example references need a public base URL. */
-export function canPlan(source: RenderSource, base: string | null): boolean {
-  return base !== null || !source.references.some((ref) => ref.kind === "demo");
+/** Whether a source can be planned here: example references need a public base URL, brand photos a private store. */
+export function canPlan(source: RenderSource, setup: { demoBase: string | null; privateStorage: boolean }): boolean {
+  if (setup.demoBase === null && source.references.some((ref) => ref.kind === "demo")) return false;
+  return setup.privateStorage || !source.references.some((ref) => ref.kind === "photo");
 }
 
 export interface PlanDeps {

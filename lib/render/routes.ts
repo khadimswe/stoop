@@ -51,6 +51,8 @@ export interface RenderRouteDeps extends GuardDeps {
   loadReport: (reportId: string, store: Store) => Promise<Report | null>;
   /** An example's approved storyboards and packshot. */
   demoMedia: (slug: ExampleSlug) => DemoMedia;
+  /** Prompt hashes the founder approved for rendering (public/demo/approvals.json): examples render only these. */
+  approvedPrompts: () => ReadonlySet<string>;
   /** Null when no private store is configured (live runs with brand photos then cannot plan). */
   privateStorage: () => PrivateStorage | null;
   /** Public storage for finished drafts; null when none is configured (server drafts stay off). */
@@ -121,7 +123,7 @@ async function sourceFor(deps: RenderRouteDeps, store: Store, target: RenderTarg
   const report = await deps.loadReport(target.reportId, store);
   if (!report) throw new RenderError("not_found", "No report with that id (live runs are kept for 30 days).", 404);
   const slug = exampleOf(target.reportId);
-  return renderSource(report, target, slug ? deps.demoMedia(slug) : null);
+  return renderSource(report, target, slug ? { demo: deps.demoMedia(slug), approvedPrompts: deps.approvedPrompts() } : null);
 }
 
 async function planFor(deps: RenderRouteDeps, store: Store, target: RenderTarget): Promise<RenderPlan> {
@@ -179,7 +181,8 @@ export function createRenderAccessGet(deps: RenderRouteDeps) {
 
       let renderable = false;
       try {
-        renderable = canPlan(await sourceFor(deps, store, target.data), demoBaseUrl(deps.env));
+        // The same setup the plan needs, so access never offers a render the plan would refuse.
+        renderable = canPlan(await sourceFor(deps, store, target.data), { demoBase: demoBaseUrl(deps.env), privateStorage: deps.privateStorage() !== null });
       } catch (error) {
         if (!(error instanceof RenderError)) throw error;
         if (error.status === 404) return apiError(error.code, error.message, error.status);
@@ -250,6 +253,8 @@ export function createRenderPost(deps: RenderRouteDeps) {
       switch (outcome.kind) {
         case "capped":
           return apiError("daily_cap", CAPPED[outcome.full], 429);
+        case "held":
+          return apiError("busy", "An earlier try at this exact draft may still be rendering on fal. It can be tried again in about two hours.", 409);
         case "failed":
           return apiError("failed", outcome.job.reason ?? MESSAGES.failed, 502);
         case "cached":

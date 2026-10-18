@@ -3,7 +3,7 @@ import { CONTROL_SEGMENT } from "../api/requests";
 import { draftUsd, VIDEO_MODELS } from "../prompts/models.config";
 import { buildRenderPlan, canPlan, demoBaseUrl, multiShotJob, PHOTO_ENCODING, RenderError, renderSource, type PlanDeps } from "./plan";
 import { renderPlanSchema } from "./schema";
-import { BRAND_PHOTO, demoFor, exampleReport, LIVE_RUN_ID, liveReport, SLUGS, targetsOf } from "./testing";
+import { approvedFor, BRAND_PHOTO, exampleFor, exampleReport, LIVE_RUN_ID, liveReport, SLUGS, targetsOf } from "./testing";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const deps = (over: Partial<PlanDeps> = {}): PlanDeps => ({
@@ -18,7 +18,7 @@ describe("render plans for the examples", () => {
   for (const slug of SLUGS) {
     it(`plan every world and the Control of ${slug} from the approved storyboard and packshot`, async () => {
       const report = exampleReport(slug);
-      const demo = demoFor(report);
+      const demo = exampleFor(report);
       for (const target of targetsOf(report)) {
         const source = renderSource(report, target, demo);
         expect(source.report).toBe("example");
@@ -41,7 +41,7 @@ describe("render plans for the examples", () => {
 
   it("renders the kept concept's Seedance multi-shot prompt, never a per-scene one", () => {
     const report = exampleReport("food-hot-sauce");
-    const source = renderSource(report, targetsOf(report)[0], demoFor(report));
+    const source = renderSource(report, targetsOf(report)[0], exampleFor(report));
     expect(source.job.kind).toBe("multi-shot");
     expect(source.job).toBe(multiShotJob(source.pack));
     expect(source.job.prompt).toContain("GLOBAL STYLE");
@@ -50,13 +50,13 @@ describe("render plans for the examples", () => {
   it("hashes the inputs: the same plan twice is one cache key; another length or reference is another", async () => {
     const report = exampleReport("home-candles");
     const target = targetsOf(report)[0];
-    const demo = demoFor(report);
+    const demo = exampleFor(report);
     const first = await buildRenderPlan(renderSource(report, target, demo), deps());
     // The hash is of what fal renders, not of when the URLs were signed.
     expect((await buildRenderPlan(renderSource(report, target, demo), deps({ now: NOW + 600_000 }))).inputHash).toBe(first.inputHash);
     expect((await buildRenderPlan(renderSource(report, target, demo), deps({ draftSeconds: 4 }))).inputHash).not.toBe(first.inputHash);
-    const changed = demoFor(report);
-    changed.storyboards[target.segment].frames[0].sha256 = "f".repeat(64);
+    const changed = exampleFor(report);
+    changed.demo.storyboards[target.segment].frames[0].sha256 = "f".repeat(64);
     expect((await buildRenderPlan(renderSource(report, target, changed), deps())).inputHash).not.toBe(first.inputHash);
     expect((await buildRenderPlan(renderSource(report, target, demo), deps({ draftSeconds: 4 }))).estimatedUsd).toBe(draftUsd(VIDEO_MODELS.reference, 4));
   });
@@ -64,16 +64,33 @@ describe("render plans for the examples", () => {
   it("plans from the storyboard alone when no packshot is approved, and refuses while nothing is", async () => {
     const report = exampleReport("pets-outfits");
     const target = targetsOf(report)[0];
-    const plan = await buildRenderPlan(renderSource(report, target, demoFor(report, { packshot: false })), deps());
+    const plan = await buildRenderPlan(renderSource(report, target, exampleFor(report, { packshot: false })), deps());
     expect(plan.imageUrls).toHaveLength(4);
     expect(plan.prompt).toContain("@Image1 to @Image4: storyboard frames for shots 1 to 4, in order.");
-    expect(() => renderSource(report, target, { packshot: null, storyboards: {}, clips: [] })).toThrow(RenderError);
+    expect(() => renderSource(report, target, { demo: { packshot: null, storyboards: {}, clips: [] }, approvedPrompts: approvedFor(report) })).toThrow(RenderError);
+  });
+
+  it("renders an example only from a prompt the founder approved", () => {
+    const report = exampleReport("food-hot-sauce");
+    const target = targetsOf(report)[0];
+    const media = exampleFor(report);
+    expect(() => renderSource(report, target, { ...media, approvedPrompts: new Set() })).toThrow(expect.objectContaining({ code: "off", message: "This example's prompt is not approved for rendering yet." }));
+    expect(() => renderSource(report, target, null)).toThrow(/not approved/);
+    const job = renderSource(report, target, media).job;
+    expect(renderSource(report, target, { ...media, approvedPrompts: new Set([job.promptHash]) }).job).toEqual(job);
+  });
+
+  it("needs a private store for a live world's brand photo before it says it can plan", () => {
+    const report = liveReport();
+    const source = renderSource(report, { reportId: LIVE_RUN_ID, segment: report.worlds[0].segmentId }, null);
+    expect(canPlan(source, { demoBase: null, privateStorage: false })).toBe(false);
+    expect(canPlan(source, { demoBase: null, privateStorage: true })).toBe(true);
   });
 
   it("stays off for examples where fal cannot reach /demo (a preview deployment)", async () => {
     const report = exampleReport("food-hot-sauce");
-    const source = renderSource(report, targetsOf(report)[0], demoFor(report));
-    expect(canPlan(source, null)).toBe(false);
+    const source = renderSource(report, targetsOf(report)[0], exampleFor(report));
+    expect(canPlan(source, { demoBase: null, privateStorage: true })).toBe(false);
     await expect(buildRenderPlan(source, deps({ demoBase: null }))).rejects.toMatchObject({ code: "off", status: 503 });
   });
 });
@@ -95,7 +112,7 @@ describe("render plans for live runs", () => {
       "https://store.public.blob.vercel-storage.com/frames/1-2.png",
       "https://store.public.blob.vercel-storage.com/frames/2-1.png",
     ]);
-    expect(canPlan(source, null)).toBe(true);
+    expect(canPlan(source, { demoBase: null, privateStorage: true })).toBe(true);
   });
 
   it("hash the brand photo by its source and re-encoding, not by the hour's signed URL", async () => {
@@ -130,7 +147,7 @@ describe("render plans for live runs", () => {
 describe("render targets that cannot plan", () => {
   it("are refused with the API's codes", () => {
     const report = exampleReport("food-hot-sauce");
-    const demo = demoFor(report);
+    const demo = exampleFor(report);
     expect(() => renderSource(report, { reportId: report.meta.id, segment: "seg-nope" }, demo)).toThrow(expect.objectContaining({ code: "not_found", status: 404 }));
     expect(() => renderSource(report, { reportId: "example-home-candles", segment: CONTROL_SEGMENT }, demo)).toThrow(expect.objectContaining({ code: "not_found" }));
     const noPack = exampleReport("food-hot-sauce");

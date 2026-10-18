@@ -4,10 +4,10 @@ import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import type { VisitorId } from "../store/visitor";
 import { QueueError } from "./fal";
-import { advanceRender, counterUsage, endUserId, giveBackAll, loadJob, pollRender, renderCounters, renderRoom, reserveAll, startRender, type RenderCaps, type RenderEnv } from "./jobs";
+import { advanceRender, counterUsage, endUserId, giveBackAll, loadJob, LOST_REASON, pollRender, renderCounters, renderRoom, reserveAll, startRender, type RenderCaps, type RenderEnv } from "./jobs";
 import { buildRenderPlan, renderSource } from "./plan";
 import type { RenderPlan } from "./schema";
-import { demoFor, exampleReport, fakeStorage, FakeQueue, targetsOf, videoFetch } from "./testing";
+import { exampleFor, exampleReport, fakeStorage, FakeQueue, targetsOf, videoFetch } from "./testing";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const DAY = "2026-11-03";
@@ -18,7 +18,7 @@ const CAPS: RenderCaps = { daily: 10, total: 20, perPass: 3, perIpDaily: 6 };
 async function planFor(segmentIndex = 0, draftSeconds = 15): Promise<RenderPlan> {
   const report = exampleReport("food-hot-sauce");
   const target = targetsOf(report)[segmentIndex];
-  return buildRenderPlan(renderSource(report, target, demoFor(report)), { now: NOW, draftSeconds, demoBase: "https://stoop.example", photoUrl: async () => "" });
+  return buildRenderPlan(renderSource(report, target, exampleFor(report)), { now: NOW, draftSeconds, demoBase: "https://stoop.example", photoUrl: async () => "" });
 }
 
 let ids = 0;
@@ -257,8 +257,8 @@ describe("a server-paid draft", () => {
     expect((await loadJob(store, started.job.id))?.status).toBe("done");
   });
 
-  it("ends a job that never reached fal (its start died) after a few minutes, without a refund", async () => {
-    const { env, store } = setup();
+  it("ends a job that never reached fal (its start died) after a few minutes, without a refund, and keeps its inputs held", async () => {
+    const { env, store, queue } = setup();
     const plan = await planFor();
     const started = await startRender(env, { plan, passId: PASS, visitor: VISITOR });
     if (started.kind !== "started") throw new Error("not started");
@@ -267,8 +267,67 @@ describe("a server-paid draft", () => {
     await store.set(keys.render.job(stuck.id), stuck);
     expect((await advanceRender(env, stuck.id))?.status).toBe("queued");
     const later = await advanceRender({ ...env, now: () => NOW + 6 * 60_000 }, stuck.id);
-    expect(later).toMatchObject({ status: "failed", reason: "The draft never reached fal. Try again.", charged: true });
+    expect(later).toMatchObject({ status: "failed", reason: LOST_REASON, charged: true });
     expect(await store.get<number>(keys.render.pass(PASS))).toBe(1);
+    // fal may be rendering it, so the same inputs are not started again until the marker expires.
+    expect(await store.get(keys.render.cache(plan.inputHash))).toEqual({ state: "pending", jobId: stuck.id });
+    expect((await startRender(env, { plan, passId: "c".repeat(24), visitor: VISITOR })).kind).toBe("held");
+    expect(queue.submitted).toHaveLength(1);
+  });
+
+  it("never fails, refunds or frees a job fal took when the store write after submit fails", async () => {
+    const { env, store, queue } = setup();
+    const plan = await planFor();
+    // The store refuses every write of a job record that carries fal's request id.
+    const set = store.set.bind(store);
+    let refusals = 0;
+    store.set = async (key, value, options) => {
+      if (key.startsWith("render:job:") && (value as { falRequestId?: unknown }).falRequestId) {
+        refusals++;
+        throw new Error("store down");
+      }
+      return set(key, value, options);
+    };
+    const waits: number[] = [];
+    const logged: string[] = [];
+    const error = console.error;
+    console.error = (message: string) => void logged.push(message);
+    let outcome;
+    try {
+      outcome = await startRender({ ...env, sleep: async (ms) => void waits.push(ms) }, { plan, passId: PASS, visitor: VISITOR });
+    } finally {
+      console.error = error;
+    }
+    expect(outcome?.kind).toBe("started");
+    expect(refusals).toBe(4);
+    expect(waits).toEqual([200, 1_000, 3_000]);
+    expect(queue.submitted).toHaveLength(1);
+    expect(await counterUsage(store, counters())).toEqual({ pass: 1, ip: 1, day: 1, total: 1 });
+    expect(await store.get(keys.render.cache(plan.inputHash))).toMatchObject({ state: "pending" });
+    // The log names the job, never fal's request id, the pass or the visitor.
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatch(/^Draft render rj_[0-9a-f]{24}: fal took it, but its request id could not be saved \(Error\)/);
+    expect(logged[0]).not.toMatch(/req-1|b{24}|v_1/);
+    // A second request for the same inputs follows the first job: nothing more is billed.
+    store.set = set;
+    expect((await startRender(env, { plan, passId: "c".repeat(24), visitor: VISITOR })).kind).toBe("joined");
+    expect(queue.submitted).toHaveLength(1);
+  });
+
+  it("saves fal's request id after a store hiccup", async () => {
+    const { env, store } = setup();
+    const set = store.set.bind(store);
+    let failOnce = true;
+    store.set = async (key, value, options) => {
+      if (failOnce && key.startsWith("render:job:") && (value as { falRequestId?: unknown }).falRequestId) {
+        failOnce = false;
+        throw new Error("blip");
+      }
+      return set(key, value, options);
+    };
+    const outcome = await startRender({ ...env, sleep: async () => {} }, { plan: await planFor(), passId: PASS, visitor: VISITOR });
+    if (outcome.kind !== "started") throw new Error("not started");
+    expect((await loadJob(store, outcome.job.id))?.falRequestId).toBe("req-1");
   });
 
   it("is polled by the after() poller until it ends, and stops at the deadline otherwise", async () => {

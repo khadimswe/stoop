@@ -14,6 +14,7 @@ import { videoQueueFromEnv, type VideoQueue } from "./fal";
 import type { RenderRouteDeps } from "./routes";
 
 const demo = { manifest: manifestSchema.parse(manifest), approvals: approvalsSchema.parse(approvals) };
+const approvedPrompts: ReadonlySet<string> = new Set(demo.approvals.prompts);
 
 function orNull<T>(make: () => T): T | null {
   try {
@@ -36,6 +37,7 @@ export function renderRouteDeps(): RenderRouteDeps {
       return slug ? exampleReport(slug) : loadReport(store, reportId);
     },
     demoMedia: (slug) => demoMediaFor(demo.manifest, demo.approvals, slug),
+    approvedPrompts: () => approvedPrompts,
     privateStorage: (): PrivateStorage | null => orNull(() => getPrivateStorage()),
     storage: (): Storage | null => orNull(() => getStorage()),
     queue: () => (queue === undefined ? (queue = videoQueueFromEnv()) : queue),

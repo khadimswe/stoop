@@ -9,7 +9,7 @@ import { MemoryStore } from "../store/memory";
 import { pollRender } from "./jobs";
 import { photoPath } from "./photo";
 import { createRenderAccessGet, createRenderPlanPost, createRenderPost, createRenderStatusGet, type RenderRouteDeps } from "./routes";
-import { demoFor, exampleReport, fakePrivateStorage, fakeStorage, FakeQueue, LIVE_RUN_ID, liveReport, SLUGS, videoFetch } from "./testing";
+import { approvedFor, demoFor, exampleReport, fakePrivateStorage, fakeStorage, FakeQueue, LIVE_RUN_ID, liveReport, SLUGS, videoFetch } from "./testing";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const SITE = "https://stoop.example";
@@ -25,12 +25,14 @@ const ENV = {
 };
 const HOT_SAUCE = exampleReport("food-hot-sauce");
 const WORLD = HOT_SAUCE.worlds[0].segmentId;
+/** As if the founder had approved every example's prompt (the shipped approvals list none yet). */
+const ALL_APPROVED: ReadonlySet<string> = new Set(SLUGS.flatMap((slug) => [...approvedFor(exampleReport(slug))]));
 
 async function png(): Promise<Uint8Array> {
   return new Uint8Array(await sharp({ create: { width: 8, height: 8, channels: 3, background: "#c04020" } }).png().toBuffer());
 }
 
-function setup(over: { env?: Record<string, string>; queue?: FakeQueue | null; storage?: boolean } = {}) {
+function setup(over: { env?: Record<string, string>; queue?: FakeQueue | null; storage?: boolean; privateStorage?: boolean; approved?: ReadonlySet<string> } = {}) {
   const store = new MemoryStore({ now: () => NOW });
   const queue = over.queue === undefined ? new FakeQueue() : over.queue;
   const storage = fakeStorage();
@@ -49,7 +51,8 @@ function setup(over: { env?: Record<string, string>; queue?: FakeQueue | null; s
       return slug ? exampleReport(slug) : null;
     },
     demoMedia: (slug: ExampleSlug) => demoFor(exampleReport(slug)),
-    privateStorage: () => privateStorage,
+    approvedPrompts: () => over.approved ?? ALL_APPROVED,
+    privateStorage: () => (over.privateStorage === false ? null : privateStorage),
     storage: () => (over.storage === false ? null : storage),
     queue: () => queue,
     schedule: (task) => void scheduled.push(task),
@@ -195,6 +198,29 @@ describe("GET /api/render/access", () => {
     await t.render(target(HOT_SAUCE.worlds[1].segmentId), { cookie });
     await t.render(target(CONTROL_SEGMENT), { cookie });
     expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "budget-used", rendersLeft: 0, byok: true });
+  });
+
+  it("says off for an example whose prompt the founder has not approved, and the plan and render refuse it", async () => {
+    const t = setup({ approved: new Set() });
+    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false });
+    const plan = await t.plan(target());
+    expect(plan.status).toBe(409);
+    expect(await plan.json()).toEqual({ error: { code: "off", message: "This example's prompt is not approved for rendering yet." } });
+    expect((await t.render(target(), { cookie: t.pass() })).status).toBe(409);
+    expect(t.queue?.submitted).toEqual([]);
+    expect(await used(t.store)).toBe(0);
+    // Approving only this world's prompt opens only this world.
+    const one = setup({ approved: new Set([HOT_SAUCE.worlds[0].pack!.renders.find((r) => r.kind === "multi-shot")!.promptHash]) });
+    expect(((await (await one.access(HOT_SAUCE.meta.id, WORLD)).json()) as { video: string }).video).toBe("byok");
+    expect(((await (await one.access(HOT_SAUCE.meta.id, HOT_SAUCE.worlds[1].segmentId)).json()) as { video: string }).video).toBe("off");
+  });
+
+  it("says off for a live world that needs the brand's photo when no private store is set up", async () => {
+    const t = setup({ privateStorage: false });
+    const segment = liveReport().worlds[0].segmentId;
+    expect(await (await t.access(LIVE_RUN_ID, segment, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false });
+    expect((await t.plan({ reportId: LIVE_RUN_ID, segment })).status).toBe(503);
+    expect(await (await setup().access(LIVE_RUN_ID, segment)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true });
   });
 
   it("falls back to byok for a pass while server drafts are off, and to off where nothing can render", async () => {

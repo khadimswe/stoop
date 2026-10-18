@@ -287,10 +287,13 @@ function main() {
     })();
   });
 
-  fetchPlan().then(showPlan, (error) => {
-    status.textContent = "The draft plan could not be loaded.";
-    showError(error instanceof Error ? error.message : "Try again in a moment.");
-  });
+  // .catch after .then, so an error thrown while showing the plan is handled too.
+  fetchPlan()
+    .then(showPlan)
+    .catch((error) => {
+      status.textContent = "The draft plan could not be loaded.";
+      showError(error instanceof Error ? error.message : "Try again in a moment.");
+    });
 }
 
 if (typeof document !== "undefined") main();
