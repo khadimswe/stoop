@@ -536,10 +536,10 @@ export async function requestFrames(deps: FramesRouteDeps, id: string, body: unk
   if (current?.status === "rendering" && (await store.get(keys.run.framesLock(runId.data, meta.attempt, world.segmentId))) !== null) return answer(200, { status: "rendering", message: null });
   if (current?.status === "failed" && current.reason === BLOCKED_REASON) return apiError("invalid", "This world's frame prompts break the guardrails, so its storyboards cannot render.", 409);
   // Paused for the cap and the cap still spent: nothing new to try today (cached frames stay free for a new pack).
-  const used = (await store.get<number>(keys.daily("frames"))) ?? 0;
+  const now = deps.now?.() ?? Date.now();
+  const used = (await store.get<number>(keys.daily("frames", dayOf(now)))) ?? 0;
   if (current?.status === "paused" && used >= (deps.framesCap ?? dailyCaps().frames)) return answer(200, { status: "paused", message: PAUSED_REASON });
 
-  const now = deps.now?.() ?? Date.now();
   const ip = await visitorId(store, deps.headers);
   const visitor: StoryboardVisitor = { id: ip, cookie: deps.cookieVisitor ?? null };
   // Only a read: the job takes its place in the visitor's day when it renders (so cached frames stay free).
