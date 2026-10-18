@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ReportPage } from "@/components/stoop/report/report-page";
+import { JudgeBanner } from "@/components/stoop/report/sections/judge-banner";
 import { EXAMPLES } from "@/lib/demo/examples";
 import { isExampleSlug, loadExampleMedia, loadExampleReport } from "@/lib/report/load";
 import { reportView } from "@/lib/report/view/report";
@@ -30,9 +31,11 @@ export default async function ExamplePage({ params }: PageProps<"/examples/[slug
   if (!isExampleSlug(slug)) notFound();
   const view = reportView(loadExampleReport(slug), {
     media: loadExampleMedia(slug),
-    // The static default. The render lane swaps it on the client (BYOK for anyone, "Render draft
-    // video" with a judge pass) and passes the judge banner into ReportPage's `banner` slot.
+    // The static default. Each video line asks GET /api/render/access after mount and swaps it (BYOK
+    // for anyone, "Render draft video" with a judge pass); the judge banner does the same for the top
+    // world, so the page stays prerendered.
     renderAccess: { kind: "off" },
   });
-  return <ReportPage view={view} />;
+  const top = view.outputs.find((o) => !o.isControl);
+  return <ReportPage view={view} banner={<JudgeBanner target={top?.target ?? null} />} />;
 }
