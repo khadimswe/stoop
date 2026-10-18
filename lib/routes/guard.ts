@@ -1,9 +1,11 @@
 // The steps every lane C route takes before its own work: the bot check, the store (a missing shared
 // store fails closed), the visitor, and the per-visitor rate limit. Handlers get their dependencies
-// injected, so tests run them with a MemoryStore and plain Requests.
+// injected, so tests run them with a MemoryStore and plain Requests. Every log line passes through
+// redactTokens: /api/mcp/<token> puts an MCP token in the path, and an error message may quote one.
 import type { BotCheck, BotCheckKind } from "../bot-check";
 import { apiError, MESSAGES, rateLimited } from "../http";
-import { hitRate, type RateRule } from "../rate-limit";
+import { redactTokens } from "../mcp/token";
+import { hitRate, type RateRule, type RateSubject } from "../rate-limit";
 import type { Store } from "../store/types";
 import { visitorId, type VisitorId } from "../store/visitor";
 
@@ -15,7 +17,21 @@ export interface GuardDeps {
 
 export type Guarded = { ok: true; store: Store; visitor: VisitorId } | { ok: false; response: Response };
 
-export async function guard(request: Request, deps: GuardDeps, rule: RateRule, kind: BotCheckKind = "browser"): Promise<Guarded> {
+/**
+ * The request's path, decoded first so a percent-encoded token is redacted too (Next decodes the
+ * segment before it is used). A path that does not decode is logged as its route family only.
+ */
+export function loggablePath(request: Request): string {
+  const path = new URL(request.url).pathname;
+  try {
+    return redactTokens(decodeURIComponent(path));
+  } catch {
+    return path.startsWith("/api/mcp/") ? "/api/mcp/[token]" : "[undecodable path]";
+  }
+}
+
+/** The guard's steps before its rate limit: for a route that picks what to count by (MCP: the token, else the IP). */
+export async function admit(request: Request, deps: GuardDeps, kind: BotCheckKind = "browser"): Promise<Guarded> {
   // Browser routes serve Stoop's own pages: a request a browser marks as cross-site came from another site.
   if (kind === "browser" && request.headers.get("sec-fetch-site") === "cross-site") return { ok: false, response: apiError("invalid", MESSAGES.crossSite, 403) };
   const verdict = await deps.botCheck().check(request, { kind });
@@ -24,13 +40,23 @@ export async function guard(request: Request, deps: GuardDeps, rule: RateRule, k
   try {
     store = deps.store();
   } catch (error) {
-    console.error(`No store for ${new URL(request.url).pathname}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(redactTokens(`No store for ${loggablePath(request)}: ${error instanceof Error ? error.message : String(error)}`));
     return { ok: false, response: apiError("failed", MESSAGES.storeDown, 503) };
   }
-  const visitor = await visitorId(store, request.headers);
-  const rate = await hitRate(store, rule, visitor, deps.now?.());
-  if (!rate.ok) return { ok: false, response: rateLimited(rate.retryAfterSeconds) };
-  return { ok: true, store, visitor };
+  return { ok: true, store, visitor: await visitorId(store, request.headers) };
+}
+
+/** Counts one request against a rule for this subject; a 429 answer when the window is full. */
+export async function limit(store: Store, rule: RateRule, subject: RateSubject, now?: number): Promise<Response | null> {
+  const rate = await hitRate(store, rule, subject, now);
+  return rate.ok ? null : rateLimited(rate.retryAfterSeconds);
+}
+
+export async function guard(request: Request, deps: GuardDeps, rule: RateRule, kind: BotCheckKind = "browser"): Promise<Guarded> {
+  const admitted = await admit(request, deps, kind);
+  if (!admitted.ok) return admitted;
+  const limited = await limit(admitted.store, rule, admitted.visitor, deps.now?.());
+  return limited ? { ok: false, response: limited } : admitted;
 }
 
 /**
@@ -48,7 +74,7 @@ export async function failSafe(name: string, run: () => Promise<Response>): Prom
   try {
     return await run();
   } catch (error) {
-    console.error(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(redactTokens(`${name} failed: ${error instanceof Error ? error.message : String(error)}`));
     return apiError("failed", MESSAGES.failed, 500);
   }
 }
