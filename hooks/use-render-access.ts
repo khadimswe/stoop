@@ -118,9 +118,13 @@ export async function startDraft(target: RenderTarget, fetchImpl: Fetch = browse
     const job = parseJob(body);
     return job ? { kind: "job", job } : { kind: "error", message: START_FAILED };
   }
-  const code = isRecord(body) && isRecord(body.error) ? body.error.code : null;
-  if (code === "daily_cap" || code === "rate_limited") return { kind: "budget-used" };
-  if (code === "off") return { kind: "off" };
+  const error = isRecord(body) && isRecord(body.error) ? body.error : null;
+  // A spent counter (pass, network, day or total) is the budget; a burst of requests is not.
+  if (error?.code === "daily_cap") return { kind: "budget-used" };
+  if (error?.code === "off") return { kind: "off" };
+  if (error?.code === "rate_limited") return { kind: "error", message: "Too many tries just now. Try again in a minute." };
+  // "busy": an earlier try at this exact draft may still be rendering; the server says when to retry.
+  if (error?.code === "busy" && typeof error.message === "string" && error.message.length <= 300) return { kind: "error", message: error.message };
   return { kind: "error", message: START_FAILED };
 }
 

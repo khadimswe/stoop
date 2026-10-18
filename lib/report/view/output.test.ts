@@ -412,11 +412,11 @@ describe("the render access answer", () => {
 });
 
 describe("a judge draft", () => {
-  it("starts with only the target, never a prompt", async () => {
+  it("starts with only the target, never a prompt, and reads the 202 the route answers", async () => {
     const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toEqual({ target: TARGET });
       expect(init?.method).toBe("POST");
-      return json(job("queued"));
+      return json(job("queued"), 202);
     });
     await expect(startDraft(TARGET, fetchImpl)).resolves.toMatchObject({ kind: "job", job: { id: JOB, status: "queued" } });
     expect(fetchImpl).toHaveBeenCalledWith("/api/render", expect.anything());
@@ -424,8 +424,11 @@ describe("a judge draft", () => {
 
   it("maps a spent budget, a switched-off server and anything else", async () => {
     await expect(startDraft(TARGET, async () => json({ error: { code: "daily_cap", message: "Spent" } }, 429))).resolves.toEqual({ kind: "budget-used" });
-    await expect(startDraft(TARGET, async () => json({ error: { code: "rate_limited", message: "Spent" } }, 429))).resolves.toEqual({ kind: "budget-used" });
+    // A burst of requests is not the budget.
+    await expect(startDraft(TARGET, async () => json({ error: { code: "rate_limited", message: "Slow down" } }, 429))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => json({ error: { code: "off", message: "Off" } }, 503))).resolves.toEqual({ kind: "off" });
+    await expect(startDraft(TARGET, async () => json({ error: { code: "off", message: "Needs a judge pass" } }, 403))).resolves.toEqual({ kind: "off" });
+    await expect(startDraft(TARGET, async () => json({ error: { code: "busy", message: "Try again in about two hours." } }, 409))).resolves.toEqual({ kind: "error", message: "Try again in about two hours." });
     await expect(startDraft(TARGET, async () => json({ error: { code: "invalid", message: "No" } }, 400))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => Promise.reject(new TypeError("offline")))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => json({ job: { id: "nope" } }))).resolves.toMatchObject({ kind: "error" });
