@@ -5,7 +5,7 @@ import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { getRunMeta, liveStatus, runLease, setRunMeta } from "../store/runs";
 import type { Store } from "../store/types";
-import type { VisitorId } from "../store/visitor";
+import { tokenVisitorId, type CookieVisitorId, type VisitorId } from "../store/visitor";
 import { ApiFailure } from "./errors";
 import { loadRunRecord, saveIntake } from "./record";
 import { MAX_LIVE_RUNS, RUNS_PER_HOUR, resumeRun, startRun, type StartDeps } from "./start";
@@ -62,6 +62,18 @@ describe("starting a live run", () => {
     const record = await loadRunRecord(store, runId);
     expect(record?.inputs.seeds.map((s) => s.ref.id)).toEqual(seedIds);
     expect(record?.seedEvidence.map((e) => e.id).sort()).toEqual([...new Set(report.inputs.seeds.flatMap((s) => s.evidenceIds))].sort());
+  });
+
+  it("keeps who started the run in its meta, by salted ids only, so its storyboards count against them", async () => {
+    const { deps, ctx, store } = await setup();
+    const cookie = "c_cccccccccccccccccccccccc" as CookieVisitorId;
+    const withCookie = liveId(await startRun(deps, { intakeId, seedIds, statedCustomer: null, region: "Texas", direction: report.inputs.direction }, { ...ctx(), cookieVisitor: cookie }));
+    expect(await getRunMeta(store, withCookie)).toMatchObject({ visitor: "v_aaaaaaaaaaaaaaaaaaaaaaaa", cookieVisitor: cookie });
+    // A culture_brief run is started as its MCP token (t_), never as the connector's shared IP.
+    const token = tokenVisitorId("d".repeat(64));
+    const agent = liveId(await startRun(deps, { intakeId, seedIds, statedCustomer: null, region: "Ohio", direction: report.inputs.direction }, { store, visitor: token, cookieVisitor: null, source: "mcp" }));
+    expect(await getRunMeta(store, agent)).toMatchObject({ visitor: token, cookieVisitor: null });
+    expect(token).toBe(`t_${"d".repeat(24)}`);
   });
 
   it("passes on when its invocation began when earlier work shared it (MCP intake), so the run's deadline counts from there", async () => {

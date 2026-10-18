@@ -1,4 +1,4 @@
-// Runtime switches and caps from the environment (CLAUDE.md sections 6 and 13), read in one place so
+// Runtime switches and caps from the environment (the live switch, the daily caps and the video flags), read in one place so
 // the runtime, frames, revise, MCP and health agree. Pure: callers pass their env, so tests never
 // touch the real one. Secrets are not read here; each vendor adapter reads its own key.
 
@@ -26,7 +26,7 @@ export interface DailyCaps {
   renders: number;
 }
 
-/** Global daily caps, kept in Redis counters (keys.daily). Defaults from CLAUDE.md section 6. */
+/** Global daily caps, kept in Redis counters (keys.daily). Defaults: 30 live runs, 200 frames and 500 fresh Qloo calls a day. */
 export function dailyCaps(env: Env = process.env): DailyCaps {
   return {
     liveRuns: count(env.LIVE_RUNS_DAILY_CAP, 30),
@@ -100,8 +100,24 @@ export interface McpCaps {
   perToken: { calls: number; cultureBriefs: number };
   /** Token issuing, per IP per day and overall per day. */
   issue: { perIpDaily: number; daily: number };
+  /**
+   * Live runs per day culture_brief may start across all tokens (MCP_LIVE_RUNS_DAILY_SHARE, never more
+   * than LIVE_RUNS_DAILY_CAP), so agents can never take the day's runs from web visitors and judges.
+   */
+  liveRunsShare: number;
+  /** Token emails per day (MCP_TOKEN_EMAILS_DAILY), a budget of their own, apart from waitlist confirmations. */
+  tokenEmailsDaily: number;
+  /** Token emails per email address per day: past it the token still shows on screen, and no email goes out. */
+  tokenEmailsPerAddressDaily: number;
 }
 
 export function mcpCaps(env: Env = process.env): McpCaps {
-  return { daily: count(env.MCP_DAILY_CAP, 200), perToken: { calls: 40, cultureBriefs: 3 }, issue: { perIpDaily: 3, daily: 50 } };
+  return {
+    daily: count(env.MCP_DAILY_CAP, 200),
+    perToken: { calls: 40, cultureBriefs: 3 },
+    issue: { perIpDaily: 3, daily: 100 },
+    liveRunsShare: Math.min(count(env.MCP_LIVE_RUNS_DAILY_SHARE, 10), dailyCaps(env).liveRuns),
+    tokenEmailsDaily: count(env.MCP_TOKEN_EMAILS_DAILY, 50),
+    tokenEmailsPerAddressDaily: 2,
+  };
 }

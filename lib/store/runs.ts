@@ -15,6 +15,10 @@ import { reduce, runEventSchema, toReport, type RunEvent, type RunEventInput } f
 import { reportSchema, type Report } from "../report/schema";
 import { keys, TTL } from "./keys";
 import type { Store } from "./types";
+import type { CookieVisitorId, TokenVisitorId, VisitorId } from "./visitor";
+
+const visitorIdSchema = z.custom<VisitorId | TokenVisitorId>((value) => typeof value === "string" && /^[vt]_[0-9a-f]{24}$/.test(value), { error: "a visitor is v_ or t_ plus 24 hex" });
+const cookieVisitorIdSchema = z.custom<CookieVisitorId>((value) => typeof value === "string" && /^c_[0-9a-f]{24}$/.test(value), { error: "a cookie visitor is c_ plus 24 hex" });
 
 export const runMetaSchema = z.strictObject({
   runId: z.string().regex(/^run_[0-9a-f]{24}$/),
@@ -24,6 +28,14 @@ export const runMetaSchema = z.strictObject({
   briefHash: z.string().regex(/^[0-9a-f]{64}$/),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+  /**
+   * Who started the run, as salted ids only: the IP id on the web, the MCP token's id (t_) for a
+   * culture_brief. The storyboards it renders count against this visitor's day (lib/media/storyboards.ts).
+   * Absent on runs started before it was kept; those count only against the global frame cap.
+   */
+  visitor: visitorIdSchema.optional(),
+  /** The starter's signed visitor cookie id, or null (no cookie, an MCP agent, or no STOOP_SIGNING_SECRET). */
+  cookieVisitor: cookieVisitorIdSchema.nullable().optional(),
 });
 export type RunMeta = z.infer<typeof runMetaSchema>;
 

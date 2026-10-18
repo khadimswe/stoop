@@ -1,6 +1,8 @@
 // Small helpers shared by lane C's route handlers: JSON answers in the API's shapes, a size-capped
 // body reader, and cookie parsing. Plain Web Request and Response, so handlers test without Next.
 import { apiErrorSchema, type ApiError } from "./api/responses";
+import type { CookieVisitorId } from "./store/visitor";
+import { mintVisitorCookie, readVisitorCookie, VISITOR_COOKIE, VISITOR_COOKIE_MAX_AGE } from "./visitor-cookie";
 
 type ErrorCode = ApiError["error"]["code"];
 
@@ -99,4 +101,21 @@ export function readCookie(request: Request, name: string): string | null {
 export function cookieHeader(request: Request, name: string, value: string, maxAgeSeconds: number): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${name}=${value}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+/** The id in the request's signed visitor cookie, or null (no secret, no cookie, or one this server did not sign). */
+export function cookieVisitorOf(request: Request, secret: string | null): CookieVisitorId | null {
+  return readVisitorCookie(secret, readCookie(request, VISITOR_COOKIE));
+}
+
+/**
+ * The browser's visitor cookie id, minting one when there is a signing secret and the browser has no
+ * valid cookie: `setCookie` is then the header to send back (HttpOnly, SameSite=Lax, Secure on https).
+ * Without a secret there is no cookie id at all, and limits count the IP alone.
+ */
+export function visitorCookie(request: Request, secret: string | null): { id: CookieVisitorId | null; setCookie: string | null } {
+  const existing = cookieVisitorOf(request, secret);
+  if (existing || !secret) return { id: existing, setCookie: null };
+  const minted = mintVisitorCookie(secret);
+  return { id: minted.id, setCookie: cookieHeader(request, VISITOR_COOKIE, minted.value, VISITOR_COOKIE_MAX_AGE) };
 }
