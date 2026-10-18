@@ -49,7 +49,7 @@ const lead = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json",
 function watchConsole(page: Page) {
   const errors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
+    if (message.type() === "error" || /Content Security Policy/i.test(message.text())) errors.push(message.text());
   });
   return errors;
 }

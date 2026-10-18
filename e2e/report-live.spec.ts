@@ -26,7 +26,8 @@ const liveEvents = recordedEvents.map((event) => (event.type === "run.started" ?
 const lastSeq = liveEvents.at(-1)!.seq;
 const [world, otherWorld] = recordedReport.worlds;
 
-// A 1x1 PNG for the frame URLs, so no image request leaves the test.
+// A 1x1 PNG for the frame URLs (on the public Blob host the site's CSP allows), so no image request
+// leaves the test.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
 const hex = (c: string) => c.repeat(64);
 
@@ -44,7 +45,7 @@ const at = (seq: number) => ({ seq, at: "2026-10-16T20:05:00.000Z" });
 function framesEvents(from: number): Json[] {
   const segmentId = world.segmentId;
   const scenes = world.pack.concept.scenes.length;
-  const frame = (scene: number, attempt: 1 | 2) => ({ scene, url: `https://frames.test/${segmentId}-${scene}-${attempt}.png`, promptHash: hex("3"), modelId: "fal-ai/nano-banana-2/edit", attempt });
+  const frame = (scene: number, attempt: 1 | 2) => ({ scene, url: `https://stoop-e2e.public.blob.vercel-storage.com/frames/${segmentId}-${scene}-${attempt}.png`, promptHash: hex("3"), modelId: "fal-ai/nano-banana-2/edit", attempt });
   return [
     { ...at(from), type: "world.frames", segmentId, frames: { revisionId: null, status: "rendering", reason: null, frames: [], critiques: [] } },
     { ...at(from + 1), type: "trace.step", step: { stage: "frames", kind: "decision", label: "Frame 2: product hidden", reason: "Before: the bottle sits behind a plate. After: the bottle in hand at the table.", segmentId } },
@@ -101,9 +102,9 @@ interface Mock {
 async function mockApi(page: Page, mock: Mock) {
   const errors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
+    if (message.type() === "error" || /Content Security Policy/i.test(message.text())) errors.push(message.text());
   });
-  await page.route("https://frames.test/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: PNG }));
+  await page.route("https://stoop-e2e.public.blob.vercel-storage.com/frames/**", (route) => route.fulfill({ status: 200, contentType: "image/png", body: PNG }));
   await page.route(`**/api/report/${RUN}`, (route) => {
     const { status, body } = mock.report();
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -240,7 +241,7 @@ test("a finished run renders the full report with the live sticky action", async
 
 test("storyboards render on demand, with the critique as agent decisions", async ({ page }) => {
   const mock = doneMock();
-  await mockApi(page, mock);
+  const errors = await mockApi(page, mock);
   await postRoute(page, mock, `**/api/frames/${RUN}`, () => ({ status: 202, body: { status: "rendering", message: null }, queue: sse(framesEvents(lastSeq + 1), { after: "done" }) }));
   await page.goto(`/report/${RUN}`);
   const kit = page.locator(`section[aria-labelledby="kit-${world.segmentId}"]`);
@@ -249,6 +250,7 @@ test("storyboards render on demand, with the critique as agent decisions", async
   await expect(kit.getByText("Frame 2: product hidden")).toBeVisible();
   await expect(kit.getByText(/After: the bottle in hand at the table\./)).toBeVisible();
   expect(mock.posts).toEqual([{ url: expect.stringContaining(`/api/frames/${RUN}`), body: { segmentId: world.segmentId } }]);
+  expect(errors).toEqual([]);
 });
 
 test("paused storyboards and capped revisions read as plain notes", async ({ page }) => {
@@ -268,7 +270,7 @@ test("paused storyboards and capped revisions read as plain notes", async ({ pag
 
 test("Not this vibe revises a cue and shows the diff, with the old receipt kept", async ({ page }) => {
   const mock = doneMock();
-  await mockApi(page, mock);
+  const errors = await mockApi(page, mock);
   await postRoute(page, mock, "**/api/revise", () => ({
     status: 202,
     body: { status: "revising", revisionId: REVISION_ID, eventsUrl: EVENTS_URL, message: null },
@@ -287,4 +289,5 @@ test("Not this vibe revises a cue and shows the diff, with the old receipt kept"
   await expect(page.getByRole("dialog", { name: "Receipt: Was: Music feel" })).toBeVisible();
   await page.keyboard.press("Escape");
   expect(mock.posts).toEqual([{ url: expect.stringContaining("/api/revise"), body: { runId: RUN, segmentId: world.segmentId, field: "music", exclude: [], reason: NOTE } }]);
+  expect(errors).toEqual([]);
 });

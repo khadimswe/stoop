@@ -160,6 +160,10 @@ describe("the kit's storyboard", () => {
     expect(storyboardView(report, withFrames(frames("rendering")), null)).toMatchObject({ status: "rendering", canRequest: false });
     expect(storyboardView(report, withFrames(frames("paused")), null)).toMatchObject({ status: "paused", reason: "Storyboards paused today.", canRequest: true });
     expect(storyboardView(report, withFrames(frames("failed")), null)).toMatchObject({ status: "failed", canRequest: true });
+    // Paused by the cap part way: the frames that did render still show, next to the plain note.
+    const partly = { ...frames("done"), status: "paused" as const, reason: "Storyboards paused today." };
+    expect(storyboardView(report, withFrames(partly), null)).toMatchObject({ status: "paused", reason: "Storyboards paused today.", canRequest: true });
+    expect(storyboardView(report, withFrames(partly), null).frames).toHaveLength(2);
   });
 
   it("never shows frames next to a pack they did not come from", () => {

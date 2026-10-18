@@ -445,7 +445,9 @@ export function storyboardView(report: Pick<Report, "trace">, world: World, medi
     return { status: "done", reason: null, frames: approved.map((f) => ({ scene: f.scene, src: f.file, alt: frameAlt(concept, f.scene) })), steps, canRequest: false };
   }
   const status = own?.status ?? "none";
-  return { status, reason: own?.reason ?? null, frames: [], steps, canRequest: parts.pack !== null && status !== "rendering" };
+  // A job paused by the cap (or one that failed part way) keeps the frames it did render.
+  const kept = own && own.status !== "rendering" ? newestPerScene(own.frames, concept).map((f) => ({ scene: f.scene, src: f.url, alt: frameAlt(concept, f.scene) })) : [];
+  return { status, reason: own?.reason ?? null, frames: kept, steps, canRequest: parts.pack !== null && status !== "rendering" };
 }
 
 // --- The view -------------------------------------------------------------------------------------------

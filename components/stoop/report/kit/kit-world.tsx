@@ -92,16 +92,20 @@ function StoryboardStrip({ segmentId, storyboard }: { segmentId: string; storybo
   const rendering = note?.state !== "note" && (storyboard.status === "rendering" || note?.state === "sending" || note?.state === "starting");
   const steps = <TraceDecisions steps={storyboard.steps} title="Storyboard review, agent decisions" />;
 
-  if (storyboard.status === "done" && storyboard.frames.length > 0) {
+  const frames = storyboard.frames.length > 0 && (
+    <ol className="grid grid-cols-4 gap-1.5" aria-label="Storyboard frames">
+      {storyboard.frames.map((frame) => (
+        <li key={frame.scene} className="overflow-hidden rounded-lg bg-screen">
+          <Image src={frame.src} alt={frame.alt} width={180} height={320} unoptimized className="aspect-[9/16] h-auto w-full object-cover" />
+        </li>
+      ))}
+    </ol>
+  );
+
+  if (storyboard.status === "done" && frames) {
     return (
       <div className="flex flex-col gap-2">
-        <ol className="grid grid-cols-4 gap-1.5" aria-label="Storyboard frames">
-          {storyboard.frames.map((frame) => (
-            <li key={frame.scene} className="overflow-hidden rounded-lg bg-screen">
-              <Image src={frame.src} alt={frame.alt} width={180} height={320} unoptimized className="aspect-[9/16] h-auto w-full object-cover" />
-            </li>
-          ))}
-        </ol>
+        {frames}
         {steps}
       </div>
     );
@@ -109,6 +113,7 @@ function StoryboardStrip({ segmentId, storyboard }: { segmentId: string; storybo
   if (!live) return null;
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-fill p-3">
+      {!rendering && frames}
       {rendering ? (
         <>
           <div aria-hidden="true" className="grid grid-cols-4 gap-1.5">
