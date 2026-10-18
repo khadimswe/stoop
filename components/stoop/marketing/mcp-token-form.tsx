@@ -14,7 +14,7 @@ import { cn } from "cn";
 type State =
   | { kind: "idle" }
   | { kind: "sending" }
-  | { kind: "error"; code: Exclude<McpTokenResult, { ok: true }>["code"] }
+  | { kind: "error"; code: Exclude<McpTokenResult, { ok: true }>["code"]; message?: string }
   | { kind: "done"; token: McpTokenResponse };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +49,7 @@ export function McpTokenForm({ className }: { className?: string }) {
     const company = new FormData(event.currentTarget).get("stoop_hp")?.toString() || undefined;
     setState({ kind: "sending" });
     const result = await postMcpToken({ email, consent, ...(company ? { company } : {}) });
-    setState(result.ok ? { kind: "done", token: result.token } : { kind: "error", code: result.code });
+    setState(result.ok ? { kind: "done", token: result.token } : { kind: "error", code: result.code, message: result.message });
   }
 
   if (state.kind === "done") {
@@ -136,7 +136,7 @@ export function McpTokenForm({ className }: { className?: string }) {
 
       {state.kind === "error" && (
         <p role="alert" className="text-sm font-semibold text-rose-deep">
-          {tokenErrorCopy(state.code)}
+          {tokenErrorCopy(state.code, state.message)}
         </p>
       )}
       <p className="text-xs leading-relaxed text-ink-soft">Your email joins the Stoop waitlist. We never sell it or send it to Qloo.</p>

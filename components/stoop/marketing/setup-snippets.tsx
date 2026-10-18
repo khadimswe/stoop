@@ -45,8 +45,9 @@ export function SetupSnippets({ fallbackOrigin }: { fallbackOrigin: string }) {
       <div className="flex flex-col gap-4">
         <h3 className="font-display text-xl font-extrabold [font-stretch:88%]">Token in the URL, for clients that only take a URL</h3>
         <p className="text-sm leading-relaxed text-ink-soft">
-          In Claude on the web or the desktop app, open Settings, then Connectors, add a custom connector and paste this URL. The token is part
-          of the address here, and hosting logs record addresses, so use this form only where headers aren&apos;t an option.
+          In Claude on the web or the desktop app, open Settings, then Connectors, add a custom connector and paste this URL with your token
+          after <code className="font-mono text-ink">/api/mcp/</code> and no slash after it. The address carries the token, and hosting logs
+          record addresses, so keep it as private as the token and use this form only where headers aren&apos;t an option.
         </p>
         <Snippet label="Connector URL" code={mcpPathUrl(origin)} copyLabel="Copy URL" />
       </div>

@@ -87,9 +87,15 @@ test("when the email copy could not go out, the page says to copy it now", async
 });
 
 for (const [name, answer, copy] of [
-  ["the per-network limit", { status: 429, body: { error: { code: "rate_limited", message: "x" } } }, "This network has already asked for 3 tokens today."],
-  ["the daily cap", { status: 429, body: { error: { code: "daily_cap", message: "x" } } }, "Today's 50 tokens are handed out."],
-  ["tokens switched off", { status: 503, body: { error: { code: "off", message: "x" } } }, "Tokens aren't available right now."],
+  // The route's own messages (lib/routes/mcp-token.ts) for the limits and for closed tokens.
+  [
+    "the per-network limit",
+    { status: 429, body: { error: { code: "rate_limited", message: "That's 3 tokens from here today. Use one you already have, or try again tomorrow." } } },
+    "That's 3 tokens from here today.",
+  ],
+  ["the daily cap", { status: 429, body: { error: { code: "daily_cap", message: "Today's MCP tokens are all handed out. Try again tomorrow (UTC)." } } }, "Today's MCP tokens are all handed out."],
+  ["tokens closed after judging", { status: 410, body: { error: { code: "off", message: "MCP tokens closed when judging ended." } } }, "MCP tokens closed when judging ended."],
+  ["a bad email the browser let through", { status: 400, body: { error: { code: "invalid", message: "email: Invalid email address" } } }, "Check the email address and try again."],
   ["a dropped connection", { status: 0, abort: true }, "Couldn't reach Stoop."],
 ] as const) {
   test(`${name} is said in plain words, and the form stays`, async ({ page }) => {

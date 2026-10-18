@@ -4,7 +4,7 @@ import { ExampleSession } from "@/components/stoop/marketing/example-session";
 import { McpTokenForm } from "@/components/stoop/marketing/mcp-token-form";
 import { SetupSnippets } from "@/components/stoop/marketing/setup-snippets";
 import { Screen } from "@/components/stoop/screen";
-import { judgingEndsAt } from "@/lib/config";
+import { judgingEndsAt, mcpCaps } from "@/lib/config";
 import { expiryText } from "@/lib/marketing/mcp-token";
 import { siteOrigin } from "@/lib/marketing/site";
 
@@ -19,6 +19,8 @@ export const ensureStatic = "navigation";
 const ORIGIN = siteOrigin(process.env.NEXT_PUBLIC_APP_URL);
 /** When every token stops working (JUDGING_ENDS_AT, read at build time). */
 const EXPIRES = new Date(judgingEndsAt()).toISOString();
+/** The per-token caps the endpoint enforces (lib/config.ts mcpCaps). */
+const PER_TOKEN = mcpCaps().perToken;
 
 export default function McpPage() {
   return (
@@ -56,7 +58,7 @@ export default function McpPage() {
           <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-soft">
             <p className="text-base font-semibold text-ink">The token is shown once, then emailed to you.</p>
             <p>
-              Tokens are capped at 40 tool calls and 3 culture briefs a day, work until {expiryText(EXPIRES)}, and can be
+              Tokens are capped at {PER_TOKEN.calls} tool calls and {PER_TOKEN.cultureBriefs} culture briefs a day, work until {expiryText(EXPIRES)}, and can be
               revoked.
             </p>
             <p>score_brief uses Qloo only, no AI model. culture_brief starts a run with the same limits as the website, or sends back an example report when live runs are off.</p>

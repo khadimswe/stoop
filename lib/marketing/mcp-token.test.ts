@@ -47,7 +47,7 @@ describe("postMcpToken", () => {
 
   it("reads each API error code, and falls back on the status", async () => {
     for (const code of API_ERROR_CODES) {
-      expect(await postMcpToken({ email: "a@b.co", consent: false }, fakeFetch(400, { error: { code, message: "x" } }))).toEqual({ ok: false, code });
+      expect(await postMcpToken({ email: "a@b.co", consent: false }, fakeFetch(400, { error: { code, message: "x" } }))).toEqual({ ok: false, code, message: "x" });
     }
     expect(await postMcpToken({ email: "a@b.co", consent: false }, fakeFetch(429, {}))).toEqual({ ok: false, code: "rate_limited" });
     expect(await postMcpToken({ email: "a@b.co", consent: false }, fakeFetch(404, "nope"))).toEqual({ ok: false, code: "not_found" });
@@ -68,8 +68,13 @@ describe("postMcpToken", () => {
 
   it("has plain words for every failure, with the limits spelled out", () => {
     for (const code of [...API_ERROR_CODES, "network"] as const) expect(tokenErrorCopy(code).length).toBeGreaterThan(10);
-    expect(tokenErrorCopy("rate_limited")).toContain("3 tokens today");
-    expect(tokenErrorCopy("daily_cap")).toContain("50 tokens");
+    // The route's own words win for the limits and for closed tokens; the page's words cover the rest.
+    const limit = "That's 3 tokens from here today. Use one you already have, or try again tomorrow.";
+    expect(tokenErrorCopy("rate_limited", limit)).toBe(limit);
+    expect(tokenErrorCopy("daily_cap", "Today's MCP tokens are all handed out. Try again tomorrow (UTC).")).toContain("Try again tomorrow (UTC)");
+    expect(tokenErrorCopy("off", "MCP tokens closed when judging ended.")).toBe("MCP tokens closed when judging ended.");
+    expect(tokenErrorCopy("invalid", "email: Invalid email address")).toBe("Check the email address and try again.");
+    expect(tokenErrorCopy("daily_cap")).toBe("Today's tokens are all handed out. Try again tomorrow.");
   });
 });
 

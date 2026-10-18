@@ -10,7 +10,10 @@ export const TOKEN_SHAPE = /^stp_[A-Za-z0-9_-]{43}$/;
 /** The copy shown in place of a real token in every setup snippet. */
 export const TOKEN_PLACEHOLDER = "stp_your_token_here";
 
-export type McpTokenResult = { ok: true; token: McpTokenResponse } | { ok: false; code: ApiError["error"]["code"] | "network" };
+export type McpTokenResult =
+  | { ok: true; token: McpTokenResponse }
+  /** `message` is the route's own plain-words reason, when it sent one (lib/routes/mcp-token.ts). */
+  | { ok: false; code: ApiError["error"]["code"] | "network"; message?: string };
 
 function isTokenResponse(value: unknown): value is McpTokenResponse {
   if (!value || typeof value !== "object") return false;
@@ -39,19 +42,28 @@ export async function postMcpToken(body: McpTokenRequest, fetchImpl: typeof fetc
   }
   const json: unknown = await response.json().catch(() => null);
   if (response.ok && isTokenResponse(json)) return { ok: true, token: json };
-  return { ok: false, code: errorCode(json, response.status) };
+  const message = json && typeof json === "object" ? (json as { error?: { message?: unknown } }).error?.message : undefined;
+  return { ok: false, code: errorCode(json, response.status), ...(typeof message === "string" && message.trim() ? { message: message.trim().slice(0, 300) } : {}) };
 }
 
-/** Plain words for each error code. Limits say what the limit is and when it resets. */
-export function tokenErrorCopy(code: Exclude<McpTokenResult, { ok: true }>["code"]): string {
+/** The codes whose server message is the plain answer: the limit and when it resets, or why tokens are closed. */
+const SERVER_WORDS = new Set(["rate_limited", "daily_cap", "off"]);
+
+/**
+ * Plain words for a failure. For the limits and for closed tokens, the route's own message says it
+ * best ("That's 3 tokens from here today. ..."); everything else gets this page's words.
+ */
+export function tokenErrorCopy(code: Exclude<McpTokenResult, { ok: true }>["code"], serverMessage?: string): string {
+  if (serverMessage && SERVER_WORDS.has(code)) return serverMessage;
   switch (code) {
     case "invalid":
       return "Check the email address and try again.";
     case "rate_limited":
-      return "This network has already asked for 3 tokens today. Use one you have, or try again tomorrow.";
+      return "Too many token requests from here. Use a token you already have, or try again later.";
     case "daily_cap":
-      return "Today's 50 tokens are handed out. Try again tomorrow.";
+      return "Today's tokens are all handed out. Try again tomorrow.";
     case "off":
+      return "Tokens are closed right now. The examples work without one.";
     case "not_found":
       return "Tokens aren't available right now. The examples work without one.";
     case "bot":
