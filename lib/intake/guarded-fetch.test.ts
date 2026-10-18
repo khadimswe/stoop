@@ -4,7 +4,7 @@ import https from "node:https";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { publicAddress, type AddressPolicy } from "./address";
-import { guardedFetch, nextHop, PageBudget, USER_AGENT, type Resolver } from "./guarded-fetch";
+import { guardedFetch, guardedFetchImage, nextHop, PageBudget, USER_AGENT, type Resolver } from "./guarded-fetch";
 
 // The real policy refuses 127.0.0.1, so these tests pass one that also allows it. Only tests do this.
 const loopbackToo: AddressPolicy = (address) => (address === "127.0.0.1" ? { allowed: true, address, family: 4 } : publicAddress(address));
@@ -232,6 +232,23 @@ describe("guardedFetch, responses", () => {
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 50);
     expect(await fetchLocal("/slow", { signal: controller.signal })).toMatchObject({ ok: false, reason: "timeout", detail: "The read was cancelled." });
+  });
+});
+
+describe("guardedFetchImage", () => {
+  const imageLocal = (path: string, options: Parameters<typeof guardedFetchImage>[1] = {}) => guardedFetchImage(`${base}${path}`, { policy: loopbackToo, ports: [port], ...options });
+
+  it("returns an image's raw bytes and type", async () => {
+    const result = await imageLocal("/png");
+    expect(result).toMatchObject({ ok: true, contentType: "image/png", status: 200 });
+    if (result.ok) expect(new TextDecoder().decode(result.bytes)).toBe("not really a png");
+  });
+
+  it("keeps every guard of the page fetch: the address policy, image types only, the size cap", async () => {
+    expect(await guardedFetchImage(`${base}/png`)).toMatchObject({ ok: false, reason: "blocked-address" });
+    expect(await imageLocal("/page")).toMatchObject({ ok: false, reason: "unsupported-content-type", detail: "The link returned text/html, not an image." });
+    expect(await imageLocal("/png", { maxBytes: 4 })).toMatchObject({ ok: false, reason: "too-large" });
+    expect(await imageLocal("/to-private")).toMatchObject({ ok: false, reason: "blocked-address" });
   });
 });
 

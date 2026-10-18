@@ -1,14 +1,16 @@
 // One live run, end to end, in the background (`after()`): the same pipeline the examples were
 // recorded with (lib/agent/orchestrator.ts runBrief), with live inputs, the shared Qloo client, Claude
 // memoized in the store, the LLM-only Control written next to Prove, and a 240 s deadline. Each world's
-// storyboard frames start as soon as its pack lands (docs plan section 4.3), and their cost joins the
-// run's. Hitting the deadline stops the run where it is and marks it resumable.
+// storyboard frames start as soon as its pack lands (worlds run side by side, so frames never wait for the whole run), each world job counted
+// against the day of the visitor who started the run when it renders fresh frames, and their cost joins
+// the run's. Hitting the deadline stops the run where it is and marks it resumable.
 import type { LanguageModel } from "ai";
 import { generateBaseline, type BaselineRun } from "../agent/baseline";
 import { CONTROL_RUN } from "../agent/baseline-brief";
 import { runBrief, type BriefRun, type Creative } from "../agent/orchestrator";
 import { createEmitter, reduce, type RunEventInput } from "../events";
 import type { FramesJob, FramesOutcome } from "../media/frames";
+import type { StoryboardVisitor } from "../media/storyboards";
 import { addCost, reportNames } from "../stages/after-run";
 import { PLATFORMS, type Candidate } from "../demo/candidates";
 import type { ReferenceSets } from "../geo/metros";
@@ -17,7 +19,7 @@ import { createLiveRunContext } from "../qloo/context";
 import { lastMonthRemaining } from "../qloo/shared";
 import type { Cost } from "../report/schema";
 import { keys } from "../store/keys";
-import { getRunMeta, refreshReport, runLease, setRunMeta } from "../store/runs";
+import { getRunMeta, refreshReport, runLease, setRunMeta, type RunMeta } from "../store/runs";
 import type { Store } from "../store/types";
 import { storeEmitter, type StoreEmitter } from "./emitter";
 import { estimateUsd } from "./cost";
@@ -44,6 +46,16 @@ export interface ExecuteDeps {
    * the frame service). Absent when no frame service is set up: then no frames start.
    */
   frames?: (job: FramesJob, model: LanguageModel, signal: AbortSignal) => Promise<FramesOutcome>;
+}
+
+/**
+ * Who a run's storyboards count against (lib/media/storyboards.ts): the visitor who started it, when its
+ * meta says (older runs do not). Each job takes its place in that visitor's day at its first fresh render.
+ * A resumed run still counts against its starter, not whoever pressed Resume: accepted, since a resume
+ * replays its frames from the cache and takes no place unless something new renders.
+ */
+function starterOf(meta: RunMeta): StoryboardVisitor | null {
+  return meta.visitor ? { id: meta.visitor, cookie: meta.cookieVisitor ?? null } : null;
 }
 
 export { estimateUsd, PRICES } from "./cost";
@@ -104,6 +116,7 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
     // Frames count their own Claude calls in their cost, so their model is memoized but not tallied here.
     const framesModel = memoizedModel(deps.model, store, runId);
     const framing: Promise<FramesOutcome | null>[] = [];
+    const starter = starterOf(meta);
     // What the run has emitted so far, to hand each world to its frames as its pack lands.
     const mirror = createEmitter();
     const emitter: StoreEmitter = {
@@ -115,8 +128,16 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
           const state = reduce(mirror.events);
           const world = state.worlds.find((w) => w.segmentId === input.segmentId);
           if (world && state.inputs) {
-            const job: FramesJob = { runId, attempt: meta.attempt, segmentId: world.segmentId, world, product: record.inputs.product, names: reportNames({ ...state, inputs: state.inputs }) };
-            framing.push(deps.frames(job, framesModel, stop.signal).catch(() => null));
+            const job: FramesJob = { runId, attempt: meta.attempt, segmentId: world.segmentId, world, product: record.inputs.product, names: reportNames({ ...state, inputs: state.inputs }), visitor: starter };
+            const render = deps.frames;
+            // The world's own events reach the list first: a frames event that lands before its world
+            // (a pause written at once) would be dropped by the reducer.
+            framing.push(
+              stored
+                .flush()
+                .then(() => render(job, framesModel, stop.signal))
+                .catch(() => null),
+            );
           }
         }
         return event;
