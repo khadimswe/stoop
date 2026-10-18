@@ -1,6 +1,6 @@
 // What makes the Qloo client safe across many instances: a cache, a pacer and a daily cap kept in the
-// shared store, plus the month remaining that the next run starts from (CLAUDE.md sections 2 and 6).
-import { DAY_SECONDS, keys, TTL } from "../store/keys";
+// shared store, plus the month remaining that the next run starts from, so no instance can pass the 4 a second pacing or the daily call cap.
+import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
 import type { QlooClientOptions } from "./client";
 import { STARTS_PER_SECOND } from "./constants";
@@ -28,7 +28,7 @@ export function sharedClientOptions(store: Store, options: SharedOptions): Pick<
       if (wait > 0) await sleep(wait);
     },
     admit: async () => {
-      const used = await store.incr(keys.daily("qloo"), { ttlSeconds: TTL.daily });
+      const used = await store.incr(keys.daily("qloo", dayOf(now())), { ttlSeconds: TTL.daily });
       if (used > options.dailyCap) throw new QlooBudgetError(DAILY_CAP_MESSAGE);
     },
     onMonthRemaining: async (remaining) => {

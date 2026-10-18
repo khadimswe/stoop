@@ -10,6 +10,8 @@
 //     sent or kept; a plain identifying User-Agent
 // Network problems never throw: every failure is a typed result the reader can explain in one line.
 // PageBudget holds the "one page per run" rule: the product page and its .json sibling, once each.
+// guardedFetchImage is the same guarded GET for a brand's product photo (the draft video's product
+// reference): image types only, raw bytes, a 15 MB cap.
 import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
@@ -22,6 +24,10 @@ export const MAX_REDIRECTS = 3;
 export const USER_AGENT = "StoopPageReader/1.0";
 export const PAGE_CONTENT_TYPES = ["text/html", "application/xhtml+xml", "application/json"] as const;
 export type PageContentType = (typeof PAGE_CONTENT_TYPES)[number];
+export const IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"] as const;
+export type ImageContentType = (typeof IMAGE_CONTENT_TYPES)[number];
+export const IMAGE_TIMEOUT_MS = 10_000;
+export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 export const FETCH_FAILURES = [
   "bad-url",
@@ -61,6 +67,18 @@ export interface PageFetchFailed {
 
 export type PageFetch = PageFetchOk | PageFetchFailed;
 
+export interface ImageFetchOk {
+  ok: true;
+  url: string;
+  finalUrl: string;
+  status: number;
+  contentType: ImageContentType;
+  bytes: Uint8Array;
+  redirects: number;
+}
+
+export type ImageFetch = ImageFetchOk | PageFetchFailed;
+
 export interface ResolvedAddress {
   address: string;
   family: Family;
@@ -93,7 +111,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 type Hop =
   | { kind: "redirect"; status: number; location: string }
-  | { kind: "done"; status: number; contentType: PageContentType; body: string }
+  | { kind: "done"; status: number; contentType: string; charset: string; bytes: Buffer }
   | { kind: "failed"; reason: FetchFailure; detail: string; status?: number };
 
 const describe = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 200);
@@ -185,7 +203,9 @@ async function pinAddress(
 interface HopSettings {
   signal: AbortSignal;
   maxBytes: number;
-  accept: readonly PageContentType[];
+  accept: readonly string[];
+  /** What the link should be, for the failure lines. */
+  what: "page" | "image";
 }
 
 function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: HopSettings): Promise<Hop> {
@@ -201,9 +221,9 @@ function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: Hop
     const lost = (error?: unknown): Hop => ({
       kind: "failed",
       reason: settings.signal.aborted ? "timeout" : "network-error",
-      detail: error ? `Stoop could not read the page (${describe(error)}).` : "The connection closed before the page finished.",
+      detail: error ? `Stoop could not read the ${settings.what} (${describe(error)}).` : `The connection closed before the ${settings.what} finished.`,
     });
-    const tooLarge: Hop = { kind: "failed", reason: "too-large", detail: `The page is larger than ${Math.round(settings.maxBytes / 1000)} KB.` };
+    const tooLarge: Hop = { kind: "failed", reason: "too-large", detail: `The ${settings.what} is larger than ${Math.round(settings.maxBytes / 1000)} KB.` };
 
     const options: https.RequestOptions = {
       method: "GET",
@@ -242,8 +262,8 @@ function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: Hop
         return;
       }
       const type = mediaType(res.headers["content-type"]);
-      if (!(settings.accept as readonly string[]).includes(type)) {
-        stop({ kind: "failed", reason: "unsupported-content-type", detail: `The link returned ${type || "no content type"}, not a web page.`, status });
+      if (!settings.accept.includes(type)) {
+        stop({ kind: "failed", reason: "unsupported-content-type", detail: `The link returned ${type || "no content type"}, not ${settings.what === "image" ? "an image" : "a web page"}.`, status });
         return;
       }
       const encoding = (res.headers["content-encoding"] ?? "").trim().toLowerCase();
@@ -264,9 +284,7 @@ function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: Hop
         if (size > settings.maxBytes) stop(tooLarge);
         else chunks.push(chunk);
       });
-      res.on("end", () =>
-        settle({ kind: "done", status, contentType: type as PageContentType, body: decodeBody(Buffer.concat(chunks), charsetOf(res.headers["content-type"])) }),
-      );
+      res.on("end", () => settle({ kind: "done", status, contentType: type, charset: charsetOf(res.headers["content-type"]), bytes: Buffer.concat(chunks) }));
       res.on("error", (error) => settle(lost(error)));
       res.on("close", () => {
         if (!res.complete) settle(lost());
@@ -285,16 +303,16 @@ function requestOnce(checked: CheckedUrl, pinned: ResolvedAddress, settings: Hop
   });
 }
 
-/**
- * Fetches one public page. Follows up to `maxRedirects` redirects, re-checking each target exactly
- * like the first link. Resolves with the body or a typed failure; never rejects.
- */
-export async function guardedFetch(input: string, options: GuardedFetchOptions = {}): Promise<PageFetch> {
+type RawFetch =
+  | { ok: true; url: string; finalUrl: string; status: number; contentType: string; charset: string; bytes: Buffer; redirects: number }
+  | PageFetchFailed;
+
+/** The guarded loop both public fetches share: every hop checked and pinned, the body kept as bytes. */
+async function fetchRaw(input: string, options: Omit<GuardedFetchOptions, "accept">, settings: { maxBytes: number; accept: readonly string[]; what: "page" | "image"; timeoutMs: number }): Promise<RawFetch> {
   const policy = options.policy ?? publicAddress;
   const resolve = options.resolve ?? systemResolver;
-  const timeoutMs = options.timeoutMs ?? FETCH_TIMEOUT_MS;
+  const { timeoutMs } = settings;
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS;
-  const settings = { maxBytes: options.maxBytes ?? MAX_BODY_BYTES, accept: options.accept ?? PAGE_CONTENT_TYPES };
 
   const controller = new AbortController();
   let timedOut = false;
@@ -323,7 +341,7 @@ export async function guardedFetch(input: string, options: GuardedFetchOptions =
       if (!checked.ok) return failed(checked.reason, checked.detail);
       const pinned = await pinAddress(checked, resolve, policy, controller.signal);
       if ("reason" in pinned) return controller.signal.aborted ? stopped() : failed(pinned.reason, pinned.detail);
-      const hop = await requestOnce(checked, pinned, { ...settings, signal: controller.signal });
+      const hop = await requestOnce(checked, pinned, { maxBytes: settings.maxBytes, accept: settings.accept, what: settings.what, signal: controller.signal });
       if (hop.kind === "failed") return controller.signal.aborted ? stopped() : failed(hop.reason, hop.detail, hop.status);
       if (hop.kind === "redirect") {
         if (redirects >= maxRedirects) return failed("too-many-redirects", `The link redirected more than ${maxRedirects} times.`, hop.status);
@@ -334,15 +352,48 @@ export async function guardedFetch(input: string, options: GuardedFetchOptions =
       }
       const finalUrl = new URL(checked.url);
       finalUrl.hash = "";
-      return { ok: true, url: input, finalUrl: finalUrl.href, status: hop.status, contentType: hop.contentType, body: hop.body, redirects };
+      return { ok: true, url: input, finalUrl: finalUrl.href, status: hop.status, contentType: hop.contentType, charset: hop.charset, bytes: hop.bytes, redirects };
     }
   } catch (error) {
-    return controller.signal.aborted ? stopped() : failed("network-error", `Stoop could not read the page (${describe(error)}).`);
+    return controller.signal.aborted ? stopped() : failed("network-error", `Stoop could not read the ${settings.what} (${describe(error)}).`);
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", cancel);
   }
 }
+
+/**
+ * Fetches one public page. Follows up to `maxRedirects` redirects, re-checking each target exactly
+ * like the first link. Resolves with the body or a typed failure; never rejects.
+ */
+export async function guardedFetch(input: string, options: GuardedFetchOptions = {}): Promise<PageFetch> {
+  const raw = await fetchRaw(input, options, {
+    maxBytes: options.maxBytes ?? MAX_BODY_BYTES,
+    accept: options.accept ?? PAGE_CONTENT_TYPES,
+    what: "page",
+    timeoutMs: options.timeoutMs ?? FETCH_TIMEOUT_MS,
+  });
+  if (!raw.ok) return raw;
+  const { url, finalUrl, status, redirects } = raw;
+  return { ok: true, url, finalUrl, status, contentType: raw.contentType as PageContentType, body: decodeBody(raw.bytes, raw.charset), redirects };
+}
+
+/**
+ * Fetches one public image (a brand's product photo) with the same guards: every hop checked and
+ * pinned, image types only, 10 s and 15 MB by default. Resolves with the bytes or a typed failure.
+ */
+export async function guardedFetchImage(input: string, options: Omit<GuardedFetchOptions, "accept"> & { accept?: readonly ImageContentType[] } = {}): Promise<ImageFetch> {
+  const raw = await fetchRaw(input, options, {
+    maxBytes: options.maxBytes ?? MAX_IMAGE_BYTES,
+    accept: options.accept ?? IMAGE_CONTENT_TYPES,
+    what: "image",
+    timeoutMs: options.timeoutMs ?? IMAGE_TIMEOUT_MS,
+  });
+  if (!raw.ok) return raw;
+  const { url, finalUrl, status, redirects } = raw;
+  return { ok: true, url, finalUrl, status, contentType: raw.contentType as ImageContentType, bytes: new Uint8Array(raw.bytes), redirects };
+}
+
 
 // --- One page per run ---------------------------------------------------------------------------
 

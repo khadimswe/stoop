@@ -1,13 +1,16 @@
 // POST /api/frames/<runId> { segmentId }: a world's storyboard frames, as their own invocation. The
 // checks answer right away (lib/media/frames.ts requestFrames); the rendering, the critique and the
-// re-renders run after the response, and stream to the page as world.frames events.
+// re-renders run after the response, and stream to the page as world.frames events. Each job counts
+// against the asker's storyboards for the day, by their signed visitor cookie and their IP.
 import { after } from "next/server";
 import { getBotCheck } from "@/lib/bot-check";
 import { browserOnly } from "@/lib/routes/guard";
 import { stoopModel } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
+import { cookieVisitorOf } from "@/lib/http";
 import { readJson, respond } from "@/lib/route-answer";
 import { frameRendererFromEnv, renderWorldFrames, requestFrames } from "@/lib/media/frames";
+import { signingSecret } from "@/lib/sign";
 import { getStorage, StorageConfigError } from "@/lib/storage";
 import { getStore } from "@/lib/store";
 
@@ -38,6 +41,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/frames/[id]
       live: isLive(),
       store: getStore,
       headers: request.headers,
+      cookieVisitor: cookieVisitorOf(request, signingSecret()),
       configured: renderer !== null && storage !== null,
       schedule: (task) =>
         after(() =>

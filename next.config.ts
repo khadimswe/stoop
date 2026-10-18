@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { securityHeaderRules } from "./lib/security/csp";
 
 // Data the API functions read from disk at request time: the reference audiences (city ranking) and
 // the stored example runs (replays and reports). Recorded Qloo fixtures only ship when the build replays
@@ -26,6 +27,11 @@ const nextConfig: NextConfig = {
   },
   outputFileTracingExcludes: {
     "/api/**": NOT_READ,
+  },
+  // The site-wide security headers, and the stricter /byok set, on sources that never overlap
+  // (lib/security/csp.ts), so two Content-Security-Policy headers never stack on one response.
+  async headers() {
+    return securityHeaderRules(process.env);
   },
   turbopack: {
     rules: {
