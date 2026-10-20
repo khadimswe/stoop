@@ -9,7 +9,7 @@ import type { BriefSlot, BriefSlots, Concept, Scene } from "../../prompts/brief"
 import { timecodes } from "../../prompts/lines";
 import { CAMERA_PRESETS, getModel, type ModelId } from "../../prompts/models.config";
 import { STRONG_SHARE } from "../../data-check/score";
-import { contentStems, distinctiveStems } from "../../stages/concepts";
+import { contentStems, distinctiveStems } from "../../prompts/stems";
 import { strong } from "../../stages/craft";
 import type { AssetKind, ProductionPack, RenderJob } from "../../prompts/pack";
 import type { CueOrigin, CultureField } from "../../types";
