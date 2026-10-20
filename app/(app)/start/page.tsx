@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { StartFlow } from "@/components/stoop/start/start-flow";
 
-// Stub: the live-flow lane builds the composer and the seed step here.
+// "What are you selling?": the link (or a description), then the seeds Qloo found, then the run.
+// The page is a static shell; the two steps run in the browser against /api/intake and /api/run.
 export const metadata: Metadata = {
   title: "Start · Stoop",
   description: "Paste a store or product link, confirm the seeds, and Stoop maps the audience around your product with Qloo.",
@@ -8,9 +10,8 @@ export const metadata: Metadata = {
 
 export default function StartPage() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-3 px-4 pt-10 pb-20 sm:px-5">
-      <h1 className="font-display text-[1.625rem] leading-tight font-extrabold [font-stretch:85%]">What are you selling?</h1>
-      <p className="text-sm text-ink-soft">Paste a store or product link. No website? You can describe it instead.</p>
+    <main className="mx-auto flex w-full max-w-[42.5rem] flex-1 flex-col px-4 pt-10 pb-20 sm:px-5">
+      <StartFlow />
     </main>
   );
 }
