@@ -17,6 +17,9 @@ test("/byok carries its own strict policy, once, and the rest of the site never 
   expect(byok.headers()["cross-origin-opener-policy"]).toBe("same-origin");
   expect(byok.headers()["referrer-policy"]).toBe("no-referrer");
   expect(byok.headers()["x-content-type-options"]).toBe("nosniff");
+  // Not for search engines, in the header and in the page.
+  expect(byok.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  expect(await byok.text()).toContain('<meta name="robots" content="noindex, nofollow">');
 
   for (const path of ["/", "/byok/app.js"]) {
     const response = await request.get(path);

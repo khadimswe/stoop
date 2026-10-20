@@ -23,7 +23,7 @@ const PAGE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta name="robots" content="noindex">
+<meta name="robots" content="noindex, nofollow">
 <title>Render with your fal key | Stoop</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/byok/app.css">
@@ -74,6 +74,8 @@ const PAGE = `<!doctype html>
 </html>
 `;
 
+// Not for search engines: the meta tag above, this header for crawlers that read headers only, and
+// app/robots.ts.
 export function GET(): Response {
-  return new Response(PAGE, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new Response(PAGE, { headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" } });
 }
