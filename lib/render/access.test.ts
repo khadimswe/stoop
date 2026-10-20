@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { accessAnswerSchema, videoAccess, type AccessInput } from "./access";
+import { renderAccessResponseSchema } from "../api/responses";
+import { videoAccess, type AccessInput } from "./access";
 
 const base: AccessInput = { renderable: true, byok: true, pass: false, server: false, room: null, draftSeconds: 15 };
-const answer = (over: Partial<AccessInput>) => accessAnswerSchema.parse(videoAccess({ ...base, ...over }));
+const answer = (over: Partial<AccessInput>) => renderAccessResponseSchema.parse(videoAccess({ ...base, ...over }));
 
 describe("which video line a visitor sees", () => {
   it("judge: a pass, server drafts on, and room on every counter", () => {

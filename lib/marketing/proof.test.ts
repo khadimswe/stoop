@@ -110,6 +110,8 @@ describeRecorded("Whisker & Brim: the generic brief's city", () => {
   });
 
   it("carries the Qloo call behind every number it shows, the other world's included", () => {
+    // Headed as the generic brief's pick checked with Qloo, as the report heads it.
+    expect(stat.receipt).toMatchObject({ cue: "Generic AI brief's city, checked with Qloo", subject: "generic" });
     expect(stat.receipt.calls).toBe(new Set(cities.flatMap((c) => c.evidenceIds)).size);
     expect(stat.receipt.calls).toBe(2);
   });
@@ -129,6 +131,7 @@ describeRecorded("Porchlight Pepper Co.: the generic brief's music", () => {
   });
 
   it("carries the Qloo calls behind both worlds' numbers", () => {
+    expect(stat.receipt).toMatchObject({ cue: "Generic AI brief's music, checked with Qloo", subject: "generic" });
     expect(stat.receipt.calls).toBe(new Set(music.flatMap((c) => c.evidenceIds)).size);
     expect(stat.receipt.calls).toBe(3);
   });

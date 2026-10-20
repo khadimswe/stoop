@@ -5,16 +5,10 @@
 //   off          nothing to render, or both paths off
 // rendersLeft is the pass's room (the tightest of its counters) when server drafts are on, else null.
 // draftSeconds is how long a draft runs (renderLimits().draftSeconds, RENDER_DRAFT_SECONDS), whatever the line.
-import { z } from "zod";
-import { renderAccessResponseSchema } from "../api/responses";
+import type { RenderAccessResponse } from "../api/responses";
 
-/**
- * The access answer as the route sends it: the contract's fields plus the draft length. Extending the
- * contract here keeps the answer checked field by field; when the contract carries draftSeconds
- * itself, this is the same schema.
- */
-export const accessAnswerSchema = renderAccessResponseSchema.extend({ draftSeconds: z.number().int().min(4).max(15) });
-export type AccessAnswer = z.infer<typeof accessAnswerSchema>;
+/** The answer always carries the draft length here (the contract makes it optional for older pages). */
+export type AccessAnswer = RenderAccessResponse & { draftSeconds: number };
 
 export interface AccessInput {
   /** The target has a pack, a Seedance prompt and at least one reference, and can be planned here. */

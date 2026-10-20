@@ -31,11 +31,13 @@ test("the hero leads with the lead example's Reality Check until the hero clips 
   await expect(card.getByText("A generic AI brief assumed 25 to 44, in Austin and Portland.")).toBeVisible();
   await expect(card.getByText("Generic AI brief · not from Qloo")).toBeVisible();
 
-  // Beats 2 and 3: "See why it works" lands on the Screening Room with the music style receipt open.
-  await page.getByRole("link", { name: "See why it works" }).click();
-  await expect(page.getByRole("region", { name: "Same product. Same video model. Only the brief changed." })).toBeInViewport();
-  await expect(page.getByRole("complementary", { name: "Receipt: Music style" })).toBeVisible();
+  // Beats 2 and 3: "See why it works" opens the lead example's Screening Room with its music style receipt open.
+  const why = page.getByRole("link", { name: "See why it works" });
+  await expect(why).toHaveAttribute("href", "/examples/food-hot-sauce#receipt-music");
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  await why.click();
+  await expect(page).toHaveURL(/\/examples\/food-hot-sauce#receipt-music$/);
+  await expect(page.getByRole("dialog", { name: "Receipt: Music style" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -194,7 +196,7 @@ test("the proof stats count up once to the recorded values, without moving the l
   expect(await figures.nth(1).locator("[data-count-up-live]").textContent()).toBe("#319 of 321");
 
   await proof.getByRole("button", { name: "See the receipt: Whisker & Brim, #319 of 321" }).click();
-  const drawer = page.getByRole("dialog", { name: "Receipt: Generic choice: city" });
+  const drawer = page.getByRole("dialog", { name: "Receipt: Generic AI brief's city, checked with Qloo" });
   await expect(drawer.getByText("Los Angeles, CA ranks #319 of 321 cities for this world").first()).toBeVisible();
   await expect(drawer.getByText("/v2/insights").first()).toBeVisible();
   await page.keyboard.press("Escape");
