@@ -6,7 +6,8 @@ const PAGES = [
   { path: "/judges", h1: "For judges" },
   { path: "/mcp", h1: "Use Stoop inside your Claude" },
   { path: "/start", h1: "What are you selling?" },
-  { path: "/run/run_0123456789abcdef01234567", h1: "Building your Campaign Kit" },
+  // No such run on the server: the live trace says so instead of a blank page.
+  { path: "/run/run_0123456789abcdef01234567", h1: "That run has expired" },
   { path: "/report/run_0123456789abcdef01234567", h1: "Your report" },
 ];
 
