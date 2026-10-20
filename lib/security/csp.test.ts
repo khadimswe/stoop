@@ -63,7 +63,7 @@ describe("the /byok policy", () => {
         "script-src 'self'",
         "style-src 'self'",
         "connect-src 'self' https://queue.fal.run",
-        "img-src 'self' https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/ https://*.public.blob.vercel-storage.com https://*.private.blob.vercel-storage.com",
+        "img-src 'self' https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/ https://*.public.blob.vercel-storage.com",
         "media-src https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/",
         "frame-ancestors 'none'",
         "base-uri 'none'",
@@ -75,21 +75,25 @@ describe("the /byok policy", () => {
     expect(byokPolicy({ NODE_ENV: "development", VERCEL_ENV: "preview" })).not.toMatch(/unsafe|vercel\.live/);
   });
 
-  it("shows presigned product thumbnails from the private stores: any private Blob store, and the R2 refs bucket's host when it is set", () => {
+  it("shows presigned product thumbnails only from the private store this deployment has", () => {
     const account = "0123456789abcdef0123456789abcdef";
-    expect(privateStorageSources({})).toEqual(["https://*.private.blob.vercel-storage.com"]);
-    expect(privateStorageSources({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).toEqual([
-      "https://*.private.blob.vercel-storage.com",
-      `https://${account}.r2.cloudflarestorage.com`,
-    ]);
-    // No refs bucket, or an account id that is not one: no R2 host.
-    expect(privateStorageSources({ R2_ACCOUNT_ID: account })).toEqual(["https://*.private.blob.vercel-storage.com"]);
-    expect(privateStorageSources({ R2_ACCOUNT_ID: "evil.example/x", R2_REFS_BUCKET: "stoop-refs" })).toEqual(["https://*.private.blob.vercel-storage.com"]);
-    const img = directives(byokPolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).get("img-src");
-    expect(img).toEqual(expect.arrayContaining(["https://*.private.blob.vercel-storage.com", `https://${account}.r2.cloudflarestorage.com`]));
-    // Only images: the private stores never reach media, scripts or connections.
-    expect(directives(byokPolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).get("connect-src")).toEqual(["'self'", "https://queue.fal.run"]);
-    expect(sitePolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" }, PROD)).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
+    const blob = { PRIVATE_BLOB_READ_WRITE_TOKEN: "set" };
+    const r2 = { STORAGE_DRIVER: "r2", R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" };
+    // Blob (the default driver): any private Blob store, once a private store is configured.
+    expect(privateStorageSources({})).toEqual([]);
+    expect(privateStorageSources(blob)).toEqual(["https://*.private.blob.vercel-storage.com"]);
+    // R2: the refs bucket's own path, never the whole account host, and never the Blob wildcard.
+    expect(privateStorageSources({ ...r2, ...blob })).toEqual([`https://${account}.r2.cloudflarestorage.com/stoop-refs/`]);
+    // No refs bucket, or values that are not an account id and a bucket name: nothing.
+    expect(privateStorageSources({ STORAGE_DRIVER: "r2", R2_ACCOUNT_ID: account })).toEqual([]);
+    expect(privateStorageSources({ ...r2, R2_ACCOUNT_ID: "evil.example/x" })).toEqual([]);
+    expect(privateStorageSources({ ...r2, R2_REFS_BUCKET: "a/../b" })).toEqual([]);
+    expect(directives(byokPolicy(blob)).get("img-src")).toContain("https://*.private.blob.vercel-storage.com");
+    expect(directives(byokPolicy(r2)).get("img-src")).toContain(`https://${account}.r2.cloudflarestorage.com/stoop-refs/`);
+    expect(byokPolicy({})).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
+    // Only images: the private stores never reach media, scripts or connections, nor the site policy.
+    expect(directives(byokPolicy(r2)).get("connect-src")).toEqual(["'self'", "https://queue.fal.run"]);
+    expect(sitePolicy({ ...r2, ...blob }, PROD)).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
   });
 
   it("isolates the page: same-origin opener, no referrer, nosniff", () => {

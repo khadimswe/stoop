@@ -71,14 +71,20 @@ export function publicStorageSources(env: Env = process.env): string[] {
 }
 
 /**
- * Where /byok's presigned product photos come from: any private Blob store, and the private R2 bucket's
- * S3 host (https://<account>.r2.cloudflarestorage.com) when R2 private storage is configured
- * (R2_ACCOUNT_ID and R2_REFS_BUCKET, as lib/storage.ts privateStorageFromEnv reads them).
+ * Where /byok's presigned product photos come from, only for the private store this deployment has
+ * (as lib/storage.ts privateStorageFromEnv picks it by STORAGE_DRIVER): with Blob, any private Blob
+ * store once PRIVATE_BLOB_READ_WRITE_TOKEN is set; with R2, the refs bucket's own path on its S3 host
+ * (https://<account>.r2.cloudflarestorage.com/<bucket>/), never the whole host. Only the presence and
+ * shape of these values is read.
  */
 export function privateStorageSources(env: Env = process.env): string[] {
+  const driver = env.STORAGE_DRIVER?.trim().toLowerCase() || "blob";
+  if (driver === "blob") return env.PRIVATE_BLOB_READ_WRITE_TOKEN?.trim() ? [PRIVATE_BLOB_SOURCE] : [];
+  if (driver !== "r2") return [];
   const account = env.R2_ACCOUNT_ID?.trim() ?? "";
-  const r2 = /^[a-f0-9]{32}$/.test(account) && env.R2_REFS_BUCKET?.trim() ? `https://${account}.r2.cloudflarestorage.com` : null;
-  return [PRIVATE_BLOB_SOURCE, ...(r2 ? [r2] : [])];
+  const bucket = env.R2_REFS_BUCKET?.trim() ?? "";
+  if (!/^[a-f0-9]{32}$/.test(account) || !/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)) return [];
+  return [`https://${account}.r2.cloudflarestorage.com/${bucket}/`];
 }
 
 /** Serializes directives in order: "name a b; name c". A directive with no sources is left out. */

@@ -9,8 +9,8 @@ export const REPO_URL = "https://github.com/khadimswe/stoop-public";
 /** A link to one file in the repository, for the "What Qloo decides" map. */
 export const codeUrl = (path: string) => `${REPO_URL}/blob/main/${path}`;
 
-/** The landing's one line on the examples, near the proof band and the shelf: the brands are made up, the data is not. */
-export const FICTIONAL_BRANDS_NOTE = "The example brands are fictional. Their audiences come from real Qloo data.";
+/** The landing's one line on the examples, shown once, by the proof band: the brands are made up, the data is not. */
+export const FICTIONAL_BRANDS_NOTE = "The example brands are fictional. Their audiences are measured from real Qloo data.";
 
 const ORIGIN = /^https?:\/\/[^\s/]+$/;
 const clean = (value: string | undefined) => value?.trim().replace(/\/+$/, "") || undefined;

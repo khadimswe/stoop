@@ -15,7 +15,7 @@ const BEAT: Record<ShotView["beat"], string> = { hook: "Hook", product: "Product
 export function ConceptScreen({ theater, control = false }: { theater: Pick<TheaterView, "storyboard" | "hookLine" | "conceptTitle">; control?: boolean }) {
   const frame = firstFrame(theater.storyboard);
   const label = (
-    <p className={cn("font-mono text-[clamp(0.5625rem,4.5cqw,0.6875rem)] leading-snug tracking-wider uppercase", control ? "text-concrete-screen" : "text-paper-dim")}>
+    <p className={cn("font-mono text-[clamp(0.625rem,4.5cqw,0.6875rem)] leading-snug tracking-wider uppercase", control ? "text-concrete-screen" : "text-paper-dim")}>
       Concept preview
       {control && <span className="block normal-case">Not from Qloo</span>}
     </p>

@@ -3,12 +3,14 @@ import { CAPTURE_TURNS, MCP_CAPTURE } from "@/lib/marketing/mcp-capture";
 import type { SessionTurn } from "@/lib/marketing/mcp-session";
 import { cn } from "cn";
 
-const WHO: Record<SessionTurn["who"], string> = { you: "You", claude: "Claude", stoop: "Stoop" };
+// The reply turn was written by the session script from score_brief's result, not by Claude, and says so.
+const WHO: Record<SessionTurn["who"], string> = { you: "You", claude: "Reply written from the tool's result", stoop: "Stoop" };
 
 /**
  * /mcp's hero screen. With the founder's recording (lib/marketing/mcp-capture.ts), that recording;
- * until then, the example session's opening exchange, as it ran: the request, score_brief's answer
- * on the recorded Qloo responses and Claude's reply, labeled "Example session".
+ * until then, the example session's opening exchange, labeled "Example session, shortened": an example
+ * request, score_brief's real answer on the recorded Qloo responses, and a reply the session script
+ * wrote from that answer (labeled as such, never as Claude's own words).
  */
 export function SessionCapture({ turns }: { turns: readonly SessionTurn[] }) {
   if (MCP_CAPTURE) {
@@ -27,8 +29,8 @@ export function SessionCapture({ turns }: { turns: readonly SessionTurn[] }) {
     <figure className="flex min-w-0 flex-[1_1_28rem] flex-col gap-2">
       <Screen className="flex w-full flex-col gap-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-paper/15 pb-3">
-          <p className="font-mono text-xs font-semibold tracking-widest text-paper uppercase">Example session</p>
-          <p className="font-mono text-[0.6875rem] text-paper-dim">Claude with Stoop&apos;s MCP · recorded Qloo responses</p>
+          <p className="font-mono text-xs font-semibold tracking-widest text-paper uppercase">Example session, shortened</p>
+          <p className="font-mono text-[0.6875rem] text-paper-dim">score_brief on recorded Qloo responses</p>
         </div>
         <ol className="flex flex-col gap-3">
           {turns.slice(0, CAPTURE_TURNS).map((turn, i) => (
@@ -53,7 +55,7 @@ export function SessionCapture({ turns }: { turns: readonly SessionTurn[] }) {
           ))}
         </ol>
       </Screen>
-      <figcaption className="sr-only">Example session: Stoop&apos;s score_brief tool inside Claude, on the recorded Qloo responses for the lead example.</figcaption>
+      <figcaption className="sr-only">Example session, shortened: Stoop&apos;s score_brief tool on the recorded Qloo responses for the lead example, with a reply written from its result.</figcaption>
     </figure>
   );
 }

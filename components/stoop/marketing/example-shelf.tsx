@@ -2,7 +2,6 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Screen } from "@/components/stoop/screen";
 import type { ShelfItemView } from "@/lib/marketing/landing";
-import { FICTIONAL_BRANDS_NOTE } from "@/lib/marketing/site";
 import { cn } from "cn";
 import { reveal, REVEAL_CLASS } from "./reveal";
 import { SectionIntro } from "./section-intro";
@@ -24,7 +23,6 @@ export function ExampleShelf({ items }: { items: ShelfItemView[] }) {
           title="Three brands. Three taste neighborhoods."
           lead="Each one is a recorded run on real Qloo responses, saved so it loads instantly. Open one to see every receipt."
         />
-        <p className="max-w-[44rem] text-sm font-semibold text-ink">{FICTIONAL_BRANDS_NOTE}</p>
         {/* Above the shelf: the cards end at different heights, so a hint below would float far from the first one. */}
         <p className="text-sm text-ink-soft md:hidden">Swipe for more examples.</p>
       </div>
@@ -102,6 +100,7 @@ export function ExampleShelf({ items }: { items: ShelfItemView[] }) {
             </li>
           ))}
         </ul>
-      </div>    </section>
+      </div>
+    </section>
   );
 }

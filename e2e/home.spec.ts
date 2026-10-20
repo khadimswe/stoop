@@ -100,10 +100,10 @@ test("the shelf shows the three examples with their recorded Reality Check lines
   await expect(shelf.getByText(/^Qloo measured a taste neighborhood/)).toHaveCount(3);
   // Whisker & Brim's age is a near tie, and it says so.
   await expect(shelf.getByText(/^Near tie on age/)).toBeVisible();
-  // One honest line, here and by the proof band: the brands are made up, the data is not.
-  const note = "The example brands are fictional. Their audiences come from real Qloo data.";
-  await expect(shelf.getByText(note)).toBeVisible();
+  // One honest line, once on the landing, by the proof band: the brands are made up, the data is not.
+  const note = "The example brands are fictional. Their audiences are measured from real Qloo data.";
   await expect(page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." }).getByText(note)).toBeVisible();
+  await expect(page.getByText(note)).toHaveCount(1);
   // Each brand link is a 44 px tap target, and each screen is as tall as its own Reality Check: no
   // empty dark block below the last line on the shorter cards.
   for (const link of await shelf.getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
