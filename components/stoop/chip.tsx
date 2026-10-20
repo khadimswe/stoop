@@ -118,16 +118,17 @@ export function SeedChip({
     >
       <Icon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="truncate">{name}</span>
-      <span className="font-mono text-[0.6875rem] font-medium">
+      <span className="font-mono text-[0.6875rem] font-medium whitespace-nowrap">
         {kind} · <span className="sr-only">{spoken}</span>
         <span aria-hidden="true">{tag}</span>
       </span>
       {onRemove && (
+        // 24 px to see, 44 px to tap: the pseudo-element widens the hit area without moving the chip.
         <button
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${name}`}
-          className="ml-0.5 flex size-6 items-center justify-center rounded-full hover:bg-ink/10"
+          className="relative ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-full after:absolute after:-inset-2.5 after:content-[''] hover:bg-ink/10"
         >
           <X aria-hidden="true" className="size-3" />
         </button>
