@@ -3,7 +3,7 @@ import { AgentDemo } from "@/components/stoop/marketing/agent-demo/agent-demo";
 import { loadDemoScript } from "@/lib/marketing/demo-source";
 
 // Review route for the landing's agent demo, until the landing places it (then this page goes).
-// Static: the script is built at build time from the recorded run; `?speed=` is read in the browser.
+// Static: the script is built at build time from the recorded run.
 export const metadata: Metadata = {
   title: "Agent demo preview · Stoop",
   robots: { index: false, follow: false },
@@ -16,12 +16,9 @@ export default function DemoPreviewPage() {
       <div className="flex flex-col gap-2">
         <p className="type-kicker text-ink-soft">Review only · not indexed</p>
         <h1 className="type-h3">Agent demo preview</h1>
-        <p className="max-w-[60ch] text-sm text-ink-soft">
-          A replay of the recorded {script.product.brandName ?? script.product.name} run, as the landing will show it. Add <code className="font-mono">?speed=4</code> to the
-          address to play it faster.
-        </p>
+        <p className="max-w-[60ch] text-sm text-ink-soft">A replay of the recorded {script.product.brandName ?? script.product.name} run, as the landing will show it.</p>
       </div>
-      <AgentDemo script={script} speedParam />
+      <AgentDemo script={script} />
     </main>
   );
 }

@@ -177,9 +177,3 @@ export function frameAt(timeline: DemoTimeline, script: DemoScript, t: number): 
     },
   };
 }
-
-/** The review route's `?speed=` (e.g. "4" plays four times as fast), clamped to 0.25 to 20; 1 when absent or invalid. */
-export function speedFromQuery(search: string): number {
-  const value = Number(new URLSearchParams(search).get("speed"));
-  return Number.isFinite(value) && value > 0 ? clamp(value, 0.25, 20) : 1;
-}

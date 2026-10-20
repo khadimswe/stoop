@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { usePrefersReducedMotion } from "@/hooks/use-media-query";
-import { demoTimeline, frameAt, speedFromQuery } from "@/lib/marketing/demo-timeline";
+import { demoTimeline, frameAt } from "@/lib/marketing/demo-timeline";
 import { DEMO_BEAT_LABELS, type DemoBeat, type DemoScript } from "@/lib/marketing/demo-types";
 import { BeatSegments, TopBar } from "./chrome";
 import { ComposerBeat } from "./composer-beat";
@@ -17,8 +17,6 @@ import { TraceBeat } from "./trace-beat";
 
 export interface AgentDemoPlayerProps {
   script: DemoScript;
-  /** The review route only: `?speed=` in the URL speeds the replay up (or down). */
-  speedParam?: boolean;
 }
 
 /** Re-render at most this often (ms): smooth enough for typing and the progress line, light on the main thread. */
@@ -55,14 +53,14 @@ function usePageVisible(): boolean {
  * The replay's clock: while `running`, it advances `elapsed` (the caller's, so Replay can reset it),
  * loops at `total`, and shows the time through `setT` at most every TICK ms.
  */
-function useReplayClock(total: number, running: boolean, speed: number, elapsed: RefObject<number>, setT: Dispatch<SetStateAction<number>>) {
+function useReplayClock(total: number, running: boolean, elapsed: RefObject<number>, setT: Dispatch<SetStateAction<number>>) {
   useEffect(() => {
     if (!running) return;
     let frame = 0;
     let last: number | null = null;
     const tick = (now: number) => {
       if (last !== null) {
-        elapsed.current += Math.min(now - last, MAX_STEP) * speed;
+        elapsed.current += Math.min(now - last, MAX_STEP);
         if (elapsed.current >= total) elapsed.current = 0;
         const shown = Math.floor(elapsed.current / TICK) * TICK;
         setT((prev) => (prev === shown ? prev : shown));
@@ -72,7 +70,7 @@ function useReplayClock(total: number, running: boolean, speed: number, elapsed:
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [running, speed, total, elapsed, setT]);
+  }, [running, total, elapsed, setT]);
 }
 
 const ROUTE: Record<DemoBeat, keyof DemoScript["routes"]> = {
@@ -91,10 +89,9 @@ const ROUTE: Record<DemoBeat, keyof DemoScript["routes"]> = {
  * it never plays: it shows the end of the run and steps through the beats on request.
  * The animated stage is hidden from screen readers (the region carries a summary instead).
  */
-export function AgentDemoPlayer({ script, speedParam = false }: AgentDemoPlayerProps) {
+export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
   const timeline = useMemo(() => demoTimeline(script), [script]);
   const reduced = usePrefersReducedMotion();
-  const [speed] = useState(() => (speedParam ? speedFromQuery(window.location.search) : 1));
   const [ref, onScreen] = useOnScreen<HTMLDivElement>();
   const pageVisible = usePageVisible();
   const [paused, setPaused] = useState(false);
@@ -114,7 +111,7 @@ export function AgentDemoPlayer({ script, speedParam = false }: AgentDemoPlayerP
   // Only while the link is on screen: a stale hover or focus never holds a later beat.
   const held = showCta && (hovering || focused);
   const playing = !reduced && !paused && !held && onScreen && pageVisible;
-  useReplayClock(timeline.total, playing, speed, elapsed, setClock);
+  useReplayClock(timeline.total, playing, elapsed, setClock);
 
   const replay = () => {
     elapsed.current = 0;

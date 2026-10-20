@@ -4,7 +4,7 @@ import type { RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { buildDemoScript } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
-import { demoTimeline, frameAt, PACE, speedFromQuery } from "./demo-timeline";
+import { demoTimeline, frameAt, PACE } from "./demo-timeline";
 
 const script = buildDemoScript({
   slug: "food-hot-sauce",
@@ -78,16 +78,5 @@ describe("the agent demo's timeline", () => {
   it("clamps times outside the replay", () => {
     expect(frameAt(timeline, script, -500).beat).toBe("composer");
     expect(frameAt(timeline, script, timeline.total + 10_000).beat).toBe("launch");
-  });
-});
-
-describe("the review route's speed factor", () => {
-  it("reads ?speed= and clamps it", () => {
-    expect(speedFromQuery("")).toBe(1);
-    expect(speedFromQuery("?speed=4")).toBe(4);
-    expect(speedFromQuery("?speed=0.1")).toBe(0.25);
-    expect(speedFromQuery("?speed=99")).toBe(20);
-    expect(speedFromQuery("?speed=abc")).toBe(1);
-    expect(speedFromQuery("?speed=-2")).toBe(1);
   });
 });
