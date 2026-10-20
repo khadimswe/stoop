@@ -4,7 +4,8 @@
 // Every string and number here is copied from the run or formatted by a tested function: nothing is
 // simulated. Types only: safe to import anywhere, including "use client" files (`import type`).
 import type { RealitySource } from "../report/view/reality";
-import type { StoryboardFrameView, ShotView } from "../report/view/output";
+import type { ShotView, StoryboardFrameView } from "../report/view/output";
+import type { CueOrigin } from "../types";
 import type { RailStatus } from "../run/rail";
 import type { TraceRow } from "../run/trace";
 import type { Stage } from "../report/stages";
@@ -95,9 +96,13 @@ export interface DemoControl {
   headline: string | null;
 }
 
-export type DemoStoryboard =
-  | { kind: "frames"; frames: StoryboardFrameView[]; shots: ShotView[] }
-  | { kind: "shots"; shots: ShotView[] };
+/** One shot of the kept concept, with the brief cues its own words carry (each with its origin). */
+export interface DemoShot extends Pick<ShotView, "scene" | "number" | "beat" | "start" | "end" | "action" | "overlayText"> {
+  /** "Music style", "Setting": cues the shot carries; a Qloo or interpreted one only with its receipts. */
+  carries: { label: string; origin: CueOrigin }[];
+}
+
+export type DemoStoryboard = { kind: "frames"; frames: StoryboardFrameView[]; shots: DemoShot[] } | { kind: "shots"; shots: DemoShot[] };
 
 /** The Launch plan beat: one test cell per world (its kit.adPlan entry), the Control as the baseline. */
 export interface DemoLaunchPlan {

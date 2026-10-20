@@ -10,7 +10,7 @@ import { BeatTitle, Kicker, Panel, RISE, SourceTag } from "./parts";
 export function LaunchPlanPlaceholder({ plan, rows }: { plan: DemoLaunchPlan; rows?: number }) {
   const shown = rows ?? plan.cells.length + 1;
   return (
-    <div className="mx-auto flex h-full w-full max-w-[56rem] flex-col gap-3 pb-16 @2xl:gap-4 @2xl:pb-20">
+    <div className="mx-auto flex h-full w-full max-w-[56rem] flex-col justify-center gap-3 pb-16 @2xl:gap-4 @2xl:pb-20">
       <div className="flex flex-col gap-1">
         <Kicker>Launch plan</Kicker>
         <BeatTitle>

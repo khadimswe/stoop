@@ -56,11 +56,13 @@ function WorldCard({ world }: { world: DemoWorld }) {
   const meta = [world.skew, world.setting && `set in ${world.setting}`].filter(Boolean).join(" · ");
   return (
     <Panel className={cn("flex min-w-0 flex-col gap-1.5 p-3 @2xl:gap-2 @2xl:p-4", RISE)}>
-      <div className="flex items-center justify-between gap-2">
-        <Kicker>World {world.position}</Kicker>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Kicker className="hidden @2xl:block">World {world.position}</Kicker>
+          <p className="text-[0.875rem] leading-snug font-semibold @2xl:text-[0.9375rem]">{world.label}</p>
+        </div>
         <SourceTag tone="qloo">Qloo</SourceTag>
       </div>
-      <p className="text-[0.875rem] leading-snug font-semibold @2xl:text-[0.9375rem]">{world.label}</p>
       {meta && <p className="font-mono text-[0.6875rem] leading-4 text-paper-dim">{meta}</p>}
       <div className="mt-0.5 flex flex-col gap-1 border-t border-paper/10 pt-2 @2xl:gap-1.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -80,9 +82,9 @@ export function WorldsBeat({ script, frame }: { script: DemoScript; frame: DemoF
   const { worlds, control } = script;
   const showControl = frame.cards > worlds.length;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 @2xl:gap-4">
+    <div className="flex h-full min-h-0 flex-col justify-center gap-3 @2xl:gap-4">
       <div className="flex flex-col gap-1">
-        <Kicker>Concept worlds</Kicker>
+        <Kicker className="hidden @2xl:block">Concept worlds</Kicker>
         <BeatTitle>
           {worlds.length} concept {worlds.length === 1 ? "world" : "worlds"}, and the Control
         </BeatTitle>
@@ -121,11 +123,24 @@ export function StoryboardBeat({ script, frame }: { script: DemoScript; frame: D
   if (!board) return null;
   const { view } = board;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 @2xl:gap-4">
+    <div className="flex h-full min-h-0 flex-col justify-center gap-3 @2xl:gap-4">
       <div className="flex flex-col gap-1">
-        <Kicker>Storyboard · concept preview</Kicker>
+        <Kicker className="hidden @2xl:block">Storyboard · concept preview</Kicker>
         <BeatTitle>{board.conceptTitle}</BeatTitle>
-        <p className="text-[0.8125rem] text-paper-dim">{board.world}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <p className="text-[0.8125rem] text-paper-dim">{board.world}</p>
+          {view.kind === "shots" && (
+            <p className="flex flex-wrap items-center gap-1.5 text-[0.6875rem] text-paper-dim">
+              Brief cues per shot:
+              <Chip origin="interpreted" surface="screen" className="px-1.5 py-0.5 text-[0.625rem] [&_svg]:size-2.5">
+                From Qloo
+              </Chip>
+              <Chip origin="creative" surface="screen" className="px-1.5 py-0.5 text-[0.625rem] [&_svg]:size-2.5">
+                Not from Qloo
+              </Chip>
+            </p>
+          )}
+        </div>
       </div>
       {view.kind === "frames" ? (
         <ol className="grid min-h-0 flex-1 grid-cols-2 gap-2 @4xl:grid-cols-4 @2xl:gap-3">
@@ -137,18 +152,35 @@ export function StoryboardBeat({ script, frame }: { script: DemoScript; frame: D
           ))}
         </ol>
       ) : (
-        <ol className="grid min-h-0 grid-cols-2 content-start gap-2 @4xl:grid-cols-4 @2xl:gap-3">
+        <ol className={cn("grid min-h-0 content-start gap-1.5 @2xl:gap-3", view.shots.length > 4 ? "@2xl:grid-cols-3 @4xl:grid-cols-5" : "@2xl:grid-cols-2 @4xl:grid-cols-4")}>
           {view.shots.slice(0, frame.shots).map((shot) => (
             <li key={shot.scene} className={cn("min-w-0", RISE)}>
-              <Panel className="flex h-full flex-col gap-1.5 p-3">
-                <p className="font-mono text-[0.6875rem] leading-4 text-paper-dim">
-                  Shot {shot.number} · {shot.beat} · {shot.start} to {shot.end} s
+              <Panel className="flex h-full flex-col gap-1 px-3 py-1.5 @2xl:gap-1.5 @2xl:py-3">
+                <p className="flex flex-wrap justify-between gap-x-2 font-mono text-[0.6875rem] leading-4 text-paper-dim">
+                  <span>
+                    Shot {shot.number} · {shot.beat}
+                  </span>
+                  <span>
+                    {shot.start} to {shot.end} s
+                  </span>
                 </p>
-                <p className="line-clamp-4 text-[0.8125rem] leading-[1.2rem] @4xl:line-clamp-6">{shot.action}</p>
+                <p className="line-clamp-1 text-[0.8125rem] leading-[1.2rem] @2xl:line-clamp-4 @4xl:line-clamp-5">{shot.action}</p>
                 {shot.overlayText && (
-                  <p className="mt-auto border-t border-paper/10 pt-1.5 text-xs leading-4 text-paper-dim">
+                  <p className="hidden text-xs leading-4 text-paper-dim @2xl:block">
                     On screen: <span className="text-paper">{shot.overlayText}</span>
                   </p>
+                )}
+                {shot.carries.length > 0 && (
+                  <ul aria-label="Brief cues this shot carries" className="mt-auto flex flex-nowrap gap-1 overflow-hidden pt-1 @2xl:flex-wrap">
+                    {shot.carries.map((cue) => (
+                      // Phones keep one line: the cues Qloo backs. Wider screens add the creative ones.
+                      <li key={cue.label} className={cn("shrink-0", cue.origin !== "qloo" && cue.origin !== "interpreted" && "hidden @2xl:block")}>
+                        <Chip origin={cue.origin} surface="screen" className="px-1.5 py-0.5 text-[0.625rem] [&_svg]:hidden @2xl:[&_svg]:block @2xl:[&_svg]:size-2.5">
+                          {cue.label}
+                        </Chip>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </Panel>
             </li>

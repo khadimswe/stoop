@@ -1,4 +1,5 @@
 import { SeedChip } from "@/components/stoop/chip";
+import { cn } from "cn";
 import type { DemoFrame } from "@/lib/marketing/demo-timeline";
 import type { DemoScript } from "@/lib/marketing/demo-types";
 import { TypedText } from "./composer-beat";
@@ -19,7 +20,7 @@ export function SeedsBeat({ script, frame }: { script: DemoScript; frame: DemoFr
         <BeatTitle>Here&apos;s what we found.</BeatTitle>
         <p className="font-mono text-xs text-paper-dim @2xl:hidden">{facts.map((fact) => fact.value).join(" · ")}</p>
       </div>
-      <div className="grid gap-3 @2xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 @2xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <Panel className="hidden flex-col gap-2.5 p-4 @2xl:flex">
           <p className="text-sm font-bold">From your description</p>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[0.8125rem]">
@@ -39,15 +40,15 @@ export function SeedsBeat({ script, frame }: { script: DemoScript; frame: DemoFr
             </p>
           </div>
           {/* Space for every chip from the start, so the card never grows as they land. */}
-          <ul className="grid">
-            <li aria-hidden="true" className="invisible col-start-1 row-start-1 flex flex-wrap gap-1.5 @2xl:gap-2">
+          <ul className="grid grid-cols-[minmax(0,1fr)]">
+            <li aria-hidden="true" className="invisible col-start-1 row-start-1 flex min-w-0 flex-wrap gap-1.5 @2xl:gap-2">
               {seeds.items.map((seed) => (
                 <SeedChip key={seed.id} surface="screen" origin={seed.origin} name={seed.name} kind={seed.kind} className="h-7 text-xs @2xl:h-8 @2xl:text-[0.8125rem]" />
               ))}
             </li>
-            <li className="col-start-1 row-start-1 flex flex-wrap content-start gap-1.5 @2xl:gap-2">
+            <li className="col-start-1 row-start-1 flex min-w-0 flex-wrap content-start gap-1.5 @2xl:gap-2">
               {seeds.items.slice(0, frame.chips).map((seed) => (
-                <SeedChip key={seed.id} surface="screen" origin={seed.origin} name={seed.name} kind={seed.kind} className={`h-7 text-xs @2xl:h-8 @2xl:text-[0.8125rem] ${RISE}`} />
+                <SeedChip key={seed.id} surface="screen" origin={seed.origin} name={seed.name} kind={seed.kind} className={cn("h-7 text-xs @2xl:h-8 @2xl:text-[0.8125rem]", RISE)} />
               ))}
             </li>
           </ul>

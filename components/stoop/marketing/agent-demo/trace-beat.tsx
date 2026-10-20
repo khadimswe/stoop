@@ -42,9 +42,8 @@ function Row({ step, heading }: { step: DemoStep; heading: boolean }) {
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className={cn("text-[0.8125rem] leading-[1.15rem] text-pretty", decision && "font-semibold")}>{step.label}</p>
             {(step.world || step.served) && (
-              <p className="flex flex-wrap gap-x-2 font-mono text-[0.6875rem] leading-4 text-paper-dim">
-                {step.world && <span>{step.world}</span>}
-                {step.served && <span>{step.served === "cached" ? "from cache" : "live call"}</span>}
+              <p className="font-mono text-[0.6875rem] leading-4 text-paper-dim">
+                {[step.world, step.served && (step.served === "cached" ? "from cache" : "live call")].filter(Boolean).join(" · ")}
               </p>
             )}
             {step.reason && <p className="line-clamp-2 text-xs leading-4 text-paper-dim">{step.reason}</p>}
@@ -76,7 +75,7 @@ export function TraceBeat({ script, frame }: { script: DemoScript; frame: DemoFr
       <div className="flex flex-col gap-3 @2xl:gap-4">
         <div className="flex flex-col gap-1">
           <Kicker>Agent at work</Kicker>
-          <BeatTitle className="text-[1.125rem] @2xl:text-[1.375rem] @4xl:text-[1.5rem]">Mapping the taste neighborhood around {product.name}</BeatTitle>
+          <BeatTitle className="text-[1.125rem]/[1.15] @2xl:text-[1.375rem]/[1.15] @4xl:text-[1.5rem]/[1.15]">Mapping the taste neighborhood around {product.name}</BeatTitle>
         </div>
 
         {/* Phones: the rail as a row of marks with the stage in progress named under it. */}

@@ -7,8 +7,9 @@ import type { Evidence } from "../evidence";
 import { apply, initialState, type ReportState, type RunEvent } from "../events";
 import { DESCRIPTION_MAX, RUN_SEEDS } from "../api/requests";
 import type { Report } from "../report/schema";
-import { kitView } from "../report/view/kit";
-import { worldOutput } from "../report/view/output";
+import { currentWorld } from "../report/view/current";
+import { worldCues, worldStoryboard, type ShotView } from "../report/view/output";
+import { ledgerOf } from "../report/view/receipts";
 import { formatDate, plainType } from "../report/view/format";
 import { callCounts, RAIL, railRows, STAGE_LABELS } from "../run/rail";
 import { resultsView } from "../run/results";
@@ -16,7 +17,7 @@ import { priceFrom } from "../run/intake-view";
 import { DEFAULT_FORMAT, exampleRunHref } from "../run/start";
 import { traceRows } from "../run/trace";
 import type { ExampleSlug } from "../demo/examples";
-import type { DemoRealityLine, DemoScript, DemoStep, DemoStoryboard, DemoWorld } from "./demo-types";
+import type { DemoRealityLine, DemoScript, DemoShot, DemoStep, DemoStoryboard, DemoWorld } from "./demo-types";
 
 export interface DemoSource {
   slug: ExampleSlug;
@@ -123,18 +124,38 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
   );
   const controlConcept = final.control?.concepts?.best.concept ?? null;
 
-  // The top world's concept preview, exactly as the report's Output section builds it.
+  // The top world's concept preview, exactly as the report's Output section builds it, each shot with
+  // the brief cues it carries (a Qloo or interpreted cue only with its receipts: no evidence, no display).
   const top = report.worlds[0];
-  const preview = top ? worldOutput(top, { media, renderAccess: { kind: "off" } }).storyboard : null;
+  const preview = top ? worldStoryboard(top, media) : null;
   let storyboard: DemoScript["storyboard"] = null;
   if (top && preview && preview.kind !== "none") {
-    const view: DemoStoryboard = preview.kind === "frames" ? { kind: "frames", frames: preview.frames, shots: preview.shots } : { kind: "shots", shots: preview.shots };
+    const cues = new Map(worldCues(top, ledgerOf(report)).map((cue) => [cue.slot, cue]));
+    const shot = ({ scene, number, beat, start, end, action, overlayText, carries }: ShotView): DemoShot => ({
+      scene,
+      number,
+      beat,
+      start,
+      end,
+      action,
+      overlayText,
+      carries: carries.flatMap((slot) => {
+        const cue = cues.get(slot);
+        const backed = cue && (cue.origin === "creative" || cue.origin === "yours" || cue.receipt !== null);
+        return cue && backed ? [{ label: cue.label, origin: cue.origin }] : [];
+      }),
+    });
+    const shots = preview.shots.map(shot);
+    const view: DemoStoryboard = preview.kind === "frames" ? { kind: "frames", frames: preview.frames, shots } : { kind: "shots", shots };
     const kept = worlds.find((w) => w.segmentId === top.segmentId);
     storyboard = { world: top.label, conceptTitle: kept?.conceptTitle ?? "", view };
   }
 
   // The launch plan: each world's ad plan entry as a test cell, the Control as the baseline.
-  const cells = kitView(report).worlds.flatMap((world) => (world.adPlan ? [{ segmentId: world.segmentId, name: world.adPlan.name, watch: firstSentence(world.adPlan.watch) }] : []));
+  const cells = report.worlds.flatMap((world) => {
+    const plan = currentWorld(world).kit?.adPlan;
+    return plan ? [{ segmentId: world.segmentId, name: plan.name, watch: firstSentence(plan.watch) }] : [];
+  });
 
   const totals = callCounts(final.trace);
   const date = shortDate(report.meta.createdAt);

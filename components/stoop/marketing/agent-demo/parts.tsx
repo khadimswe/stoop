@@ -3,8 +3,8 @@ import { cn } from "cn";
 
 // Small pieces the demo's beats share. No hooks: they render the same on the server and in the player.
 
-/** The stage's fixed shape: a tall card on phones, 4:3 on tablets, 16:10 on desktops (no layout shift). */
-export const STAGE_BOX = "relative aspect-[9/13] w-full overflow-hidden @xl:aspect-[4/3] @4xl:aspect-[16/10]";
+/** The stage's fixed shape: a tall card on phones, 4:3 on tablets, 16:9 on desktops (no layout shift). */
+export const STAGE_BOX = "relative aspect-[9/15] w-full overflow-hidden @xl:aspect-[4/3] @4xl:aspect-[16/9]";
 /** The control bar's fixed height. */
 export const BAR_BOX = "flex h-[4.25rem] items-center gap-2 border-t border-paper/10 px-3 @md:gap-3 @2xl:px-5";
 
@@ -15,7 +15,7 @@ export function Kicker({ children, className }: { children: ReactNode; className
 
 /** A beat's title: Bricolage, narrow, sized to the screen (never over 32px). */
 export function BeatTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("font-display text-[1.375rem] leading-[1.1] font-extrabold tracking-tight text-balance [font-stretch:85%] @2xl:text-[1.75rem] @4xl:text-[2rem]", className)}>{children}</p>;
+  return <p className={cn("font-display text-[1.375rem]/[1.1] font-extrabold tracking-tight text-balance [font-stretch:85%] @2xl:text-[1.75rem]/[1.1] @4xl:text-[2rem]/[1.1]", className)}>{children}</p>;
 }
 
 /** A raised panel inside the screen. */

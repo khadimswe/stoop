@@ -3,7 +3,7 @@
 // (types only), so the player derives every frame from one clock and pausing is just stopping it.
 //
 // Only presentation lives here: typing speed, how long a line holds. The trace keeps the run's own
-// rhythm: its steps arrive at their recorded timestamps, scaled into about 11 seconds.
+// rhythm: its steps arrive at their recorded timestamps, scaled into about 10.5 seconds.
 import { DEMO_BEATS, type DemoBeat, type DemoScript } from "./demo-types";
 
 /** Presentation timings, in milliseconds. */
@@ -11,10 +11,10 @@ export const PACE = {
   composer: { lead: 450, perChar: 14, minTyping: 1_600, maxTyping: 3_000, hold: 450, press: 380 },
   seeds: { lead: 400, perChip: 380, gap: 250, perChar: 22, minTyping: 700, maxTyping: 1_600, hold: 400, press: 380 },
   /** The recorded run is scaled to last about this long, plus a lead-in and a closing hold. */
-  trace: { target: 11_000, lead: 300, hold: 1_100 },
+  trace: { target: 10_500, lead: 300, hold: 1_100 },
   reality: { lead: 250, perLine: 900, receipt: 600, hold: 2_600 },
   worlds: { lead: 250, perCard: 700, headline: 600, hold: 2_800 },
-  storyboard: { lead: 300, perShot: 450, hold: 2_400 },
+  storyboard: { lead: 300, perShot: 400, hold: 2_400 },
   launch: { lead: 300, perCell: 450, cta: 500, hold: 3_000 },
 } as const;
 

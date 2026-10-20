@@ -5,7 +5,8 @@ import type { DemoMedia } from "../demo/manifest";
 import type { RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { skewText } from "../report/view/format";
-import { worldOutput } from "../report/view/output";
+import { worldCues, worldStoryboard } from "../report/view/output";
+import { ledgerOf } from "../report/view/receipts";
 import { callCounts, RAIL, STAGE_LABELS } from "../run/rail";
 import { buildDemoScript, firstSentence, receiptLine, shortDate } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
@@ -117,9 +118,27 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
   });
 
   it("previews the top world's shot list while no frames are approved", () => {
-    const preview = worldOutput(r.worlds[0], { media: NO_MEDIA, renderAccess: { kind: "off" } }).storyboard;
+    const preview = worldStoryboard(r.worlds[0], NO_MEDIA);
     expect(preview.kind).toBe("shots");
-    expect(script.storyboard).toEqual({ world: r.worlds[0].label, conceptTitle: r.worlds[0].concepts!.best.concept.title, view: { kind: "shots", shots: preview.kind === "shots" ? preview.shots : [] } });
+    if (preview.kind !== "shots") return;
+    const { scenes } = r.worlds[0].concepts!.best.concept;
+    expect(script.storyboard?.world).toBe(r.worlds[0].label);
+    expect(script.storyboard?.conceptTitle).toBe(r.worlds[0].concepts!.best.concept.title);
+    expect(script.storyboard?.view.kind).toBe("shots");
+    const shots = script.storyboard!.view.shots;
+    expect(shots.map((s) => [s.number, s.beat, s.action, s.overlayText])).toEqual(scenes.map((scene, i) => [i + 1, scene.beat, scene.action, scene.overlayText]));
+    expect(shots.map((s) => [s.start, s.end])).toEqual(preview.shots.map((s) => [s.start, s.end]));
+  });
+
+  it("tags each shot with the brief cues it carries, Qloo-backed ones only with their receipts", () => {
+    const preview = worldStoryboard(r.worlds[0], NO_MEDIA);
+    const cues = new Map(worldCues(r.worlds[0], ledgerOf(r)).map((cue) => [cue.slot, cue]));
+    const shots = script.storyboard!.view.shots;
+    shots.forEach((shot, i) => {
+      const expected = preview.kind === "none" ? [] : preview.shots[i].carries.map((slot) => cues.get(slot)!).filter((cue) => cue.origin === "creative" || cue.origin === "yours" || cue.receipt);
+      expect(shot.carries).toEqual(expected.map((cue) => ({ label: cue.label, origin: cue.origin })));
+    });
+    expect(shots.some((shot) => shot.carries.some((c) => c.origin === "interpreted" || c.origin === "qloo"))).toBe(true);
   });
 
   it("shows approved storyboard frames instead, when the manifest has them", () => {

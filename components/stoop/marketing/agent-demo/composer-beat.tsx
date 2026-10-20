@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import type { DemoFrame } from "@/lib/marketing/demo-timeline";
 import type { DemoScript } from "@/lib/marketing/demo-types";
 import { BeatTitle, Caret, Kicker, Panel, ReplayButton } from "./parts";
@@ -5,7 +6,7 @@ import { BeatTitle, Caret, Kicker, Panel, ReplayButton } from "./parts";
 /** Text typed so far, in a box already sized for all of it, so the layout never moves while it types. */
 export function TypedText({ text, typed, caret, className }: { text: string; typed: number; caret: boolean; className?: string }) {
   return (
-    <span className={`grid ${className ?? ""}`}>
+    <span className={cn("grid", className)}>
       <span aria-hidden="true" className="invisible col-start-1 row-start-1">
         {text}
         <Caret />
