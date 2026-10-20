@@ -32,6 +32,7 @@ import { chooseSettingCities, measuredCandidates, sweepCreators, sweepWorld, typ
 import { decide, forWorld, type StageEnv } from "../stages/env";
 import type { ConceptRun } from "../stages/concepts";
 import { runCultureAgent, type CultureRevision } from "./culture-agent";
+import { failureForLog, plainFailure } from "./failure";
 
 /** The creative steps both sides share (lane B's concept writer, templates and kit). */
 export interface Creative {
@@ -214,7 +215,9 @@ export async function runBrief(env: BriefEnv, run: BriefRun): Promise<RunEvent[]
   } catch (error) {
     // Hitting the deadline stops the run where it is, resumable: the caller records it, not a failure.
     if (env.abortSignal?.aborted) throw error;
-    emit({ type: "run.failed", stage: timer.current(), message: error instanceof Error ? error.message : String(error) });
+    // The page gets one plain sentence; the technical detail goes to the server log only.
+    console.error(`[run ${run.runId}] failed: ${failureForLog(error)}`);
+    emit({ type: "run.failed", stage: timer.current(), message: plainFailure(error) });
   }
   return env.emitter.events;
 }
