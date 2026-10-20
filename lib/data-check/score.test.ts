@@ -19,8 +19,9 @@ import {
   signalLevel,
   topOverlap,
 } from "./score";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const insights = readFixtureFile(findFixture("probe-insights") as string);
+const insights = ifRecorded(() => readFixtureFile(findFixture("probe-insights") as string));
 
 describe("Control text to tag queries", () => {
   it("pulls the genre phrase out of each committed Control's music style", () => {
@@ -40,7 +41,7 @@ describe("Control text to tag queries", () => {
   });
 });
 
-describe("demographics", () => {
+describeRecorded("demographics", () => {
   const skew = meanSkew(demographicsResponse.parse(recorded(insights, "demographics").body));
 
   it("averages Qloo's per-seed skews", () => {
@@ -90,7 +91,7 @@ describe("topOverlap", () => {
   });
 });
 
-describe("buildPanel on a recorded list", () => {
+describeRecorded("buildPanel on a recorded list", () => {
   const artists = insightsEntitiesResponse.parse(recorded(insights, "artist-take50").body);
   const pool = artists.map((e, i) => ({ id: e.id, name: e.name, popularity: e.popularity ?? 0, source: `s${i % 10}`, request: "artist-take50" }));
 

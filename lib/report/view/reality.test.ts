@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import type { Report } from "../schema";
 import { marginText, realityView } from "./reality";
 import { ledgerOf } from "./receipts";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Reality Check view for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Reality Check view for %s", (slug) => {
   const report = read(slug);
   const gap = report.audience.gap!;
   const view = realityView(report, ledgerOf(report))!;
@@ -39,7 +40,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Reality Check view for %s", (slu
   });
 });
 
-describe("the Reality Check view", () => {
+describeRecorded("the Reality Check view", () => {
   it("states a gap with its margin (food-hot-sauce)", () => {
     const report = read("food-hot-sauce");
     const age = realityView(report, ledgerOf(report))!.dimensions.find((d) => d.dimension === "age")!;

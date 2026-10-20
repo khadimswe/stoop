@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { INTAKE_CAP } from "../qloo/budget";
 import { createQlooClient } from "../qloo/client";
 import { QlooBudgetError } from "../qloo/errors";
@@ -6,11 +6,12 @@ import { FixtureCache, findFixture, readFixtureFile, recorded } from "../qloo/fi
 import { tagsResponse } from "../qloo/types";
 import { INTAKE_STAGE, intakeQloo } from "./qloo";
 import { tagRequest } from "./tags";
+import { describeRecorded } from "../testing/recorded";
 
 // The one recording these requests live in, not every fixture.
 const replayCache = () => new FixtureCache([readFixtureFile("fixtures/probe-search.json")], { strict: true });
 
-describe("intakeQloo", () => {
+describeRecorded("intakeQloo", () => {
   it("gives an intake its own context, capped at INTAKE_CAP, labeled under the intake stage", async () => {
     const { ctx, lookup } = intakeQloo(createQlooClient({ cache: replayCache() }), "intake-test");
     expect(ctx.cap).toBe(INTAKE_CAP);

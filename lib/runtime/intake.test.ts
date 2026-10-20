@@ -1,5 +1,5 @@
 import { MockLanguageModelV4 } from "ai/test";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { intakeResponseSchema } from "../api/responses";
 import type { PageRead } from "../intake/page";
 import { createQlooClient } from "../qloo/client";
@@ -10,6 +10,7 @@ import type { VisitorId } from "../store/visitor";
 import { ApiFailure } from "./errors";
 import { INTAKES_PER_HOUR, productFrom, runIntake, slugOf } from "./intake";
 import { loadIntake } from "./record";
+import { describeRecorded } from "../testing/recorded";
 
 // Qloo answers replay real recordings (the seed searches and the "hot sauce" tag search); Claude is the AI SDK mock.
 const client = () => createQlooClient({ cache: new FixtureCache(["pool-resolve", "probe-search"].map((name) => readFixtureFile(`fixtures/${name}.json`)), { strict: true }) });
@@ -34,7 +35,7 @@ const page = (product: Partial<NonNullable<PageRead["product"]>> | null, extra: 
   ...extra,
 });
 
-describe("the product from an intake", () => {
+describeRecorded("the product from an intake", () => {
   it("takes the page's facts first, with the price as a seller fact, and the founder's brand name over the page's", () => {
     const spec = productFrom({ brandName: "Porchlight Pepper Co." }, page({ brand: "Porchlight", price: "14.00", currency: "USD", description }));
     expect(spec).toMatchObject({ name: "Red Fermented Hot Sauce", brandName: "Porchlight Pepper Co.", oneLine: description, source: { kind: "description" } });
@@ -55,7 +56,7 @@ describe("the product from an intake", () => {
   });
 });
 
-describe("an intake", () => {
+describeRecorded("an intake", () => {
   it("is off while STOOP_LIVE is off, and limited per visitor per hour", async () => {
     const store = new MemoryStore();
     await expect(runIntake({ client: client(), model: seedsModel(), env: {} }, { description }, ctx(store))).rejects.toMatchObject({ code: "off" });

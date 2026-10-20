@@ -2,16 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 import { Screen } from "@/components/stoop/screen";
-import { exampleSession, type SessionTurn } from "@/lib/marketing/mcp-session";
+import { exampleSession, type RecordedSession, type SessionTurn } from "@/lib/marketing/mcp-session";
 import { cn } from "cn";
 
 const noSubscription = () => () => {};
 const WHO: Record<SessionTurn["who"], string> = { you: "You", claude: "Claude", stoop: "Stoop" };
 
 /** /mcp's example session, clearly marked as one, with links on the page's own origin once it hydrates. */
-export function ExampleSession({ fallbackOrigin }: { fallbackOrigin: string }) {
+export function ExampleSession({ fallbackOrigin, recorded }: { fallbackOrigin: string; recorded: RecordedSession }) {
   const origin = useSyncExternalStore(noSubscription, () => window.location.origin, () => fallbackOrigin);
-  const session = exampleSession(origin);
+  const session = exampleSession(origin, recorded);
   return (
     <Screen className="flex min-w-0 flex-col gap-4 p-5 sm:p-6">
       <p className="font-mono text-xs text-paper-dim">

@@ -12,7 +12,7 @@
 // what still fails after that is dropped by the guard.
 import { isStepCount, tool, ToolLoopAgent, type LanguageModel, type StopCondition } from "ai";
 import { z } from "zod";
-import { ENTITY_PANELS } from "../culture/panels";
+import { entityPanel } from "../culture/panels";
 import { TAG_KINDS } from "../data-check/plan";
 import { checkText } from "../guardrails";
 import { QlooBudgetError } from "../qloo/errors";
@@ -265,7 +265,7 @@ export async function runCultureAgent(env: StageEnv, input: CultureAgentInput, o
         const known = ids.filter((id) => candidates.get(id)?.type === `urn:entity:${type}`);
         if (known.length === 0) return { refused: true, message: `None of those ids is a ${type} candidate.` };
         const own = new Set(input.candidates.filter((c) => c.type === `urn:entity:${type}`).map((c) => c.id));
-        const panel = ENTITY_PANELS[type as ScoredEntityType].map((p) => p.id);
+        const panel = entityPanel(type as ScoredEntityType).map((p) => p.id);
         if (!spend()) return spent;
         try {
           const result = await qloo(env, "culture", `Scoring probed ${describeProbe(type)} for ${band} against the reference panel`, {

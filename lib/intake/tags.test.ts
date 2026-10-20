@@ -6,6 +6,7 @@ import { FixtureCache, readFixtureFile } from "../qloo/fixtures";
 import { looksLikeInstructions } from "./claude";
 import { intakeQloo } from "./qloo";
 import { resolveTag, tagPhrase, tagRequest } from "./tags";
+import { describeRecorded } from "../testing/recorded";
 
 // Strict replay of the real recordings through the intake's lookup: an unrecorded request throws.
 // Only the two recordings these requests live in are loaded, not every fixture.
@@ -35,7 +36,7 @@ describe("tagRequest", () => {
   });
 });
 
-describe("resolveTag", () => {
+describeRecorded("resolveTag", () => {
   it("maps a phrase to the closest tag of its kind", async () => {
     expect(await resolveTag("music", "Lo-fi hip hop", lookup())).toMatchObject({
       request: "tags--music--lo-fi-hip-hop",

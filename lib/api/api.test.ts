@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Report } from "../report/schema";
 import { intakeRequestSchema, lastEventIdSchema, reviseRequestSchema, runStartRequestSchema, searchRequestSchema, voteRequestSchema, waitlistRequestSchema } from "./requests";
 import { reportResponseSchema, runStartResponseSchema, siteReadingSchema, voteResponseSchema } from "./responses";
+import { itRecorded } from "../testing/recorded";
 
 const intakeId = `in_${"0".repeat(24)}`;
 
@@ -68,7 +69,7 @@ describe("API response schemas", () => {
     expect(runStartResponseSchema.safeParse({ mode: "example", slug: "food-hot-sauce", reason: "error", message: "x" }).success).toBe(false);
   });
 
-  it("serves a stored example report as a finished report", () => {
+  itRecorded("serves a stored example report as a finished report", () => {
     const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
     expect(reportResponseSchema.parse({ status: "done", report, eventsUrl: null })).toEqual({ status: "done", report, eventsUrl: null });
   });

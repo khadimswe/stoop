@@ -3,7 +3,7 @@
 // below-median pick is real too: the generic brief's "Soul - Funk", which beats 0 of 19 reference
 // music tags for this world.
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { Report } from "../report/schema";
 import { craftWorld, signalOf } from "../stages/craft";
 import type { CultureCandidate } from "../stages/culture";
@@ -11,20 +11,21 @@ import { CANDIDATES } from "../demo/candidates";
 import { sellerText } from "../prompts/brief";
 import { candidateProduct } from "./baseline-brief";
 import { guardBrief, type BriefSubmission } from "./grounding";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
-const world = report.worlds.find((w) => w.segmentId === "seg-35-to-44")!;
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
+const world = ifRecorded(() => report.worlds.find((w) => w.segmentId === "seg-35-to-44")!);
 const fieldOf = { music: "music", visual: "visual", wardrobe: "wardrobe", setting: "setting", mood: "mood", voice: "mood", creators: "creators" } as const;
-const candidates: CultureCandidate[] = world.culture!.flatMap((f) =>
+const candidates: CultureCandidate[] = ifRecorded(() => world.culture!.flatMap((f) =>
   f.field === "voice" ? [] : f.sources.map((s) => ({ ...s, field: fieldOf[f.field], details: [], why: s.why })),
-);
-const soulFunk = world.check!.picks.find((p) => p.from === "control" && p.name === "Soul - Funk")!;
-const belowMedian: CultureCandidate = { kind: "tag", id: soulFunk.id, name: soulFunk.name, type: soulFunk.type, field: "music", rank: 1, position: soulFunk.position, why: [], details: [], evidenceIds: soulFunk.evidenceIds };
+));
+const soulFunk = ifRecorded(() => world.check!.picks.find((p) => p.from === "control" && p.name === "Soul - Funk")!);
+const belowMedian: CultureCandidate = ifRecorded(() => ({ kind: "tag", id: soulFunk.id, name: soulFunk.name, type: soulFunk.type, field: "music", rank: 1, position: soulFunk.position, why: [], details: [], evidenceIds: soulFunk.evidenceIds }));
 const ids = (field: CultureCandidate["field"]) => candidates.filter((c) => c.field === field).map((c) => c.id);
-const names = candidates.filter((c) => c.kind === "entity").map((c) => c.name);
+const names = ifRecorded(() => candidates.filter((c) => c.kind === "entity").map((c) => c.name));
 // The founder's own words about the hot sauce, the only product facts wording may state.
 const seller = sellerText(candidateProduct(CANDIDATES.find((c) => c.slug === "food-hot-sauce")!));
-const ctx = { candidates: [...candidates, belowMedian], names, allowedPlaces: ["Baton Rouge, LA"], talent: true, sellerText: seller };
+const ctx = ifRecorded(() => ({ candidates: [...candidates, belowMedian], names, allowedPlaces: ["Baton Rouge, LA"], talent: true, sellerText: seller }));
 
 const submission = (overrides: Partial<BriefSubmission> = {}): BriefSubmission => ({
   music: { text: "Roots americana with a soulful edge, brushed drums, mid tempo.", cites: ids("music").slice(0, 3) },
@@ -40,7 +41,7 @@ const submission = (overrides: Partial<BriefSubmission> = {}): BriefSubmission =
   ...overrides,
 });
 
-describe("guardBrief", () => {
+describeRecorded("guardBrief", () => {
   it("passes a brief that cites this world's candidates and names nothing", () => {
     const result = guardBrief(submission(), ctx);
     expect(result.problems).toEqual([]);
@@ -102,7 +103,7 @@ describe("guardBrief", () => {
   });
 });
 
-describe("craftWorld", () => {
+describeRecorded("craftWorld", () => {
   const craft = (overrides: Partial<BriefSubmission> = {}) =>
     craftWorld({ segmentId: world.segmentId, label: world.label, bucket: "35_to_44", brief: guardBrief(submission(overrides), ctx).brief, settingCity: world.settingCity, productLine: "A fermented red chile hot sauce." });
 

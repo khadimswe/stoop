@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { hashOf, sha256, stableStringify } from "./hash";
 
@@ -98,5 +99,24 @@ describe("hashOf", () => {
     ];
     const hashes = values.map(hashOf);
     expect(new Set(hashes).size).toBe(values.length);
+  });
+});
+
+describe("sha256", () => {
+  const reference = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+
+  it("matches node:crypto on the standard vectors and on padding edges", () => {
+    expect(sha256("")).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    expect(sha256("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    for (const length of [1, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 1000]) {
+      const text = "a".repeat(length);
+      expect(sha256(text), String(length)).toBe(reference(text));
+    }
+  });
+
+  it("matches node:crypto on multi-byte text and real cache keys", () => {
+    for (const text of ["Crème Brûlée Corner Café", "café, naïve, 東京, \u{1F336}", "/v2/insights?filter.type=urn%3Aentity%3Aartist&take=50"]) {
+      expect(sha256(text)).toBe(reference(text));
+    }
   });
 });

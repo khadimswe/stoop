@@ -22,6 +22,7 @@ import {
   residualLiftByMetro,
   shortMetroName,
 } from "./metros";
+import { describeRecorded, itRecorded } from "../testing/recorded";
 
 const byName = (name: string) => {
   const metro = METROS.find((m) => m.name === name);
@@ -64,7 +65,7 @@ describe("nearestMetro", () => {
   });
 });
 
-describe("city ranking on the recorded candidate heatmaps", () => {
+describeRecorded("city ranking on the recorded candidate heatmaps", () => {
   const pool = readFixtureFile(findFixture("pool-audience") as string);
   const heatmaps = Object.fromEntries(CANDIDATES.map((c) => [c.slug, heatmapResponse.parse(recorded(pool, `${c.slug}--heatmap`).body)]));
   const reference = buildReferenceHeatmap(Object.values(heatmaps));
@@ -224,7 +225,7 @@ describe("place anchors and localities", () => {
     });
   });
 
-  it("returned only places near the requested city when queried by verified locality id (recorded)", () => {
+  itRecorded("returned only places near the requested city when queried by verified locality id (recorded)", () => {
     // Where each locality is, from the recorded locality searches.
     const localities = new Map<string, { lat: number; lon: number }>();
     for (const request of readFixtureFile(findFixture("pool-refresh-5") as string).requests) {

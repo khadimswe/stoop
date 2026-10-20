@@ -5,6 +5,7 @@ import { McpTokenForm } from "@/components/stoop/marketing/mcp-token-form";
 import { SetupSnippets } from "@/components/stoop/marketing/setup-snippets";
 import { Screen } from "@/components/stoop/screen";
 import { judgingEndsAt, mcpCaps } from "@/lib/config";
+import { loadRecordedSession } from "@/lib/marketing/mcp-session-data";
 import { expiryText } from "@/lib/marketing/mcp-token";
 import { siteOrigin } from "@/lib/marketing/site";
 
@@ -75,7 +76,7 @@ export default function McpPage() {
       </Step>
 
       <Step n={3} id="session" title="Ask Claude">
-        <ExampleSession fallbackOrigin={ORIGIN} />
+        <ExampleSession fallbackOrigin={ORIGIN} recorded={loadRecordedSession()} />
       </Step>
     </main>
   );

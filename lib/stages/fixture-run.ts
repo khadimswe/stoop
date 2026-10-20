@@ -14,6 +14,16 @@ export const AT = "2026-10-17T12:00:00.000Z";
 export const exampleEvents = (slug = "food-hot-sauce") => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
 export const exampleReport = (slug = "food-hot-sauce") => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
+/**
+ * A real name the run knows: the top world's first music source (an artist Qloo returned). Tests that
+ * check real names are refused read it from the recording, so no Qloo name is written into a test.
+ */
+export function knownArtist(report: Pick<Report, "worlds">): string {
+  const source = report.worlds[0]?.culture?.find((f) => f.field === "music")?.sources.find((s) => s.kind === "entity");
+  if (!source) throw new Error("The recorded report has no music artist in its top world.");
+  return source.name;
+}
+
 export const BASE_COST: Cost = {
   durationMs: 48_000,
   qloo: { live: 31, cached: 4 },

@@ -3,7 +3,7 @@
 // would), so no test reaches Qloo and every refusal comes back to the model as a tool result.
 import { readFileSync } from "node:fs";
 import { MockLanguageModelV4 } from "ai/test";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createEmitter, type RunEvent } from "../events";
 import type { QlooClient } from "../qloo/client";
 import { createRunContext } from "../qloo/context";
@@ -13,15 +13,16 @@ import type { CultureCandidate } from "../stages/culture";
 import type { StageEnv } from "../stages/env";
 import { culturePrompt, MAX_PROBES, runCultureAgent, thinFields, type CultureAgentInput } from "./culture-agent";
 import type { BriefSubmission } from "./grounding";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
-const world = report.worlds.find((w) => w.segmentId === "seg-35-to-44")!;
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
+const world = ifRecorded(() => report.worlds.find((w) => w.segmentId === "seg-35-to-44")!);
 const fieldOf = { music: "music", visual: "visual", wardrobe: "wardrobe", setting: "setting", mood: "mood", voice: "mood", creators: "creators" } as const;
-const candidates: CultureCandidate[] = world.culture!.flatMap((f) => (f.field === "voice" ? [] : f.sources.map((s) => ({ ...s, field: fieldOf[f.field], details: [] }))));
+const candidates: CultureCandidate[] = ifRecorded(() => world.culture!.flatMap((f) => (f.field === "voice" ? [] : f.sources.map((s) => ({ ...s, field: fieldOf[f.field], details: [] })))));
 const ids = (field: CultureCandidate["field"]) => candidates.filter((c) => c.field === field).map((c) => c.id);
-const artist = candidates.find((c) => c.field === "music" && c.kind === "entity")!.name;
+const artist = ifRecorded(() => candidates.find((c) => c.field === "music" && c.kind === "entity")!.name);
 
-const input: CultureAgentInput = {
+const input: CultureAgentInput = ifRecorded(() => ({
   segmentId: world.segmentId,
   label: world.label,
   bucket: "35_to_44",
@@ -35,7 +36,7 @@ const input: CultureAgentInput = {
   talent: true,
   chains: [],
   sellerText: "small-batch hot sauce. A fermented red chile hot sauce made in small batches with garlic and a little fruit for sweetness.",
-};
+}));
 
 const brief = (music = "Roots americana with a soulful edge, brushed drums, mid tempo."): BriefSubmission => ({
   music: { text: music, cites: ids("music").slice(0, 3) },
@@ -89,7 +90,7 @@ function env(): { env: StageEnv; events: RunEvent[]; qlooCalls: () => number } {
 
 const decisions = (events: RunEvent[]) => events.flatMap((e) => (e.type === "trace.step" && e.step.kind === "decision" ? [e.step.label] : []));
 
-describe("runCultureAgent", () => {
+describeRecorded("runCultureAgent", () => {
   it("accepts a clean brief on the first submit", async () => {
     const { env: e } = env();
     const model = scripted(call("submit_brief", brief(), "c1"));

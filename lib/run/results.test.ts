@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../demo/examples";
 import { reduce, type RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { skewText } from "../report/view/format";
 import { resultsView } from "./results";
+import { describeRecorded } from "../testing/recorded";
 
 const events = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
 const report = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
-describe.each(EXAMPLES.map((e) => e.slug))("results so far, for the recorded %s run", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("results so far, for the recorded %s run", (slug) => {
   const all = events(slug);
   const r = report(slug);
   const upTo = (type: RunEvent["type"]) => resultsView(reduce(all.slice(0, all.findIndex((e) => e.type === type) + 1)));

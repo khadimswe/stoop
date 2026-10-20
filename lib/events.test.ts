@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { apply, createEmitter, initialState, reduce, runEventSchema, toReport, type RunEvent } from "./events";
 import { baselineRunSchema } from "./agent/baseline";
 import { candidateDirection, candidateProduct, controlBrief } from "./agent/baseline-brief";
@@ -11,11 +11,12 @@ import { conceptRunSchema } from "./stages/concepts";
 import { controlChoiceSchema, controlFitSchema, cultureFieldSchema, panelPositionSchema } from "./report/world";
 import { cueSchema } from "./types";
 import { reportSchema } from "./report/schema";
+import { describeRecorded, ifRecorded } from "./testing/recorded";
 
 // A real recorded run (data/runs/, produced by `npm run audience -- --picks` from fixtures).
-const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.events.json", "utf8")) as RunEvent[];
+const recorded = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.events.json", "utf8")) as RunEvent[]);
 
-describe("run events", () => {
+describeRecorded("run events", () => {
   it("every recorded event parses with the one event schema", () => {
     for (const event of recorded) expect(runEventSchema.parse(event)).toEqual(event);
   });
@@ -92,7 +93,7 @@ describe("run events", () => {
   });
 });
 
-describe("concept worlds", () => {
+describeRecorded("concept worlds", () => {
   // Real recorded pieces only: the hot sauce audience run above, its Control run 1 and that run's
   // concepts (data/baselines/), and packs built from them by the real templates. The culture field
   // cites the segment's own recorded artists; no Qloo data is made up.
@@ -241,7 +242,7 @@ describe("concept worlds", () => {
   });
 });
 
-describe("honesty rules in the world contract", () => {
+describeRecorded("honesty rules in the world contract", () => {
   const artist = reduce(recorded).audience.segments!.items[0].artists[0];
   const source = { kind: "entity" as const, id: artist.id, name: artist.name, type: artist.type, rank: 1, position: null, why: [], evidenceIds: artist.evidenceIds };
 
@@ -294,7 +295,7 @@ describe("honesty rules in the world contract", () => {
   });
 });
 
-describe("after the run: frames, revisions, cost and resumes", () => {
+describeRecorded("after the run: frames, revisions, cost and resumes", () => {
   // A real recorded full run: audience, worlds, the Control and the comparison.
   const full = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
   const done = reduce(full);

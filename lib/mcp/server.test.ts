@@ -19,8 +19,9 @@ import { createMcpPost } from "../routes/mcp";
 import { storeToken } from "./fixture-token";
 import { newToken } from "./token";
 import { buildMcpServer, cultureBrief, cultureBriefOutputSchema, MONTHLY_FLOOR, pendingRuntime, replayAnswer, type McpDeps } from "./server";
+import { ifRecorded, itRecorded } from "../testing/recorded";
 
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
 
 /** An intake built from the recorded hot sauce run: real seeds with their receipts. */
 function recordedIntake(seedCount = report.inputs.seeds.length): IntakeResponse {
@@ -71,7 +72,7 @@ describe("culture_brief", () => {
     expect(await pendingRuntime.startRun({} as RunStartRequest, {} as RequestContext)).toEqual(replayAnswer("replay"));
   });
 
-  it("runs intake, then starts a run with up to 5 proposed seeds through the MCP door, with absolute links", async () => {
+  itRecorded("runs intake, then starts a run with up to 5 proposed seeds through the MCP door, with absolute links", async () => {
     const d = deps();
     const output = cultureBriefOutputSchema.parse(await cultureBrief({ ...brief, statedCustomer: "Home cooks, 25 to 40", region: "Texas" }, d, request));
     expect(output).toMatchObject({
@@ -94,13 +95,13 @@ describe("culture_brief", () => {
     expect(ctx.visitor).toMatch(/^v_[0-9a-f]{24}$/);
   });
 
-  it("passes StartRun's example replay through, with why", async () => {
+  itRecorded("passes StartRun's example replay through, with why", async () => {
     const busy = { mode: "example", slug: "home-candles", reason: "busy", message: "Live runs are busy right now. Here's an example report while you wait." } as const;
     const output = await cultureBrief(brief, deps({ startRun: vi.fn(async () => busy) }), request);
     expect(output).toEqual({ ...busy, reportUrl: "https://stoop.example/examples/home-candles" });
   });
 
-  it("starts nothing when intake matches fewer than 2 seeds", async () => {
+  itRecorded("starts nothing when intake matches fewer than 2 seeds", async () => {
     const d = deps({ runIntake: vi.fn(async () => recordedIntake(1)) });
     const output = await cultureBrief(brief, d, request);
     expect(output.mode).toBe("no_seeds");
@@ -116,7 +117,7 @@ describe("culture_brief", () => {
     expect(d.runIntake).not.toHaveBeenCalled();
   });
 
-  it("limits each visitor to 3 briefs an hour, then replays", async () => {
+  itRecorded("limits each visitor to 3 briefs an hour, then replays", async () => {
     const d = deps();
     for (let i = 0; i < 3; i++) expect((await cultureBrief(brief, d, request)).mode).toBe("live");
     expect(await cultureBrief(brief, d, request)).toMatchObject({ mode: "example", reason: "rate-limited" });
@@ -174,7 +175,7 @@ describe("/api/mcp tools over HTTP", () => {
     expect(JSON.stringify(culture?.inputSchema)).toContain('"maxLength":2000');
   });
 
-  it("scores choices on the recorded fixtures and returns the structured result", async () => {
+  itRecorded("scores choices on the recorded fixtures and returns the structured result", async () => {
     const { result } = await rpc(deps())("tools/call", { name: "score_brief", arguments: scoreArgs });
     expect(result?.isError).toBeFalsy();
     expect(result?.structuredContent).toMatchObject({ status: "scored", fit: { line: "2 of 3 checkable choices below this audience's reference median" } });
@@ -200,7 +201,7 @@ describe("/api/mcp tools over HTTP", () => {
     expect((await rpc(d)("tools/call", { name: "score_brief", arguments: scoreArgs }, "203.0.113.7")).result?.isError).toBeFalsy();
   });
 
-  it("limits culture_brief to 3 an hour per token, and starts its runs as the token, never as the shared IP", async () => {
+  itRecorded("limits culture_brief to 3 an hour per token, and starts its runs as the token, never as the shared IP", async () => {
     const d = deps();
     const a = await storeToken(d.store());
     const b = await storeToken(d.store());
@@ -252,7 +253,7 @@ describe("/api/mcp tools over HTTP", () => {
     expect(d.runIntake).not.toHaveBeenCalled();
   });
 
-  it("starts a culture brief and returns the run's links", async () => {
+  itRecorded("starts a culture brief and returns the run's links", async () => {
     const { result } = await rpc(deps())("tools/call", { name: "culture_brief", arguments: { url: "https://shop.example/products/hot-sauce" } });
     expect(result?.structuredContent).toMatchObject({ mode: "live", reportUrl: "https://stoop.example/report/run_0123456789abcdef01234567" });
     expect(result?.content?.[0].text).toContain("Started run run_0123456789abcdef01234567");
@@ -302,7 +303,7 @@ describe("MCP tokens", () => {
     expect(d.runIntake).not.toHaveBeenCalled();
   });
 
-  it("accepts the path form for URL-only clients, and refuses a path segment that is no token", async () => {
+  itRecorded("accepts the path form for URL-only clients, and refuses a path segment that is no token", async () => {
     const d = deps();
     const { token } = await storeToken(d.store());
     const call = rpc(d, { token: null });
@@ -314,7 +315,7 @@ describe("MCP tokens", () => {
 });
 
 describe("MCP caps", () => {
-  it("starts at most 3 culture briefs per token per day, even when calls arrive at once", async () => {
+  itRecorded("starts at most 3 culture briefs per token per day, even when calls arrive at once", async () => {
     const d = deps();
     const { token, hash } = await storeToken(d.store());
     // One brief already used today (an earlier hour), so the daily cap binds before the hourly limit.
@@ -332,7 +333,7 @@ describe("MCP caps", () => {
     expect(await counter(d.store(), keys.daily("mcp-calls"))).toBe(2);
   });
 
-  it("allows 40 tool calls per token per day, never more under concurrent calls", async () => {
+  itRecorded("allows 40 tool calls per token per day, never more under concurrent calls", async () => {
     const d = deps();
     const { token, hash } = await storeToken(d.store());
     await d.store().incr(keys.mcp.calls(hash), { by: 38 });
@@ -345,7 +346,7 @@ describe("MCP caps", () => {
     expect(await counter(d.store(), keys.mcp.calls(hash))).toBe(40);
   });
 
-  it("holds every token to MCP_DAILY_CAP tool calls a day together", async () => {
+  itRecorded("holds every token to MCP_DAILY_CAP tool calls a day together", async () => {
     const d = deps({ env: { MCP_DAILY_CAP: "4" } });
     const tokens = await Promise.all([0, 1, 2].map(() => storeToken(d.store())));
     const calls = tokens.flatMap((t, i) => [0, 1, 2].map((j) => rpc(d, { token: t.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(i * 3 + j))));
@@ -406,7 +407,7 @@ describe("MCP caps", () => {
     expect(await rateUsed(d.store(), DAILY_RULES.scoreBriefQloo, EVERYONE)).toBe(live);
   });
 
-  it("gives MCP its own share of the day's live runs, so people on the site keep the rest", async () => {
+  itRecorded("gives MCP its own share of the day's live runs, so people on the site keep the rest", async () => {
     const d = deps({ env: { MCP_LIVE_RUNS_DAILY_SHARE: "2" } });
     const tokens = await Promise.all([0, 1, 2].map(() => storeToken(d.store())));
     const results = [];
@@ -420,7 +421,7 @@ describe("MCP caps", () => {
     expect(await counter(d.store(), keys.mcp.calls(tokens[2].hash))).toBe(0);
   });
 
-  it("gives the agents' share back when no new run started: a join or an example replay", async () => {
+  itRecorded("gives the agents' share back when no new run started: a join or an example replay", async () => {
     const joined = { ...LIVE_START, joined: true } as const;
     const busy = { mode: "example", slug: "food-hot-sauce", reason: "busy", message: "Live runs are busy right now." } as const;
     const d = deps({ env: { MCP_LIVE_RUNS_DAILY_SHARE: "1" }, startRun: vi.fn<StartRun>().mockResolvedValueOnce(joined).mockResolvedValueOnce(busy).mockResolvedValue(LIVE_START) });
@@ -434,7 +435,7 @@ describe("MCP caps", () => {
     expect((await rpc(d, { token: fourth.token })("tools/call", { name: "culture_brief", arguments: cultureArgs }, ipN(9))).result?.content?.[0].text).toContain("live runs for MCP agents are used up");
   });
 
-  it("reserves score_brief's whole Qloo cap from the day's slice before it starts, and gives back what it did not spend", async () => {
+  itRecorded("reserves score_brief's whole Qloo cap from the day's slice before it starts, and gives back what it did not spend", async () => {
     const d = deps();
     const store = d.store();
     const left = 20;

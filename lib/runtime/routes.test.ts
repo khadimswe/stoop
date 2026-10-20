@@ -11,10 +11,11 @@ import type { Store } from "../store/types";
 import { readVisitorCookie } from "../visitor-cookie";
 import { saveIntake } from "./record";
 import { getEvents, getHealth, getReport, getSearch, postIntake, postResume, postRun, type RouteDeps } from "./routes";
+import { ifRecorded, itRecorded } from "../testing/recorded";
 
 const slug = "food-hot-sauce";
-const events = JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
-const report = JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
+const events = ifRecorded(() => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[]);
+const report = ifRecorded(() => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report);
 const runId = `run_${"f".repeat(24)}`;
 const at = "2026-10-17T12:00:00.000Z";
 const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash: "a".repeat(64), createdAt: at, updatedAt: at };
@@ -66,7 +67,7 @@ describe("the runtime routes in replay mode (no store at all)", () => {
     expect((await postResume(post({}), "not-a-run", replay)).status).toBe(400);
   });
 
-  it("serves the examples' reports and traces from disk", async () => {
+  itRecorded("serves the examples' reports and traces from disk", async () => {
     const res = await getReport(`example-${slug}`, replay);
     expect(reportResponseSchema.parse(await res.json())).toMatchObject({ status: "done", eventsUrl: null });
     const stream = await getEvents(new Request(`http://localhost/api/run/example-${slug}/events`, { headers: { "Last-Event-ID": `1:${events.length - 3}` } }), `example-${slug}`, replay);
@@ -144,7 +145,7 @@ describe("the runtime routes with a store", () => {
       new Request(url, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) } });
     const runIdOf = async (response: Response) => ((await response.json()) as { runId: string }).runId;
 
-    it("is minted with a signing secret when the browser has none, and the run counts it", async () => {
+    itRecorded("is minted with a signing secret when the browser has none, and the run counts it", async () => {
       const store = await withIntake();
       const live = deps({ STOOP_LIVE: "true", STOOP_SIGNING_SECRET: SECRET }, store);
       const first = await postRun(postAt("https://stoop.example/api/run", startBody("Texas")), live);
@@ -159,7 +160,7 @@ describe("the runtime routes with a store", () => {
       expect((await getRunMeta(store, await runIdOf(again)))?.cookieVisitor).toBe(id);
     });
 
-    it("is not Secure over plain http, and a cookie this server did not sign is replaced", async () => {
+    itRecorded("is not Secure over plain http, and a cookie this server did not sign is replaced", async () => {
       const store = await withIntake();
       const res = await postRun(postAt("http://localhost/api/run", startBody("Texas"), `stoop_visitor=c_${"0".repeat(24)}.forged`), deps({ STOOP_LIVE: "true", STOOP_SIGNING_SECRET: SECRET }, store));
       const setCookie = res.headers.get("set-cookie") ?? "";
@@ -167,7 +168,7 @@ describe("the runtime routes with a store", () => {
       expect(setCookie).not.toContain(`c_${"0".repeat(24)}`);
     });
 
-    it("is never minted without STOOP_SIGNING_SECRET: the run counts the IP alone", async () => {
+    itRecorded("is never minted without STOOP_SIGNING_SECRET: the run counts the IP alone", async () => {
       const store = await withIntake();
       const res = await postRun(postAt("https://stoop.example/api/run", startBody("Texas")), deps({ STOOP_LIVE: "true" }, store));
       expect(res.headers.get("set-cookie")).toBeNull();

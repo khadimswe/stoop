@@ -12,6 +12,7 @@ import { launchPlanView } from "../report/view/launch";
 import { buildDemoScript, DEMO_INTERESTS, receiptLine, shortDate } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
 import { demoTimeline } from "./demo-timeline";
+import { describeRecorded } from "../testing/recorded";
 
 const events = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
 const report = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
@@ -24,7 +25,7 @@ function statsCalls(r: Report): number {
   return all.flatMap((stages) => Object.values(stages)).reduce((sum, s) => sum + s!.liveCalls + s!.cachedCalls, 0);
 }
 
-describe("the agent demo for the lead example (food-hot-sauce)", () => {
+describeRecorded("the agent demo for the lead example (food-hot-sauce)", () => {
   const r = report("food-hot-sauce");
   const script = build("food-hot-sauce");
 
@@ -211,7 +212,7 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
   });
 });
 
-describe.each(EXAMPLES.map((e) => e.slug))("the agent demo for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the agent demo for %s", (slug) => {
   const r = report(slug);
   const script = build(slug);
 

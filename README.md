@@ -45,6 +45,39 @@ Hackathon keys only work against `https://hackathon.api.qloo.com`. The key is re
 | `npm run test` | Unit tests (Vitest) |
 | `npm run e2e` | End-to-end tests (Playwright) |
 | `npm run fixtures:record -- <name>` | Record real Qloo responses from `fixtures/recipes/<name>.json` into `fixtures/` |
+| `npm run check:public` | Fail if Qloo response data (an excluded path, or a Qloo-like entity id) is in this public tree |
+
+## Data and the Qloo API
+
+Qloo response data is not stored in this public repository. Qloo's [hackathon developer guide](https://docs.qloo.com/reference/qloo-llm-hackathon-developer-guide) says: "Do not store Qloo response data in a public repository." So the recorded responses and everything built from them are left out of every commit here: the recordings in `fixtures/`, the stored example runs in `data/runs/`, the frozen reference panels in `data/culture/`, the reference audiences for city ranking (`data/geo/reference-heatmap.json`), the data check's results (`data/data-check/`, `docs/data-check-details.md`) and the `/mcp` page's example session (`data/marketing/`). [`public-mirror.exclude`](public-mirror.exclude) lists every path, and `npm run check:public` fails if one comes back. [`docs/data-check.md`](docs/data-check.md) keeps the method and the aggregate findings.
+
+The live demo runs on the same code with private server-side caching of Qloo responses, which the guide allows ("Private server-side caching is fine and there is no time limit on how long you can keep cached responses").
+
+**Without the data,** typecheck, lint and the unit tests that need no recordings all run (`npm run check`); the tests that replay recordings are skipped with a notice, and `next build` and `npm run e2e` stop at once with a message that lists the missing files.
+
+**To run Stoop with your own Qloo key,** put `QLOO_API_KEY` and `ANTHROPIC_API_KEY` in `.env.local`, then record the data in this order (about 400 Qloo calls of the 10,000 a month, plus Claude calls for the three examples). Each `plan` step writes a recipe to `fixtures/recipes/`; record it before the next step.
+
+```bash
+npm run fixtures:record -- smoke                 # one call: the key works
+npm run fixtures:record -- probe-search          # search shapes some tests replay
+npm run fixtures:record -- pool-resolve          # the 9 candidates' seeds and the generic briefs' picks
+npm run fixtures:record -- pool-refresh-2
+npm run data-check -- plan audience && npm run fixtures:record -- pool-audience
+npm run data-check -- panels                     # writes data/culture/panels.json and data/geo/reference-heatmap.json
+npm run data-check -- plan reference && npm run fixtures:record -- reference-audiences
+npm run data-check -- plan reference --tags && npm run fixtures:record -- reference-audiences-2
+npm run data-check -- reference                  # rebuilds the reference audiences from every recording
+npm run data-check -- plan missing               # names a top-up recipe: record it (add --allow-large over 80
+                                                 # requests), then run plan missing again until nothing is missing
+npm run example -- food-hot-sauce --record       # each example: live misses are recorded, then replayed into data/runs/
+npm run example -- home-candles --record
+npm run example -- pets-outfits --record
+npm run audience -- --picks                      # the audience half of each example run
+npm run mcp:session                              # the /mcp example session (add -- --record if a call is missing)
+npm run build && npm run test && npm run e2e
+```
+
+Some unit tests pin values from our own recordings (a city's rank, a segment's label), so with your recordings expect those to differ. Keep your recordings out of any public repository too.
 
 ## How Stoop talks to Qloo
 

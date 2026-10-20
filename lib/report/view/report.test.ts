@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import type { Report } from "../schema";
 import { headerView } from "./header";
@@ -11,10 +11,11 @@ import { ledgerOf } from "./receipts";
 import { reportView } from "./report";
 import { screeningView } from "./screening";
 import { whyView } from "./why";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
-describe.each(EXAMPLES)("the report view for $slug", ({ slug, brandName }) => {
+describeRecorded.each(EXAMPLES)("the report view for $slug", ({ slug, brandName }) => {
   const report = read(slug);
   const view = reportView(report, { renderAccess: { kind: "off" } });
 

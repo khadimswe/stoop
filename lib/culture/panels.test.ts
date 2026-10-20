@@ -7,12 +7,13 @@ import { checkText } from "../guardrails";
 import { createQlooClient } from "../qloo/client";
 import { createRunContext } from "../qloo/context";
 import { FixtureCache } from "../qloo/fixtures";
-import { ENTITY_PANELS, TAG_PANELS } from "./panels";
+import { describeRecorded, HAS_RECORDED_DATA, ifRecorded } from "../testing/recorded";
+import { loadPanels, parsePanels, referencePanels } from "./panels";
 
-const panels = { ...ENTITY_PANELS, ...TAG_PANELS };
-const scoring = JSON.parse(readFileSync("fixtures/recipes/pool-scoring.json", "utf8")) as Recipe;
+const panels = ifRecorded(() => ({ ...referencePanels().entity, ...referencePanels().tag }));
+const scoring = ifRecorded(() => JSON.parse(readFileSync("fixtures/recipes/pool-scoring.json", "utf8")) as Recipe);
 
-describe("frozen reference panels", () => {
+describeRecorded("frozen reference panels", () => {
   it("hold 25 unique entries each, at most 3 from any candidate's list", () => {
     for (const [name, panel] of Object.entries(panels)) {
       expect(panel, name).toHaveLength(25);
@@ -66,5 +67,22 @@ describe("frozen reference panels", () => {
   it("are exactly what the recorded scoring calls sent, so they stay frozen", () => {
     const sent = new Set(scoring.requests.flatMap((r) => (r.params["filter.results.entities"] ?? r.params["filter.results.tags"]) as string[]));
     for (const panel of Object.values(panels)) for (const p of panel) expect(sent.has(p.id)).toBe(true);
+  });
+});
+
+describe("the panels file", () => {
+  const entry = (n: number) => ({ id: `00000000-0000-4000-8000-00000000000${n}`, name: `Made-up entry ${n}`, popularity: n / 10, request: "made-up--artist" });
+  const file = (entity: Record<string, unknown>) => ({ source: "test", built: "2026-01-01", entity, tag: { music: [entry(1)], tone: [entry(2)] } });
+
+  it("reads a valid file", () => {
+    expect(parsePanels(file({ artist: [entry(1)], brand: [entry(2)], movie: [entry(3)], tv_show: [entry(1)] })).entity.brand).toEqual([entry(2)]);
+  });
+
+  it("rejects a file missing a panel", () => {
+    expect(() => parsePanels(file({ artist: [entry(1)], brand: [entry(2)], movie: [entry(3)] }))).toThrow();
+  });
+
+  it.skipIf(HAS_RECORDED_DATA)("names the generating command when the file is missing", () => {
+    expect(() => loadPanels()).toThrow(/npm run data-check -- panels/);
   });
 });

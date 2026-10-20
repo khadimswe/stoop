@@ -10,17 +10,18 @@ import { cultureFieldSchema, type CultureFieldResult } from "../report/world";
 import { conceptRunSchema, conceptSet } from "../stages/concepts";
 import { AD_PLAN_NOTE, adPlanEntry, watchLine } from "./ad-plan";
 import { CREATOR_DISCLOSURE, creatorBrief } from "./creator-brief";
+import { describeRecorded, ifRecorded, itRecorded } from "../testing/recorded";
 
 // Real recorded pieces only: the hot sauce audience run, its Control and concepts, and recorded
 // person and podcast insights (fixtures/probe-insights). Nothing here is hand-written Qloo data.
-const report = reportSchema.parse(JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.report.json", "utf8")));
-const segment = report.audience.segments!.items[0];
+const report = ifRecorded(() => reportSchema.parse(JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.report.json", "utf8"))));
+const segment = ifRecorded(() => report.audience.segments!.items[0]);
 const run = baselineRunSchema.parse(JSON.parse(readFileSync("data/baselines/food-hot-sauce/run-1.json", "utf8")));
 const brief = controlBrief(run);
 const concepts = conceptSet(conceptRunSchema.parse(JSON.parse(readFileSync("data/baselines/food-hot-sauce/concepts.json", "utf8"))), brief);
 const kept = concepts.best.concept;
 
-const insights = readFixtureFile(findFixture("probe-insights") as string);
+const insights = ifRecorded(() => readFixtureFile(findFixture("probe-insights") as string));
 function sources(id: string, take: number) {
   const request = recorded(insights, id);
   const entities = (request.body as { results: { entities: { entity_id: string; name: string; subtype?: string }[] } }).results.entities;
@@ -35,15 +36,15 @@ function sources(id: string, take: number) {
     evidenceIds: [evidenceId(request.endpoint, request.params)],
   }));
 }
-const creators: CultureFieldResult = cultureFieldSchema.parse({
+const creators: CultureFieldResult = ifRecorded(() => cultureFieldSchema.parse({
   field: "creators",
   signal: "rich",
   scope: "audience",
   sources: [...sources("person-take20", 3), ...sources("podcast-take20", 2)],
   cues: [],
-});
+}));
 
-describe("adPlanEntry", () => {
+describeRecorded("adPlanEntry", () => {
   const entry = (concept = kept) =>
     adPlanEntry({ label: segment.label, ageBands: [segment.bucket], cities: segment.cities, concept, evidenceIds: segment.evidenceIds });
 
@@ -78,7 +79,7 @@ describe("adPlanEntry", () => {
 describe("creatorBrief", () => {
   const made = creatorBrief({ brief, creators, concepts });
 
-  it("profiles the creator to recruit as an interpreted cue with the creators' receipts, naming no one", () => {
+  itRecorded("profiles the creator to recruit as an interpreted cue with the creators' receipts, naming no one", () => {
     expect(made).not.toBeNull();
     const profile = made!.profile;
     expect(profile.origin).toBe("interpreted");
@@ -90,14 +91,14 @@ describe("creatorBrief", () => {
     expect(profile.text).toMatch(/never someone asked to imitate a real person/);
   });
 
-  it("uses the culture stage's own creator wording only when it names no one", () => {
+  itRecorded("uses the culture stage's own creator wording only when it names no one", () => {
     const named = cultureFieldSchema.parse({ ...creators, cues: [{ text: `Hosts like ${creators.sources[0].name}`, origin: "interpreted", evidenceIds: creators.sources[0].evidenceIds }] });
     expect(creatorBrief({ brief, creators: named, concepts })!.profile.text).not.toContain(creators.sources[0].name);
     const plain = cultureFieldSchema.parse({ ...creators, cues: [{ text: "Conversational long-form hosts who cook on camera", origin: "interpreted", evidenceIds: creators.sources[0].evidenceIds }] });
     expect(creatorBrief({ brief, creators: plain, concepts })!.profile.text).toMatch(/^Conversational long-form hosts who cook on camera\. Recruit someone/);
   });
 
-  it("takes 3 hooks from the concepts, details to hit from the brief and to avoid from its avoid list", () => {
+  itRecorded("takes 3 hooks from the concepts, details to hit from the brief and to avoid from its avoid list", () => {
     expect(made!.hooks).toEqual([kept.hook, ...concepts.others.filter((c) => c.status === "ranked").map((c) => c.concept.hook)].slice(0, 3));
     // Every brief field fits: three settings plus wardrobe never push out the music or the look.
     expect(brief.setting).toHaveLength(3);

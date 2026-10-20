@@ -1,21 +1,22 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { buildDemoScript } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
 import { demoTimeline, frameAt, PACE } from "./demo-timeline";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const script = buildDemoScript({
+const script = ifRecorded(() => buildDemoScript({
   slug: "food-hot-sauce",
   events: JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[],
   report: JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report,
   media: null,
-});
-const timeline = demoTimeline(script);
+}));
+const timeline = ifRecorded(() => demoTimeline(script));
 const span = (beat: (typeof DEMO_BEATS)[number]) => timeline.beats.find((b) => b.beat === beat)!;
 
-describe("the agent demo's timeline", () => {
+describeRecorded("the agent demo's timeline", () => {
   it("lays the beats end to end from 0 to the total", () => {
     expect(timeline.beats[0].start).toBe(0);
     timeline.beats.forEach((beat, i) => {

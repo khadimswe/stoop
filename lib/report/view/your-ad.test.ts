@@ -4,10 +4,11 @@ import { EXAMPLES } from "../../demo/examples";
 import type { Report } from "../schema";
 import { outputViews, type BriefCueView } from "./output";
 import { cuesReceipt, leadScript, listWords, whyItFits, yourAdView } from "./your-ad";
+import { describeRecorded, itRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
-describe.each(EXAMPLES.map((e) => e.slug))("Your ad for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("Your ad for %s", (slug) => {
   const report = read(slug);
   const world = report.worlds[0];
   const outputs = outputViews(report, { renderAccess: { kind: "off" } });
@@ -65,14 +66,14 @@ describe.each(EXAMPLES.map((e) => e.slug))("Your ad for %s", (slug) => {
 });
 
 describe("Your ad", () => {
-  it("waits for a world with a concept", () => {
+  itRecorded("waits for a world with a concept", () => {
     const report = read("food-hot-sauce");
     const outputs = outputViews(report, { renderAccess: { kind: "off" } });
     expect(yourAdView(undefined, undefined)).toBeNull();
     expect(yourAdView({ ...report.worlds[0], concepts: null, pack: null }, outputs[0])).toBeNull();
   });
 
-  it("falls back to the first script when there is no Meta creator script", () => {
+  itRecorded("falls back to the first script when there is no Meta creator script", () => {
     const kit = read("food-hot-sauce").worlds[0].kit!;
     const tiktokOnly = { ...kit, ugc: kit.ugc.filter((s) => s.platform === "tiktok") };
     expect(leadScript(tiktokOnly)?.script).toBe(tiktokOnly.ugc[0].script);

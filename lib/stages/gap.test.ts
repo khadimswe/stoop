@@ -7,11 +7,12 @@ import type { Proof, Report } from "../report/schema";
 import { replayClient } from "../demo/example-run";
 import type { StageEnv } from "./env";
 import { genericDiffers, measuredGender, realityCheck, statedFromText, type StatedAudience } from "./gap";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 const report = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/audience.report.json`, "utf8")) as Report;
-const sauce = report("food-hot-sauce");
-const candles = report("home-candles");
-const sauceProof = sauce.audience.proof as Proof;
+const sauce = ifRecorded(() => report("food-hot-sauce"));
+const candles = ifRecorded(() => report("home-candles"));
+const sauceProof = ifRecorded(() => sauce.audience.proof as Proof);
 
 function env(): StageEnv & { events: ReturnType<typeof createEmitter>["events"] } {
   const emitter = createEmitter(() => new Date("2026-10-16T20:00:00.000Z"));
@@ -43,7 +44,7 @@ describe("reading a stated customer", () => {
   });
 });
 
-describe("the Reality Check never forces a gap", () => {
+describeRecorded("the Reality Check never forces a gap", () => {
   it("confirms a founder who read the audience right, then moves to what they didn't say", async () => {
     const result = await check(sauceProof, statedFromText("Hot sauce fans, 55 to 70"));
     expect(result.outcome).toBe("confirmed");

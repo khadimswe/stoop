@@ -13,7 +13,7 @@
 // count or the rate. One world failing stops only that world (world.partial); the run goes on. The
 // creative steps (concept writer, pack, kit) are passed in, so this file depends only on their shapes.
 import type { LanguageModel } from "ai";
-import { ENTITY_PANELS } from "../culture/panels";
+import { entityPanelEntries } from "../culture/panels";
 import type { BaselineRun } from "./baseline";
 import { CONTROL_RUN, controlBrief } from "./baseline-brief";
 import type { RunEvent } from "../events";
@@ -101,7 +101,7 @@ export function knownNames(run: Pick<BriefRun, "inputs">, candidates: readonly C
   const names = new Set<string>();
   for (const seed of run.inputs.seeds) if (seed.ref.kind === "entity") names.add(seed.ref.name);
   for (const c of candidates) if (c.kind === "entity") names.add(c.name);
-  for (const panel of Object.values(ENTITY_PANELS)) for (const entry of panel) names.add(entry.name);
+  for (const entry of entityPanelEntries()) names.add(entry.name);
   for (const map of control) for (const ref of map.references) names.add(ref.text);
   return [...names].filter((name) => /\s/.test(name.trim()) || name !== name.toLowerCase());
 }

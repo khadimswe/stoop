@@ -5,13 +5,14 @@ import { reduce, type RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { STAGES } from "../report/stages";
 import { callCounts, hasEnded, RAIL, railRows, STAGE_LABELS } from "./rail";
+import { describeRecorded } from "../testing/recorded";
 
 const events = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
 const report = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const statusOf = (rows: ReturnType<typeof railRows>) => Object.fromEntries(rows.map((r) => [r.stage, r.status]));
 const running = { ended: false, failed: false };
 
-describe("the progress rail", () => {
+describeRecorded("the progress rail", () => {
   it("covers every pipeline stage once, each with a label", () => {
     expect([...RAIL].sort()).toEqual([...STAGES].sort());
     for (const stage of RAIL) expect(STAGE_LABELS[stage]).toBeTruthy();

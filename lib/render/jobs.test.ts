@@ -8,6 +8,7 @@ import { advanceRender, counterUsage, endUserId, giveBackAll, loadJob, LOST_REAS
 import { buildRenderPlan, renderSource } from "./plan";
 import type { RenderPlan } from "./schema";
 import { exampleFor, exampleReport, fakeStorage, FakeQueue, targetsOf, videoFetch } from "./testing";
+import { describeRecorded, itRecorded } from "../testing/recorded";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const DAY = "2026-11-03";
@@ -56,7 +57,7 @@ describe("render caps", () => {
     for (let v = 0; v < 3; v++) expect((await store.get<number>(keys.rate("render", `v_${v.toString().repeat(24)}` as VisitorId, DAY))) ?? 0).toBeLessThanOrEqual(caps.perIpDaily);
   });
 
-  it("hold when parallel renders of different worlds race for the last of a pass's drafts", async () => {
+  itRecorded("hold when parallel renders of different worlds race for the last of a pass's drafts", async () => {
     const { env, store, queue } = setup({ caps: { ...CAPS, perPass: 2 } });
     const plans = await Promise.all([0, 1, 2].map((i) => planFor(i)));
     const outcomes = await Promise.all(plans.map((plan) => startRender(env, { plan, passId: PASS, visitor: VISITOR })));
@@ -68,7 +69,7 @@ describe("render caps", () => {
   });
 });
 
-describe("a server-paid draft", () => {
+describeRecorded("a server-paid draft", () => {
   it("goes queued, rendering, done: the video is downloaded from fal's host and stored on Stoop's storage", async () => {
     const { env, queue, storage } = setup();
     const plan = await planFor();

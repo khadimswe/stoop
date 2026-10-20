@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { findFixture, readFixtureFile, recorded } from "../qloo/fixtures";
 import { insightsEntitiesResponse } from "../qloo/types";
 import { MERGE_BELOW, segmentLabel, shouldMerge, topGenres } from "./segments";
+import { ifRecorded, itRecorded } from "../testing/recorded";
 
-const segments = readFixtureFile(findFixture("pool-segments") as string);
+const segments = ifRecorded(() => readFixtureFile(findFixture("pool-segments") as string));
 const artists = (id: string) => insightsEntitiesResponse.parse(recorded(segments, id).body);
-const young = artists("pets-outfits--seg-24_and_younger--artist");
-const older = artists("pets-outfits--seg-35_to_44--artist");
+const young = ifRecorded(() => artists("pets-outfits--seg-24_and_younger--artist"));
+const older = ifRecorded(() => artists("pets-outfits--seg-35_to_44--artist"));
 
 describe("segment labels", () => {
   it("come from Qloo's own artist genres, adult band first", () => {
@@ -14,7 +15,7 @@ describe("segment labels", () => {
     expect(segmentLabel("55_and_older", [])).toBe("55 and older");
   });
 
-  it("name each of two worlds by what sets it apart, so they never share a label", () => {
+  itRecorded("name each of two worlds by what sets it apart, so they never share a label", () => {
     const alone = [topGenres(young), topGenres(older)];
     const apart = [topGenres(young, older), topGenres(older, young)];
     // On their own both pet-hat worlds read as "pop and country".

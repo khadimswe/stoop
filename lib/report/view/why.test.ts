@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import { CULTURE_FIELDS } from "../../types";
 import type { Report } from "../schema";
@@ -8,10 +8,11 @@ import { plainType, skewText } from "./format";
 import { ledgerOf } from "./receipts";
 import { CITY_SUPPORT_RANK as CHECK_CITY_RANK } from "../../stages/check";
 import { CITY_SUPPORT_RANK, EXCLUDE_MAX, fieldOfSlot, latestJobSteps, revisionOutcome, slotLabel, STATUS_LABELS, TOP_CITIES, whyView } from "./why";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug) => {
   const report = read(slug);
   const proof = report.audience.proof!;
   const view = whyView(report, ledgerOf(report));
@@ -138,7 +139,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug
   });
 });
 
-describe("the Why it works view", () => {
+describeRecorded("the Why it works view", () => {
   it("uses the check stage's city rule and the revise request's id limit", () => {
     expect(CITY_SUPPORT_RANK).toBe(CHECK_CITY_RANK);
     expect(EXCLUDE_MAX).toBe(12);
@@ -208,7 +209,7 @@ describe("the Why it works view", () => {
   });
 });
 
-describe("a revision in Why it works", () => {
+describeRecorded("a revision in Why it works", () => {
   const report = read("food-hot-sauce");
   const ledger = ledgerOf(report);
   const [world, other] = report.worlds;

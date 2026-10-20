@@ -15,6 +15,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "check:dashes": "node scripts/check-dashes.mjs",
+    "check:public": "node scripts/public-mirror.mjs check",
     "check": "npm run typecheck && npm run lint && npm run test && npm run check:dashes && npm run check:contrast",
     "fixtures:record": "tsx scripts/record-fixture.ts",
     "baseline": "tsx scripts/generate-baseline.ts",
@@ -25,7 +26,8 @@
     "audience": "tsx scripts/run-audience.ts",
     "example": "tsx scripts/run-example.ts",
     "store:check": "tsx scripts/store-check.ts",
-    "mcp:token": "tsx scripts/mcp-token.ts"
+    "mcp:token": "tsx scripts/mcp-token.ts",
+    "mcp:session": "tsx scripts/mcp-session.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.81",

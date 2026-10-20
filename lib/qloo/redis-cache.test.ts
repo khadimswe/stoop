@@ -3,13 +3,14 @@ import { MemoryStore } from "../store/memory";
 import { keys } from "../store/keys";
 import { readFixtureFile } from "./fixtures";
 import { COMPRESS_OVER, StoreQlooCache } from "./redis-cache";
+import { ifRecorded, itRecorded } from "../testing/recorded";
 
 // The biggest real answer Stoop caches: a recorded US heatmap (fixtures/pool-audience).
-const recorded = readFixtureFile("fixtures/pool-audience.json.gz").requests;
-const largest = recorded.reduce((a, b) => (JSON.stringify(b.body ?? null).length > JSON.stringify(a.body ?? null).length ? b : a));
+const recorded = ifRecorded(() => readFixtureFile("fixtures/pool-audience.json.gz").requests);
+const largest = ifRecorded(() => recorded.reduce((a, b) => (JSON.stringify(b.body ?? null).length > JSON.stringify(a.body ?? null).length ? b : a)));
 
 describe("the shared Qloo cache", () => {
-  it("stores a large answer gzipped and reads it back exactly", async () => {
+  itRecorded("stores a large answer gzipped and reads it back exactly", async () => {
     const store = new MemoryStore();
     const cache = new StoreQlooCache(store);
     const entry = { status: 200, body: largest.body, fetchedAt: 1_700_000_000_000 };

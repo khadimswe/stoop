@@ -15,11 +15,11 @@ jobs:
     name: Secret leak scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
@@ -28,7 +28,7 @@ jobs:
     name: No em dashes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Scan tracked files for U+2014
         run: |
           set -e
@@ -57,7 +57,7 @@ jobs:
     name: Local-only files not committed
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Block CLAUDE.md, .claude/, .mcp.json, .env files
         run: |
           bad=$(git ls-files | grep -E '(^|/)CLAUDE\.md$|^\.claude/|^\.mcp\.json$|(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)
@@ -71,12 +71,27 @@ jobs:
     name: Typecheck, lint, test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history: the Qloo data scan checks every file version the public mirror would publish.
+          fetch-depth: 0
       - name: Check for package.json
         id: pkg
         run: |
           if [ -f package.json ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "No package.json yet, skipping."; fi
-      - uses: actions/setup-node@v4
+      # The public mirror leaves out Qloo response data (public-mirror.exclude), so there the tests that
+      # replay recordings skip themselves, and next build (which needs the stored examples) is skipped.
+      - name: Detect the public mirror
+        id: mode
+        if: steps.pkg.outputs.exists == 'true'
+        run: |
+          if [ -f fixtures/smoke.json ] && [ -d data/runs ]; then
+            echo "public=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "public=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Public mirror::Recorded Qloo data is not in this repository (README.md, Data and the Qloo API). Running typecheck, lint, the unit tests that need no recordings, the em dash and doc-name scan, and check:public. Skipping next build and e2e, which need the recordings."
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.pkg.outputs.exists == 'true'
         with:
           node-version: 22
@@ -85,8 +100,16 @@ jobs:
         run: npm ci
       - if: steps.pkg.outputs.exists == 'true'
         run: npm run check
+      - name: No Qloo data in the public tree or its history
+        if: steps.mode.outputs.public == 'true'
+        run: npm run check:public -- --history
+      # In the working repository: fail early when a kept file (one the mirror publishes) holds Qloo
+      # data, instead of when main is mirrored.
+      - name: No Qloo data in what the public mirror would publish
+        if: steps.mode.outputs.public == 'false'
+        run: node scripts/public-mirror.mjs scan --names-from fixtures
       # Cache Components and prerender errors only show up in a build. Replay mode, no secrets.
-      - if: steps.pkg.outputs.exists == 'true'
+      - if: steps.mode.outputs.public == 'false'
         name: Build
         run: npx next build
         env:

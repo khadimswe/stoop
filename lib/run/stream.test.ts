@@ -4,9 +4,10 @@ import type { StreamStatus } from "../api/responses";
 import { reduce, type RunEvent } from "../events";
 import type { KeyValueStore } from "./recents";
 import { BACKOFF_MS, createRunStream, ERROR_LIMIT, ERROR_WINDOW_MS, emptySnapshot, parseRunEvent, parseStreamStatus, persistKey, PERSIST_MS, type EventSourceLike, type RunSnapshot } from "./stream";
+import { describeRecorded, ifRecorded, itRecorded } from "../testing/recorded";
 
 // The recorded lead run (data/runs/), replayed through the real reducer.
-const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
+const recorded = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[]);
 const EXAMPLE = "example-food-hot-sauce";
 const LIVE = `run_${"c3".repeat(12)}`;
 /** The same recorded events as a live run's, for the live-only paths (stopped, resumed). */
@@ -101,7 +102,7 @@ function harness(runId: string, options: { storage?: KeyValueStore | null; fetch
   };
 }
 
-describe("following a run's events", () => {
+describeRecorded("following a run's events", () => {
   it("builds exactly the reducer's state from an example replay, then closes on the done status", () => {
     const h = harness(EXAMPLE);
     h.stream.start();
@@ -200,7 +201,7 @@ describe("following a run's events", () => {
 });
 
 describe("reconnecting", () => {
-  it("lets the browser retry a dropped connection by itself", () => {
+  itRecorded("lets the browser retry a dropped connection by itself", () => {
     const h = harness(EXAMPLE);
     h.stream.start();
     h.source().run(...recorded.slice(0, 10));
@@ -210,7 +211,7 @@ describe("reconnecting", () => {
     expect(h.fetches).toHaveLength(0);
   });
 
-  it("says the connection was lost after the browser's own retries keep failing, and Try again starts over", () => {
+  itRecorded("says the connection was lost after the browser's own retries keep failing, and Try again starts over", () => {
     const h = harness(LIVE);
     h.stream.start();
     h.source().run(...asLive(recorded.slice(0, 10)));
@@ -237,7 +238,7 @@ describe("reconnecting", () => {
     expect(h.last().problem).toMatchObject({ kind: "lost" });
   });
 
-  it("follows a running run again when the page comes back from the back-forward cache, and leaves an ended one alone", () => {
+  itRecorded("follows a running run again when the page comes back from the back-forward cache, and leaves an ended one alone", () => {
     const h = harness(LIVE);
     h.stream.start();
     h.source().run(...asLive(recorded.slice(0, 30)));
@@ -256,7 +257,7 @@ describe("reconnecting", () => {
     expect(stopped.sources).toHaveLength(1);
   });
 
-  it("backs off and reconnects from the last event while the server refuses, then says so plainly", async () => {
+  itRecorded("backs off and reconnects from the last event while the server refuses, then says so plainly", async () => {
     const h = harness(EXAMPLE, { fetch: async () => json({ error: { code: "failed", message: "Live runs are not available here right now. The examples still work." } }, 503) });
     h.stream.start();
     h.source().run(...recorded.slice(0, 10));
@@ -295,7 +296,7 @@ describe("reconnecting", () => {
     expect(h.last().problem).toMatchObject({ kind: "lost" });
   });
 
-  it("treats 404 as an expired run and 204 as an ended stream", async () => {
+  itRecorded("treats 404 as an expired run and 204 as an ended stream", async () => {
     const expired = harness(LIVE, { fetch: async () => json({ error: { code: "not_found", message: "That run has expired." } }, 404) });
     expired.stream.start();
     expired.source().fail(true);
@@ -311,7 +312,7 @@ describe("reconnecting", () => {
     expect(ended.sources).toHaveLength(1);
   });
 
-  it("keeps Resume after a reload of a stopped run, when the stream answers 204 with no status", async () => {
+  itRecorded("keeps Resume after a reload of a stopped run, when the stream answers 204 with no status", async () => {
     // The server answers 204 to any run that is not running once the viewer holds its last event.
     const storage = memoryStorage();
     const first = harness(LIVE, { storage });
@@ -346,7 +347,7 @@ describe("reconnecting", () => {
     expect(gone.last().problem).toMatchObject({ kind: "expired", message: "That report has expired." });
   });
 
-  it("reconnects when the stream answers fine again, and ignores an old connection's messages", async () => {
+  itRecorded("reconnects when the stream answers fine again, and ignores an old connection's messages", async () => {
     const h = harness(EXAMPLE, { fetch: async () => new Response("retry: 3000\n\n", { status: 200, headers: { "content-type": "text/event-stream" } }) });
     h.stream.start();
     const old = h.source();
@@ -362,7 +363,7 @@ describe("reconnecting", () => {
 });
 
 describe("stopped runs", () => {
-  it("closes on a stopped status, then Resume follows the next attempt from seq 0", async () => {
+  itRecorded("closes on a stopped status, then Resume follows the next attempt from seq 0", async () => {
     const h = harness(LIVE, {
       fetch: async (url) => (url.endsWith("/resume") ? json({ mode: "live", runId: LIVE, eventsUrl: `/api/run/${LIVE}/events`, reportUrl: `/report/${LIVE}`, joined: false }, 200) : json({}, 500)),
     });

@@ -1,18 +1,19 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import type { DemoMedia, DemoStoryboard } from "../../demo/manifest";
 import { getModel } from "../../prompts/models.config";
 import type { Report } from "../schema";
 import type { Revision, World, WorldFrames } from "../world";
 import { captionLines, conceptText, fenced, fenceFor, fileSlug, kitView, leadFor, storyboardView, unescapeVtt, videoPrompts, type ConceptCardView, type CutCardView, type KitWorldView } from "./kit";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const hex = (c: string) => c.repeat(64);
 const conceptCards = (w: KitWorldView) => w.cards.filter((c): c is ConceptCardView => c.kind === "concept");
 const cutCards = (w: KitWorldView) => w.cards.filter((c): c is CutCardView => c.kind === "cut");
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Campaign Kit view for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Campaign Kit view for %s", (slug) => {
   const report = read(slug);
   const view = kitView(report);
 
@@ -136,7 +137,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Campaign Kit view for %s", (slug
   });
 });
 
-describe("the kit's storyboard", () => {
+describeRecorded("the kit's storyboard", () => {
   const report = read("food-hot-sauce");
   const world = report.worlds[0];
   const frames = (status: WorldFrames["status"], revisionId: string | null = null, scenes: [number, 1 | 2][] = [[0, 1], [2, 1], [2, 2], [9, 1]]): WorldFrames => ({
@@ -193,7 +194,7 @@ describe("the kit's storyboard", () => {
   });
 });
 
-describe("kit text layouts", () => {
+describeRecorded("kit text layouts", () => {
   const report = read("food-hot-sauce");
   const { concept } = report.worlds[0].pack!;
 

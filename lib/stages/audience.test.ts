@@ -1,20 +1,21 @@
 // The golden test: every recorded example run reduces to exactly its stored report, and re-running
 // the stages on the fixtures reproduces both files byte for byte. Plus what each pick must show.
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { recordExampleAudience } from "../demo/example-run";
 import { EXAMPLES } from "../demo/examples";
 import { reduce, toReport, type RunEvent } from "../events";
 import type { Report } from "../report/schema";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 const read = <T>(slug: string, file: string) => JSON.parse(readFileSync(`data/runs/${slug}/${file}`, "utf8")) as T;
-const stored = Object.fromEntries(
+const stored = ifRecorded(() => Object.fromEntries(
   EXAMPLES.map(({ slug }) => [slug, { events: read<RunEvent[]>(slug, "audience.events.json"), report: read<Report>(slug, "audience.report.json") }]),
-);
+));
 // The same writer as scripts/run-audience.ts: U+2014 in Qloo names is stored as an escape.
 const asStored = (value: unknown) => `${JSON.stringify(value, null, 2).replace(new RegExp(String.fromCharCode(0x2014), "g"), "\\u2014")}\n`;
 
-describe.each(EXAMPLES.map((e) => [e.slug] as const))("%s recorded audience run", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => [e.slug] as const))("%s recorded audience run", (slug) => {
   it("reduces to exactly the stored report", () => {
     expect(toReport(reduce(stored[slug].events))).toEqual(stored[slug].report);
   });
@@ -45,7 +46,7 @@ describe.each(EXAMPLES.map((e) => [e.slug] as const))("%s recorded audience run"
   });
 });
 
-describe("what each pick shows", () => {
+describeRecorded("what each pick shows", () => {
   const gap = (slug: string) => stored[slug].report.audience.gap;
   const proof = (slug: string) => stored[slug].report.audience.proof;
 

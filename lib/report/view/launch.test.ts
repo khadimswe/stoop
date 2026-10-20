@@ -36,6 +36,7 @@ import {
   type BudgetSplit,
 } from "./launch-sheet";
 import { ledgerOf } from "./receipts";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
@@ -80,7 +81,7 @@ function cellText(cell: LaunchCellView): string {
   return JSON.stringify([rest, [...ageBands, ...cities].map((o) => [o.text, o.detail]), interests.map((i) => [i.name, i.kind])]);
 }
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (slug) => {
   const report = read(slug);
   const ledger = ledgerOf(report);
   const view = launchPlanView(report);
@@ -237,7 +238,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (slug) => {
   });
 });
 
-describe("the Launch plan when the test cannot run", () => {
+describeRecorded("the Launch plan when the test cannot run", () => {
   const base = read("food-hot-sauce");
 
   it("needs the Control: without it there is no baseline and no cells", () => {
@@ -349,7 +350,7 @@ describe("the budget helper", () => {
   });
 });
 
-describe("the launch sheet's guards", () => {
+describeRecorded("the launch sheet's guards", () => {
   const view: LaunchPlanView = launchPlanView(read("food-hot-sauce"));
   const hostile = (hook: string): LaunchPlanView => ({ ...view, cells: view.cells.map((c, i) => (i === 0 ? { ...c, creative: { ...c.creative, hook } } : c)) });
 

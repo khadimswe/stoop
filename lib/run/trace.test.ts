@@ -5,11 +5,12 @@ import { reduce, type RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { STAGE_LABELS } from "./rail";
 import { shortWorldLabel, traceRows } from "./trace";
+import { describeRecorded } from "../testing/recorded";
 
 const report = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const events = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
 
-describe.each(EXAMPLES.map((e) => e.slug))("trace rows for the recorded %s run", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("trace rows for the recorded %s run", (slug) => {
   const r = report(slug);
   const rows = traceRows(r.trace, r.worlds);
 
