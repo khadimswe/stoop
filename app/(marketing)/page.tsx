@@ -1,5 +1,5 @@
+import { AgentDemo, AGENT_DEMO_SLOT_CLASS } from "@/components/stoop/marketing/agent-demo/agent-demo";
 import { AgentDemoSlot } from "@/components/stoop/marketing/agent-demo-slot";
-import { AgentTrace } from "@/components/stoop/marketing/agent-trace";
 import { BlindTest } from "@/components/stoop/marketing/blind-test";
 import { ExampleShelf } from "@/components/stoop/marketing/example-shelf";
 import { Hero } from "@/components/stoop/marketing/hero";
@@ -13,7 +13,8 @@ import { ScrollReveal } from "@/components/stoop/marketing/scroll-reveal";
 import { ThreeWays } from "@/components/stoop/marketing/three-ways";
 import { EXAMPLES, LEAD_EXAMPLE } from "@/lib/demo/examples";
 import { approvalsSchema, heroMode, manifestSchema } from "@/lib/demo/hero";
-import { ageSkewMini, agentDemoStill, realityCard, replayView, screeningPreview, shelfItem, teaserView } from "@/lib/marketing/landing";
+import { loadDemoScript } from "@/lib/marketing/demo-source";
+import { ageSkewMini, agentDemoStill, realityCard, screeningPreview, shelfItem, teaserView } from "@/lib/marketing/landing";
 import { PROOF_PICKS, proofStats } from "@/lib/marketing/proof";
 import { loadExampleMedia, loadExampleReport } from "@/lib/report/load";
 import { ledgerOf } from "@/lib/report/view/receipts";
@@ -33,9 +34,9 @@ export default function Home() {
   const card = realityCard(LEAD_EXAMPLE.slug, lead);
   const preview = screeningPreview(LEAD_EXAMPLE.slug, lead, loadExampleMedia(LEAD_EXAMPLE.slug));
   const shelf = EXAMPLES.map(({ slug }) => shelfItem(slug, loadExampleReport(slug)));
-  const replay = replayView(lead);
   const teaser = teaserView(LEAD_EXAMPLE.slug, lead);
   const still = agentDemoStill(LEAD_EXAMPLE.slug, lead);
+  const demo = loadDemoScript();
   const stats = proofStats(PROOF_PICKS, (slug) => {
     const report = loadExampleReport(slug);
     return { report, ledger: ledgerOf(report) };
@@ -61,15 +62,16 @@ export default function Home() {
         primary={mode.kind === "blind-test" ? { label: "See a real example", href: `/examples/${LEAD_EXAMPLE.slug}` } : { label: "See why it works", href: "#screening" }}
         object={object}
       />
-      {/* The recorded-run player drops in here as children; until then the slot shows the run's still. */}
-      <AgentDemoSlot still={still} />
+      {/* The replay of the lead's recorded run. Its own fixed shape sets the screen's height; it loads as its own chunk. */}
+      <AgentDemoSlot still={still} className={AGENT_DEMO_SLOT_CLASS}>
+        <AgentDemo script={demo} frame="fill" />
+      </AgentDemoSlot>
       {/* Beats 2 and 3 stay one screen from the hero; the proof band follows them. */}
       <ScreeningPreview view={preview} />
       <ProofStats stats={stats} />
       <ExampleShelf items={shelf} />
       <ThreeWays />
       <HowItWorks skews={ageSkewMini(lead)} />
-      <AgentTrace replay={replay} />
       {teaser && <ReceiptsTeaser view={teaser} />}
       <Pricing />
       <ScrollReveal />

@@ -56,6 +56,7 @@ const PAIRS: Pair[] = [
   ["dusk-light", "screen-raised", "text", "Qloo chip text on raised screen panels"],
   ["dusk", "paper", "ui", "focus ring around a screen (drawn on paper)"],
   ["ink", "brick", "ui", "primary button on screens (brick fill vs ink label)"],
+  ["brick", "screen", "ui", "agent demo: the brick button against its screen"],
 ];
 
 let failures = 0;

@@ -108,16 +108,6 @@ test("the three ways row sits below the shelf, one line each", async ({ page }) 
   expect(rowTop).toBeGreaterThan(shelfBottom);
 });
 
-test("the recorded trace replays step by step, with real call counts", async ({ page }) => {
-  await page.goto("/");
-  const trace = page.getByRole("region", { name: "Watch the agent build this." });
-  await expect(trace.getByText("Stoop is the brain, you bring your own camera.")).toBeVisible();
-  const steps = trace.locator("ol > li");
-  await expect(steps).toHaveCount(5);
-  await expect(trace.getByText("Reality Check", { exact: true })).toBeVisible();
-  await expect(trace.getByText(/Qloo calls, all replayed from the recording · zero live calls$/)).toBeVisible();
-});
-
 test("how it works is four numbered steps, with the lead example's real age skews", async ({ page }) => {
   await page.goto("/");
   const how = page.getByRole("region", { name: "From your link to the test, in four steps." });
@@ -137,30 +127,24 @@ test("how it works is four numbered steps, with the lead example's real age skew
   await expect(page.locator("#how")).toHaveAttribute("aria-labelledby", "how-title");
 });
 
-test("the agent demo slot sits right under the hero, as a fixed-ratio screen with the recorded run's still", async ({ page }) => {
+test("the agent demo sits right under the hero and replays the recorded run in a screen that never changes size", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main > section").nth(1)).toHaveAttribute("id", "agent-demo");
   const slot = page.getByRole("region", { name: "The agent at work · Porchlight Pepper Co." });
-  await expect(slot.getByText("Replay of a recorded run")).toBeAttached();
-  await expect(slot.getByText(/^Qloo measured a taste neighborhood that skews 55 and older/)).toBeAttached();
-  await expect(slot.getByText("36 Qloo calls, all replayed from the recording · zero live calls")).toBeAttached();
+  await expect(slot.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
+  // Screen readers get a plain summary of the run, with its own Reality Check.
+  await expect(slot.getByText(/Qloo measured a taste neighborhood that skews 55 and older/)).toBeAttached();
   const screen = slot.locator("[data-slot='agent-demo']");
   const before = await screen.boundingBox();
   await slot.scrollIntoViewIfNeeded();
+  // The player loads as its own chunk into the placeholder's exact shape.
+  const player = slot.locator("[data-demo-beat]");
+  await expect(player).toBeVisible();
+  await expect(player).toHaveAttribute("data-demo-playing", "true");
   await page.waitForTimeout(400);
   const after = await screen.boundingBox();
-  // The ratio is reserved in CSS: nothing that loads into it can change its size.
   expect(after?.height).toBeCloseTo(before!.height, 0);
-  expect(before!.width / before!.height).toBeGreaterThan(0.6);
-  // The still fits its screen: nothing is clipped or stacked on top of something else.
-  // A container squeezed below its content reports a taller scrollHeight than its own height. (Text
-  // alone is left out: tight display leading lets glyphs reach past a line box without any overlap.)
-  const squeezed = await screen.evaluate((node) =>
-    [node, ...node.querySelectorAll<HTMLElement>("*")]
-      .filter((el) => el.children.length > 0 && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1)
-      .map((el) => el.className),
-  );
-  expect(squeezed).toEqual([]);
+  await expect(slot.getByRole("button", { name: "Pause the replay" })).toBeVisible();
 });
 
 const FIGURES = ["55+", "#319 of 321", "0 of 19", "18 to 24"];
@@ -224,7 +208,7 @@ test.describe("with reduced motion", () => {
 test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("the landing reads in full: the H1, the slot's still, every number and every section", async ({ page }) => {
+  test("the landing reads in full: the H1, the replay's frame, every number and every section", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
     await expect(page.getByText("Replay of a recorded run")).toBeVisible();
