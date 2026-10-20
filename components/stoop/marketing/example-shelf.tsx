@@ -2,6 +2,8 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Screen } from "@/components/stoop/screen";
 import type { ShelfItemView } from "@/lib/marketing/landing";
+import { cn } from "cn";
+import { reveal, REVEAL_CLASS } from "./reveal";
 import { SectionIntro } from "./section-intro";
 import { SourceTag } from "./source-tag";
 
@@ -13,13 +15,21 @@ import { SourceTag } from "./source-tag";
 export function ExampleShelf({ items }: { items: ShelfItemView[] }) {
   return (
     <section id="examples" aria-labelledby="examples-title" className="mx-auto flex max-w-6xl scroll-mt-24 flex-col gap-8 px-5 pt-6 pb-16">
-      <SectionIntro
-        id="examples-title"
-        kicker="Examples"
-        title="Three brands. Three taste neighborhoods."
-        lead="Each one is a recorded run on real Qloo responses, saved so it loads instantly. Open one to see every receipt."
-      />
-      <div role="region" aria-label="Example reports" tabIndex={0} className="relative -mx-5 overflow-x-auto px-5 pb-4 md:mx-0 md:overflow-visible md:px-0 md:pb-0">
+      <div {...reveal()} className={REVEAL_CLASS}>
+        <SectionIntro
+          id="examples-title"
+          kicker="Examples"
+          title="Three brands. Three taste neighborhoods."
+          lead="Each one is a recorded run on real Qloo responses, saved so it loads instantly. Open one to see every receipt."
+        />
+      </div>
+      <div
+        role="region"
+        aria-label="Example reports"
+        tabIndex={0}
+        {...reveal(120)}
+        className={cn("relative -mx-5 overflow-x-auto px-5 pb-4 md:mx-0 md:overflow-visible md:px-0 md:pb-0", REVEAL_CLASS)}
+      >
         <ul className="flex snap-x snap-mandatory gap-5 md:grid md:grid-cols-3">
           {items.map((item) => (
             <li key={item.slug} className="flex w-[82vw] max-w-[22rem] shrink-0 snap-start md:w-auto md:max-w-none">
