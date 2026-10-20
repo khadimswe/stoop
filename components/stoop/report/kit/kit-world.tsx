@@ -65,7 +65,8 @@ function Ingredients({ items }: { items: IngredientView[] }) {
       <p className="text-xs font-semibold text-ink-soft">Draws on</p>
       <ul className="flex flex-col gap-1.5" aria-label="What this concept draws on">
         {ORIGIN_GROUPS.map(({ origin, tag }) => {
-          const group = items.filter((item) => item.origin === origin);
+          // No evidence, no display: a Qloo cue without a receipt is left out.
+          const group = items.filter((item) => item.origin === origin && (item.receipt || (origin !== "qloo" && origin !== "interpreted")));
           if (group.length === 0 && origin !== "creative") return null;
           return (
             <li key={origin} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
@@ -127,7 +128,7 @@ function StoryboardStrip({ segmentId, storyboard }: { segmentId: string; storybo
         </>
       ) : (
         <>
-          <p role="status" className="text-sm text-ink-soft">
+          <p role={note?.state === "note" || storyboard.status === "paused" || storyboard.status === "failed" ? "status" : undefined} className="text-sm text-ink-soft">
             {note?.state === "note" && note.message
               ? note.message
               : storyboard.status === "paused"
@@ -235,7 +236,7 @@ function PlanCard({ card }: { card: PlanCardView }) {
       <p className={HOOK}>{card.name}</p>
       <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
         <dt className="text-ink-soft">Age bands</dt>
-        <dd>{card.ageBands.length ? `${card.ageBands.join(", ")} (optional)` : "Leave broad"}</dd>
+        <dd>{card.ageBands.length ? <ReceiptLink receipt={card.receipt}>{`${card.ageBands.join(", ")} (optional)`}</ReceiptLink> : "Leave broad"}</dd>
         <dt className="text-ink-soft">Cities</dt>
         <dd>{card.cities.length ? <ReceiptLink receipt={card.receipt}>{`${card.cities.join(", ")} (optional)`}</ReceiptLink> : "Leave broad"}</dd>
       </dl>
@@ -323,7 +324,7 @@ function CardGrid({ title, cards, world, className }: { title: string; cards: Ki
 
 /** The Production Pack as one Markdown file: the parts the server laid out, with the render prompts joined in. */
 function packText(pack: NonNullable<KitWorldView["pack"]>, prompts: PromptOptionView[]): string {
-  return [pack.head, ...prompts.map((p) => `### ${p.label} (${p.detail})\n\n${p.text}`), pack.tail].join("\n\n");
+  return [pack.head, ...prompts.map((p) => `### ${p.label} (${p.detail})\n\n${p.fence}text\n${p.text}\n${p.fence}`), pack.tail].join("\n\n");
 }
 
 /** One concept world's kit: its cards, its Production Pack download, and on live reports its after-run actions. */

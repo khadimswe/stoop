@@ -18,7 +18,7 @@ function Counts({ world }: { world: ScoreWorldView }) {
         <div key={item.label} className="flex flex-col-reverse justify-end gap-0.5 rounded-lg bg-fill px-3 py-2">
           <dt className="text-xs text-ink-soft">{item.label}</dt>
           <dd className="font-mono text-lg leading-tight font-medium">
-            <ReceiptLink receipt={world.fitReceipt} className="inline-flex min-h-11 min-w-11 items-center sm:min-h-0 sm:min-w-0">
+            <ReceiptLink receipt={world.fitReceipt} describe={`${item.label} for ${world.label}`} className="inline-flex min-h-11 min-w-11 items-center sm:min-h-0 sm:min-w-0">
               {item.value}
             </ReceiptLink>
           </dd>
@@ -64,14 +64,18 @@ function WorldScore({ world }: { world: ScoreWorldView }) {
       </p>
       {world.range && <p className="text-xs text-ink-soft">{world.range}</p>}
       <Counts world={world} />
-      <div className="flex flex-col gap-1">
-        <h5 className="text-sm font-semibold">The generic brief&apos;s choices</h5>
-        <ul className="flex flex-col">
-          {world.choices.map((choice, i) => (
-            <ChoiceRow key={`${i}-${choice.dimension}`} choice={choice} />
-          ))}
-        </ul>
-      </div>
+      <h5 className="text-sm font-semibold">The generic brief&apos;s choices</h5>
+      {world.groups.map((group) => (
+        <div key={group.key} className="flex flex-col gap-1 rounded-lg border border-hairline p-3">
+          <h6 className="text-sm font-semibold">{group.title}</h6>
+          <p className="text-xs text-ink-soft">{group.rule}</p>
+          <ul className="flex flex-col">
+            {group.choices.map((choice, i) => (
+              <ChoiceRow key={`${i}-${choice.dimension}`} choice={choice} />
+            ))}
+          </ul>
+        </div>
+      ))}
       {world.qlooLine && (
         <p className="text-sm">
           <StatusTag tone="qloo" className="mr-1.5 align-middle">
@@ -126,8 +130,8 @@ export function ScoreboardCard({ scoreboard }: { scoreboard: ScoreboardView | nu
         {flagged && <Stamp tone="flagged">Cliche flagged</Stamp>}
       </div>
       <p className="text-sm text-ink-soft">
-        Each choice in the generic, LLM-only brief is scored against this world&apos;s reference panel in one Qloo call. Below the panel median: Cliche flagged. No score
-        back: no measurable affinity. Nothing to check it against: unverifiable. With fewer than 5 panel items there is no median.
+        Each choice in the generic, LLM-only brief is checked against what Qloo measured for each world. A choice the data does not support is flagged as a cliche; the
+        rule for each kind of choice sits next to it.
       </p>
       {scoreboard.headline && <p className="text-base font-semibold">{scoreboard.headline}</p>}
       <div className="grid gap-6 lg:grid-cols-2">

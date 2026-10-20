@@ -12,7 +12,7 @@ import type { LiveActions, FramesNote, ReviseField, ReviseNote } from "@/compone
 import type { ApiError, FramesResponse, ReviseResponse, RunStartResponse, StreamStatus } from "@/lib/api/responses";
 import { initialState, reduce, runEventSchema, toReport, type ReportState, type RunEvent } from "@/lib/events";
 import { reportSchema, type Report, type Stage } from "@/lib/report/schema";
-import { revisionOutcome } from "@/lib/report/view/why";
+import { EXCLUDE_MAX, revisionOutcome } from "@/lib/report/view/why";
 
 export type LivePhase =
   | { kind: "loading" }
@@ -283,6 +283,28 @@ export function useLiveReport(runId: string) {
       Object.values(shownRevisions).some((n) => n.state === "revising" || n.state === "sending");
   }, [report, shownFrames, shownRevisions]);
 
+  /**
+   * Reads the stored report again in place (no loading screen) and replays the stream from the start,
+   * for when the API says frames are done but this page has not seen them land.
+   */
+  const refresh = useCallback(async () => {
+    let response: Response;
+    try {
+      response = await fetch(reportUrl, { cache: "no-store" });
+    } catch {
+      return;
+    }
+    const body = (await readJson(response)) as { status?: string; report?: unknown; eventsUrl?: string | null } | null;
+    if (!alive.current || !response.ok || body?.status !== "done") return;
+    const parsed = reportSchema.safeParse(body.report);
+    if (!parsed.success) return;
+    close();
+    lastId.current = null;
+    setRunState(initialState);
+    setFetched({ kind: "done", report: parsed.data });
+    if (body.eventsUrl) connect(null);
+  }, [close, connect, reportUrl]);
+
   const requestFrames = useCallback(
     async (segmentId: string) => {
       const world = report?.worlds.find((w) => w.segmentId === segmentId);
@@ -304,15 +326,25 @@ export function useLiveReport(runId: string) {
         setFrames((notes) => ({ ...notes, [segmentId]: { state: "note", message: body.message ?? "Storyboards paused today.", key } }));
         return;
       }
+      if (body.status === "done") {
+        // Already rendered: drop the note and read the report again, so the frames show.
+        setFrames((notes) => {
+          const next = { ...notes };
+          delete next[segmentId];
+          return next;
+        });
+        await refresh();
+        return;
+      }
       setFrames((notes) => ({ ...notes, [segmentId]: { state: "starting", message: null, key } }));
       pending.current = true;
       follow();
     },
-    [follow, report, runId],
+    [follow, refresh, report, runId],
   );
 
   const requestRevision = useCallback(
-    async ({ segmentId, field, reason }: { segmentId: string; field: ReviseField; reason: string }) => {
+    async ({ segmentId, field, reason, exclude }: { segmentId: string; field: ReviseField; reason: string; exclude: string[] }) => {
       const traceFrom = report?.trace.length ?? 0;
       const base = { field, revisionId: null, traceFrom };
       setRevisions((notes) => ({ ...notes, [segmentId]: { ...base, state: "sending", message: null } }));
@@ -321,7 +353,8 @@ export function useLiveReport(runId: string) {
         response = await fetch("/api/revise", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ runId, segmentId, field, exclude: [], reason }),
+          // The Qloo picks behind the turned-down cue (the request schema takes at most 12).
+          body: JSON.stringify({ runId, segmentId, field, exclude: exclude.slice(0, EXCLUDE_MAX), reason }),
         });
       } catch {
         setRevisions((notes) => ({ ...notes, [segmentId]: { ...base, state: "note", message: NETWORK_MESSAGE } }));
@@ -357,6 +390,7 @@ export function useLiveReport(runId: string) {
   );
 
   const onResume = useCallback(async () => {
+    refetches.current = 0;
     setResume({ state: "sending", message: null, exampleHref: null });
     let response: Response;
     try {

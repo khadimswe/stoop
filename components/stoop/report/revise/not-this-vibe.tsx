@@ -13,13 +13,14 @@ import { useLiveActions, type ReviseField } from "./live-actions";
 /** The note's limit, as the API caps it (lib/api/requests.ts REASON_MAX). */
 const NOTE_MAX = 280;
 
-function blurb(field: ReviseField): string {
-  return field === "world"
-    ? "Stoop writes this world's brief again from the same Qloo candidates, then shows what changed and why."
-    : "Stoop leaves out the Qloo picks behind this cue, makes new Qloo calls and writes it again. You see what changed and why.";
+/** Only what happens: which picks are left out, and that a new take is written. Whether Qloo is asked again shows in the agent's own steps. */
+function blurb(field: ReviseField, excluded: number): string {
+  if (field === "world") return "Stoop writes a new take on this world's brief from the same Qloo candidates, then shows what changed and why.";
+  const picks = excluded === 1 ? "the 1 Qloo pick" : `the ${excluded} Qloo picks`;
+  return `Stoop leaves out ${excluded > 0 ? picks : "the Qloo picks"} behind this cue and writes a new take. You see what changed and why.`;
 }
 
-function ReviseForm({ segmentId, field, title, onDone }: { segmentId: string; field: ReviseField; title: string; onDone: () => void }) {
+function ReviseForm({ segmentId, field, exclude, title, onDone }: { segmentId: string; field: ReviseField; exclude: string[]; title: string; onDone: () => void }) {
   const live = useLiveActions();
   const id = useId();
   const [note, setNote] = useState("");
@@ -33,7 +34,7 @@ function ReviseForm({ segmentId, field, title, onDone }: { segmentId: string; fi
     if (busy) return;
     setSending(true);
     setMessage(null);
-    const answer = await live.requestRevision({ segmentId, field, reason: note.trim() });
+    const answer = await live.requestRevision({ segmentId, field, reason: note.trim(), exclude });
     setSending(false);
     if (answer.ok) onDone();
     else setMessage(answer.message);
@@ -75,7 +76,20 @@ function ReviseForm({ segmentId, field, title, onDone }: { segmentId: string; fi
  * "Not this vibe" on one Culture Brief field, or on the whole world (live reports only; it renders
  * nothing on examples). A popover on desktop, a bottom sheet on phones.
  */
-export function NotThisVibe({ segmentId, field, label, className }: { segmentId: string; field: ReviseField; label: string; className?: string }) {
+export function NotThisVibe({
+  segmentId,
+  field,
+  label,
+  exclude = [],
+  className,
+}: {
+  segmentId: string;
+  field: ReviseField;
+  label: string;
+  /** The field's Qloo picks to leave out; empty for a whole world. */
+  exclude?: string[];
+  className?: string;
+}) {
   const live = useLiveActions();
   const desktop = useMediaQuery("(min-width: 640px)", true);
   const [open, setOpen] = useState(false);
@@ -87,7 +101,7 @@ export function NotThisVibe({ segmentId, field, label, className }: { segmentId:
       Not this vibe
     </Button>
   );
-  const body = <ReviseForm segmentId={segmentId} field={field} title={title} onDone={() => setOpen(false)} />;
+  const body = <ReviseForm segmentId={segmentId} field={field} exclude={exclude} title={title} onDone={() => setOpen(false)} />;
 
   if (desktop) {
     return (
@@ -95,7 +109,7 @@ export function NotThisVibe({ segmentId, field, label, className }: { segmentId:
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent align="start" sideOffset={8} collisionPadding={12} aria-label={title} className="w-88 gap-2 rounded-xl border border-hairline bg-surface p-4 shadow-l2 ring-0">
           <p className="font-display text-lg leading-snug font-bold [font-stretch:90%]">{title}</p>
-          <p className="text-sm text-ink-soft">{blurb(field)}</p>
+          <p className="text-sm text-ink-soft">{blurb(field, exclude.length)}</p>
           {body}
         </PopoverContent>
       </Popover>
@@ -107,7 +121,7 @@ export function NotThisVibe({ segmentId, field, label, className }: { segmentId:
       <SheetContent side="bottom" className="rounded-t-3xl border-t border-hairline bg-surface px-5 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <SheetHeader className="px-0">
           <SheetTitle className="font-display text-lg font-bold [font-stretch:90%]">{title}</SheetTitle>
-          <SheetDescription className="text-ink-soft">{blurb(field)}</SheetDescription>
+          <SheetDescription className="text-ink-soft">{blurb(field, exclude.length)}</SheetDescription>
         </SheetHeader>
         {body}
       </SheetContent>
@@ -127,7 +141,9 @@ export function ReviseStatus({ segmentId, announce = false, href }: { segmentId:
     : note.state === "sending"
       ? "Sending your note."
       : note.state === "revising"
-        ? "Revising: new Qloo calls, then a new brief. What changed shows here when it lands."
+        ? note.field === "world"
+          ? "Revising: writing a new take on this world. What changed shows here when it lands."
+          : "Revising: leaving out the picks behind this cue and writing a new take. What changed shows here when it lands."
         : note.state === "done"
           ? "Revised. What changed is marked below, with the old receipts kept."
           : note.message;

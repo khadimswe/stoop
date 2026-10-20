@@ -35,6 +35,8 @@ export interface PromptOptionView {
   label: string;
   detail: string;
   text: string;
+  /** A Markdown code fence longer than any backtick run in `text`, for the Production Pack download. */
+  fence: string;
 }
 
 export interface CopyView {
@@ -323,6 +325,18 @@ function jobText(job: RenderJob): string {
   return lines.join("\n");
 }
 
+/** A Markdown fence longer than any run of backticks inside the text (at least three). */
+export function fenceFor(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  return "`".repeat(Math.max(3, longest + 1));
+}
+
+/** The text inside a Markdown code fence that nothing in it can close. */
+export function fenced(text: string): string {
+  const fence = fenceFor(text);
+  return `${fence}text\n${text}\n${fence}`;
+}
+
 /** One menu entry per model: the multi-shot render on its own, each per-scene family as all its scenes. */
 export function videoPrompts(pack: ProductionPack): PromptOptionView[] {
   const options: PromptOptionView[] = [];
@@ -330,7 +344,8 @@ export function videoPrompts(pack: ProductionPack): PromptOptionView[] {
   for (const job of pack.renders) {
     if (job.kind === "multi-shot") {
       const model = getModel(job.modelId);
-      options.push({ id: job.id, group: "video", label: model.displayName, detail: `${model.vendor} · one ${job.trimTo} s multi-shot clip`, text: jobText(job) });
+      const text = jobText(job);
+      options.push({ id: job.id, group: "video", label: model.displayName, detail: `${model.vendor} · one ${job.trimTo} s multi-shot clip`, text, fence: fenceFor(text) });
       continue;
     }
     families.set(job.modelId, [...(families.get(job.modelId) ?? []), job]);
@@ -343,7 +358,7 @@ export function videoPrompts(pack: ProductionPack): PromptOptionView[] {
         return `${head}\n${jobText(job)}`;
       })
       .join("\n\n");
-    options.push({ id: modelId, group: "video", label: model.displayName, detail: `${model.vendor} · ${jobs.length} scene ${jobs.length === 1 ? "prompt" : "prompts"}, one per shot`, text });
+    options.push({ id: modelId, group: "video", label: model.displayName, detail: `${model.vendor} · ${jobs.length} scene ${jobs.length === 1 ? "prompt" : "prompts"}, one per shot`, text, fence: fenceFor(text) });
   }
   return options;
 }
@@ -351,7 +366,7 @@ export function videoPrompts(pack: ProductionPack): PromptOptionView[] {
 function actorPrompts(scripts: readonly UgcScript[], platform: UgcScript["platform"], lead: UgcScript | null): PromptOptionView[] {
   return scripts
     .filter((s) => s.platform === platform && s !== lead)
-    .map((s) => ({ id: `${s.tool}-${s.platform}-${s.format}`, group: "actor", label: TOOL_LABELS[s.tool].label, detail: TOOL_LABELS[s.tool].detail, text: s.script }));
+    .map((s) => ({ id: `${s.tool}-${s.platform}-${s.format}`, group: "actor", label: TOOL_LABELS[s.tool].label, detail: TOOL_LABELS[s.tool].detail, text: s.script, fence: fenceFor(s.script) }));
 }
 
 /** The script a platform's card copies: the human creator's when there is one, else the first. */
@@ -367,7 +382,7 @@ export function packParts(brand: string, label: string, pack: ProductionPack): {
     return [
       `### ${asset.file} (${model.displayName}, ${asset.aspect})`,
       "",
-      asset.prompt,
+      fenced(asset.prompt),
       ...(asset.refs.length ? ["", `References: ${asset.refs.join(", ")}`] : []),
       ...(asset.negative ? ["", `Negative prompt: ${asset.negative}`] : []),
       "",
@@ -390,7 +405,7 @@ export function packParts(brand: string, label: string, pack: ProductionPack): {
   const tail = [
     "## Shot list",
     "",
-    pack.shotList,
+    fenced(pack.shotList),
     "",
     "## Music for the edit",
     "",
@@ -577,7 +592,8 @@ function adPlanCsv(report: Report): string | null {
     return [[world.label, plan.name, plan.ageBands.map(ageBandLabel).join("; "), plan.cities.join("; "), formats, plan.watch, plan.note]];
   });
   if (rows.length === 0) return null;
-  return toCsv([["Concept world", "Ad set (Meta) or ad group (TikTok)", "Age bands (optional)", "Cities (optional)", "Creatives", "What to watch", "Note"], ...rows]);
+  // A UTF-8 byte order mark, so spreadsheet apps read the dots and accents as written.
+  return "\uFEFF" + toCsv([["Concept world", "Ad set (Meta) or ad group (TikTok)", "Age bands (optional)", "Cities (optional)", "Creatives", "What to watch", "Note"], ...rows]);
 }
 
 function creatorBriefText(report: Report): string | null {

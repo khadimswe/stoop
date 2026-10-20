@@ -5,7 +5,7 @@ import type { DemoMedia, DemoStoryboard } from "../../demo/manifest";
 import { getModel } from "../../prompts/models.config";
 import type { Report } from "../schema";
 import type { Revision, World, WorldFrames } from "../world";
-import { captionLines, conceptText, fileSlug, kitView, leadFor, storyboardView, unescapeVtt, videoPrompts, type ConceptCardView, type CutCardView, type KitWorldView } from "./kit";
+import { captionLines, conceptText, fenced, fenceFor, fileSlug, kitView, leadFor, storyboardView, unescapeVtt, videoPrompts, type ConceptCardView, type CutCardView, type KitWorldView } from "./kit";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const hex = (c: string) => c.repeat(64);
@@ -103,7 +103,9 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Campaign Kit view for %s", (slug
     });
     const csv = view.downloads.adPlan!;
     expect(csv.file).toBe(`${fileSlug(report.inputs.product.brandName!)}-ad-plan.csv`);
-    const lines = csv.text.trimEnd().split("\r\n");
+    // A UTF-8 byte order mark first, so spreadsheet apps read the text as written.
+    expect(csv.text.startsWith("\uFEFF")).toBe(true);
+    const lines = csv.text.slice(1).trimEnd().split("\r\n");
     expect(lines[0]).toBe("Concept world,Ad set (Meta) or ad group (TikTok),Age bands (optional),Cities (optional),Creatives,What to watch,Note");
     expect(lines).toHaveLength(1 + report.worlds.length);
     expect(csv.text).not.toMatch(/24_and_younger/);
@@ -213,6 +215,13 @@ describe("kit text layouts", () => {
     // Cue text is WebVTT-escaped; the card shows the words as written.
     expect(captionLines("WEBVTT\n\nscene-1-text\n00:00:00.000 --> 00:00:03.000\nWhisker &amp; Brim &lt;3\n")[0].text).toBe("Whisker & Brim <3");
     expect(unescapeVtt("&amp;lt;")).toBe("&lt;");
+  });
+
+  it("fences prompts so nothing inside can close the fence", () => {
+    expect(fenceFor("plain")).toBe("```");
+    expect(fenceFor("a ``` b ```` c")).toBe("`````");
+    expect(fenced("x `y`")).toBe("```text\nx `y`\n```");
+    for (const option of videoPrompts(report.worlds[0].pack!)) expect(option.fence).toBe(fenceFor(option.text));
   });
 
   it("names files safely", () => {

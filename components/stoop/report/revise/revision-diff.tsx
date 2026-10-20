@@ -1,5 +1,5 @@
 import type { RevisionView } from "@/lib/report/view/why";
-import { OriginChip, ReceiptLink } from "../why/receipt-link";
+import { OriginChip, ReceiptLink, wasLabel } from "../why/receipt-link";
 
 /**
  * What a "Not this vibe" revision changed, slot by slot: the new cue with its origin and receipt, and
@@ -43,7 +43,7 @@ export function RevisionDiff({ revision, latest }: { revision: RevisionView; lat
                   {change.before.receipt ? (
                     <ReceiptLink receipt={change.before.receipt}>(Qloo receipt)</ReceiptLink>
                   ) : (
-                    <span>{change.before.origin === "yours" ? "(your choice)" : "(not from Qloo)"}</span>
+                    <span>{wasLabel(change.before.origin)}</span>
                   )}
                 </p>
               )}

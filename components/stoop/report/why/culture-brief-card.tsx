@@ -1,7 +1,7 @@
 import type { CultureBriefView, CultureFieldView } from "@/lib/report/view/why";
 import { NotThisVibe, ReviseStatus } from "../revise/not-this-vibe";
 import { RevisionDiff } from "../revise/revision-diff";
-import { OriginChip, ReceiptLink, StatusTag, TraceDecisions } from "./receipt-link";
+import { OriginChip, ReceiptLink, StatusTag, TraceDecisions, wasLabel } from "./receipt-link";
 import { briefAnchor } from "./anchors";
 import { CARD, CARD_TITLE } from "./research-cards";
 
@@ -31,7 +31,7 @@ function FieldRow({ segmentId, field, revisable }: { segmentId: string; field: C
                 {cue.was.receipt ? (
                   <ReceiptLink receipt={cue.was.receipt}>(Qloo receipt)</ReceiptLink>
                 ) : (
-                  <span>{cue.was.origin === "yours" ? "(your choice)" : "(not from Qloo)"}</span>
+                  <span>{wasLabel(cue.was.origin)}</span>
                 )}
               </p>
             )}
@@ -39,7 +39,7 @@ function FieldRow({ segmentId, field, revisable }: { segmentId: string; field: C
         ))}
         {field.noSignal && field.cues.length > 0 && <p className="text-xs text-ink-soft">No Qloo signal for this field.</p>}
         {field.scopeNote && <p className="text-xs text-ink-soft">{field.scopeNote}</p>}
-        {revisable && !field.noSignal && <NotThisVibe segmentId={segmentId} field={field.field} label={field.label} className="-ml-3 self-start" />}
+        {revisable && !field.noSignal && <NotThisVibe segmentId={segmentId} field={field.field} label={field.label} exclude={field.excludeIds} className="-ml-3 self-start" />}
       </dd>
     </div>
   );

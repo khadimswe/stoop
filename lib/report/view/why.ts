@@ -102,6 +102,8 @@ export interface CultureFieldView {
   /** True when nothing here came from Qloo: the row reads "No Qloo signal". */
   noSignal: boolean;
   sources: number;
+  /** "Not this vibe" leaves these Qloo picks out of the new take: the field's own sources, at most the request's limit. */
+  excludeIds: string[];
 }
 
 export interface RevisionChangeView {
@@ -178,8 +180,17 @@ export interface ScoreWorldView {
   /** Qloo's own picks against the same panels, verbatim. */
   qlooLine: string | null;
   qlooReceipt: ReceiptView | null;
-  choices: ChoiceView[];
+  /** The choices by dimension, each group with the rule the check applied to it. */
+  groups: ChoiceGroupView[];
   cliches: ClicheView[];
+}
+
+export interface ChoiceGroupView {
+  key: string;
+  title: string;
+  /** How the check decided these choices, in plain words (lib/stages/check.ts). */
+  rule: string;
+  choices: ChoiceView[];
 }
 
 export interface ScoreboardView {
@@ -210,6 +221,10 @@ export interface WhyView {
 
 /** Stable cities shown at most. */
 export const TOP_CITIES = 5;
+/** Qloo ids a revision request may name (lib/api/requests.ts reviseRequestSchema caps exclude at 12). */
+export const EXCLUDE_MAX = 12;
+/** A generic city counts as supported inside this world's top cities by lift (lib/stages/check.ts CITY_SUPPORT_RANK). */
+export const CITY_SUPPORT_RANK = 10;
 
 export const FIELD_LABELS: Readonly<Record<CultureField, string>> = {
   music: "Music feel",
@@ -382,6 +397,7 @@ function fieldView(ledger: Ledger, field: CultureFieldResult, changes: Revision[
     cues,
     noSignal: !field.cues.some((c) => c.origin === "qloo" || c.origin === "interpreted"),
     sources: field.sources.length,
+    excludeIds: field.sources.slice(0, EXCLUDE_MAX).map((source) => source.id),
   };
 }
 
@@ -458,6 +474,31 @@ function choiceView(ledger: Ledger, choice: ControlChoice): ChoiceView {
   };
 }
 
+/** The check's rule per kind of choice, as lib/stages/check.ts applies it. */
+const CHOICE_GROUPS: readonly { key: string; title: string; dimensions: readonly ControlChoice["dimension"][]; rule: string }[] = [
+  { key: "age", title: "Age", dimensions: ["age"], rule: "Flagged when the generic brief's age bands miss this world's band, from Qloo's demographics." },
+  {
+    key: "cities",
+    title: "Cities",
+    dimensions: ["cities"],
+    rule: `Flagged when a city is outside this world's top ${CITY_SUPPORT_RANK} by lift on Qloo's heatmap. A city Qloo has no rank for has no measurable affinity.`,
+  },
+  {
+    key: "taste",
+    title: "Music, mood and references",
+    dimensions: ["music", "mood", "reference"],
+    rule: "Flagged when below this world's reference panel median, scored in one Qloo call. No score back: no measurable affinity. Under 5 panel items there is no median, so it stays unverifiable.",
+  },
+  { key: "unchecked", title: "Setting and wardrobe", dimensions: ["setting", "wardrobe"], rule: "Qloo has nothing to check these against, so they stay unverifiable." },
+];
+
+export function choiceGroups(ledger: Ledger, choices: readonly ControlChoice[]): ChoiceGroupView[] {
+  return CHOICE_GROUPS.flatMap(({ key, title, dimensions, rule }) => {
+    const group = choices.filter((c) => dimensions.includes(c.dimension));
+    return group.length ? [{ key, title, rule, choices: group.map((c) => choiceView(ledger, c)) }] : [];
+  });
+}
+
 function rangeText(range: { runs: number; belowMin: number; belowMax: number } | null): string | null {
   if (!range) return null;
   const spread = range.belowMin === range.belowMax ? `${range.belowMin}` : `${range.belowMin} to ${range.belowMax}`;
@@ -487,7 +528,7 @@ function scoreboardView(report: Report, ledger: Ledger): ScoreboardView | null {
         range: rangeText(fit.range),
         qlooLine: line?.qloo ?? null,
         qlooReceipt: line ? receiptView(ledger, line.evidenceIds, "Qloo's own picks", line.qloo) : null,
-        choices: fit.choices.map((c) => choiceView(ledger, c)),
+        groups: choiceGroups(ledger, fit.choices),
         cliches: (checks.get(fit.segmentId)?.cliches ?? []).map((c) => ({
           dimension: c.dimension,
           assumed: c.assumed,

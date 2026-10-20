@@ -13,7 +13,13 @@ const BRAND = "Porchlight Pepper Co.";
 type Json = Record<string, unknown>;
 const recordedReport = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Json & {
   meta: Json;
-  worlds: (Json & { segmentId: string; label: string; brief: Json & { music: Json }; culture: (Json & { field: string })[]; pack: Json & { concept: { scenes: unknown[] } } })[];
+  worlds: (Json & {
+    segmentId: string;
+    label: string;
+    brief: Json & { music: Json };
+    culture: (Json & { field: string; sources: { id: string }[] })[];
+    pack: Json & { concept: { scenes: unknown[] } };
+  })[];
   inputs: Json;
   ledger: unknown[];
   audience: Json;
@@ -253,6 +259,30 @@ test("storyboards render on demand, with the critique as agent decisions", async
   expect(errors).toEqual([]);
 });
 
+test("frames the API already finished are read from the report again, never left rendering", async ({ page }) => {
+  const done = framesEvents(lastSeq + 1).at(-1) as { frames: unknown };
+  const framed = { ...liveReport, worlds: liveReport.worlds.map((w, i) => (i === 0 ? { ...w, frames: done.frames } : w)) };
+  let reads = 0;
+  const mock: Mock = {
+    report: () => {
+      reads += 1;
+      return { status: 200, body: { status: "done", report: reads === 1 ? liveReport : framed, eventsUrl: EVENTS_URL } };
+    },
+    first: () => sse(liveEvents, { after: "done" }),
+    queued: [],
+    posts: [],
+  };
+  const errors = await mockApi(page, mock);
+  await postRoute(page, mock, `**/api/frames/${RUN}`, () => ({ status: 200, body: { status: "done", message: null } }));
+  await page.goto(`/report/${RUN}`);
+  const kit = page.locator(`section[aria-labelledby="kit-${world.segmentId}"]`);
+  await kit.getByRole("button", { name: "Storyboards" }).click();
+  await expect(kit.getByRole("list", { name: "Storyboard frames" }).getByRole("img")).toHaveCount(4);
+  await expect(kit.getByText(/Rendering the storyboard/)).toHaveCount(0);
+  expect(reads).toBe(2);
+  expect(errors).toEqual([]);
+});
+
 test("paused storyboards and capped revisions read as plain notes", async ({ page }) => {
   const mock = doneMock();
   await mockApi(page, mock);
@@ -288,6 +318,9 @@ test("Not this vibe revises a cue and shows the diff, with the old receipt kept"
   await brief.getByRole("button", { name: /\(Qloo receipt\)/ }).first().click();
   await expect(page.getByRole("dialog", { name: "Receipt: Was: Music feel" })).toBeVisible();
   await page.keyboard.press("Escape");
-  expect(mock.posts).toEqual([{ url: expect.stringContaining("/api/revise"), body: { runId: RUN, segmentId: world.segmentId, field: "music", exclude: [], reason: NOTE } }]);
+  // The picks behind the turned-down cue are sent as what to leave out (the request takes at most 12).
+  const musicPicks = world.culture.find((f) => f.field === "music")!.sources.slice(0, 12).map((source) => source.id);
+  expect(musicPicks.length).toBeGreaterThan(0);
+  expect(mock.posts).toEqual([{ url: expect.stringContaining("/api/revise"), body: { runId: RUN, segmentId: world.segmentId, field: "music", exclude: musicPicks, reason: NOTE } }]);
   expect(errors).toEqual([]);
 });

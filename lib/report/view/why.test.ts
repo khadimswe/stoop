@@ -6,7 +6,8 @@ import type { Report } from "../schema";
 import type { ControlFit, Revision, World } from "../world";
 import { plainType, skewText } from "./format";
 import { ledgerOf } from "./receipts";
-import { fieldOfSlot, latestJobSteps, revisionOutcome, slotLabel, STATUS_LABELS, TOP_CITIES, whyView } from "./why";
+import { CITY_SUPPORT_RANK as CHECK_CITY_RANK } from "../../stages/check";
+import { CITY_SUPPORT_RANK, EXCLUDE_MAX, fieldOfSlot, latestJobSteps, revisionOutcome, slotLabel, STATUS_LABELS, TOP_CITIES, whyView } from "./why";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 
@@ -94,8 +95,9 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug
       const line = report.comparison!.worlds.find((w) => w.segmentId === fit.segmentId)!;
       expect(row).toMatchObject({ fitLine: fit.line, qlooLine: line.qloo, counts: { checkable: fit.checkable, below: fit.below, missing: fit.missing, unverifiable: fit.unverifiable } });
       expect(row.range).toBe(fit.range && `Across ${fit.range.runs} recorded generic briefs, ${fit.range.belowMin === fit.range.belowMax ? fit.range.belowMin : `${fit.range.belowMin} to ${fit.range.belowMax}`} choices missed.`);
-      expect(row.choices.map((c) => [c.text, c.status, c.measured])).toEqual(fit.choices.map((c) => [c.text, c.status, c.measured]));
-      for (const choice of row.choices) {
+      const choices = row.groups.flatMap((g) => g.choices);
+      expect(choices.map((c) => [c.text, c.status, c.measured]).sort()).toEqual(fit.choices.map((c) => [c.text, c.status, c.measured]).sort());
+      for (const choice of choices) {
         expect(choice.statusLabel).toBe(STATUS_LABELS[choice.status]);
         if (choice.status === "below") expect(choice.statusLabel).toBe("Cliche flagged");
         if (choice.status === "supported" || choice.status === "below") expect(choice.receipt?.calls).toBeGreaterThan(0);
@@ -107,6 +109,28 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug
     });
   });
 
+  it("states the check's own rule next to each kind of choice", () => {
+    for (const row of view.scoreboard!.worlds) {
+      const rules = Object.fromEntries(row.groups.map((g) => [g.key, g]));
+      expect(rules.age.choices.every((c) => c.dimension === "age")).toBe(true);
+      expect(rules.age.rule).toMatch(/age band/);
+      expect(rules.cities.rule).toContain(`top ${CHECK_CITY_RANK} by lift`);
+      expect(rules.taste.rule).toMatch(/reference panel median.*one Qloo call.*Under 5 panel items there is no median/);
+      expect(rules.unchecked.rule).toMatch(/nothing to check/);
+      expect(row.groups.map((g) => g.key)).toEqual(["age", "cities", "taste", "unchecked"]);
+    }
+  });
+
+  it("sends each field's own Qloo picks, at most 12, as what a revision leaves out", () => {
+    view.briefs.forEach((brief, i) => {
+      for (const field of brief.fields) {
+        const sources = report.worlds[i].culture!.find((c) => c.field === field.field)!.sources;
+        expect(field.excludeIds).toEqual(sources.slice(0, EXCLUDE_MAX).map((s) => s.id));
+        expect(field.excludeIds.length).toBeLessThanOrEqual(12);
+      }
+    });
+  });
+
   it("never calls a score unsupported, never claims a share, and stays serializable", () => {
     const json = JSON.stringify(view);
     expect(json).not.toMatch(/unsupported|% of|percentile|real buyers/i);
@@ -115,6 +139,11 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s", (slug
 });
 
 describe("the Why it works view", () => {
+  it("uses the check stage's city rule and the revise request's id limit", () => {
+    expect(CITY_SUPPORT_RANK).toBe(CHECK_CITY_RANK);
+    expect(EXCLUDE_MAX).toBe(12);
+  });
+
   it("leaves out a city flagged as swinging, as the Reality Check does (home-candles)", () => {
     const report = read("home-candles");
     const view = whyView(report, ledgerOf(report));
@@ -149,7 +178,7 @@ describe("the Why it works view", () => {
       checkable: fit.checkable,
     };
     const view = whyView({ ...report, control: { ...report.control!, fits: [missing, ...report.control!.fits.slice(1)] } }, ledgerOf(report));
-    const music = view.scoreboard!.worlds[0].choices.find((c) => c.dimension === "music")!;
+    const music = view.scoreboard!.worlds[0].groups.flatMap((g) => g.choices).find((c) => c.dimension === "music")!;
     expect(music).toMatchObject({ status: "missing", statusLabel: "No measurable affinity" });
     expect(view.scoreboard!.worlds[0].counts.missing).toBe(1);
   });

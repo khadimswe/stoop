@@ -81,7 +81,9 @@ function SkewRow({ bar, receipt }: { bar: SkewBarView; receipt: DemographicsView
   );
 }
 
-function TagGroup({ title, tags }: { title: string; tags: TasteTagView[] }) {
+function TagGroup({ title, tags: all }: { title: string; tags: TasteTagView[] }) {
+  // No evidence, no display.
+  const tags = all.filter((tag) => tag.receipt);
   if (tags.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">

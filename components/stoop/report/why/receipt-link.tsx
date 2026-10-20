@@ -10,7 +10,18 @@ import { cn } from "cn";
  * Text that opens its receipt (a number, a measured line). Dusk underline: Qloo decided this. Without
  * a receipt it is plain text, never a dead link.
  */
-export function ReceiptLink({ receipt, children, className }: { receipt: ReceiptView | null; children: ReactNode; className?: string }) {
+export function ReceiptLink({
+  receipt,
+  children,
+  describe,
+  className,
+}: {
+  receipt: ReceiptView | null;
+  children: ReactNode;
+  /** Spoken after the visible text, for a bare number ("checkable choices for 55 and older"). */
+  describe?: string;
+  className?: string;
+}) {
   if (!receipt) return <span className={className}>{children}</span>;
   return (
     <ReceiptDrawer receipt={receipt}>
@@ -22,10 +33,17 @@ export function ReceiptLink({ receipt, children, className }: { receipt: Receipt
         )}
       >
         {children}
-        <span className="sr-only"> (opens its receipt)</span>
+        <span className="sr-only">{describe ? ` ${describe} (opens its receipt)` : " (opens its receipt)"}</span>
       </button>
     </ReceiptDrawer>
   );
+}
+
+/** How an old cue is labeled after a revision when it has no receipt to open: never "not from Qloo" for a Qloo cue. */
+export function wasLabel(origin: CueOrigin): string {
+  if (origin === "yours") return "(your choice)";
+  if (origin === "qloo" || origin === "interpreted") return "(Qloo, receipt not kept)";
+  return "(not from Qloo)";
 }
 
 /** What each cue origin says in full, next to the cue (creative cues spell out "not from Qloo"). */
@@ -38,6 +56,14 @@ export const ORIGIN_WORDS: Readonly<Record<CueOrigin, string>> = {
 
 /** A cue's origin chip; it opens the cue's receipt when there is one. */
 export function OriginChip({ origin, receipt, label, className }: { origin: CueOrigin; receipt: ReceiptView | null; label?: string; className?: string }) {
+  // No evidence, no display: a cue that claims Qloo but has no receipt never shows a Qloo chip.
+  if ((origin === "qloo" || origin === "interpreted") && !receipt) {
+    return (
+      <StatusTag tone="none" className={className}>
+        No Qloo signal
+      </StatusTag>
+    );
+  }
   const chip = <Chip origin={origin}>{label ?? ORIGIN_WORDS[origin]}</Chip>;
   if (!receipt) return <span className={cn("inline-flex max-w-full", className)}>{chip}</span>;
   return (

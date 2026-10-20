@@ -38,7 +38,8 @@ export interface LiveActions {
   revisions: Readonly<Record<string, ReviseNote>>;
   requestFrames: (segmentId: string) => Promise<void>;
   /** Resolves with the API's words when the note must change before it can be sent (a guardrail). */
-  requestRevision: (input: { segmentId: string; field: ReviseField; reason: string }) => Promise<{ ok: boolean; message: string | null }>;
+  /** `exclude`: the Qloo picks behind the turned-down cue, left out of the new take (none for a whole world). */
+  requestRevision: (input: { segmentId: string; field: ReviseField; reason: string; exclude: string[] }) => Promise<{ ok: boolean; message: string | null }>;
 }
 
 const LiveActionsContext = createContext<LiveActions | null>(null);
