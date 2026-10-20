@@ -128,7 +128,11 @@ test("how it works is four numbered steps, with the lead example's real age skew
     "Step 4: Launch the test",
   ]);
   await expect(how.getByRole("img", { name: "Porchlight Pepper Co.'s age skews from Qloo: highest for 55 and older (skews +0.21)." })).toBeAttached();
-  await expect(how.getByText("Nothing auto-publishes.")).toBeAttached();
+  // The chart carries its receipt, and the launch checklist (a guardrail) is spoken, not decorative.
+  await expect(how.getByText("/v2/insights · urn:demographics · 1 Qloo call")).toBeVisible();
+  await expect(
+    how.getByRole("img", { name: "Before you launch: a human review checklist, an AI disclosure note, and export to your video tool. Nothing auto-publishes." }),
+  ).toBeAttached();
   // The nav's "How it works" still lands here.
   await expect(page.locator("#how")).toHaveAttribute("aria-labelledby", "how-title");
 });
