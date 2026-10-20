@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
-const SECTIONS = ["reality", "your-ad", "output", "screening", "kit", "why"];
-const TITLES = ["Reality Check", "Your ad", "Output", "Screening Room", "Campaign Kit", "Why it works"];
+const SECTIONS = ["reality", "your-ad", "output", "screening", "kit", "launch", "why"];
+const TITLES = ["Reality Check", "Your ad", "Output", "Screening Room", "Campaign Kit", "Launch plan", "Why it works"];
 
 test("the lead example report opens on the Reality Check, with its sections in order", async ({ page }) => {
   await page.goto("/examples/food-hot-sauce");
@@ -123,6 +123,8 @@ test("the section nav marks the section in view and never scrolls the page sidew
   const nav = page.getByRole("navigation", { name: "Report sections" });
   await nav.getByRole("link", { name: "Campaign Kit" }).click();
   await expect(nav.getByRole("link", { name: "Campaign Kit" })).toHaveAttribute("aria-current", "location");
+  await nav.getByRole("link", { name: "Launch plan" }).click();
+  await expect(nav.getByRole("link", { name: "Launch plan" })).toHaveAttribute("aria-current", "location");
   await nav.getByRole("link", { name: "Why it works" }).click();
   await expect(nav.getByRole("link", { name: "Why it works" })).toHaveAttribute("aria-current", "location");
   await expect(nav.getByRole("link", { name: "Campaign Kit" })).not.toHaveAttribute("aria-current", "location");

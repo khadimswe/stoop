@@ -7,6 +7,7 @@ import { REPORT_SECTIONS } from "../report-section";
 const LINKS = [
   { id: REPORT_SECTIONS.screening, label: "Screening Room" },
   { id: REPORT_SECTIONS.kit, label: "Campaign Kit" },
+  { id: REPORT_SECTIONS.launch, label: "Launch plan" },
   { id: REPORT_SECTIONS.why, label: "Why it works" },
 ] as const;
 
@@ -14,7 +15,8 @@ const LINKS = [
 const OFFSET = 132;
 
 /**
- * The sticky section nav under the app bar: "Screening Room · Campaign Kit · Why it works". It marks
+ * The sticky section nav under the app bar: "Screening Room · Campaign Kit · Launch plan · Why it
+ * works". On phones the row scrolls sideways inside the nav, never the page. It marks
  * the section in view (aria-current="location"). Plain anchor jumps, no smooth scrolling; nothing is
  * hidden behind tabs. Phones get 44 px targets in one row.
  */

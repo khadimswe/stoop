@@ -115,6 +115,10 @@ async function mockApi(page: Page, mock: Mock) {
     const { status, body } = mock.report();
     return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   });
+  // The Output section's video line asks for this visitor's render access; this run only exists in the mocks.
+  await page.route("**/api/render/access**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ video: "byok", rendersLeft: null, byok: true }) }),
+  );
   // The first request replays the run from seq 0; every later one is a reconnect (the browser's own,
   // whose Last-Event-ID header interception does not show, or the page's, with ?lastEventId=), which
   // gets what was queued since, or 204 (nothing new on an ended run), which tells EventSource to stop.
@@ -236,7 +240,8 @@ test("a finished run renders the full report with the live sticky action", async
   await page.goto(`/report/${RUN}`);
   await expect(page.getByRole("heading", { level: 1, name: BRAND })).toBeVisible();
   const order = await page.locator("[data-report-section]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-report-section")));
-  expect(order).toEqual(["reality", "your-ad", "output", "screening", "kit", "why"]);
+  expect(order).toEqual(["reality", "your-ad", "output", "screening", "kit", "launch", "why"]);
+  await expect(page.getByRole("region", { name: "Launch plan" }).locator("[data-launch-cell]")).toHaveCount(recordedReport.worlds.length + 1);
   await expect(page.getByRole("button", { name: "Email me this kit" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Make this for my product" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Storyboards" })).toHaveCount(recordedReport.worlds.length);
