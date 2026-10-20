@@ -157,7 +157,7 @@ export default function JudgesPage() {
                   </th>
                   <td className="leading-snug text-pretty md:px-5 md:py-4 md:align-top">{row.decides}</td>
                   <td className="md:px-5 md:py-4 md:align-top">
-                    <a href={codeUrl(row.code)} className="inline-flex min-h-9 items-center gap-1 font-mono text-[0.8125rem] text-ink underline underline-offset-4">
+                    <a href={codeUrl(row.code)} className="inline-flex min-h-9 items-center gap-1 font-mono text-[0.8125rem] text-ink underline underline-offset-4 pointer-coarse:min-h-11">
                       {row.code}
                       <ExternalLink aria-hidden="true" className="size-3.5" />
                     </a>

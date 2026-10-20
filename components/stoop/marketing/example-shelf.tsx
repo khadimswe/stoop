@@ -44,6 +44,7 @@ export function ExampleShelf({ items }: { items: ShelfItemView[] }) {
                     <div className="flex flex-col items-start gap-1.5">
                       <p className="text-sm leading-snug text-paper-dim">{item.near}</p>
                       <SourceTag source="qloo" surface="screen" />
+                      {item.nearReceiptLine && <p className="font-mono text-[0.6875rem] leading-snug break-words text-paper-dim">{item.nearReceiptLine}</p>}
                     </div>
                   )}
                   {item.worlds.length > 0 && (
@@ -53,7 +54,7 @@ export function ExampleShelf({ items }: { items: ShelfItemView[] }) {
                       </p>
                       <ul className="flex flex-wrap gap-1.5">
                         {item.worlds.map((w) => (
-                          <li key={w.segmentId} className="rounded-full border-[1.5px] border-dusk-light px-2.5 py-1 text-xs leading-tight font-semibold text-dusk-light">
+                          <li key={w.segmentId} className="rounded-full border-[1.5px] border-paper/40 px-2.5 py-1 text-xs leading-tight font-semibold text-paper">
                             {w.label}
                           </li>
                         ))}

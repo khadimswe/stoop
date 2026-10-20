@@ -46,7 +46,7 @@ export function RealityCard({ view, headingLevel = "h2", className }: { view: Re
                 {line.source && <SourceTag source={line.source} />}
                 {line.receipt && (
                   <ReceiptDrawer receipt={line.receipt}>
-                    <Button variant="link" size="sm" className="h-9">
+                    <Button variant="link" size="sm" className="h-9 pointer-coarse:h-11">
                       See the receipts
                     </Button>
                   </ReceiptDrawer>

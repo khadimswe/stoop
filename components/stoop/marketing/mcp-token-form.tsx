@@ -64,7 +64,7 @@ export function McpTokenForm({ className }: { className?: string }) {
           <code data-testid="mcp-token" className="min-w-0 flex-1 font-mono text-sm break-all text-ink select-all">
             {token}
           </code>
-          <CopyButton text={token} label="Copy" variant="quiet" size="sm" className="shrink-0 self-start sm:self-auto" />
+          <CopyButton text={token} label="Copy" variant="quiet" size="sm" className="shrink-0 self-start pointer-coarse:h-11 sm:self-auto" />
         </div>
         <p className="text-base leading-snug font-semibold">We won&apos;t show it again. Copy it now and keep it somewhere safe.</p>
         <p className="flex items-start gap-2 text-sm text-ink-soft">

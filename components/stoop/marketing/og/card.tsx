@@ -1,7 +1,7 @@
 // Open Graph cards for the marketing pages and the examples (1200 x 630, PNG), drawn with next/og at
 // build time. Daylight paper with one dark "screen" object, as on the site. Fonts are static instances
 // of Bricolage Grotesque and Figtree (SIL Open Font License 1.1, see ./fonts/OFL.txt), read once.
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import type { ExampleSlug } from "@/lib/demo/examples";
@@ -24,7 +24,10 @@ const C = {
 } as const;
 
 const FONT_DIR = join(process.cwd(), "components/stoop/marketing/og/fonts");
-const fonts = Promise.all([readFile(join(FONT_DIR, "bricolage-grotesque-800-condensed.ttf")), readFile(join(FONT_DIR, "figtree-600.ttf"))]);
+// Read synchronously once, when the module loads: an async read inside the image function is
+// request-time I/O to Cache Components, which can leave the image dynamic instead of prerendered.
+const DISPLAY_FONT = readFileSync(join(FONT_DIR, "bricolage-grotesque-800-condensed.ttf"));
+const SANS_FONT = readFileSync(join(FONT_DIR, "figtree-600.ttf"));
 
 export interface OgLine {
   text: string;
@@ -61,8 +64,7 @@ function Tag({ tag }: { tag: NonNullable<OgLine["tag"]> }) {
   );
 }
 
-export async function ogImage(card: OgCard): Promise<ImageResponse> {
-  const [display, sans] = await fonts;
+export function ogImage(card: OgCard): ImageResponse {
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", background: C.paper, fontFamily: "Figtree", color: C.ink }}>
@@ -119,8 +121,8 @@ export async function ogImage(card: OgCard): Promise<ImageResponse> {
     {
       ...OG_SIZE,
       fonts: [
-        { name: "Bricolage", data: display, weight: 800, style: "normal" },
-        { name: "Figtree", data: sans, weight: 600, style: "normal" },
+        { name: "Bricolage", data: DISPLAY_FONT, weight: 800, style: "normal" },
+        { name: "Figtree", data: SANS_FONT, weight: 600, style: "normal" },
       ],
     },
   );

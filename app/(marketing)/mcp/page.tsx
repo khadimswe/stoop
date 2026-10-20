@@ -56,12 +56,16 @@ export default function McpPage() {
             <McpTokenForm />
           </div>
           <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-soft">
-            <p className="text-base font-semibold text-ink">The token is shown once, then emailed to you.</p>
+            <p className="text-base font-semibold text-ink">The token is shown once here, and emailed to you as a backup when we can.</p>
             <p>
               Tokens are capped at {PER_TOKEN.calls} tool calls and {PER_TOKEN.cultureBriefs} culture briefs a day, work until {expiryText(EXPIRES)}, and can be
               revoked.
             </p>
-            <p>score_brief uses Qloo only, no AI model. culture_brief starts a run with the same limits as the website, or sends back an example report when live runs are off.</p>
+            <p>
+              score_brief uses Qloo only, no AI model. culture_brief starts a run with the same limits as the website, up to{" "}
+              {PER_TOKEN.cultureBriefs} a day per token from a daily share of live runs kept for MCP, or sends back an example report when live
+              runs are off or that share is used up.
+            </p>
           </div>
         </div>
       </Step>

@@ -18,9 +18,14 @@ export interface BlindClip {
 type Choice = "culture" | "control";
 type Pick = Choice | "skip";
 
+/** The vote route's answer (lib/api/responses.ts voteResponseSchema), read loosely in the browser. */
 interface Tally {
   n: number;
   culture: number;
+  /** The server's own "early results" flag (under EARLY_VOTES). */
+  early: boolean;
+  /** This visitor's counted vote, if any. */
+  yours: Choice | null;
 }
 
 // The order is drawn once per page load in the browser. The server and the first client render use
@@ -31,13 +36,14 @@ const noSubscription = () => () => {};
 function readTally(value: unknown): Tally | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
-  return typeof v.n === "number" && typeof v.culture === "number" ? { n: v.n, culture: v.culture } : null;
+  if (typeof v.n !== "number" || typeof v.culture !== "number" || typeof v.early !== "boolean") return null;
+  return { n: v.n, culture: v.culture, early: v.early, yours: v.yours === "culture" || v.yours === "control" ? v.yours : null };
 }
 
-/** Real votes only: n is always shown, and "Early results" stays on until 30 votes. */
+/** Real votes only: n is always shown, and "Early results" stays on while the server says so. */
 function tallyText(tally: Tally): string {
   const votes = `${tally.n} ${tally.n === 1 ? "vote" : "votes"}`;
-  if (tally.n < 30) return `Early results · ${votes}`;
+  if (tally.early) return `Early results · ${votes}`;
   return `${tally.culture} of ${votes} picked the culture-made ad`;
 }
 
@@ -87,16 +93,20 @@ export function BlindTest({
     return () => window.removeEventListener("load", onLoad);
   }, []);
 
+  // A visitor votes once: after "Watch again" (or a vote from an earlier visit) a pick only reads the counts.
+  const voted = tally?.yours != null;
+
   async function choose(next: Pick) {
     setPick(next);
     try {
       const response =
-        next === "skip"
+        next === "skip" || voted
           ? await fetch(`/api/vote?example=${encodeURIComponent(example)}`)
           : await fetch("/api/vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ example, choice: next }) });
-      setTally(readTally(await response.json().catch(() => null)));
+      const read = readTally(await response.json().catch(() => null));
+      if (read) setTally(read);
     } catch {
-      setTally(null);
+      // Keep the last counts: the reveal works without them.
     }
   }
 
@@ -174,6 +184,9 @@ export function BlindTest({
               Watch again
             </Button>
             {tally && <span className="font-mono text-xs text-paper-dim">{tallyText(tally)}</span>}
+            {tally?.yours && pick !== "skip" && pick !== tally.yours && (
+              <span className="text-xs text-paper-dim">Your first pick is the one counted.</span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-paper">
             Want this for your product?

@@ -42,7 +42,7 @@ export function ScreeningStage({ view }: { view: ScreeningPreviewView }) {
         role="region"
         aria-label={`Screening Room clips, ${view.brand}`}
         tabIndex={0}
-        className="relative flex min-w-0 flex-[1_1_34rem] snap-x gap-3 overflow-x-auto p-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:p-5"
+        className="relative flex min-w-0 flex-[1_1_34rem] snap-x scroll-px-4 gap-3 overflow-x-auto p-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:p-5"
       >
         {screening.control && (
           <div className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto sm:min-w-0">

@@ -10,7 +10,6 @@ interface Way {
   icon: LucideIcon;
 }
 
-// Draft copy for the founder to approve (copy.md voice: short, plain, specific).
 const WAYS: Way[] = [
   {
     title: "In the browser",

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { metadataOrigin } from "@/lib/marketing/site";
 import "./globals.css";
 
 // Display: Bricolage Grotesque with the width axis, set narrow in CSS (type-hero, type-h2).
@@ -21,6 +22,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Absolute OG and icon URLs: the configured site URL, else Vercel's production or deployment domain.
+  metadataBase: metadataOrigin({
+    app: process.env.NEXT_PUBLIC_APP_URL,
+    production: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    deployment: process.env.VERCEL_URL,
+  }),
   title: "Stoop",
   description:
     "Stoop uses Qloo's taste data to map the audience around your product, then writes the scripts, hooks and AI-video prompts that culture would make.",
