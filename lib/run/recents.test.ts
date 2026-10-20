@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addRecent, markRecent, MAX_RECENTS, readRecents, RECENTS_KEY, timeAgo, type KeyValueStore, type RecentCampaign } from "./recents";
+import { addRecent, markRecent, MAX_RECENTS, readRecents, RECENTS_KEY, removeRecent, timeAgo, type KeyValueStore, type RecentCampaign } from "./recents";
 
 function memoryStorage(): KeyValueStore & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -36,11 +36,16 @@ describe("recent campaigns", () => {
     expect(list.map((e) => e.runId)).toEqual([5, 6, 4, 3, 2].map((i) => entry(i).runId));
   });
 
-  it("marks a run ready and leaves unknown runs alone", () => {
+  it("follows a run's status, drops an expired one, and leaves unknown runs alone", () => {
     const storage = memoryStorage();
     addRecent(storage, entry(1));
-    expect(markRecent(storage, entry(1).runId, "ready")[0].status).toBe("ready");
+    addRecent(storage, entry(2));
+    expect(markRecent(storage, entry(1).runId, "ready").find((e) => e.runId === entry(1).runId)!.status).toBe("ready");
+    expect(markRecent(storage, entry(2).runId, "failed").find((e) => e.runId === entry(2).runId)!.status).toBe("failed");
+    expect(markRecent(storage, entry(2).runId, "stopped").find((e) => e.runId === entry(2).runId)!.status).toBe("stopped");
     expect(markRecent(storage, entry(9).runId, "ready")).toEqual(readRecents(storage));
+    expect(removeRecent(storage, entry(2).runId).map((e) => e.runId)).toEqual([entry(1).runId]);
+    expect(readRecents(storage)).toHaveLength(1);
   });
 
   it("reads broken or foreign data, and blocked storage, as an empty list", () => {

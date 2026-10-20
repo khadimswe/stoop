@@ -21,7 +21,7 @@ const TYPES: { value: SearchType; label: string }[] = [
 const FIELD = "h-11 rounded-lg border border-concrete-line bg-fill px-3 text-base text-ink placeholder:text-ink-soft sm:text-sm";
 
 /**
- * "Add a brand, show, artist or creator": Qloo autocomplete, by type. Only Qloo's own matches can
+ * "Add a brand, show, artist or podcast": Qloo autocomplete, by type (Qloo search has no person type). Only Qloo's own matches can
  * be added (as "You" seeds, each with its search receipt); a name Qloo can't match adds nothing.
  */
 export function SeedSearch({
@@ -69,7 +69,7 @@ export function SeedSearch({
           ))}
         </select>
         <label htmlFor={`${id}-query`} className="sr-only">
-          Add a brand, show, artist or creator
+          Add a brand, show, artist or podcast
         </label>
         <input
           ref={ref}
@@ -77,7 +77,7 @@ export function SeedSearch({
           type="search"
           autoComplete="off"
           enterKeyHint="search"
-          placeholder="Add a brand, show, artist or creator"
+          placeholder="Add a brand, show, artist or podcast"
           value={search.query}
           onChange={(event) => search.setQuery(event.target.value)}
           onKeyDown={onKeyDown}

@@ -39,17 +39,19 @@ async function noHorizontalScroll(page: Page) {
 test("the lead example's recorded run streams end to end in replay mode", async ({ page }) => {
   const errors = consoleErrors(page);
   await page.goto("/run/example-food-hot-sauce");
-  await expect(page.getByRole("heading", { level: 1, name: "Building your Campaign Kit" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Building the Campaign Kit" })).toBeVisible();
+  await expect(page.locator("[data-run-status]")).toContainText("Recorded run");
+  await expect(page.locator("[data-run-status]")).not.toContainText("of 50 Qloo calls");
   await expect(page.getByRole("list", { name: "Progress" }).getByRole("listitem")).toHaveCount(7);
   await expect(page.getByText("Recorded Qloo")).toBeVisible();
   // Results fill in as they arrive: the Reality Check, then each world.
   await expect(page.getByText(report.audience.gap!.lines.find((l) => l.kind === "measured")!.text)).toBeVisible();
   await expect(page.getByRole("heading", { name: report.worlds[0].label })).toBeVisible();
 
-  const open = page.getByRole("link", { name: "Open the full report" });
+  const open = page.getByRole("link", { name: "Open the Campaign Kit" });
   await expect(open).toBeVisible({ timeout: 30_000 });
   await expect(open).toHaveAttribute("href", "/examples/food-hot-sauce");
-  await expect(page.getByRole("heading", { level: 1, name: "Your Campaign Kit is ready" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "The Campaign Kit is ready" })).toBeVisible();
   await expect(page.locator("[data-run-status]")).toHaveText(/Recorded run · \d+ Qloo answers replayed · no live calls/);
   await expect(page.locator('[data-status="done"]')).toHaveCount(7);
   await expect(page.locator("[data-trace-step]")).toHaveCount(STEPS);
@@ -74,7 +76,7 @@ test("a reload mid-stream resumes from the last event, without duplicates", asyn
   const resumed = page.waitForRequest((request) => /\/api\/run\/example-food-hot-sauce\/events\?lastEventId=1%3A\d+/.test(request.url()));
   await page.reload();
   await resumed;
-  await expect(page.getByRole("link", { name: "Open the full report" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: "Open the Campaign Kit" })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator("[data-trace-step]")).toHaveCount(STEPS);
   expect(errors).toEqual([]);
 });
@@ -98,7 +100,7 @@ test("a stopped run offers Resume, which follows the next attempt to the end", a
   const resume = page.getByRole("button", { name: "Resume" });
   await resume.dblclick();
   await expect(page.getByRole("heading", { level: 1, name: "Your Campaign Kit is ready" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open your report" })).toHaveAttribute("href", `/report/${RUN_ID}`);
+  await expect(page.getByRole("link", { name: "Open your Campaign Kit" })).toHaveAttribute("href", `/report/${RUN_ID}`);
   await expect(page.locator("[data-trace-step]")).toHaveCount(STEPS);
   expect(resumes).toBe(1);
   await noHorizontalScroll(page);

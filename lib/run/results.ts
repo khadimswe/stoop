@@ -95,12 +95,18 @@ function fieldResult(field: CultureFieldResult, cited: (ids: readonly string[]) 
   return [{ field: field.field, label: FIELD_LABELS[field.field], signal: field.signal, origin: best, audienceWide: field.scope === "audience" }];
 }
 
-/** "Read from your site" is never Qloo; the generic line is the LLM-only brief. */
-function sourceOf(line: GapLine): RealitySource | null {
+/**
+ * Who a Reality Check line speaks for. "Read from your site" is never Qloo; the generic line is the
+ * LLM-only brief. A line is Qloo's only with its receipts in the ledger. "drop": a line that states
+ * Qloo values (the measured line, or any line citing receipts the ledger lacks) is left out without
+ * them: no evidence, no display.
+ */
+function sourceOf(line: GapLine, cited: (ids: readonly string[]) => boolean): RealitySource | null | "drop" {
   if (line.kind === "site") return "site";
   if (line.kind === "stated") return "you";
   if (line.kind === "generic") return "generic";
-  return line.evidenceIds.length > 0 ? "qloo" : null;
+  if (cited(line.evidenceIds)) return "qloo";
+  return line.kind === "measured" || line.evidenceIds.length > 0 ? "drop" : null;
 }
 
 export function resultsView(state: ResultsState): ResultsView {
@@ -119,9 +125,10 @@ export function resultsView(state: ResultsState): ResultsView {
   const reality: RealityResult | null = gap
     ? {
         outcome: gap.outcome,
-        lines: gap.lines.map((line) => {
-          const source = sourceOf(line);
-          return { kind: line.kind, text: line.text, source, receipt: source === "qloo" ? receiptView(ledger, line.evidenceIds, "Reality Check", line.text) : null };
+        lines: gap.lines.flatMap((line) => {
+          const source = sourceOf(line, cited);
+          if (source === "drop") return [];
+          return [{ kind: line.kind, text: line.text, source, receipt: source === "qloo" ? receiptView(ledger, line.evidenceIds, "Reality Check", line.text) : null }];
         }),
       }
     : null;

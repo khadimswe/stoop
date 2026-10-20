@@ -107,7 +107,7 @@ export function SeedStep({
           )}
         </dl>
         <ul className="flex flex-col gap-1 border-t border-hairline pt-3 font-mono text-xs text-ink-soft">
-          {notes.length ? notes.map((note) => <li key={note}>{note}</li>) : <li>{fromLink ? "Read 1 page. If a site blocks reading, Stoop uses your description instead." : "Read from your description."}</li>}
+          {notes.length ? notes.map((note, i) => <li key={`${i}-${note}`}>{note}</li>) : <li>{fromLink ? "Read 1 page. If a site blocks reading, Stoop uses your description instead." : "Read from your description."}</li>}
         </ul>
       </section>
 

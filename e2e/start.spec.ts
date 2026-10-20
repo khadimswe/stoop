@@ -125,7 +125,7 @@ test("the link flow reads the page, shows the seeds with their origins, adds a Q
 
   // A "You" seed from Qloo autocomplete.
   await page.getByLabel("What to add").selectOption("tv_show");
-  await page.getByLabel("Add a brand, show, artist or creator").fill("Hot Ones");
+  await page.getByLabel("Add a brand, show, artist or podcast").fill("Hot Ones");
   await expect(page.getByText(`${hotOnes.results.length} Qloo ${hotOnes.results.length === 1 ? "match" : "matches"}`)).toBeVisible();
   // Qloo has more than one show by that name; the first is added, and only it reads "added".
   await page.getByRole("button", { name: "Add Hot Ones (tv show)", exact: true }).first().click();
@@ -167,6 +167,7 @@ test("the description flow works without a website", async ({ page }) => {
   await expect(page.getByText("Your site speaks to")).toHaveCount(0);
   await page.getByRole("button", { name: "Edit description" }).click();
   await expect(page.getByLabel("Describe your product")).toHaveValue(DESCRIPTION);
+  await expect(page.getByLabel("Describe your product")).toBeFocused();
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
@@ -230,7 +231,7 @@ test("a start that becomes an example replay says why, plainly, and opens the re
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Map my audience" }).click();
   await page.waitForURL("**/run/example-food-hot-sauce?why=busy");
-  await expect(page.getByText("Two live runs are going right now, so here is a recorded example run while you wait.")).toBeVisible();
+  await expect(page.getByText("Two live runs are going right now, so here is a recorded example run instead.")).toBeVisible();
   await expect(page.getByText("Recorded Qloo")).toBeVisible();
 });
 

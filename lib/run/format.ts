@@ -33,3 +33,8 @@ export function costLine(cost: Cost): string {
 export function replayLine(calls: CallCount): string {
   return `Recorded run · ${plural(calls.live + calls.cached, "Qloo answer", "Qloo answers")} replayed · no live calls`;
 }
+
+/** While an example replays: its recorded answers so far (never "0 of 50 Qloo calls", which reads as a live budget). */
+export function replayProgressLine(calls: CallCount): string {
+  return `Recorded run · ${plural(calls.live + calls.cached, "Qloo answer", "Qloo answers")} so far`;
+}

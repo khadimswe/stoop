@@ -3,7 +3,9 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { readRecents, RECENTS_KEY, timeAgo } from "@/lib/run/recents";
+import { readRecents, RECENTS_KEY, timeAgo, type RecentCampaign } from "@/lib/run/recents";
+
+const STATUS_LABELS: Record<RecentCampaign["status"], string> = { running: "Running", ready: "Kit ready", stopped: "Stopped", failed: "Stopped early" };
 
 const subscribe = (onChange: () => void) => {
   window.addEventListener("storage", onChange);
@@ -47,7 +49,7 @@ export function RecentCampaigns() {
                 <span className="truncate text-sm font-semibold">{entry.name}</span>
                 <span className="text-xs text-ink-soft">{now === null ? " " : `Started ${timeAgo(entry.startedAt, now)}`}</span>
               </span>
-              <span className="rounded-full bg-fill px-2 py-0.5 text-xs font-semibold text-ink-soft">{entry.status === "ready" ? "Report ready" : "Running"}</span>
+              <span className="rounded-full bg-fill px-2 py-0.5 text-xs font-semibold text-ink-soft">{STATUS_LABELS[entry.status]}</span>
               <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-soft" />
             </Link>
           </li>

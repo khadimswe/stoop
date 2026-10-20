@@ -21,14 +21,30 @@ export interface TraceListProps {
   className?: string;
 }
 
-function Row({ row }: { row: TraceRow }) {
+/**
+ * One step. `folded`: an earlier step, shown only while "Show earlier steps" is open. `firstShown`: the
+ * first step shown while folded, which names its stage even mid-run (not again once unfolded).
+ */
+function Row({ row, folded, firstShown }: { row: TraceRow; folded: boolean; firstShown: boolean }) {
   const decision = row.kind === "decision";
   const Icon = decision ? Signpost : Database;
   return (
-    <li data-trace-step={row.kind} className="flex gap-3 border-b border-hairline py-2.5 last:border-b-0">
+    <li
+      data-trace-step={row.kind}
+      className={cn("gap-3 border-b border-hairline py-2.5 last:border-b-0", folded ? "hidden group-has-[[data-earlier-toggle][open]]/trace:flex" : "flex")}
+    >
       <Icon aria-hidden="true" className={cn("mt-0.5 size-4 shrink-0", decision ? "text-ink" : "text-dusk")} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {row.startsGroup && <p className="font-mono text-[0.6875rem] font-medium tracking-wide text-ink-soft uppercase">{row.stageLabel}</p>}
+        {(row.startsGroup || firstShown) && (
+          <p
+            className={cn(
+              "font-mono text-[0.6875rem] font-medium tracking-wide text-ink-soft uppercase",
+              firstShown && !row.startsGroup && "group-has-[[data-earlier-toggle][open]]/trace:hidden",
+            )}
+          >
+            {row.stageLabel}
+          </p>
+        )}
         <p className={cn("text-sm text-pretty", decision && "font-semibold")}>
           <span className="sr-only">{decision ? "Agent decision: " : "Qloo call: "}</span>
           {row.label}
@@ -58,33 +74,29 @@ function Row({ row }: { row: TraceRow }) {
  * decision with its "Why", in the order they happened, the stage named above each run of steps.
  * No hooks and no client code, so it renders on the server (a recorded replay) or inside a client
  * component (the live /run page), from the same steps.
+ *
+ * Every step stays in one list under a stable key, so a step keeps its open "Why" as newer steps
+ * push it into the folded part; folding is CSS only (the toggle's open state shows the folded rows).
  */
 export function TraceList({ steps, worlds = [], show = "all", recent, empty, className }: TraceListProps) {
   const rows = traceRows(steps, worlds, { show });
   if (rows.length === 0) return empty ? <div className={className}>{empty}</div> : null;
   const cut = recent && rows.length > recent ? rows.length - recent : 0;
-  const earlier = rows.slice(0, cut);
-  const latest = rows.slice(cut);
   return (
-    <div className={cn("flex flex-col", className)} data-trace-list>
-      {earlier.length > 0 && (
-        <details className="group/earlier border-b border-hairline">
+    <div className={cn("group/trace flex flex-col", className)} data-trace-list>
+      {cut > 0 && (
+        <details data-earlier-toggle className="group/earlier border-b border-hairline">
           <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-sm text-sm font-semibold text-ink underline decoration-1 underline-offset-4 [&::-webkit-details-marker]:hidden">
             <span className="group-open/earlier:hidden">
-              Show {earlier.length} earlier {earlier.length === 1 ? "step" : "steps"}
+              Show {cut} earlier {cut === 1 ? "step" : "steps"}
             </span>
             <span className="hidden group-open/earlier:inline">Hide earlier steps</span>
           </summary>
-          <ol aria-label="Earlier steps">
-            {earlier.map((row) => (
-              <Row key={row.key} row={row} />
-            ))}
-          </ol>
         </details>
       )}
-      <ol aria-label={earlier.length > 0 ? "Latest steps" : "Agent steps"}>
-        {latest.map((row) => (
-          <Row key={row.key} row={row} />
+      <ol aria-label="Agent steps">
+        {rows.map((row, i) => (
+          <Row key={row.key} row={row} folded={i < cut} firstShown={cut > 0 && i === cut} />
         ))}
       </ol>
     </div>

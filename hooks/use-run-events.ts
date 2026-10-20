@@ -40,10 +40,16 @@ export function useRunEvents(runId: string): RunEvents {
     const hidden = () => {
       if (document.visibilityState === "hidden") controller.flush();
     };
+    // Back from the back-forward cache, the old stream is closed: follow the run again.
+    const shown = (event: PageTransitionEvent) => {
+      if (event.persisted) controller.wake();
+    };
     window.addEventListener("pagehide", flush);
+    window.addEventListener("pageshow", shown);
     document.addEventListener("visibilitychange", hidden);
     return () => {
       window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pageshow", shown);
       document.removeEventListener("visibilitychange", hidden);
       controller.stop();
       if (stream.current === controller) stream.current = null;

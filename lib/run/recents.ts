@@ -13,8 +13,11 @@ export interface RecentCampaign {
   /** The product's name as the run read it. */
   name: string;
   startedAt: string;
-  status: "running" | "ready";
+  status: (typeof RECENT_STATUSES)[number];
 }
+
+/** running, then ready, stopped (resumable) or failed. An expired run leaves the list (removeRecent). */
+export const RECENT_STATUSES = ["running", "ready", "stopped", "failed"] as const;
 
 export const RECENTS_KEY = "stoop:recent-campaigns";
 export const MAX_RECENTS = 5;
@@ -31,7 +34,7 @@ function valid(entry: unknown): entry is RecentCampaign {
     e.name.length <= 200 &&
     typeof e.startedAt === "string" &&
     !Number.isNaN(Date.parse(e.startedAt)) &&
-    (e.status === "running" || e.status === "ready")
+    (RECENT_STATUSES as readonly unknown[]).includes(e.status)
   );
 }
 
@@ -60,7 +63,13 @@ export function addRecent(storage: KeyValueStore | null, entry: RecentCampaign):
   return write(storage, [entry, ...readRecents(storage).filter((e) => e.runId !== entry.runId)].slice(0, MAX_RECENTS));
 }
 
-/** Marks a run ready once its trace finished in this browser. Unknown runs are left alone. */
+/** A run that expired: its link leads nowhere, so it leaves the list. */
+export function removeRecent(storage: KeyValueStore | null, runId: string): RecentCampaign[] {
+  const list = readRecents(storage);
+  return list.some((e) => e.runId === runId) ? write(storage, list.filter((e) => e.runId !== runId)) : list;
+}
+
+/** Updates a run's status as its trace shows it in this browser (ready, stopped, failed). Unknown runs are left alone. */
 export function markRecent(storage: KeyValueStore | null, runId: string, status: RecentCampaign["status"]): RecentCampaign[] {
   const list = readRecents(storage);
   if (!list.some((e) => e.runId === runId && e.status !== status)) return list;

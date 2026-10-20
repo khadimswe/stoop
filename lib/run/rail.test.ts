@@ -44,6 +44,12 @@ describe("the progress rail", () => {
       expect(gapping).toMatchObject({ prove: "done", gap: "current", segments: "pending" });
       const worlds = statusOf(railRows(upTo((e) => e.type === "world.started"), running));
       expect(worlds).toMatchObject({ prove: "done", gap: "done", segments: "done", culture: "current", concepts: "pending", prompts: "pending" });
+      // A stage turns current as soon as its steps arrive, before its own stage events.
+      const firstScoreStep = all.findIndex((e) => e.type === "trace.step" && e.step.stage === "score");
+      const firstScoreEvent = all.findIndex((e) => e.type === "stage.started" && e.stage === "score");
+      expect(firstScoreStep).toBeLessThan(firstScoreEvent);
+      expect(statusOf(railRows(all.slice(0, firstScoreStep), running)).score).toBe("pending");
+      for (const n of [firstScoreStep + 1, firstScoreEvent, firstScoreEvent + 1]) expect(statusOf(railRows(all.slice(0, n), running)).score).toBe("current");
       // The last world-scoped stage still open keeps its row current until the run ends.
       const last = statusOf(railRows(all.slice(0, -1), running));
       expect(last).toMatchObject({ culture: "done", score: "done", concepts: "done", prompts: "current" });

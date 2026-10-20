@@ -10,9 +10,9 @@ import { useRunEvents } from "@/hooks/use-run-events";
 import { LEAD_EXAMPLE } from "@/lib/demo/examples";
 import { RUN_CAP } from "@/lib/qloo/budget";
 import { formatDate } from "@/lib/report/view/format";
-import { callsLine, costLine, formatClock, replayLine } from "@/lib/run/format";
-import { callCounts, hasEnded, railRows } from "@/lib/run/rail";
-import { browserStorage, markRecent } from "@/lib/run/recents";
+import { callsLine, costLine, formatClock, replayLine, replayProgressLine } from "@/lib/run/format";
+import { callCounts, hasEnded, railRows, STAGE_LABELS } from "@/lib/run/rail";
+import { browserStorage, markRecent, removeRecent } from "@/lib/run/recents";
 import { resultsView } from "@/lib/run/results";
 import { EXAMPLE_CHIPS, exampleRunHref, exampleSlugOf, REPLAY_NOTES, reportHref, type ReplayReason } from "@/lib/run/start";
 import { ProgressRail } from "./progress-rail";
@@ -30,6 +30,13 @@ const TITLES: Record<Phase, string> = {
   failed: "This run stopped early",
   expired: "That run has expired",
   unavailable: "Live runs are unavailable right now",
+};
+/** An example replay is the example's kit, not the viewer's. */
+const EXAMPLE_TITLES: Partial<Record<Phase, string>> = {
+  connecting: "Building the Campaign Kit",
+  running: "Building the Campaign Kit",
+  lost: "Building the Campaign Kit",
+  done: "The Campaign Kit is ready",
 };
 
 /** Ticks once a second while `active`; null until the first tick (after mount). */
@@ -100,9 +107,14 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
   const results = useMemo(() => resultsView(state), [state]);
   const worlds = useMemo(() => state.worlds.map((w) => ({ segmentId: w.segmentId, label: w.label })), [state.worlds]);
 
-  // A live run that finished here is marked ready in "Recent campaigns".
+  // "Recent campaigns" follows the run: ready, stopped or failed; an expired one leaves the list.
   useEffect(() => {
-    if (phase === "done" && !isExample) markRecent(browserStorage("localStorage"), runId, "ready");
+    if (isExample) return;
+    const storage = browserStorage("localStorage");
+    if (phase === "done") markRecent(storage, runId, "ready");
+    else if (phase === "stopped") markRecent(storage, runId, "stopped");
+    else if (phase === "failed") markRecent(storage, runId, "failed");
+    else if (phase === "expired") removeRecent(storage, runId);
   }, [phase, isExample, runId]);
 
   // The timer: a live run's own clock (its start, then its cost or last event); an example replay's time in this view.
@@ -136,9 +148,10 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
             ? `A recorded run for ${product.brandName ? `${product.brandName}'s ${product.name}` : product.name}, replayed step by step.`
             : `Mapping the taste neighborhood around ${product.name}.`
           : "Each Qloo call and agent decision shows up here as it happens.";
+  const title = (isExample ? EXAMPLE_TITLES[phase] : undefined) ?? TITLES[phase];
   const announce =
     phase === "done"
-      ? "Your Campaign Kit is ready."
+      ? `${title}.`
       : phase === "running" && current.length
         ? `Working on ${current.join(" and ")}.`
         : phase === "stopped"
@@ -147,13 +160,9 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
             ? "This run stopped early."
             : "";
 
-  const statusLine = over
-    ? state.cost
-      ? costLine(state.cost)
-      : isExample
-        ? replayLine(calls)
-        : callsLine(calls, RUN_CAP)
-    : `${isExample ? "Replaying" : "Working"} ${formatClock(elapsed)} · ${callsLine(calls, RUN_CAP)}${run.connection === "reconnecting" ? " · Reconnecting…" : ""}`;
+  // Examples show recorded counts, never a live budget; a live run's calls count against its cap.
+  const counts = isExample ? (over ? replayLine(calls) : replayProgressLine(calls)) : over ? (state.cost ? costLine(state.cost) : callsLine(calls, RUN_CAP)) : callsLine(calls, RUN_CAP);
+  const statusLine = over ? counts : `${isExample ? "Replaying" : "Working"} ${formatClock(elapsed)} · ${counts}${run.connection === "reconnecting" ? " · Reconnecting…" : ""}`;
   const showTrace = phase !== "expired" && phase !== "unavailable";
 
   return (
@@ -166,12 +175,12 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
               {state.partial && <ProvenanceBadge kind="partial" />}
             </div>
           )}
-          <h1 className="font-display text-[1.625rem] leading-tight font-extrabold text-balance [font-stretch:85%] sm:text-[1.875rem]">{TITLES[phase]}</h1>
+          <h1 className="font-display text-[1.625rem] leading-tight font-extrabold text-balance [font-stretch:85%] sm:text-[1.875rem]">{title}</h1>
           <p className="max-w-[62ch] text-sm text-pretty text-ink-soft">{subtitle}</p>
         </div>
         {phase === "done" && (
           <Button asChild className="self-start sm:self-auto">
-            <Link href={reportHref(runId)}>{isExample ? "Open the full report" : "Open your report"}</Link>
+            <Link href={reportHref(runId)}>{isExample ? "Open the Campaign Kit" : "Open your Campaign Kit"}</Link>
           </Button>
         )}
         {phase === "stopped" && stream?.resumable && (
@@ -200,8 +209,8 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
         <div className="flex flex-col gap-2 rounded-xl border border-hairline bg-surface px-4 py-3 text-sm">
           <p>
             {stream?.resumable
-              ? "It ran out of time before it finished. Resume picks up after the last finished step, so the Qloo calls it already made are not spent again."
-              : "It ran out of time before it finished."}
+              ? "It stopped before it finished. Resume picks up after the last finished step, so the Qloo calls it already made are not spent again."
+              : "It stopped before it finished."}
           </p>
           {resumeError && (
             <p role="alert" className="font-semibold">
@@ -214,6 +223,11 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
         </div>
       )}
       {phase === "lost" && <p className="rounded-xl border border-hairline bg-surface px-4 py-3 text-sm">{problem?.message}</p>}
+      {phase === "done" && state.partial && (
+        <p className="rounded-xl border border-hairline bg-surface px-4 py-3 text-sm">
+          Partial data: {STAGE_LABELS[state.partial.stage]} did not finish ({state.partial.reason}). The report shows everything that was measured.
+        </p>
+      )}
       {phase === "failed" && (
         <div className="flex flex-col gap-3 rounded-xl border border-hairline bg-surface px-4 py-3 text-sm">
           <p>{state.error ?? "The run stopped before it finished."} What it measured before it stopped is below.</p>

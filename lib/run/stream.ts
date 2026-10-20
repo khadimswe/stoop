@@ -70,6 +70,8 @@ export interface RunStream {
   flush(): void;
   /** Reconnects at once, after the stream was lost. */
   retry(): void;
+  /** The page came back from the back-forward cache (its stream was closed): follows the run again, unless it has ended. */
+  wake(): void;
   /** POST /api/run/[id]/resume, then follows the new attempt. One call at a time. */
   resume(): Promise<ResumeOutcome>;
   snapshot(): RunSnapshot;
@@ -80,8 +82,11 @@ export const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000] as const;
 /** Persisting is throttled: a run sends a burst of events at once. */
 export const PERSIST_MS = 500;
 const PERSIST_VERSION = 1;
+/** The browser's own reconnects that may fail in a row, or for how long, before the view says the connection was lost. */
+export const ERROR_LIMIT = 5;
+export const ERROR_WINDOW_MS = 30_000;
 const CLOSED = 2;
-const LOST = "Lost the connection to this run. It keeps going on our side.";
+const LOST = "Lost the connection to this run. It may still be running on our side.";
 const STATUSES: readonly string[] = ["running", "stopped", "done", "failed"] satisfies (typeof RUN_META_STATUSES)[number][];
 
 export const persistKey = (runId: string) => `stoop:run:${runId}`;
@@ -138,6 +143,9 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
   let stopped = false;
   /** Bumped by every connect and stop, so callbacks from an older connection do nothing. */
   let epoch = 0;
+  /** The browser's own reconnect failures in a row, and since when (reset when the stream opens or an event arrives). */
+  let errorStreak = 0;
+  let streakSince: number | null = null;
 
   const emit = (patch: Partial<RunSnapshot>) => {
     snap = { ...snap, ...patch };
@@ -218,7 +226,9 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
     source = es;
     emit({ connection: snap.retries > 0 ? "reconnecting" : "connecting" });
     es.addEventListener("open", () => {
-      if (mine === epoch) emit({ connection: "open" });
+      if (mine !== epoch) return;
+      resetStreak();
+      emit({ connection: "open" });
     });
     es.addEventListener("run", (event) => {
       if (mine === epoch) onRun(event.data);
@@ -228,10 +238,24 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
     });
     es.addEventListener("error", () => {
       if (mine !== epoch || stopped) return;
-      // Still connecting: the browser retries by itself, sending Last-Event-ID.
-      if (es.readyState !== CLOSED) return emit({ connection: "reconnecting" });
-      void diagnose(mine);
+      if (es.readyState === CLOSED) return void diagnose(mine);
+      // Still connecting: the browser retries by itself, sending Last-Event-ID, and would go on forever
+      // through an outage. Past ERROR_LIMIT failures, or ERROR_WINDOW_MS, without the stream opening or
+      // an event arriving, it is closed and the view says the connection was lost (with Try again).
+      errorStreak++;
+      streakSince ??= deps.now();
+      if (errorStreak < ERROR_LIMIT && deps.now() - streakSince < ERROR_WINDOW_MS) return emit({ connection: "reconnecting" });
+      epoch++;
+      closeSource();
+      resetStreak();
+      snap = { ...snap, retries: BACKOFF_MS.length };
+      retryLater(null);
     });
+  }
+
+  function resetStreak() {
+    errorStreak = 0;
+    streakSince = null;
   }
 
   function onRun(data: unknown) {
@@ -242,6 +266,7 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
     if (folded.state === before) return;
     const ended = hasEnded(folded.state);
     const freshAttempt = folded.state.attempt !== before.attempt;
+    resetStreak();
     emit({
       ...folded,
       retries: 0,
@@ -256,6 +281,7 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
   function onStatus(data: unknown) {
     const status = parseStreamStatus(data);
     if (!status) return;
+    resetStreak();
     const over = status.status !== "running";
     // Stopped, done or failed: the server ends the stream, so it is closed here before the browser reconnects.
     if (over) {
@@ -304,7 +330,8 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
   /**
    * A live run that ended without saying how (it stopped at its deadline, or its instance died): GET
    * /api/report/[id] says whether it is resumable (stopped) or finished. The status then reads as if
-   * the stream had sent it, so the Resume button shows after a reload too.
+   * the stream had sent it, so the Resume button shows after a reload too. A finished report reads
+   * as done, partial data or not (the report says which parts stopped early).
    */
   async function settleEnded(mine: number) {
     const result = await callApi<ReportResponse>(deps.fetch, `/api/report/${encodeURIComponent(runId)}`, { method: "GET" });
@@ -320,7 +347,7 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
     const status: StreamStatus =
       result.data.status === "running"
         ? { status: result.data.resumable ? "stopped" : "running", attempt, resumable: result.data.resumable }
-        : { status: result.data.report.meta.provenance === "partial" ? "failed" : "done", attempt, resumable: false };
+        : { status: "done", attempt, resumable: false };
     // Still running after all (its status changed in between): follow it again.
     if (status.status === "running") return retryLater(null);
     emit({ stream: status, connection: "closed", endedAt: status.status === "stopped" ? snap.endedAt : (snap.endedAt ?? deps.now()) });
@@ -376,6 +403,15 @@ export function createRunStream(runId: string, deps: RunStreamDeps, onChange: (s
     retry() {
       if (stopped) return;
       cancelRetry();
+      resetStreak();
+      emit({ retries: 0, problem: null });
+      connect();
+    },
+    wake() {
+      // Ended, stopped or expired runs stay as they are; anything still running is followed again.
+      if (stopped || hasEnded(snap.state) || (snap.stream && snap.stream.status !== "running") || snap.problem?.kind === "expired") return;
+      cancelRetry();
+      resetStreak();
       emit({ retries: 0, problem: null });
       connect();
     },

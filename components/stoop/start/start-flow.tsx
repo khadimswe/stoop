@@ -45,6 +45,8 @@ export function StartFlow() {
   const [stated, setStated] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  /** Back from step 2: the composer puts the cursor back in its field. */
+  const [cameBack, setCameBack] = useState(false);
   const stepTwoHeading = useRef<HTMLHeadingElement>(null);
   const startOnce = useMemo(() => singleFlight(postRunStart), []);
 
@@ -116,6 +118,7 @@ export function StartFlow() {
         error={startError}
         onBack={() => {
           setFound(null);
+          setCameBack(true);
           intake.reset();
         }}
         onStart={start}
@@ -143,6 +146,7 @@ export function StartFlow() {
         notice={notice}
         reading={intake.state.kind === "reading"}
         onSubmit={read}
+        focusOnMount={cameBack}
       />
       <ExampleChips />
       <RecentCampaigns />

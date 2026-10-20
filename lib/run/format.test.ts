@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { costSchema } from "../report/stages";
-import { callsLine, costLine, formatClock, replayLine } from "./format";
+import { callsLine, costLine, formatClock, replayLine, replayProgressLine } from "./format";
 
 describe("run formatting", () => {
   it("prints a mono clock", () => {
@@ -23,5 +23,6 @@ describe("run formatting", () => {
 
   it("says an example replay spent no live calls", () => {
     expect(replayLine({ live: 0, cached: 36 })).toBe("Recorded run · 36 Qloo answers replayed · no live calls");
+    expect(replayProgressLine({ live: 0, cached: 1 })).toBe("Recorded run · 1 Qloo answer so far");
   });
 });

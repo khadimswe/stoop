@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { StreamStatus } from "../api/responses";
 import { reduce, type RunEvent } from "../events";
 import type { KeyValueStore } from "./recents";
-import { BACKOFF_MS, createRunStream, emptySnapshot, parseRunEvent, parseStreamStatus, persistKey, PERSIST_MS, type EventSourceLike, type RunSnapshot } from "./stream";
+import { BACKOFF_MS, createRunStream, ERROR_LIMIT, ERROR_WINDOW_MS, emptySnapshot, parseRunEvent, parseStreamStatus, persistKey, PERSIST_MS, type EventSourceLike, type RunSnapshot } from "./stream";
 
 // The recorded lead run (data/runs/), replayed through the real reducer.
 const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
@@ -95,6 +95,8 @@ function harness(runId: string, options: { storage?: KeyValueStore | null; fetch
     source: () => sources.at(-1)!,
     /** Runs the next timer (a backoff or a persist), like time passing. */
     tick: () => timers.shift()?.run(),
+    /** Moves the clock on. */
+    skip: (ms: number) => void (clock += ms),
     settle: () => new Promise((resolve) => setTimeout(resolve, 0)),
   };
 }
@@ -206,6 +208,52 @@ describe("reconnecting", () => {
     expect(h.last().connection).toBe("reconnecting");
     expect(h.sources).toHaveLength(1);
     expect(h.fetches).toHaveLength(0);
+  });
+
+  it("says the connection was lost after the browser's own retries keep failing, and Try again starts over", () => {
+    const h = harness(LIVE);
+    h.stream.start();
+    h.source().run(...asLive(recorded.slice(0, 10)));
+    for (let i = 1; i < ERROR_LIMIT; i++) h.source().fail(false);
+    expect(h.last()).toMatchObject({ connection: "reconnecting", problem: null });
+    // An event or a reopened stream starts the count over.
+    h.source().open();
+    for (let i = 1; i < ERROR_LIMIT; i++) h.source().fail(false);
+    expect(h.last().problem).toBeNull();
+    h.source().fail(false);
+    expect(h.last()).toMatchObject({ connection: "closed", problem: { kind: "lost", message: "Lost the connection to this run. It may still be running on our side." } });
+    expect(h.source().closed).toBe(true);
+    h.stream.retry();
+    expect(h.sources).toHaveLength(2);
+    expect(h.last()).toMatchObject({ problem: null, retries: 0 });
+  });
+
+  it("says the connection was lost when the browser has been failing for 30 s, even with few errors", () => {
+    const h = harness(LIVE);
+    h.stream.start();
+    h.source().fail(false);
+    h.skip(ERROR_WINDOW_MS);
+    h.source().fail(false);
+    expect(h.last().problem).toMatchObject({ kind: "lost" });
+  });
+
+  it("follows a running run again when the page comes back from the back-forward cache, and leaves an ended one alone", () => {
+    const h = harness(LIVE);
+    h.stream.start();
+    h.source().run(...asLive(recorded.slice(0, 30)));
+    h.stream.wake();
+    expect(h.sources).toHaveLength(2);
+    expect(h.sources[0].closed).toBe(true);
+    expect(h.source().url).toContain(`lastEventId=${encodeURIComponent(`1:${recorded[29].seq}`)}`);
+    h.source().run(...asLive(recorded.slice(30)));
+    h.source().status({ status: "done", attempt: 1, resumable: false });
+    h.stream.wake();
+    expect(h.sources).toHaveLength(2);
+    const stopped = harness(LIVE);
+    stopped.stream.start();
+    stopped.source().status({ status: "stopped", attempt: 1, resumable: true });
+    stopped.stream.wake();
+    expect(stopped.sources).toHaveLength(1);
   });
 
   it("backs off and reconnects from the last event while the server refuses, then says so plainly", async () => {

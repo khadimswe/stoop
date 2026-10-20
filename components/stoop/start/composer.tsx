@@ -2,7 +2,7 @@
 
 import { CircleAlert, Info } from "lucide-react";
 import Link from "next/link";
-import { useId, useRef, type FormEvent } from "react";
+import { useEffect, useId, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { DEFAULT_FORMAT, DESCRIPTION_MAX, DESCRIPTION_MIN } from "@/lib/run/start";
@@ -36,6 +36,7 @@ export function Composer({
   notice,
   reading,
   onSubmit,
+  focusOnMount = false,
 }: {
   mode: ComposerMode;
   onModeChange: (mode: ComposerMode) => void;
@@ -49,9 +50,16 @@ export function Composer({
   notice: ComposerNotice | null;
   reading: boolean;
   onSubmit: () => void;
+  /** Back from step 2 ("Edit link"): the cursor returns to the field. */
+  focusOnMount?: boolean;
 }) {
   const id = useId();
   const field = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  // Only when this composer first appears.
+  const focusFirst = useRef(focusOnMount);
+  useEffect(() => {
+    if (focusFirst.current) field.current?.focus();
+  }, []);
   const errorId = `${id}-error`;
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -118,27 +126,29 @@ export function Composer({
           {error}
         </p>
       )}
-      {notice && (
-        <div role="status" className="flex items-start gap-2 rounded-lg bg-fill px-3 py-2.5 text-sm text-ink">
-          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-soft" />
-          <p>
-            {notice.text}
-            {notice.example && (
-              <>
-                {" "}
-                <Link href={notice.example.href} className="font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
-                  {notice.example.label}
-                </Link>
-              </>
-            )}
+      {/* Always mounted, so screen readers hear what lands in it; empty, it takes no room. */}
+      <div role="status" className="empty:-mt-3">
+        {reading ? (
+          <p className="text-sm text-ink-soft">
+            {mode === "link" ? "Reading 1 page" : "Reading your description"}, then checking seed suggestions in Qloo. This can take up to a minute.
           </p>
-        </div>
-      )}
-      {reading && (
-        <p role="status" className="text-sm text-ink-soft">
-          {mode === "link" ? "Reading 1 page" : "Reading your description"}, then checking seed suggestions in Qloo. This can take up to a minute.
-        </p>
-      )}
+        ) : notice ? (
+          <div className="flex items-start gap-2 rounded-lg bg-fill px-3 py-2.5 text-sm text-ink">
+            <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-soft" />
+            <p>
+              {notice.text}
+              {notice.example && (
+                <>
+                  {" "}
+                  <Link href={notice.example.href} className="font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
+                    {notice.example.label}
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
         <span className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-fill px-3 text-[0.8125rem] text-ink">

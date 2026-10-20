@@ -141,7 +141,7 @@ export function singleFlight<A extends unknown[], T>(fn: (...args: A) => Promise
 /** One plain line per replay reason, shown above the example's replay (never an error screen). */
 export const REPLAY_NOTES: Readonly<Record<ReplayReason, string>> = {
   replay: "Live runs are off right now, so here is a recorded example run instead.",
-  busy: "Two live runs are going right now, so here is a recorded example run while you wait.",
+  busy: "Two live runs are going right now, so here is a recorded example run instead.",
   "daily-cap": "Today's live runs are used up, so here is a recorded example run instead.",
   "rate-limited": "That is a lot of runs in an hour, so here is a recorded example run instead.",
 };

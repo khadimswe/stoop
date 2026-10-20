@@ -67,7 +67,10 @@ export function hasEnded(state: { status: RunStatus; stage: Stage | null }): boo
  * reached.
  */
 export function railRows(events: readonly RunEvent[], run: { ended: boolean; failed: boolean }): RailRow[] {
+  /** Stages with their own stage events. */
   const started = new Set<Stage>();
+  /** Stages whose steps have arrived (a stage's work can show up before its stage events, as the generic brief's scoring does). */
+  const stepped = new Set<Stage>();
   const open = new Map<Stage, Set<string>>();
   const calls = new Map<Stage, CallCount>(RAIL.map((stage) => [stage, { live: 0, cached: 0 }]));
   for (const event of events) {
@@ -79,20 +82,25 @@ export function railRows(events: readonly RunEvent[], run: { ended: boolean; fai
     } else if (event.type === "stage.done") {
       started.add(event.stage);
       open.get(event.stage)?.delete(event.segmentId ?? "run");
-    } else if (event.type === "trace.step" && event.step.kind === "tool" && IN_RUN.has(event.step.stage)) {
+    } else if (event.type === "trace.step" && IN_RUN.has(event.step.stage)) {
+      stepped.add(event.step.stage as Stage);
+      if (event.step.kind !== "tool") continue;
       const count = calls.get(event.step.stage as Stage)!;
       if (event.step.cached) count.cached++;
       else count.live++;
     }
   }
+  const over = (): RailStatus => (run.failed ? "stopped" : "done");
   return RAIL.map((stage, index) => {
     const isOpen = (open.get(stage)?.size ?? 0) > 0;
+    // Done needs a later stage's own events: steps alone never close an earlier stage, so no row flickers back.
     const laterStarted = RAIL.slice(index + 1).some((later) => started.has(later));
     let status: RailStatus;
-    if (!started.has(stage)) status = "pending";
-    else if (isOpen) status = run.ended ? (run.failed ? "stopped" : "done") : "current";
+    if (!started.has(stage) && !stepped.has(stage)) status = "pending";
+    else if (isOpen) status = run.ended ? over() : "current";
+    else if (!started.has(stage)) status = run.ended ? over() : "current";
     else if (laterStarted) status = "done";
-    else status = run.ended ? (run.failed ? "stopped" : "done") : "current";
+    else status = run.ended ? over() : "current";
     return { stage, label: STAGE_LABELS[stage], status, calls: calls.get(stage)! };
   });
 }

@@ -68,6 +68,9 @@ describe.each(EXAMPLES.map((e) => e.slug))("results so far, for the recorded %s 
     const stripped = resultsView({ ...state, ledger: [] });
     expect(stripped.worlds.flatMap((w) => w.fields ?? []).some((f) => f.origin === "qloo" || f.origin === "interpreted")).toBe(false);
     expect(stripped.proof!.cities).toEqual([]);
+    // Without its receipts, the measured line is left out and nothing reads as Qloo's.
+    expect(stripped.reality!.lines.some((l) => l.kind === "measured" || l.source === "qloo")).toBe(false);
+    expect(stripped.reality!.lines.map((l) => l.kind)).toContain("stated");
     expect(stripped.worlds.every((w) => w.skew === null && w.setting === null)).toBe(true);
   });
 
