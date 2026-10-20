@@ -240,7 +240,8 @@ test("a finished run renders the full report with the live sticky action", async
   await page.goto(`/report/${RUN}`);
   await expect(page.getByRole("heading", { level: 1, name: BRAND })).toBeVisible();
   const order = await page.locator("[data-report-section]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-report-section")));
-  expect(order).toEqual(["reality", "your-ad", "output", "screening", "kit", "why"]);
+  expect(order).toEqual(["reality", "your-ad", "output", "screening", "kit", "launch", "why"]);
+  await expect(page.getByRole("region", { name: "Launch plan" }).locator("[data-launch-cell]")).toHaveCount(recordedReport.worlds.length + 1);
   await expect(page.getByRole("button", { name: "Email me this kit" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Make this for my product" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Storyboards" })).toHaveCount(recordedReport.worlds.length);

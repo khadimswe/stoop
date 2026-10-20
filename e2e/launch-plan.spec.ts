@@ -13,7 +13,7 @@ import {
   type BudgetInput,
 } from "../lib/report/view/launch-sheet";
 
-// The Launch plan on its review route, against the recorded runs. Expected values come from the same
+// The Launch plan as each example report shows it, against the recorded runs. Expected values come from the same
 // view model the page renders, built from the same JSON: nothing here is hand-written Qloo data.
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
@@ -48,7 +48,7 @@ for (const { slug, brandName } of EXAMPLES) {
   test(`${slug}: the Control is the baseline cell, then each concept world, each with its creative and budget`, async ({ page }) => {
     const errors = await watchErrors(page);
     const view = launchPlanView(read(slug));
-    await page.goto(`/launch-preview/${slug}`);
+    await page.goto(`/examples/${slug}`);
     await expect(page.getByRole("heading", { level: 1, name: brandName })).toBeVisible();
     const section = page.getByRole("region", { name: "Launch plan" });
     await expect(section.getByRole("heading", { level: 2, name: "Launch plan" })).toBeVisible();
@@ -61,7 +61,8 @@ for (const { slug, brandName } of EXAMPLES) {
       await expect(card.getByRole("heading", { level: 3 })).toHaveText(cell.kind === "control" ? "Control" : cell.label);
       await expect(card.getByText(cell.creative.title, { exact: true })).toBeVisible();
       await expect(card.getByText(cell.kind === "control" ? "Generic AI brief · not from Qloo" : "Culture-made", { exact: true })).toBeVisible();
-      await expect(card.getByRole("link", { name: /See its prompts/ })).toHaveAttribute("href", `/examples/${slug}#${cell.creative.anchor}`);
+      await expect(card.getByRole("link", { name: /See its prompts/ })).toHaveAttribute("href", `#${cell.creative.anchor}`);
+      await expect(page.locator(`#${cell.creative.anchor}`)).toHaveCount(1);
       await expect(card.locator("[data-launch-budget]")).toContainText("$20");
       for (const option of [...cell.ageBands, ...cell.cities]) {
         if (option.receipt) await expect(card.getByRole("button", { name: new RegExp(`${escape(option.text)}.*opens its receipt`) })).toBeVisible();
@@ -97,7 +98,7 @@ for (const { slug, brandName } of EXAMPLES) {
 
 test("the budget helper splits what you type, and the rule follows your target", async ({ page }) => {
   const errors = await watchErrors(page);
-  await page.goto(`/launch-preview/${LEAD}`);
+  await page.goto(`/examples/${LEAD}`);
   const section = page.getByRole("region", { name: "Launch plan" });
   await section.getByLabel("Daily budget").fill("100");
   await expect(section.locator("[data-launch-split]")).toContainText("$33 a day per cell · $231 per cell over 7 days · $693 in total");
@@ -117,7 +118,7 @@ test("the budget helper splits what you type, and the rule follows your target",
 });
 
 test("invalid numbers say what to fix, and the sheet waits for them", async ({ page }) => {
-  await page.goto(`/launch-preview/${LEAD}`);
+  await page.goto(`/examples/${LEAD}`);
   const section = page.getByRole("region", { name: "Launch plan" });
   const daily = section.getByLabel("Daily budget");
   const days = section.getByLabel("Test days");
@@ -155,7 +156,7 @@ test("invalid numbers say what to fix, and the sheet waits for them", async ({ p
 });
 
 test("the launch sheet downloads as a CSV with a BOM, one guarded row per cell", async ({ page }) => {
-  await page.goto(`/launch-preview/${LEAD}`);
+  await page.goto(`/examples/${LEAD}`);
   const view = launchPlanView(read(LEAD));
   const section = page.getByRole("region", { name: "Launch plan" });
   await section.getByLabel("Daily budget").fill("90");
@@ -179,7 +180,7 @@ test("the launch sheet downloads as a CSV with a BOM, one guarded row per cell",
 test("copy as Markdown puts the whole plan on the clipboard", async ({ page, context, browserName }) => {
   test.skip(browserName !== "chromium", "clipboard permissions are Chromium-only here");
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto(`/launch-preview/${LEAD}`);
+  await page.goto(`/examples/${LEAD}`);
   const view = launchPlanView(read(LEAD));
   const section = page.getByRole("region", { name: "Launch plan" });
   await section.getByLabel("Target cost per result (optional)").fill("30");
@@ -194,7 +195,7 @@ test("copy as Markdown puts the whole plan on the clipboard", async ({ page, con
 
 test("a Qloo option opens its receipt, which closes with Esc and returns focus", async ({ page }) => {
   const errors = await watchErrors(page);
-  await page.goto(`/launch-preview/${LEAD}`);
+  await page.goto(`/examples/${LEAD}`);
   const view = launchPlanView(read(LEAD));
   const world = view.cells[1];
   const card = page.locator(`[data-launch-cell="${world.key}"]`);
@@ -224,9 +225,11 @@ test("a Qloo option opens its receipt, which closes with Esc and returns focus",
   expect(errors).toEqual([]);
 });
 
-test("the preview is noindex and unknown examples are a 404", async ({ page }) => {
-  await page.goto(`/launch-preview/${LEAD}`);
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
-  const response = await page.goto("/launch-preview/not-an-example");
-  expect(response?.status()).toBe(404);
+test("the sticky nav jumps to the Launch plan", async ({ page }) => {
+  await page.goto(`/examples/${LEAD}`);
+  const nav = page.getByRole("navigation", { name: "Report sections" });
+  await nav.getByRole("link", { name: "Launch plan" }).click();
+  await expect(page).toHaveURL(/#launch$/);
+  await expect(nav.getByRole("link", { name: "Launch plan" })).toHaveAttribute("aria-current", "location");
+  await expect(page.getByRole("heading", { level: 2, name: "Launch plan" })).toBeInViewport();
 });

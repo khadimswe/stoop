@@ -4,6 +4,7 @@ import { EXAMPLES } from "../../demo/examples";
 import type { Report } from "../schema";
 import { headerView } from "./header";
 import { kitView } from "./kit";
+import { launchPlanView } from "./launch";
 import { outputViews } from "./output";
 import { realityView } from "./reality";
 import { ledgerOf } from "./receipts";
@@ -38,6 +39,7 @@ describe.each(EXAMPLES)("the report view for $slug", ({ slug, brandName }) => {
       outputs: outputViews(report, { renderAccess: { kind: "off" } }),
       screening: screeningView(report, ledger, null),
       kit: kitView(report),
+      launch: launchPlanView(report, ledger),
       why: whyView(report, ledger),
     });
     expect(view.yourAd?.segmentId).toBe(report.worlds[0].segmentId);
