@@ -19,12 +19,15 @@ export function TopBar({ label, route, live = false }: { label: string; route?: 
   );
 }
 
-/** The progress line: one segment per beat, filled as the replay moves through it. */
-export function BeatSegments({ index, progress }: { index: number; progress: number }) {
+/**
+ * The progress line: one segment per beat that plays (`shown`, indexes into the beats; all of them by
+ * default), filled as the replay moves through it.
+ */
+export function BeatSegments({ index, progress, shown = DEMO_BEATS.map((_, i) => i) }: { index: number; progress: number; shown?: readonly number[] }) {
   return (
     <div className="flex gap-1">
-      {DEMO_BEATS.map((beat, i) => (
-        <span key={beat} className="h-1 flex-1 overflow-hidden rounded-full bg-paper/15">
+      {shown.map((i) => (
+        <span key={DEMO_BEATS[i]} className="h-1 flex-1 overflow-hidden rounded-full bg-paper/15">
           <span className="block h-full rounded-full bg-paper" style={{ width: `${i < index ? 100 : i === index ? Math.round(progress * 1000) / 10 : 0}%` }} />
         </span>
       ))}

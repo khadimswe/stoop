@@ -156,6 +156,7 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
   const launchPlan: DemoLaunchPlan = {
     campaign: plan.campaign,
     unavailable: plan.unavailable,
+    optionsNote: plan.optionsNote,
     cells: plan.cells.map((cell) => ({
       key: cell.key,
       kind: cell.kind,

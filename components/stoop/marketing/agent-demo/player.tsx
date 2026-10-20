@@ -168,7 +168,7 @@ export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
       </div>
       <div className={BAR_BOX}>
         <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <BeatSegments index={frame.index} progress={frame.progress} />
+          <BeatSegments index={frame.index} progress={frame.progress} shown={shown} />
           <p className="truncate font-mono text-[0.6875rem] leading-4 text-paper-dim">
             {Math.max(1, shown.indexOf(frame.index) + 1)} of {shown.length} · {DEMO_BEAT_LABELS[beat]}
           </p>

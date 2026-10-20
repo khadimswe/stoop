@@ -128,6 +128,8 @@ export interface DemoLaunchPlan {
   cells: DemoLaunchCell[];
   /** Why the test cannot run yet; null when it can. */
   unavailable: string | null;
+  /** "Targeting suggestions from aggregate taste data", and that the options are optional, as the kit wrote it. */
+  optionsNote: string;
 }
 
 export interface DemoScript {

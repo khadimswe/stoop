@@ -50,6 +50,7 @@ export function LaunchPlanBeat({ plan, cells }: { plan: DemoLaunchPlan; cells?: 
         <Kicker>Launch plan</Kicker>
         <BeatTitle>{plan.campaign}</BeatTitle>
         {plan.unavailable && <p className="text-[0.8125rem] text-paper-dim">{plan.unavailable}</p>}
+        {!plan.unavailable && <p className="line-clamp-2 hidden text-xs text-paper-dim @2xl:block">{plan.optionsNote}</p>}
       </div>
       {shown.length > 0 && (
         <ol className={cn("grid grid-cols-[minmax(0,1fr)] content-start gap-2 @2xl:gap-3", plan.cells.length === 3 ? "@2xl:grid-cols-3" : "@2xl:grid-cols-2 @4xl:grid-cols-4")}>

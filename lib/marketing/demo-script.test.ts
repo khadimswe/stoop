@@ -166,6 +166,7 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
     const plan = launchPlanView(r, ledgerOf(r));
     expect(plan.unavailable).toBeNull();
     expect(script.launchPlan.campaign).toBe(plan.campaign);
+    expect(script.launchPlan.optionsNote).toBe(plan.optionsNote);
     expect(script.launchPlan.cells.map((c) => [c.key, c.kind, c.name, c.label, c.conceptTitle, c.watch])).toEqual(plan.cells.map((c) => [c.key, c.kind, c.name, c.label, c.creative.title, c.watch]));
     expect(script.launchPlan.cells.map((c) => c.name)).toEqual(["Control", "World 1", "World 2"]);
     expect(script.launchPlan.cells[0]).toMatchObject({ kind: "control", label: "Generic AI brief · not from Qloo", interests: [] });
@@ -194,6 +195,13 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
 
   it("stays under its 30 KB size budget", () => {
     expect(JSON.stringify(script).length).toBeLessThan(30_000);
+  });
+
+  it("takes one snapshot per step the reducer kept, so a repeated event never shifts the rail", () => {
+    const all = events("food-hot-sauce");
+    const repeat = all.find((e) => e.type === "trace.step" && e.seq > 40)!;
+    const doubled = buildDemoScript({ slug: "food-hot-sauce", events: [...all, { ...repeat }], report: r, media: NO_MEDIA });
+    expect(doubled.trace.steps).toEqual(script.trace.steps);
   });
 
   it("refuses anything but a recorded run, and events that disagree with the report", () => {

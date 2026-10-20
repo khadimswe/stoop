@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import type { Report } from "../lib/report/schema";
 
-// The agent demo: a replay of the lead example's recorded run. Playwright's clock drives the replay
+// The landing's agent demo: a replay of the lead example's recorded run. Playwright's clock drives the replay
 // (it runs on requestAnimationFrame), so a whole loop takes no real time and nothing is test-only in
 // the player.
 
-const DEMO_PATH = "/demo-preview";
+const DEMO_PATH = "/";
 const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
 const measured = report.audience.gap!.lines.find((line) => line.kind === "measured")!.text;
 
@@ -24,19 +24,21 @@ async function noHorizontalScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-/** Opens the page on a fake clock and brings the whole demo on screen. */
+/** Opens the page on a fake clock and brings the whole demo on screen (it loads as it nears the viewport). */
 async function openDemo(page: Page, { clock = true } = {}) {
   if (clock) await page.clock.install();
   await page.goto(DEMO_PATH);
-  const player = page.locator("[data-demo-beat]");
+  const slot = page.getByRole("region", { name: "The agent at work · Porchlight Pepper Co." });
+  await slot.scrollIntoViewIfNeeded();
+  const player = slot.locator("[data-demo-beat]");
   await player.waitFor();
   await player.evaluate((node) => node.scrollIntoView({ block: "end" }));
   await expect(player).toBeVisible();
-  return { player, open: page.getByRole("link", { name: "Open the full report", exact: true }) };
+  return { slot, player, open: slot.getByRole("link", { name: "Open the full report", exact: true }) };
 }
 
-const beatOf = (page: Page) => page.locator("[data-demo-beat]").getAttribute("data-demo-beat");
-const stepsOf = async (page: Page) => Number(await page.locator("[data-demo-beat]").getAttribute("data-demo-steps"));
+const beatOf = (page: Page) => page.locator("#agent-demo [data-demo-beat]").getAttribute("data-demo-beat");
+const stepsOf = async (page: Page) => Number(await page.locator("#agent-demo [data-demo-beat]").getAttribute("data-demo-steps"));
 
 /** Advances the replay in small slices until `done`, at most `limit` ms of replay time. */
 async function playUntil(page: Page, done: () => Promise<boolean>, limit = 60_000) {
@@ -49,10 +51,10 @@ async function playUntil(page: Page, done: () => Promise<boolean>, limit = 60_00
 
 test("autoplays the recorded run from the composer to the launch plan", async ({ page }) => {
   const errors = consoleErrors(page);
-  const { player, open } = await openDemo(page);
-  await expect(page.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
+  const { slot, player, open } = await openDemo(page);
+  await expect(slot.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
   // A plain summary for screen readers, with the run's own Reality Check.
-  await expect(page.getByText(measured, { exact: false }).first()).toBeAttached();
+  await expect(slot.locator("p.sr-only")).toContainText(measured);
   await expect(player).toHaveAttribute("data-demo-mode", "autoplay");
   await expect(player).toHaveAttribute("data-demo-playing", "true");
   expect(await beatOf(page)).toBe("composer");
@@ -71,20 +73,20 @@ test("autoplays the recorded run from the composer to the launch plan", async ({
 
 test("pause holds the frame, play resumes it, and replay starts over", async ({ page }) => {
   const errors = consoleErrors(page);
-  const { player } = await openDemo(page);
+  const { slot, player } = await openDemo(page);
   await playUntil(page, async () => (await stepsOf(page)) > 4);
-  await page.getByRole("button", { name: "Pause the replay" }).click();
+  await slot.getByRole("button", { name: "Pause the replay" }).click();
   await expect(player).toHaveAttribute("data-demo-playing", "false");
   const held = await stepsOf(page);
   await page.clock.runFor(5_000);
   expect(await stepsOf(page)).toBe(held);
   expect(await beatOf(page)).toBe("trace");
 
-  await page.getByRole("button", { name: "Play the replay" }).click();
+  await slot.getByRole("button", { name: "Play the replay" }).click();
   await expect(player).toHaveAttribute("data-demo-playing", "true");
   await playUntil(page, async () => (await stepsOf(page)) > held, 5_000);
 
-  await page.getByRole("button", { name: "Replay from the start" }).click();
+  await slot.getByRole("button", { name: "Replay from the start" }).click();
   await expect(player).toHaveAttribute("data-demo-beat", "composer");
   await expect(player).toHaveAttribute("data-demo-steps", "0");
   expect(errors).toEqual([]);
@@ -127,14 +129,14 @@ test.describe("with reduced motion", () => {
 
   test("never autoplays: it shows the end of the run and steps through the beats", async ({ page }) => {
     const errors = consoleErrors(page);
-    const { player, open } = await openDemo(page, { clock: false });
+    const { slot, player, open } = await openDemo(page, { clock: false });
     await expect(player).toHaveAttribute("data-demo-mode", "steps");
     await expect(player).toHaveAttribute("data-demo-playing", "false");
     await expect(player).toHaveAttribute("data-demo-beat", "launch");
     await expect(open).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pause the replay" })).toHaveCount(0);
+    await expect(slot.getByRole("button", { name: "Pause the replay" })).toHaveCount(0);
 
-    const step = page.getByRole("button", { name: "Step through" });
+    const step = slot.getByRole("button", { name: "Step through" });
     for (const beat of ["composer", "seeds", "trace", "reality", "worlds", "storyboard", "launch"]) {
       await step.click();
       await expect(player).toHaveAttribute("data-demo-beat", beat);
