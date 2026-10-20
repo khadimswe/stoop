@@ -1,17 +1,39 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { RunView } from "@/components/stoop/trace/run-view";
+import { runIdSchema } from "@/lib/api/requests";
+import { exampleSlugOf, isReplayReason } from "@/lib/run/start";
 
-// Stub: the live-flow lane builds the agent trace (SSE) here. It does not read the id yet, so it
-// stays a static shell until that lane decides how the run streams.
+// The live agent trace. The id is request data (no generateStaticParams), so it is read behind
+// <Suspense>; the fallback is the same page with nothing measured yet, so the shell never flashes
+// blank. The trace itself streams in the browser (Server-Sent Events, reduced on the client).
 export const metadata: Metadata = {
   title: "Live run · Stoop",
   robots: { index: false, follow: false },
 };
 
-export default function RunPage() {
+function Connecting() {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-4 pt-10 pb-20 sm:px-5">
-      <h1 className="font-display text-[1.625rem] leading-tight font-extrabold [font-stretch:85%]">Building your Campaign Kit</h1>
-      <p className="text-sm text-ink-soft">Each Qloo call and agent decision shows up here as it happens.</p>
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-4 pt-8 pb-20 sm:px-5">
+      <h1 className="font-display text-[1.625rem] leading-tight font-extrabold [font-stretch:85%] sm:text-[1.875rem]">Building your Campaign Kit</h1>
+      <p className="text-sm text-ink-soft">Connecting to the run…</p>
     </main>
+  );
+}
+
+async function Run({ params, searchParams }: { params: PageProps<"/run/[id]">["params"]; searchParams: PageProps<"/run/[id]">["searchParams"] }) {
+  const { id } = await params;
+  // Live run ids, or one of the shipped examples' replays.
+  if (!runIdSchema.safeParse(id).success || (id.startsWith("example-") && !exampleSlugOf(id))) notFound();
+  const { why } = await searchParams;
+  return <RunView runId={id} why={isReplayReason(why) ? why : null} />;
+}
+
+export default function RunPage({ params, searchParams }: PageProps<"/run/[id]">) {
+  return (
+    <Suspense fallback={<Connecting />}>
+      <Run params={params} searchParams={searchParams} />
+    </Suspense>
   );
 }
