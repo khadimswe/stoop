@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
+import { useLayerStackSync } from "@/hooks/use-layer-stack-sync"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -45,6 +46,15 @@ function SheetOverlay({
   )
 }
 
+/**
+ * The Radix content, mounted only while the sheet is shown. It re-renders whenever a layer opens or
+ * closes, so a dialog opened inside this sheet takes Escape at once and Escape never closes both.
+ */
+function SheetLayer(props: React.ComponentProps<typeof SheetPrimitive.Content>) {
+  useLayerStackSync()
+  return <SheetPrimitive.Content {...props} />
+}
+
 function SheetContent({
   className,
   children,
@@ -58,7 +68,7 @@ function SheetContent({
   return (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content
+      <SheetLayer
         data-slot="sheet-content"
         data-side={side}
         className={cn(
@@ -81,7 +91,7 @@ function SheetContent({
             </Button>
           </SheetPrimitive.Close>
         )}
-      </SheetPrimitive.Content>
+      </SheetLayer>
     </SheetPortal>
   )
 }
