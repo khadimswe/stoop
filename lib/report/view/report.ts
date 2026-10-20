@@ -5,6 +5,7 @@ import type { DemoMedia } from "../../demo/manifest";
 import type { Report } from "../schema";
 import { headerView, type HeaderView } from "./header";
 import { kitView, type KitView } from "./kit";
+import { launchPlanView, type LaunchPlanView } from "./launch";
 import { outputViews, type OutputView, type RenderAccess } from "./output";
 import { realityView, type RealityView } from "./reality";
 import { ledgerOf } from "./receipts";
@@ -20,6 +21,8 @@ export interface ReportView {
   outputs: OutputView[];
   screening: ScreeningView;
   kit: KitView;
+  /** Each concept world as a test cell against the generic Control. */
+  launch: LaunchPlanView;
   why: WhyView;
 }
 
@@ -45,6 +48,7 @@ export function reportView(report: Report, { media = null, renderAccess }: Repor
     outputs,
     screening: screeningView(report, ledger, media),
     kit: kitView(report, media),
+    launch: launchPlanView(report, ledger),
     why: whyView(report, ledger),
   };
 }

@@ -3,6 +3,7 @@ import type { ReportView } from "@/lib/report/view/types";
 import { StickyBar } from "../sticky-bar";
 import { ReportHeader } from "./sections/header";
 import { KitSection } from "./sections/kit";
+import { LaunchSection } from "./sections/launch";
 import { OutputSection } from "./sections/output";
 import { RealitySection } from "./sections/reality";
 import { ReportNav } from "./sections/report-nav";
@@ -12,8 +13,8 @@ import { YourAdSection } from "./sections/your-ad";
 
 /**
  * The report, one scrolling page, for examples and live runs alike. Order: the banner slot, the
- * header, the Reality Check (beat 1), "Your ad", Output, then the sticky nav and its three sections
- * (Screening Room, Campaign Kit, Why it works), then the sticky bar. Each section lives in its own
+ * header, the Reality Check (beat 1), "Your ad", Output, then the sticky nav and its four sections
+ * (Screening Room, Campaign Kit, Launch plan, Why it works), then the sticky bar. Each section lives in its own
  * file under ./sections and takes only its own view model, so a lane changes one file, not this one.
  * A server component: pass it a view built on the server (lib/report/view/report.ts).
  *
@@ -33,6 +34,7 @@ export function ReportPage({ view, banner, stickyAction }: { view: ReportView; b
         <ReportNav />
         <ScreeningSection view={view.screening} />
         <KitSection view={view.kit} />
+        <LaunchSection view={view.launch} />
         <WhySection view={view.why} />
       </div>
       <StickyBar note={view.header.kind === "example" ? "Want this for your product?" : undefined} action={stickyAction} />
