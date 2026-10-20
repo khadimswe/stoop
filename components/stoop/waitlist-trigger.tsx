@@ -37,10 +37,13 @@ export function WaitlistTrigger({
   plan,
   source,
   onSubmit: submitOverride,
+  className,
 }: {
   label?: string;
   variant?: ComponentProps<typeof Button>["variant"];
   size?: ComponentProps<typeof Button>["size"];
+  /** For the trigger button, e.g. a taller tap target on touch screens. */
+  className?: string;
   plan?: WaitlistRequest["plan"];
   /** Where the signup came from (an example slug, a run id); defaults to the current page. */
   source?: string;
@@ -52,7 +55,7 @@ export function WaitlistTrigger({
     await postWaitlist(request(signup, { plan, source, productLink: url }));
   };
   const trigger = (
-    <Button variant={variant} size={size}>
+    <Button variant={variant} size={size} className={className}>
       {label}
     </Button>
   );

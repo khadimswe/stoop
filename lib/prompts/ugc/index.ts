@@ -103,7 +103,6 @@ export function scriptPlan(product: ProductSpec, brief: BriefSlots, concept: Con
   const spans = timecodes(concept);
   const scenes = concept.scenes.map((scene, index) => ({ scene, ...spans[index] }));
   const hook = scenes[0];
-  const payoff = scenes[scenes.length - 1];
   const middle = scenes.slice(1, -1);
   const demo = middle.find((s) => s.scene.beat === "product") ?? middle.find((s) => s.scene.productVisible) ?? null;
   const line = (s: (typeof scenes)[number]) => s.scene.dialogue ?? s.scene.overlayText;

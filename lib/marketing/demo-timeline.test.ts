@@ -4,7 +4,7 @@ import type { RunEvent } from "../events";
 import type { Report } from "../report/schema";
 import { buildDemoScript } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
-import { demoTimeline, frameAt, PACE } from "./demo-timeline";
+import { demoTimeline, END_CARD_MS, frameAt, PACE } from "./demo-timeline";
 import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 const script = ifRecorded(() => buildDemoScript({
@@ -79,5 +79,21 @@ describeRecorded("the agent demo's timeline", () => {
   it("clamps times outside the replay", () => {
     expect(frameAt(timeline, script, -500).beat).toBe("composer");
     expect(frameAt(timeline, script, timeline.total + 10_000).beat).toBe("launch");
+  });
+
+  it("holds the end card, Open the full report, for at least 12 seconds before it loops", () => {
+    expect(END_CARD_MS).toBeGreaterThanOrEqual(12_000);
+    const launch = span("launch");
+    let shownAt = -1;
+    for (let t = launch.start; t <= timeline.total; t += 10) {
+      if (frameAt(timeline, script, t).launch.cta) {
+        shownAt = t;
+        break;
+      }
+    }
+    expect(shownAt).toBeGreaterThan(launch.start);
+    // On screen from there to the end of the replay, where it loops.
+    for (let t = shownAt; t <= timeline.total; t += 250) expect(frameAt(timeline, script, t)).toMatchObject({ beat: "launch", launch: { cta: true } });
+    expect(timeline.total - shownAt).toBeGreaterThanOrEqual(12_000);
   });
 });

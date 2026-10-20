@@ -68,6 +68,9 @@ export async function postResume(request: Request, id: string, deps: RouteDeps):
   try {
     const runId = liveRunIdSchema.parse(id);
     if (!live(deps)) return json(exampleReply("replay"));
+    // A resume spends like a start (the rest of the run goes on live), so it is refused the same way.
+    const no = await refused(request, deps);
+    if (no) return no;
     const store = deps.store();
     return json(await resumeRun({ ...deps.start(), env: deps.env }, runId, await contextFor(request, store)));
   } catch (error) {

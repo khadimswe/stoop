@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { Report } from "../lib/report/schema";
 
 // The landing's agent demo: a replay of the lead example's recorded run. Playwright's clock drives the replay
@@ -34,6 +34,10 @@ async function openDemo(page: Page, { clock = true } = {}) {
   await player.waitFor();
   await player.evaluate((node) => node.scrollIntoView({ block: "end" }));
   await expect(player).toBeVisible();
+  // From here the fake clock moves only when a test runs it, so a slow machine never plays the
+  // replay on in real time between steps. The pause lands a little ahead (time still flows until it
+  // does); the jump fires one frame, which moves the replay at most 100 ms.
+  if (clock) await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 5_000);
   return { slot, player, open: slot.getByRole("link", { name: "Open the full report", exact: true }) };
 }
 
@@ -50,6 +54,8 @@ async function playUntil(page: Page, done: () => Promise<boolean>, limit = 60_00
 }
 
 test("autoplays the recorded run from the composer to the launch plan", async ({ page }) => {
+  // It steps through the whole replay in small slices: give a loaded machine room.
+  test.slow();
   const errors = consoleErrors(page);
   const { slot, player, open } = await openDemo(page);
   await expect(slot.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
@@ -72,6 +78,7 @@ test("autoplays the recorded run from the composer to the launch plan", async ({
 });
 
 test("pause holds the frame, play resumes it, and replay starts over", async ({ page }) => {
+  test.slow();
   const errors = consoleErrors(page);
   const { slot, player } = await openDemo(page);
   await playUntil(page, async () => (await stepsOf(page)) > 4);
@@ -93,6 +100,7 @@ test("pause holds the frame, play resumes it, and replay starts over", async ({ 
 });
 
 test("holds on the last beat while the pointer is on Open the full report", async ({ page }) => {
+  test.slow();
   const { player, open } = await openDemo(page);
   await playUntil(page, () => open.isVisible());
   await open.hover();
@@ -100,6 +108,54 @@ test("holds on the last beat while the pointer is on Open the full report", asyn
   await page.clock.runFor(10_000);
   await expect(player).toHaveAttribute("data-demo-beat", "launch");
   await expect(open).toBeVisible();
+});
+
+/**
+ * Plays to the end card: the run itself lasts at least 25 s before it (lib/marketing/demo-script.test.ts),
+ * so the first 24 s go in one stretch, then small slices until "Open the full report" shows.
+ */
+async function playToEndCard(page: Page, open: Locator) {
+  await page.clock.runFor(24_000);
+  await playUntil(page, () => open.isVisible(), 20_000);
+}
+
+test("holds the end card for at least 12 seconds, then loops", async ({ page }) => {
+  // Many clock slices: give a loaded machine room.
+  test.slow();
+  const { player, open } = await openDemo(page);
+  await playToEndCard(page, open);
+  // Nothing rests on the demo: it holds on its own for 12 seconds (exactly so in demo-timeline.test.ts;
+  // here with a second to spare for the page catching up), then starts over.
+  await page.clock.runFor(11_000);
+  await expect(player).toHaveAttribute("data-demo-beat", "launch");
+  await expect(open).toBeVisible();
+  await playUntil(page, async () => (await beatOf(page)) === "composer", 4_000);
+  await expect(player).toHaveAttribute("data-demo-playing", "true");
+});
+
+test("never loops while the pointer rests anywhere on the demo, or focus is in it", async ({ page }) => {
+  test.slow();
+  const { slot, player, open } = await openDemo(page);
+  await playToEndCard(page, open);
+  // The pointer on the stage, not on the link.
+  const box = (await player.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+  await expect(player).toHaveAttribute("data-demo-playing", "false");
+  await page.clock.runFor(30_000);
+  await expect(player).toHaveAttribute("data-demo-beat", "launch");
+  await expect(open).toBeVisible();
+
+  // Off the demo, with the keyboard on its controls: still held.
+  await page.mouse.move(2, 2);
+  await slot.getByRole("button", { name: "Pause the replay" }).focus();
+  await page.clock.runFor(30_000);
+  await expect(player).toHaveAttribute("data-demo-beat", "launch");
+  await expect(player).toHaveAttribute("data-demo-playing", "false");
+
+  // Focus leaves: the end card runs out its time, then the replay loops.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await expect(player).toHaveAttribute("data-demo-playing", "true");
+  await playUntil(page, async () => (await beatOf(page)) === "composer", 15_000);
 });
 
 test("stops while off screen or in a hidden tab", async ({ page }) => {

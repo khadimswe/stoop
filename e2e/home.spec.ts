@@ -31,11 +31,13 @@ test("the hero leads with the lead example's Reality Check until the hero clips 
   await expect(card.getByText("A generic AI brief assumed 25 to 44, in Austin and Portland.")).toBeVisible();
   await expect(card.getByText("Generic AI brief · not from Qloo")).toBeVisible();
 
-  // Beats 2 and 3: "See why it works" lands on the Screening Room with the music style receipt open.
-  await page.getByRole("link", { name: "See why it works" }).click();
-  await expect(page.getByRole("region", { name: "Same product. Same video model. Only the brief changed." })).toBeInViewport();
-  await expect(page.getByRole("complementary", { name: "Receipt: Music style" })).toBeVisible();
+  // Beats 2 and 3: "See why it works" opens the lead example's Screening Room with its music style receipt open.
+  const why = page.getByRole("link", { name: "See why it works" });
+  await expect(why).toHaveAttribute("href", "/examples/food-hot-sauce#receipt-music");
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  await why.click();
+  await expect(page).toHaveURL(/\/examples\/food-hot-sauce#receipt-music$/);
+  await expect(page.getByRole("dialog", { name: "Receipt: Music style" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -58,6 +60,13 @@ test("the H1 is the largest paint", async ({ page }) => {
 test("each concept world's cues switch the open receipt, and the full receipt opens in a drawer", async ({ page }) => {
   await page.goto("/");
   const screening = page.getByRole("region", { name: "Same product. Same video model. Only the brief changed." });
+  // Until clips are approved, every screen shows its concept preview (never an empty "clip coming"
+  // player), and the Control's says it is not from Qloo.
+  await expect(page.getByText(/clip coming/i)).toHaveCount(0);
+  const clips = screening.getByRole("region", { name: /^Screening Room clips/ });
+  await expect(clips.getByText("Concept preview")).toHaveCount(3);
+  await expect(clips.getByText("Shot 1 · Hook", { exact: false })).toHaveCount(3);
+  await expect(clips.locator("figure").first().getByText("Not from Qloo")).toBeVisible();
   const music = screening.getByRole("button", { name: /^Music style receipt/ }).first();
   await expect(music).toHaveAttribute("aria-pressed", "true");
   await screening.getByRole("button", { name: /^Setting receipt/ }).first().click();
@@ -93,6 +102,18 @@ test("the shelf shows the three examples with their recorded Reality Check lines
   await expect(shelf.getByText(/^Qloo measured a taste neighborhood/)).toHaveCount(3);
   // Whisker & Brim's age is a near tie, and it says so.
   await expect(shelf.getByText(/^Near tie on age/)).toBeVisible();
+  // One honest line, once on the landing, by the proof band: the brands are made up, the data is not.
+  const note = "The example brands are fictional. Their audiences are measured from real Qloo data.";
+  await expect(page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." }).getByText(note)).toBeVisible();
+  await expect(page.getByText(note)).toHaveCount(1);
+  // Each brand link is a 44 px tap target, and each screen is as tall as its own Reality Check: no
+  // empty dark block below the last line on the shorter cards.
+  for (const link of await shelf.getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const gaps = await shelf.locator("[data-surface='screen']").evaluateAll((screens) =>
+    screens.map((screen) => screen.getBoundingClientRect().bottom - screen.lastElementChild!.getBoundingClientRect().bottom),
+  );
+  expect(gaps).toHaveLength(3);
+  for (const gap of gaps) expect(gap).toBeLessThanOrEqual(24);
 });
 
 test("the three ways row sits below the shelf, one line each", async ({ page }) => {
@@ -155,9 +176,10 @@ test("the proof stats count up once to the recorded values, without moving the l
   const proof = page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." });
   const figures = proof.locator("[data-count-up]");
   await expect(figures).toHaveCount(4);
-  // Below the fold at load: wound back to its floor (an age never counts from under 18), out of
-  // sight, with the full value for screen readers.
-  await expect(figures.first().locator("[data-count-up-live]")).toHaveText("18+");
+  // Below the fold at load: a rank is wound back to its floor, out of sight, with the full value for
+  // screen readers. An age band never counts: it shows only what Qloo measured, on every frame.
+  await expect(figures.first().locator("[data-count-up-live]")).toHaveText("55+");
+  await expect(figures.last().locator("[data-count-up-live]")).toHaveText("18 to 24");
   await expect(figures.nth(1).locator("[data-count-up-live]")).toHaveText("#1 of 321");
   await expect(figures.first().locator(".sr-only")).toHaveText("55+");
   for (const [i, value] of FIGURES.entries()) {
@@ -174,7 +196,7 @@ test("the proof stats count up once to the recorded values, without moving the l
   expect(await figures.nth(1).locator("[data-count-up-live]").textContent()).toBe("#319 of 321");
 
   await proof.getByRole("button", { name: "See the receipt: Whisker & Brim, #319 of 321" }).click();
-  const drawer = page.getByRole("dialog", { name: "Receipt: Generic choice: city" });
+  const drawer = page.getByRole("dialog", { name: "Receipt: Generic AI brief's city, checked with Qloo" });
   await expect(drawer.getByText("Los Angeles, CA ranks #319 of 321 cities for this world").first()).toBeVisible();
   await expect(drawer.getByText("/v2/insights").first()).toBeVisible();
   await page.keyboard.press("Escape");
@@ -256,9 +278,14 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Reserve Campaign")).toBeVisible();
   await expect(dialog).toBeVisible();
+  // The whole form is on screen, its submit included, and the submit says what it does here.
+  const submit = dialog.getByRole("button", { name: "Reserve", exact: true });
+  await expect(submit).toBeInViewport({ ratio: 1 });
+  await expect(dialog.getByRole("textbox", { name: "Email" })).toBeInViewport({ ratio: 1 });
+  await expect.poll(() => dialog.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
   await dialog.getByRole("textbox", { name: "Email" }).fill("reserve@stoop-test.example");
   await dialog.getByRole("checkbox").check();
-  await dialog.getByRole("button", { name: "Get my free brief" }).click();
+  await submit.click();
   await expect(dialog.getByText("You're #7.")).toBeVisible();
   expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true, sourceReport: "home" });
 });
@@ -270,7 +297,7 @@ test("nothing pops up on its own, and the footer says what Stoop measures", asyn
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const footer = page.getByRole("contentinfo");
   await expect(footer.getByText("Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.")).toBeVisible();
-  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", /\/LICENSE$/);
+  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
   await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
   await expect(footer.getByRole("link", { name: "Use Stoop in Claude" })).toHaveAttribute("href", "/mcp");
 });

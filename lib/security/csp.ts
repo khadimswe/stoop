@@ -21,6 +21,11 @@ export const FAL_QUEUE_ORIGIN = "https://queue.fal.run";
 export const FAL_MEDIA_SOURCES = ["https://fal.media", "https://*.fal.media", "https://storage.googleapis.com/falserverless/"] as const;
 /** Every public Vercel Blob store is served from a subdomain here (frames and drafts). */
 export const PUBLIC_BLOB_SOURCE = "https://*.public.blob.vercel-storage.com";
+/**
+ * Every private Vercel Blob store is served from a subdomain here: a brand's product photos, read
+ * through presigned URLs (lib/storage.ts PrivateStorage), which /byok shows as thumbnails.
+ */
+export const PRIVATE_BLOB_SOURCE = "https://*.private.blob.vercel-storage.com";
 
 /** Vercel's documented sources for the preview toolbar (Comments, feedback). */
 const VERCEL_LIVE = {
@@ -65,6 +70,23 @@ export function publicStorageSources(env: Env = process.env): string[] {
   return [PUBLIC_BLOB_SOURCE, ...(r2 ? [r2] : [])];
 }
 
+/**
+ * Where /byok's presigned product photos come from, only for the private store this deployment has
+ * (as lib/storage.ts privateStorageFromEnv picks it by STORAGE_DRIVER): with Blob, any private Blob
+ * store once PRIVATE_BLOB_READ_WRITE_TOKEN is set; with R2, the refs bucket's own path on its S3 host
+ * (https://<account>.r2.cloudflarestorage.com/<bucket>/), never the whole host. Only the presence and
+ * shape of these values is read.
+ */
+export function privateStorageSources(env: Env = process.env): string[] {
+  const driver = env.STORAGE_DRIVER?.trim().toLowerCase() || "blob";
+  if (driver === "blob") return env.PRIVATE_BLOB_READ_WRITE_TOKEN?.trim() ? [PRIVATE_BLOB_SOURCE] : [];
+  if (driver !== "r2") return [];
+  const account = env.R2_ACCOUNT_ID?.trim() ?? "";
+  const bucket = env.R2_REFS_BUCKET?.trim() ?? "";
+  if (!/^[a-f0-9]{32}$/.test(account) || !/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)) return [];
+  return [`https://${account}.r2.cloudflarestorage.com/${bucket}/`];
+}
+
 /** Serializes directives in order: "name a b; name c". A directive with no sources is left out. */
 export function serializePolicy(directives: ReadonlyArray<readonly [string, readonly string[]]>): string {
   return directives
@@ -92,7 +114,11 @@ export function sitePolicy(env: Env = process.env, options: PolicyOptions = poli
   ]);
 }
 
-/** /byok: no inline code, fal's queue as the only outside connection, Trusted Types required, and no Trusted Types policy may be made. */
+/**
+ * /byok: no inline code, fal's queue as the only outside connection, Trusted Types required, and no
+ * Trusted Types policy may be made. Images may also come from the private stores, for the presigned
+ * product thumbnails.
+ */
 export function byokPolicy(env: Env = process.env): string {
   const storage = publicStorageSources(env);
   return serializePolicy([
@@ -100,7 +126,7 @@ export function byokPolicy(env: Env = process.env): string {
     ["script-src", ["'self'"]],
     ["style-src", ["'self'"]],
     ["connect-src", ["'self'", FAL_QUEUE_ORIGIN]],
-    ["img-src", ["'self'", ...FAL_MEDIA_SOURCES, ...storage]],
+    ["img-src", ["'self'", ...FAL_MEDIA_SOURCES, ...storage, ...privateStorageSources(env)]],
     ["media-src", [...FAL_MEDIA_SOURCES]],
     ["frame-ancestors", ["'none'"]],
     ["base-uri", ["'none'"]],

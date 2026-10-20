@@ -21,7 +21,7 @@ test("the judge's guide follows the three beats and links to the lead example", 
   // What Qloo decides, with a code link per call.
   const decides = page.getByRole("region", { name: "What Qloo decides" });
   await expect(decides.getByRole("table")).toBeVisible();
-  await expect(decides.getByRole("link", { name: /lib\/stages\/check\.ts/ })).toHaveAttribute("href", /github\.com\/.+\/lib\/stages\/check\.ts$/);
+  await expect(decides.getByRole("link", { name: /lib\/stages\/check\.ts/ })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/lib/stages/check.ts");
 
   // The scoreboard reads the check's own lines for every example.
   const scoreboard = page.getByRole("region", { name: "The generic brief, scored by Qloo" });

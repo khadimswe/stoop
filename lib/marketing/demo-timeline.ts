@@ -16,9 +16,15 @@ export const PACE = {
   reality: { lead: 250, perLine: 900, receipt: 600, hold: 2_200 },
   worlds: { lead: 250, perCard: 700, headline: 600, hold: 2_400 },
   storyboard: { lead: 300, perShot: 400, hold: 2_400 },
-  /** The closing hold keeps "Open the full report" up for a few seconds before the loop. */
-  launch: { lead: 300, perCell: 450, cta: 500, hold: 3_800 },
+  /**
+   * The end card: "Open the full report" stays up at least this long before the replay loops (the
+   * player also holds it for as long as the pointer or focus is on the demo).
+   */
+  launch: { lead: 300, perCell: 450, cta: 500, hold: 12_000 },
 } as const;
+
+/** The least time the end card's "Open the full report" is on screen before the replay loops. */
+export const END_CARD_MS = PACE.launch.hold;
 
 export interface BeatSpan {
   beat: DemoBeat;

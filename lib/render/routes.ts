@@ -1,6 +1,6 @@
 // The draft video routes, as handlers over plain Web Requests with their dependencies injected, so
 // tests run them on a MemoryStore, a fake fal queue and fake storage:
-//   GET  /api/render/access?reportId=&segment=  which video line this visitor sees (renderAccessResponseSchema)
+//   GET  /api/render/access?reportId=&segment=  which video line this visitor sees, and how long a draft runs (renderAccessResponseSchema)
 //   POST /api/render/plan {target}              the RenderPlan, built on the server (renderPlanResponseSchema)
 //   POST /api/render {target}                   a server-paid draft, judge pass only (renderStatusResponseSchema)
 //   GET  /api/render/<jobId>                    the job's status, advancing it when no poller has lately
@@ -195,7 +195,7 @@ export function createRenderAccessGet(deps: RenderRouteDeps) {
         const counters = renderCounters({ passId: pass.passId, visitor, day: dayOf(now) }, env.caps);
         room = renderRoom(counters, await counterUsage(store, counters));
       }
-      const answer = videoAccess({ renderable, byok: byokEnabled(deps.env), pass: pass !== null, server, room });
+      const answer = videoAccess({ renderable, byok: byokEnabled(deps.env), pass: pass !== null, server, room, draftSeconds: renderLimits(deps.env).draftSeconds });
       return json(renderAccessResponseSchema.parse(answer));
     });
 }

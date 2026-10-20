@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/stoop/logo";
-import { REPO_URL } from "@/lib/marketing/site";
+import { codeUrl } from "@/lib/marketing/site";
 
 const LINKS = [
   { href: "/#examples", label: "Examples" },
@@ -36,7 +36,7 @@ export function SiteFooter() {
         </div>
         <p className="border-t border-hairline pt-6 text-sm text-ink-soft">
           Open source under the{" "}
-          <a href={`${REPO_URL}/blob/main/LICENSE`} className="font-semibold text-ink underline underline-offset-4">
+          <a href={codeUrl("LICENSE")} className="font-semibold text-ink underline underline-offset-4">
             MIT license
           </a>
           . Built on Qloo&apos;s taste data for the Qloo Agentic Hackathon.

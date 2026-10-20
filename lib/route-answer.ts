@@ -1,7 +1,8 @@
-// Small helpers the frames and revise routes share: a size-capped JSON body read, and answers built
-// from the API contract's schemas (lib/api/responses.ts), so a route can never send a shape the
-// browser does not expect.
+// Small helpers the frames and revise routes share: the JSON body read every route uses (lib/http.ts
+// readJson: a JSON content type, capped while it streams), and answers built from the API contract's
+// schemas (lib/api/responses.ts), so a route can never send a shape the browser does not expect.
 import { apiErrorSchema, type ApiError } from "./api/responses";
+import { BodyError, readJson as readHttpJson } from "./http";
 
 export interface RouteAnswer<T> {
   status: number;
@@ -14,16 +15,19 @@ export function apiError(code: ApiError["error"]["code"], message: string, statu
   return { status, body: apiErrorSchema.parse({ error: { code, message: message.slice(0, 300) } }) };
 }
 
-/** The request's JSON body, or undefined when it is empty, too large or not JSON (the schema check then refuses it). */
-export async function readJson(request: Request, maxBytes = 4_096): Promise<unknown> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > maxBytes) return undefined;
-  const text = await request.text();
-  if (!text || new TextEncoder().encode(text).byteLength > maxBytes) return undefined;
+export type BodyRead = { ok: true; body: unknown } | { ok: false; answer: RouteAnswer<never> };
+
+/**
+ * The request's JSON body, read as lib/http.ts readJson reads it: sent as application/json (another
+ * site's plain form cannot), and stopped as soon as it passes `maxBytes`, whatever content-length
+ * says. Otherwise the answer to send: 415 not JSON, 413 too large, 400 bad JSON.
+ */
+export async function readJson(request: Request, maxBytes = 4_096): Promise<BodyRead> {
   try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return undefined;
+    return { ok: true, body: await readHttpJson(request, maxBytes) };
+  } catch (error) {
+    if (error instanceof BodyError) return { ok: false, answer: apiError("invalid", error.message, error.status) };
+    throw error;
   }
 }
 

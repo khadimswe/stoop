@@ -27,11 +27,11 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           <Link
             href={TRY_LINK.href}
-            className="hidden rounded-full px-3 py-2 text-[0.95rem] font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick sm:inline-block"
+            className="hidden items-center rounded-full px-3 py-2 text-[0.95rem] font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick sm:inline-flex pointer-coarse:min-h-11"
           >
             {TRY_LINK.label}
           </Link>
-          <WaitlistTrigger />
+          <WaitlistTrigger className="pointer-coarse:h-11" />
           <MobileMenu />
         </div>
       </nav>

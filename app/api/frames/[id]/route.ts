@@ -33,7 +33,8 @@ export async function POST(request: Request, ctx: RouteContext<"/api/frames/[id]
   const refused = await browserOnly(request, getBotCheck);
   if (refused) return refused;
   const { id } = await ctx.params;
-  const body = await readJson(request);
+  const read = await readJson(request);
+  if (!read.ok) return respond(read.answer);
   const renderer = frameRendererFromEnv();
   const storage = storageOrNull();
   const answer = await requestFrames(
@@ -52,7 +53,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/frames/[id]
       job: (job) => renderWorldFrames({ store: getStore(), storage, renderer, model: stoopModel(), abortSignal: AbortSignal.timeout(DEADLINE_MS) }, job),
     },
     id,
-    body,
+    read.body,
   );
   return respond(answer);
 }

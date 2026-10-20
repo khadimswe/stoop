@@ -8,7 +8,7 @@ import { rankedBuckets } from "../stages/measure";
 import { ageBandLabel } from "../types";
 import { receiptView, type Ledger } from "../report/view/receipts";
 import type { ReceiptRow, ReceiptView } from "../report/view/types";
-import { STATUS_LABELS } from "../report/view/why";
+import { genericCue, genericReceipt, STATUS_LABELS } from "../report/view/why";
 import type { Report } from "../report/schema";
 import type { ControlChoice } from "../report/world";
 import { figureText, num, text, type FigurePart } from "./count-up";
@@ -54,20 +54,18 @@ export interface ProofStatView {
 
 const brandOf = (report: Report) => report.inputs.product.brandName ?? report.inputs.product.name;
 
-/** The youngest age a counting figure may pass through: every frame of the count stays an adult band. */
-const ADULT = 18;
-
 /**
- * An age bucket as a figure that counts up from 18, never through an age under 18: "55 and older"
- * is 55+, the youngest bucket is "18 to 24" (adults only).
+ * An age bucket as a figure that stays put: Qloo measures age bands, not ages, so the count never
+ * runs through a number it did not measure (only ranks count up). "55 and older" is 55+, the youngest
+ * bucket is "18 to 24" (adults only).
  */
 export function ageFigure(bucket: AgeBucket): FigurePart[] {
-  if (bucket === "24_and_younger") return [num(ADULT, { from: ADULT }), text(" to ", "sm"), num(24, { from: ADULT })];
+  if (bucket === "24_and_younger") return [text("18"), text(" to ", "sm"), text("24")];
   const older = /^(\d+)_and_older$/.exec(bucket);
-  if (older) return [num(Number(older[1]), { from: ADULT }), text("+")];
+  if (older) return [text(older[1]), text("+")];
   const band = /^(\d+)_to_(\d+)$/.exec(bucket);
   if (!band) throw new Error(`Unknown age bucket ${bucket}`);
-  return [num(Number(band[1]), { from: ADULT }), text(" to ", "sm"), num(Number(band[2]), { from: ADULT })];
+  return [text(band[1]), text(" to ", "sm"), text(band[2])];
 }
 
 /** The Reality Check's age line as a stat, only when it is a full gap: a near tie or a confirmed read is never a stat. */
@@ -131,7 +129,8 @@ export function cityStat(slug: ExampleSlug, report: Report, ledger: Ledger): Pro
   const rank = choice.rank!;
   // The same city in the brand's other worlds, whatever the check found there: the whole picture, not one world.
   const others = ranked.filter((s) => s !== worst && s.choice.text === choice.text);
-  const calls = receiptView(ledger, evidenceOf(worst, others), "Generic choice: city", choice.measured!);
+  // Headed as the generic brief's pick checked with Qloo, as the report heads it.
+  const calls = genericReceipt(receiptView(ledger, evidenceOf(worst, others), genericCue("city"), choice.measured!));
   if (!calls) return null;
   const head: ReceiptRow[] = [
     { label: "Generic AI brief", value: `Picked ${choice.text} (not from Qloo)` },
@@ -166,7 +165,7 @@ export function musicStat(slug: ExampleSlug, report: Report, ledger: Ledger): Pr
   const tag = report.control?.mappings.find((m) => m.dimension === "music" && m.text === choice.text)?.ref?.name ?? null;
   // The same music scored for the brand's other worlds, whatever it found: one brief, different fits.
   const others = placed.filter((s) => s !== worst && s.choice.text === choice.text);
-  const calls = receiptView(ledger, evidenceOf(worst, others), "Generic choice: music", choice.measured ?? choice.text);
+  const calls = genericReceipt(receiptView(ledger, evidenceOf(worst, others), genericCue("music"), choice.measured ?? choice.text));
   if (!calls || !tag) return null;
   const head: ReceiptRow[] = [
     { label: "Generic AI brief", value: `${choice.text} (not from Qloo)` },

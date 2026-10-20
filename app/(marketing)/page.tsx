@@ -17,6 +17,7 @@ import { loadDemoScript } from "@/lib/marketing/demo-source";
 import { ageSkewMini, agentDemoStill, realityCard, screeningPreview, shelfItem, teaserView } from "@/lib/marketing/landing";
 import { PROOF_PICKS, proofStats } from "@/lib/marketing/proof";
 import { loadExampleMedia, loadExampleReport } from "@/lib/report/load";
+import { receiptHash } from "@/lib/report/view/deep-link";
 import { ledgerOf } from "@/lib/report/view/receipts";
 import approvals from "@/public/demo/approvals.json";
 import manifest from "@/public/demo/manifest.json";
@@ -28,6 +29,9 @@ export const ensureStatic = "navigation";
 // falls back to the lead example's Reality Check card (beat 1), then its Screening Room (beat 2) with
 // one receipt open (beat 3).
 const mode = heroMode(manifestSchema.parse(manifest), approvalsSchema.parse(approvals), LEAD_EXAMPLE.slug);
+
+/** "See why it works": the lead example's Screening Room with its music style receipt open (beats 2 and 3). */
+const WHY_HREF = `/examples/${LEAD_EXAMPLE.slug}${receiptHash("music")}`;
 
 export default function Home() {
   const lead = loadExampleReport(LEAD_EXAMPLE.slug);
@@ -47,6 +51,7 @@ export default function Home() {
     mode.kind === "blind-test" ? (
       <BlindTest
         example={mode.example}
+        screeningHref={WHY_HREF}
         culture={{ src: mode.culture.file, poster: mode.culture.poster, captions: mode.culture.captions }}
         control={{ src: mode.control.file, poster: mode.control.poster, captions: mode.control.captions }}
         cultureLabel={lead.worlds.find((w) => w.segmentId === mode.culture.segmentId)?.label ?? lead.worlds[0]?.label ?? "Concept world"}
@@ -59,7 +64,7 @@ export default function Home() {
   return (
     <main data-hero-mode={mode.kind} className="flex-1">
       <Hero
-        primary={mode.kind === "blind-test" ? { label: "See a real example", href: `/examples/${LEAD_EXAMPLE.slug}` } : { label: "See why it works", href: "#screening" }}
+        primary={mode.kind === "blind-test" ? { label: "See a real example", href: `/examples/${LEAD_EXAMPLE.slug}` } : { label: "See why it works", href: WHY_HREF }}
         object={object}
       />
       {/* The replay of the lead's recorded run. Its own fixed shape sets the screen's height; it loads as its own chunk. */}

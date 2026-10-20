@@ -3,11 +3,11 @@
 // A listing shows the label ("stp_" plus 4 hex of the hash), a reference (the first 12 hex of the hash,
 // which tells tokens with the same label apart and is no use for calling Stoop), the dates and the
 // status; never the email hash.
-import { keys, TTL } from "../store/keys";
+import { keys } from "../store/keys";
 import type { Store } from "../store/types";
 import { saltedHash } from "../store/visitor";
 import { normalizeEmail } from "../waitlist";
-import { mcpTokenRecordSchema, tokenActive, type McpTokenRecord } from "./token";
+import { mcpTokenRecordSchema, tokenActive, tokenRecordTtl, type McpTokenRecord } from "./token";
 
 export interface TokenListing {
   label: string;
@@ -63,7 +63,7 @@ async function revoke(store: Store, tokens: readonly StoredToken[], now: number)
     if (record.revokedAt !== null) continue;
     const next = { ...record, revokedAt: at };
     // A set without a TTL would clear the record's expiry, so it is given one again.
-    await store.set(keys.mcp.token(hash), mcpTokenRecordSchema.parse(next), { ttlSeconds: TTL.mcpToken });
+    await store.set(keys.mcp.token(hash), mcpTokenRecordSchema.parse(next), { ttlSeconds: tokenRecordTtl(Date.parse(record.expiresAt), now) });
     revoked.push(listing({ hash, record: next }, now));
   }
   return revoked;

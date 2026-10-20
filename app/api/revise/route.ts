@@ -22,7 +22,8 @@ const DEADLINE_MS = 280_000;
 export async function POST(request: Request) {
   const refused = await browserOnly(request, getBotCheck);
   if (refused) return refused;
-  const body = await readJson(request);
+  const read = await readJson(request);
+  if (!read.ok) return respond(read.answer);
   const answer = await requestRevision({
     live: isLive(),
     store: getStore,
@@ -50,6 +51,6 @@ export async function POST(request: Request) {
         job,
       );
     },
-  }, body);
+  }, read.body);
   return respond(answer);
 }

@@ -21,15 +21,18 @@ export interface WaitlistSignup {
  * "Get a free brief": the waitlist. Email plus where they sell; the product link is asked for on
  * the success screen, where it doubles as the free-brief request (posted with the same signup, so it
  * lands on the same entry). A hidden honeypot field catches bots.
- * Without `onSubmit` (the style tile) the form is shown but cannot be sent.
+ * Without `onSubmit` the form is shown but cannot be sent. `submitLabel` names the button for the
+ * entry point it opened from ("Reserve" from a pricing card).
  */
 export function WaitlistForm({
   onSubmit,
   onProductLink,
+  submitLabel = "Get my free brief",
   className,
 }: {
   onSubmit?: (signup: WaitlistSignup) => Promise<{ position: number }>;
   onProductLink?: (url: string, signup: WaitlistSignup) => Promise<void>;
+  submitLabel?: string;
   className?: string;
 }) {
   const id = useId();
@@ -106,15 +109,16 @@ export function WaitlistForm({
         </div>
       </fieldset>
 
-      <div className="flex items-start gap-2.5">
+      {/* The label is the tap target: at least 44 px tall, and the box's own hit area grows to 44 px too. */}
+      <div className="-my-1.5 flex items-start gap-2.5">
         <Checkbox
           id={`${id}-consent`}
           checked={consent}
           onCheckedChange={(value) => setConsent(value === true)}
           required
-          className="mt-0.5 border-[1.5px] border-concrete-line"
+          className="mt-[0.8125rem] border-[1.5px] border-concrete-line after:-inset-3.5"
         />
-        <Label htmlFor={`${id}-consent`} className="text-sm leading-snug font-medium text-ink-soft">
+        <Label htmlFor={`${id}-consent`} className="min-h-11 flex-1 cursor-pointer py-2.5 text-sm leading-snug font-medium text-ink-soft">
           Email me my free brief and Stoop updates. Unsubscribe anytime.
         </Label>
       </div>
@@ -130,7 +134,7 @@ export function WaitlistForm({
       />
 
       <Button type="submit" disabled={!onSubmit || state.kind === "sending" || !consent} className="self-start">
-        {state.kind === "sending" ? "Saving your spot" : "Get my free brief"}
+        {state.kind === "sending" ? "Saving your spot" : submitLabel}
         <ArrowRight data-icon="inline-end" aria-hidden="true" />
       </Button>
 

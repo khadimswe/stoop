@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codeUrl, metadataOrigin, siteOrigin } from "./site";
+import { codeUrl, metadataOrigin, REPO_URL, siteOrigin } from "./site";
 
 describe("metadataOrigin", () => {
   it("prefers the configured site URL", () => {
@@ -21,6 +21,11 @@ describe("siteOrigin and codeUrl", () => {
   it("keeps a clean origin for snippets, and links code on main", () => {
     expect(siteOrigin("https://stoop.example/")).toBe("https://stoop.example");
     expect(siteOrigin(undefined)).toBe("https://stoop.example");
-    expect(codeUrl("lib/qloo/client.ts")).toMatch(/\/blob\/main\/lib\/qloo\/client\.ts$/);
+    expect(codeUrl("lib/qloo/client.ts")).toBe(`${REPO_URL}/blob/main/lib/qloo/client.ts`);
+  });
+
+  it("links the public repository, the one place its address is set", () => {
+    expect(REPO_URL).toBe("https://github.com/khadimswe/stoop-public");
+    expect(codeUrl("LICENSE")).toBe("https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
   });
 });

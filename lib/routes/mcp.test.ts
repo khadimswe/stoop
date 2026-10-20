@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { allowAll, type BotCheck } from "../bot-check";
 import { callerOf, tokenLabel } from "../mcp/auth";
 import { storeToken } from "../mcp/fixture-token";
-import { newToken } from "../mcp/token";
+import { newToken, tokenHash } from "../mcp/token";
 import { RATE_RULES } from "../rate-limit";
 import { MemoryStore } from "../store/memory";
 import { createMcpGet, createMcpPost, MCP_MAX_BYTES } from "./mcp";
@@ -102,6 +102,23 @@ describe("POST /api/mcp", () => {
     expect(seen.map((a) => callerOf(a).status)).toEqual(["valid", "missing", "unknown", "unknown", "revoked", "expired"]);
   });
 
+  it("refuses a token as expired once JUDGING_ENDS_AT, as set now, has passed, whatever its stored expiry", async () => {
+    const store = new MemoryStore();
+    // Stored with an expiry far ahead, as if issued under a later end date.
+    const { token } = await storeToken(store, { expiresAt: "2099-01-01T00:00:00.000Z" });
+    const seen: (AuthInfo | undefined)[] = [];
+    const post = createMcpPost({ store: () => store, botCheck: () => allowAll, handler: async (r) => (seen.push((r as Request & { auth?: AuthInfo }).auth), Response.json({})) });
+    const send = () => post(new Request("https://stoop.example/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: "{}" }));
+    try {
+      vi.stubEnv("JUDGING_ENDS_AT", "2026-01-01T00:00:00Z");
+      await send();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    await send();
+    expect(seen.map((a) => callerOf(a).status)).toEqual(["expired", "valid"]);
+  });
+
   it("guards GET too: the bot check and the per-IP limit run before the handler", async () => {
     const store = new MemoryStore();
     const handler = vi.fn(async () => new Response(null, { status: 405 }));
@@ -143,8 +160,10 @@ describe("POST /api/mcp", () => {
       expect(failed.status).toBe(500);
       expect(await failed.text()).not.toContain(token);
       const logged = errors.mock.calls.map((args) => args.map(String).join(" ")).join("\n");
-      expect(logged).toContain(`${token.slice(0, 8)}...`);
+      // Named by its label, from the hash: no character of the token past its prefix is logged.
+      expect(logged).toContain(`[token ${tokenLabel(tokenHash(token))}]`);
       expect(logged).not.toContain(token);
+      expect(logged).not.toContain(token.slice(0, 8));
       expect(logged).not.toContain(token.slice(8));
     } finally {
       errors.mockRestore();

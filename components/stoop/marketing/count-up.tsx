@@ -16,10 +16,12 @@ export function CountUp({ parts, className, smallClassName }: { parts: FigurePar
   // 1 is the finished count: what the server and a page without JavaScript show.
   const [progress, setProgress] = useState(1);
   const final = figureText(parts);
+  // A figure with nothing to count (an age band) stays exactly as measured.
+  const counts = parts.some((part) => part.kind === "number");
 
   useEffect(() => {
     const node = ref.current;
-    if (!node || typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!counts || !node || typeof IntersectionObserver === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let frame = 0;
     let armed = false;
     const observer = new IntersectionObserver(
@@ -50,7 +52,7 @@ export function CountUp({ parts, className, smallClassName }: { parts: FigurePar
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [counts]);
 
   const render = (texts: string[]) =>
     parts.map((part, i) => (

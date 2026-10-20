@@ -2,7 +2,7 @@ import { buildCustomRoute } from "next/dist/lib/build-custom-route";
 import { unstable_getResponseFromNextConfig } from "next/experimental/testing/server";
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { BYOK_SOURCE, byokHeaders, byokPolicy, publicStorageSources, securityHeaderRules, SITE_SOURCE, sitePolicy, siteHeaders } from "./csp";
+import { BYOK_SOURCE, byokHeaders, byokPolicy, privateStorageSources, publicStorageSources, securityHeaderRules, SITE_SOURCE, sitePolicy, siteHeaders } from "./csp";
 
 const PROD = { dev: false, preview: false };
 const directives = (policy: string) => new Map(policy.split("; ").map((part) => [part.split(" ")[0], part.split(" ").slice(1)] as const));
@@ -73,6 +73,27 @@ describe("the /byok policy", () => {
       ].join("; "),
     );
     expect(byokPolicy({ NODE_ENV: "development", VERCEL_ENV: "preview" })).not.toMatch(/unsafe|vercel\.live/);
+  });
+
+  it("shows presigned product thumbnails only from the private store this deployment has", () => {
+    const account = "0123456789abcdef0123456789abcdef";
+    const blob = { PRIVATE_BLOB_READ_WRITE_TOKEN: "set" };
+    const r2 = { STORAGE_DRIVER: "r2", R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" };
+    // Blob (the default driver): any private Blob store, once a private store is configured.
+    expect(privateStorageSources({})).toEqual([]);
+    expect(privateStorageSources(blob)).toEqual(["https://*.private.blob.vercel-storage.com"]);
+    // R2: the refs bucket's own path, never the whole account host, and never the Blob wildcard.
+    expect(privateStorageSources({ ...r2, ...blob })).toEqual([`https://${account}.r2.cloudflarestorage.com/stoop-refs/`]);
+    // No refs bucket, or values that are not an account id and a bucket name: nothing.
+    expect(privateStorageSources({ STORAGE_DRIVER: "r2", R2_ACCOUNT_ID: account })).toEqual([]);
+    expect(privateStorageSources({ ...r2, R2_ACCOUNT_ID: "evil.example/x" })).toEqual([]);
+    expect(privateStorageSources({ ...r2, R2_REFS_BUCKET: "a/../b" })).toEqual([]);
+    expect(directives(byokPolicy(blob)).get("img-src")).toContain("https://*.private.blob.vercel-storage.com");
+    expect(directives(byokPolicy(r2)).get("img-src")).toContain(`https://${account}.r2.cloudflarestorage.com/stoop-refs/`);
+    expect(byokPolicy({})).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
+    // Only images: the private stores never reach media, scripts or connections, nor the site policy.
+    expect(directives(byokPolicy(r2)).get("connect-src")).toEqual(["'self'", "https://queue.fal.run"]);
+    expect(sitePolicy({ ...r2, ...blob }, PROD)).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
   });
 
   it("isolates the page: same-origin opener, no referrer, nosniff", () => {

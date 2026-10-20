@@ -22,7 +22,16 @@ test("the page pitches, holds a labeled slot for the capture and shows setup wit
   await page.goto("/mcp");
   await expect(page.getByRole("heading", { level: 1, name: "Use Stoop inside your Claude" })).toBeVisible();
   await expect(page.getByText("Works inside your Claude, with your own video tools.")).toBeVisible();
-  await expect(page.getByText("Screen capture coming")).toBeVisible();
+  // Until the founder's recording exists, the hero screen shows the real score_brief exchange, labeled.
+  const capture = page.getByRole("figure", { name: /^Example session, shortened: Stoop's score_brief tool/ });
+  await expect(capture.getByText("Example session, shortened", { exact: true })).toBeVisible();
+  // The reply was written from the tool's result by the session script, and says so: never labeled as Claude.
+  await expect(capture.getByText("Reply written from the tool's result", { exact: true })).toBeVisible();
+  await expect(capture.getByText("Claude", { exact: true })).toHaveCount(0);
+  await expect(capture.getByText("score_brief", { exact: true })).toBeVisible();
+  await expect(capture.getByText(/below the reference median, beats \d+ of \d+ reference music tags/)).toBeVisible();
+  await expect(capture.getByText(/Want a full Culture Brief\?$/)).toBeVisible();
+  await expect(page.getByText(/screen capture coming/i)).toHaveCount(0);
   await expect(page.locator("video")).toHaveCount(0);
 
   const setup = page.getByRole("region", { name: /Add Stoop to Claude/ });

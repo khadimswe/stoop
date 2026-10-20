@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ExampleSession } from "@/components/stoop/marketing/example-session";
 import { McpTokenForm } from "@/components/stoop/marketing/mcp-token-form";
+import { SessionCapture } from "@/components/stoop/marketing/session-capture";
 import { SetupSnippets } from "@/components/stoop/marketing/setup-snippets";
-import { Screen } from "@/components/stoop/screen";
 import { judgingEndsAt, mcpCaps } from "@/lib/config";
+import { exampleSession } from "@/lib/marketing/mcp-session";
 import { loadRecordedSession } from "@/lib/marketing/mcp-session-data";
 import { expiryText } from "@/lib/marketing/mcp-token";
 import { siteOrigin } from "@/lib/marketing/site";
@@ -24,6 +25,8 @@ const EXPIRES = new Date(judgingEndsAt()).toISOString();
 const PER_TOKEN = mcpCaps().perToken;
 
 export default function McpPage() {
+  // score_brief's recorded answer and Claude's reply, read once at build time for both screens.
+  const recorded = loadRecordedSession();
   return (
     <main className="flex-1">
       <header className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-12 gap-y-10 px-5 pt-12 pb-16 sm:pt-16">
@@ -41,14 +44,8 @@ export default function McpPage() {
             report link.
           </p>
         </div>
-        {/* The founder records a 30 to 60 s capture for this slot. Until then, a labeled screen: never a fake video. */}
-        <figure className="flex min-w-0 flex-[1_1_28rem] flex-col gap-2">
-          <Screen className="flex aspect-video w-full flex-col items-center justify-center gap-2 p-6 text-center">
-            <p className="font-mono text-xs tracking-widest text-paper-dim uppercase">Screen capture coming</p>
-            <p className="max-w-[24rem] text-sm text-paper-dim">A short recording of Stoop running inside Claude goes here, with captions.</p>
-          </Screen>
-          <figcaption className="sr-only">Screen capture of Stoop inside Claude, not recorded yet</figcaption>
-        </figure>
+        {/* The founder's 30 to 60 s capture goes in this slot (lib/marketing/mcp-capture.ts). Until then, the example session's opening exchange. */}
+        <SessionCapture turns={exampleSession(ORIGIN, recorded)} />
       </header>
 
       <Step n={1} id="token" title="Get a token">
@@ -76,7 +73,7 @@ export default function McpPage() {
       </Step>
 
       <Step n={3} id="session" title="Ask Claude">
-        <ExampleSession fallbackOrigin={ORIGIN} recorded={loadRecordedSession()} />
+        <ExampleSession fallbackOrigin={ORIGIN} recorded={recorded} />
       </Step>
     </main>
   );

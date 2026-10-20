@@ -193,6 +193,23 @@ describe("POST /api/mcp/token", () => {
     }
   });
 
+  it("keeps the token's record until judging ends, however far off JUDGING_ENDS_AT is", async () => {
+    let clock = NOW;
+    const store = new MemoryStore({ now: () => clock });
+    const endsAt = "2027-03-01T00:00:00.000Z";
+    const { post } = setup({ store, env: { JUDGING_ENDS_AT: endsAt } });
+    const body = mcpTokenResponseSchema.parse(await (await ask(post)).json());
+    expect(body.expiresAt).toBe(endsAt);
+    const hash = tokenHash(body.token);
+    // A day before judging ends (months past the 45-day floor): still stored, listed and valid.
+    clock = Date.parse(endsAt) - 24 * 60 * 60 * 1000;
+    expect(await identify(store, new Headers({ authorization: `Bearer ${body.token}` }), clock, Date.parse(endsAt))).toEqual({ status: "valid", hash, label: tokenLabel(hash) });
+    expect(await store.range(keys.mcp.tokens, 0, -1)).toEqual([hash]);
+    // Just past it: refused as expired, not unknown.
+    clock = Date.parse(endsAt) + 60_000;
+    expect(await identify(store, new Headers({ authorization: `Bearer ${body.token}` }), clock, Date.parse(endsAt))).toEqual({ status: "expired" });
+  });
+
   it("closes when judging ends", async () => {
     const { post, store } = setup({ env: { JUDGING_ENDS_AT: "2026-10-20T00:00:00Z" } });
     const response = await ask(post);

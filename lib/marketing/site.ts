@@ -1,10 +1,16 @@
 // Small constants for the marketing pages, in a plain module so server and client files can share them.
 
-/** The public repository (the code links on /judges and the footer's license). */
-export const REPO_URL = "https://github.com/khadimswe/stoop";
+/**
+ * The public repository: every code link on the site (/judges, the footer's license) comes from here.
+ * It is the public mirror of the code, which leaves out Qloo response data. Change the address here only.
+ */
+export const REPO_URL = "https://github.com/khadimswe/stoop-public";
 
 /** A link to one file in the repository, for the "What Qloo decides" map. */
 export const codeUrl = (path: string) => `${REPO_URL}/blob/main/${path}`;
+
+/** The landing's one line on the examples, shown once, by the proof band: the brands are made up, the data is not. */
+export const FICTIONAL_BRANDS_NOTE = "The example brands are fictional. Their audiences are measured from real Qloo data.";
 
 const ORIGIN = /^https?:\/\/[^\s/]+$/;
 const clean = (value: string | undefined) => value?.trim().replace(/\/+$/, "") || undefined;

@@ -11,7 +11,7 @@ import { callCounts, RAIL, STAGE_LABELS } from "../run/rail";
 import { launchPlanView } from "../report/view/launch";
 import { buildDemoScript, DEMO_INTERESTS, receiptLine, shortDate } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
-import { demoTimeline } from "./demo-timeline";
+import { demoTimeline, END_CARD_MS } from "./demo-timeline";
 import { describeRecorded } from "../testing/recorded";
 
 const events = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.events.json`, "utf8")) as RunEvent[];
@@ -186,12 +186,13 @@ describeRecorded("the agent demo for the lead example (food-hot-sauce)", () => {
     expect(script.summary).toContain("Oct 16, 2026");
   });
 
-  it("plays its beats in order, in about 25 to 40 seconds", () => {
+  it("plays its beats in order, in about 25 to 40 seconds, then holds its end card", () => {
     const timeline = demoTimeline(script);
     expect(timeline.beats.map((b) => b.beat)).toEqual([...DEMO_BEATS]);
     expect(DEMO_BEATS).toEqual(["composer", "seeds", "trace", "reality", "worlds", "storyboard", "launch"]);
-    expect(timeline.total).toBeGreaterThanOrEqual(25_000);
-    expect(timeline.total).toBeLessThanOrEqual(40_000);
+    // The run itself, up to the end card; the end card then stays up for END_CARD_MS before the loop.
+    expect(timeline.total - END_CARD_MS).toBeGreaterThanOrEqual(25_000);
+    expect(timeline.total - END_CARD_MS).toBeLessThanOrEqual(40_000);
   });
 
   it("stays under its 30 KB size budget", () => {
