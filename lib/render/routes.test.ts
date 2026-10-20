@@ -186,24 +186,30 @@ describeRecorded("POST /api/render", () => {
 
 describeRecorded("GET /api/render/access", () => {
   it("says byok to visitors without a pass, and off when BYOK is off too", async () => {
-    expect(await (await setup().access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true });
-    expect(await (await setup({ env: { ENABLE_BYOK: "false" } }).access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "off", rendersLeft: null, byok: false });
+    expect(await (await setup().access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true, draftSeconds: 15 });
+    expect(await (await setup({ env: { ENABLE_BYOK: "false" } }).access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "off", rendersLeft: null, byok: false, draftSeconds: 15 });
+  });
+
+  it("says how long a draft runs, from RENDER_DRAFT_SECONDS, on every line", async () => {
+    expect(await (await setup({ env: { RENDER_DRAFT_SECONDS: "8" } }).access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true, draftSeconds: 8 });
+    const judge = setup({ env: { RENDER_DRAFT_SECONDS: "6" } });
+    expect(await (await judge.access(HOT_SAUCE.meta.id, WORLD, { cookie: judge.pass() })).json()).toMatchObject({ video: "judge", draftSeconds: 6 });
   });
 
   it("says judge with the drafts left, then budget-used once the pass is spent", async () => {
     const t = setup();
     const cookie = t.pass();
-    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "judge", rendersLeft: 3, byok: true });
+    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "judge", rendersLeft: 3, byok: true, draftSeconds: 15 });
     await t.render(target(), { cookie });
-    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "judge", rendersLeft: 2, byok: true });
+    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "judge", rendersLeft: 2, byok: true, draftSeconds: 15 });
     await t.render(target(HOT_SAUCE.worlds[1].segmentId), { cookie });
     await t.render(target(CONTROL_SEGMENT), { cookie });
-    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "budget-used", rendersLeft: 0, byok: true });
+    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie })).json()).toEqual({ video: "budget-used", rendersLeft: 0, byok: true, draftSeconds: 15 });
   });
 
   it("says off for an example whose prompt the founder has not approved, and the plan and render refuse it", async () => {
     const t = setup({ approved: new Set() });
-    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false });
+    expect(await (await t.access(HOT_SAUCE.meta.id, WORLD, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false, draftSeconds: 15 });
     const plan = await t.plan(target());
     expect(plan.status).toBe(409);
     expect(await plan.json()).toEqual({ error: { code: "off", message: "This example's prompt is not approved for rendering yet." } });
@@ -219,16 +225,16 @@ describeRecorded("GET /api/render/access", () => {
   it("says off for a live world that needs the brand's photo when no private store is set up", async () => {
     const t = setup({ privateStorage: false });
     const segment = liveReport().worlds[0].segmentId;
-    expect(await (await t.access(LIVE_RUN_ID, segment, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false });
+    expect(await (await t.access(LIVE_RUN_ID, segment, { cookie: t.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false, draftSeconds: 15 });
     expect((await t.plan({ reportId: LIVE_RUN_ID, segment })).status).toBe(503);
-    expect(await (await setup().access(LIVE_RUN_ID, segment)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true });
+    expect(await (await setup().access(LIVE_RUN_ID, segment)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true, draftSeconds: 15 });
   });
 
   it("falls back to byok for a pass while server drafts are off, and to off where nothing can render", async () => {
     const off = setup({ env: { ENABLE_LIVE_VIDEO: "false" } });
-    expect(await (await off.access(HOT_SAUCE.meta.id, WORLD, { cookie: off.pass() })).json()).toEqual({ video: "byok", rendersLeft: null, byok: true });
+    expect(await (await off.access(HOT_SAUCE.meta.id, WORLD, { cookie: off.pass() })).json()).toEqual({ video: "byok", rendersLeft: null, byok: true, draftSeconds: 15 });
     const preview = setup({ env: { RENDER_REFS_BASE_URL: "", VERCEL_ENV: "preview" } });
-    expect(await (await preview.access(HOT_SAUCE.meta.id, WORLD, { cookie: preview.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false });
+    expect(await (await preview.access(HOT_SAUCE.meta.id, WORLD, { cookie: preview.pass() })).json()).toEqual({ video: "off", rendersLeft: 3, byok: false, draftSeconds: 15 });
     expect((await setup().access(HOT_SAUCE.meta.id, "seg-nope")).status).toBe(404);
     expect((await setup().access("example-nope", WORLD)).status).toBe(404);
     expect((await setup().access("nope", WORLD)).status).toBe(400);

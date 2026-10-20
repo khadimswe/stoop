@@ -4,16 +4,17 @@
 // success; nothing is stored, counted or sent), then the issuing limits reserved before anything is
 // issued (3 per IP per day, 100 overall per day; given back if issuing fails). The email joins the
 // waitlist with source "mcp" through the waitlist module (its rules unchanged). Only the token's hash
-// and its record are stored; the token itself is in this one response and in at most one email, and
-// nowhere else: never logged, never stored, not even its first characters (the label comes from the hash).
+// and its record are stored, the record kept until judging ends and a little past it (tokenRecordTtl);
+// the token itself is in this one response and in at most one email, and nowhere else: never logged,
+// never stored, not even its first characters. Its label comes from the hash, and a log line that
+// quotes a token shows that label instead (lib/mcp/token.ts redactTokens).
 import { z } from "zod";
 import { mcpTokenRequestSchema } from "../api/requests";
 import { mcpTokenResponseSchema } from "../api/responses";
 import { judgingEndsAt, mcpCaps, type McpCaps } from "../config";
 import { sendMcpToken, type Mailer } from "../email";
 import { apiError, BodyError, cookieHeader, json, readCookie, readJson } from "../http";
-import { tokenLabel } from "../mcp/auth";
-import { mcpTokenRecordSchema, newToken, redactTokens, tokenHash } from "../mcp/token";
+import { mcpTokenRecordSchema, newToken, redactTokens, tokenHash, tokenLabel, tokenRecordTtl } from "../mcp/token";
 import { EVERYONE, RATE_RULES, reserveEach, ruleCounter, type Capped } from "../rate-limit";
 import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
@@ -122,9 +123,11 @@ export function createMcpTokenPost(deps: McpTokenDeps) {
         const hash = tokenHash(token);
         // The label comes from the hash, so no character of the token is kept anywhere.
         const record = mcpTokenRecordSchema.parse({ email: emailHash, issuedAt: new Date(now).toISOString(), expiresAt, revokedAt: null, label: tokenLabel(hash) });
+        // Kept until judging ends (JUDGING_ENDS_AT, however far off) and a little past it.
+        const ttlSeconds = tokenRecordTtl(endsAt, now);
         // Listed before it is written, so the revoke script can always find a token that exists.
-        await store.append(keys.mcp.tokens, [hash], { ttlSeconds: TTL.mcpToken });
-        if (!(await store.set(keys.mcp.token(hash), record, { ttlSeconds: TTL.mcpToken, ifAbsent: true }))) throw new Error("A new MCP token matched one already issued.");
+        await store.append(keys.mcp.tokens, [hash], { ttlSeconds });
+        if (!(await store.set(keys.mcp.token(hash), record, { ttlSeconds, ifAbsent: true }))) throw new Error("A new MCP token matched one already issued.");
         issued = true;
 
         // One email per token, at most 2 a day to one address and within the token emails' own daily

@@ -2,7 +2,7 @@ import { buildCustomRoute } from "next/dist/lib/build-custom-route";
 import { unstable_getResponseFromNextConfig } from "next/experimental/testing/server";
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { BYOK_SOURCE, byokHeaders, byokPolicy, publicStorageSources, securityHeaderRules, SITE_SOURCE, sitePolicy, siteHeaders } from "./csp";
+import { BYOK_SOURCE, byokHeaders, byokPolicy, privateStorageSources, publicStorageSources, securityHeaderRules, SITE_SOURCE, sitePolicy, siteHeaders } from "./csp";
 
 const PROD = { dev: false, preview: false };
 const directives = (policy: string) => new Map(policy.split("; ").map((part) => [part.split(" ")[0], part.split(" ").slice(1)] as const));
@@ -63,7 +63,7 @@ describe("the /byok policy", () => {
         "script-src 'self'",
         "style-src 'self'",
         "connect-src 'self' https://queue.fal.run",
-        "img-src 'self' https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/ https://*.public.blob.vercel-storage.com",
+        "img-src 'self' https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/ https://*.public.blob.vercel-storage.com https://*.private.blob.vercel-storage.com",
         "media-src https://fal.media https://*.fal.media https://storage.googleapis.com/falserverless/",
         "frame-ancestors 'none'",
         "base-uri 'none'",
@@ -73,6 +73,23 @@ describe("the /byok policy", () => {
       ].join("; "),
     );
     expect(byokPolicy({ NODE_ENV: "development", VERCEL_ENV: "preview" })).not.toMatch(/unsafe|vercel\.live/);
+  });
+
+  it("shows presigned product thumbnails from the private stores: any private Blob store, and the R2 refs bucket's host when it is set", () => {
+    const account = "0123456789abcdef0123456789abcdef";
+    expect(privateStorageSources({})).toEqual(["https://*.private.blob.vercel-storage.com"]);
+    expect(privateStorageSources({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).toEqual([
+      "https://*.private.blob.vercel-storage.com",
+      `https://${account}.r2.cloudflarestorage.com`,
+    ]);
+    // No refs bucket, or an account id that is not one: no R2 host.
+    expect(privateStorageSources({ R2_ACCOUNT_ID: account })).toEqual(["https://*.private.blob.vercel-storage.com"]);
+    expect(privateStorageSources({ R2_ACCOUNT_ID: "evil.example/x", R2_REFS_BUCKET: "stoop-refs" })).toEqual(["https://*.private.blob.vercel-storage.com"]);
+    const img = directives(byokPolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).get("img-src");
+    expect(img).toEqual(expect.arrayContaining(["https://*.private.blob.vercel-storage.com", `https://${account}.r2.cloudflarestorage.com`]));
+    // Only images: the private stores never reach media, scripts or connections.
+    expect(directives(byokPolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" })).get("connect-src")).toEqual(["'self'", "https://queue.fal.run"]);
+    expect(sitePolicy({ R2_ACCOUNT_ID: account, R2_REFS_BUCKET: "stoop-refs" }, PROD)).not.toMatch(/private\.blob|r2\.cloudflarestorage/);
   });
 
   it("isolates the page: same-origin opener, no referrer, nosniff", () => {

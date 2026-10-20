@@ -95,6 +95,34 @@ describe("the runtime routes in replay mode (no store at all)", () => {
     expect(await store.get(keys.daily("live-runs"))).toBeNull();
   });
 
+  it("refuses a resume posted from another site or flagged by the bot check, before the store is touched", async () => {
+    const asked = { store: 0 };
+    const counting = (botCheck?: RouteDeps["botCheck"]): RouteDeps => ({
+      ...deps({ STOOP_LIVE: "true" }, new MemoryStore()),
+      store: () => {
+        asked.store += 1;
+        return new MemoryStore();
+      },
+      ...(botCheck ? { botCheck } : {}),
+    });
+    const resume = (headers: Record<string, string> = {}) =>
+      new Request(`http://localhost/api/run/${runId}/resume`, { method: "POST", body: "{}", headers: { "Content-Type": "application/json", ...headers } });
+
+    const crossSite = await postResume(resume({ "Sec-Fetch-Site": "cross-site" }), runId, counting());
+    expect(crossSite.status).toBe(403);
+    expect(await crossSite.json()).toMatchObject({ error: { code: "invalid" } });
+
+    const flagged = await postResume(resume(), runId, counting(() => ({ name: "test", check: async () => ({ bot: true }) })));
+    expect(flagged.status).toBe(403);
+    expect(await flagged.json()).toMatchObject({ error: { code: "bot" } });
+    expect(asked.store).toBe(0);
+
+    // A same-site browser request still reaches the store (and finds no run to resume).
+    const sameSite = await postResume(resume({ "Sec-Fetch-Site": "same-origin" }), runId, counting());
+    expect(sameSite.status).not.toBe(403);
+    expect(asked.store).toBe(1);
+  });
+
   it("reports an unreachable store in health, with no secrets", async () => {
     const res = await getHealth(replay);
     expect(res.status).toBe(503);

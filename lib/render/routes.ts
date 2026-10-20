@@ -1,6 +1,6 @@
 // The draft video routes, as handlers over plain Web Requests with their dependencies injected, so
 // tests run them on a MemoryStore, a fake fal queue and fake storage:
-//   GET  /api/render/access?reportId=&segment=  which video line this visitor sees (renderAccessResponseSchema)
+//   GET  /api/render/access?reportId=&segment=  which video line this visitor sees, and how long a draft runs (access.ts)
 //   POST /api/render/plan {target}              the RenderPlan, built on the server (renderPlanResponseSchema)
 //   POST /api/render {target}                   a server-paid draft, judge pass only (renderStatusResponseSchema)
 //   GET  /api/render/<jobId>                    the job's status, advancing it when no poller has lately
@@ -8,7 +8,7 @@
 // no Origin header or another one is refused before anything is built or reserved. The judge pass rides
 // in an httpOnly SameSite=Lax cookie, so this check is what keeps another site from spending it.
 import { renderRequestSchema, renderTargetSchema, type RenderTarget } from "../api/requests";
-import { renderAccessResponseSchema, renderPlanResponseSchema, renderStatusResponseSchema } from "../api/responses";
+import { renderPlanResponseSchema, renderStatusResponseSchema } from "../api/responses";
 import { byokEnabled, dailyCaps, isLive, renderLimits, videoSwitches } from "../config";
 import type { DemoMedia } from "../demo/manifest";
 import type { ExampleSlug } from "../demo/examples";
@@ -21,7 +21,7 @@ import { failSafe, guard, type GuardDeps } from "../routes/guard";
 import type { PrivateStorage, Storage } from "../storage";
 import type { Store } from "../store/types";
 import { dayOf } from "../store/keys";
-import { videoAccess } from "./access";
+import { accessAnswerSchema, videoAccess } from "./access";
 import type { VideoQueue } from "./fal";
 import { advanceRender, counterUsage, isStale, isTerminal, loadJob, pollRender, renderCounters, renderRoom, startRender, touchRender, type CounterName, type RenderEnv } from "./jobs";
 import { buildRenderPlan, canPlan, demoBaseUrl, exampleOf, RenderError, renderSource } from "./plan";
@@ -195,8 +195,8 @@ export function createRenderAccessGet(deps: RenderRouteDeps) {
         const counters = renderCounters({ passId: pass.passId, visitor, day: dayOf(now) }, env.caps);
         room = renderRoom(counters, await counterUsage(store, counters));
       }
-      const answer = videoAccess({ renderable, byok: byokEnabled(deps.env), pass: pass !== null, server, room });
-      return json(renderAccessResponseSchema.parse(answer));
+      const answer = videoAccess({ renderable, byok: byokEnabled(deps.env), pass: pass !== null, server, room, draftSeconds: renderLimits(deps.env).draftSeconds });
+      return json(accessAnswerSchema.parse(answer));
     });
 }
 

@@ -23,7 +23,7 @@ export const TTL = {
   renderCache: 30 * DAY_SECONDS,
   /** Counters that span the whole judging period (lifetime render total, per-pass renders). */
   judging: 60 * DAY_SECONDS,
-  /** An MCP token record outlives its expiry a little, so a late call is refused as expired, not unknown. */
+  /** The least an MCP token record is kept; it also lives until its expiry plus a grace (lib/mcp/token.ts tokenRecordTtl). */
   mcpToken: 45 * DAY_SECONDS,
 } as const;
 

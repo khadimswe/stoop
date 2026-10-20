@@ -11,11 +11,8 @@ import { keys } from "../store/keys";
 import type { Store } from "../store/types";
 import { isTokenShaped, mcpTokenRecordSchema, tokenActive, tokenHash } from "./token";
 
-/**
- * A token's label for the founder's listing and the AuthInfo clientId: "stp_" plus the first 4 hex of
- * its hash, so not one character of the token itself is kept in the store or passed along.
- */
-export const tokenLabel = (hash: string) => `stp_${hash.slice(0, 4)}`;
+/** "stp_" plus the first 4 hex of the token's hash (lib/mcp/token.ts), for the listing, AuthInfo and logs. */
+export { tokenLabel } from "./token";
 
 export type CallerStatus = "missing" | "unknown" | "revoked" | "expired" | "valid";
 
@@ -29,9 +26,11 @@ export function bearerToken(headers: Headers): string | null {
 
 /**
  * Looks the request's token up by its hash. Anything sent that is not a token Stoop issued (another
- * scheme, a malformed or unknown token, a record that no longer parses) is "unknown".
+ * scheme, a malformed or unknown token, a record that no longer parses) is "unknown". A token past
+ * the earlier of its stored expiry and the current end of judging (`endsAt`, by default
+ * JUDGING_ENDS_AT as it is now) is "expired".
  */
-export async function identify(store: Store, headers: Headers, now: number = Date.now()): Promise<Caller> {
+export async function identify(store: Store, headers: Headers, now: number = Date.now(), endsAt?: number): Promise<Caller> {
   if (!headers.get("authorization")) return { status: "missing" };
   const token = bearerToken(headers);
   if (!token || !isTokenShaped(token)) return { status: "unknown" };
@@ -39,7 +38,7 @@ export async function identify(store: Store, headers: Headers, now: number = Dat
   const record = mcpTokenRecordSchema.safeParse(await store.get<unknown>(keys.mcp.token(hash)));
   if (!record.success) return { status: "unknown" };
   if (record.data.revokedAt !== null) return { status: "revoked" };
-  if (!tokenActive(record.data, now)) return { status: "expired" };
+  if (!tokenActive(record.data, now, endsAt)) return { status: "expired" };
   return { status: "valid", hash, label: record.data.label };
 }
 
