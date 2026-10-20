@@ -9,6 +9,7 @@ export const REPORT_SECTIONS = {
   output: "output",
   screening: "screening",
   kit: "kit",
+  launch: "launch",
   why: "why",
 } as const;
 export type ReportSectionId = (typeof REPORT_SECTIONS)[keyof typeof REPORT_SECTIONS];

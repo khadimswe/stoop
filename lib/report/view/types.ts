@@ -73,3 +73,4 @@ export type { ScreeningView, ScreeningWorldView } from "./screening";
 export type { KitView, KitWorldView } from "./kit";
 export type { CityView, SeedView, WhyView } from "./why";
 export type { ReportView } from "./report";
+export type { LaunchCellView, LaunchCreativeView, LaunchInterestView, LaunchOptionView, LaunchPlanView } from "./launch";
