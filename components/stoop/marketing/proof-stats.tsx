@@ -18,8 +18,8 @@ export function ProofStats({ stats }: { stats: ProofStatView[] }) {
       <SectionIntro
         id="proof-title"
         kicker="Proof from the examples"
-        title="A generic brief guesses. Qloo measures."
-        lead="Numbers from the recorded example runs, on real Qloo responses. Each one opens the Qloo calls behind it."
+        title="Founders guess. AI briefs guess. Qloo measures."
+        lead="Numbers from the recorded example runs, on real Qloo responses: what the brand said or a generic AI brief picked, then what Qloo measured. Each one opens the Qloo calls behind it."
       />
       <ul className="grid border-t-2 border-ink md:grid-cols-2">
         {stats.map((stat, i) => (
@@ -43,9 +43,9 @@ export function ProofStats({ stats }: { stats: ProofStatView[] }) {
             <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
               <SourceTag source="qloo" />
               <ReceiptDrawer receipt={stat.receipt}>
-                <Button variant="link" size="sm" className="h-11">
+                {/* The spoken name starts with the visible words, then says which number it backs. */}
+                <Button variant="link" size="sm" className="h-11" aria-label={`See the receipt: ${stat.brand}, ${stat.figureText}`}>
                   See the receipt
-                  <span className="sr-only">: {stat.brand}, {stat.figureText}</span>
                 </Button>
               </ReceiptDrawer>
             </div>

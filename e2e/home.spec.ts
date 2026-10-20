@@ -108,14 +108,147 @@ test("the three ways row sits below the shelf, one line each", async ({ page }) 
   expect(rowTop).toBeGreaterThan(shelfBottom);
 });
 
-test("how it works replays the recorded trace, with real call counts", async ({ page }) => {
+test("the recorded trace replays step by step, with real call counts", async ({ page }) => {
   await page.goto("/");
-  const how = page.getByRole("region", { name: "Watch the agent build this." });
-  await expect(how.getByText("Stoop is the brain, you bring your own camera.")).toBeVisible();
-  const steps = how.locator("ol > li");
+  const trace = page.getByRole("region", { name: "Watch the agent build this." });
+  await expect(trace.getByText("Stoop is the brain, you bring your own camera.")).toBeVisible();
+  const steps = trace.locator("ol > li");
   await expect(steps).toHaveCount(5);
-  await expect(how.getByText("Reality Check", { exact: true })).toBeVisible();
-  await expect(how.getByText(/Qloo calls, all replayed from the recording · zero live calls$/)).toBeVisible();
+  await expect(trace.getByText("Reality Check", { exact: true })).toBeVisible();
+  await expect(trace.getByText(/Qloo calls, all replayed from the recording · zero live calls$/)).toBeVisible();
+});
+
+test("how it works is four numbered steps, with the lead example's real age skews", async ({ page }) => {
+  await page.goto("/");
+  const how = page.getByRole("region", { name: "From your link to the test, in four steps." });
+  await expect(how.getByRole("heading", { level: 3 })).toHaveText([
+    "Step 1: Read your site",
+    "Step 2: Qloo measures the audience",
+    "Step 3: Make the ads",
+    "Step 4: Launch the test",
+  ]);
+  await expect(how.getByRole("img", { name: "Porchlight Pepper Co.'s age skews from Qloo: highest for 55 and older (skews +0.21)." })).toBeAttached();
+  await expect(how.getByText("Nothing auto-publishes.")).toBeAttached();
+  // The nav's "How it works" still lands here.
+  await expect(page.locator("#how")).toHaveAttribute("aria-labelledby", "how-title");
+});
+
+test("the agent demo slot sits right under the hero, as a fixed-ratio screen with the recorded run's still", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("main > section").nth(1)).toHaveAttribute("id", "agent-demo");
+  const slot = page.getByRole("region", { name: "The agent at work · Porchlight Pepper Co." });
+  await expect(slot.getByText("Replay of a recorded run")).toBeAttached();
+  await expect(slot.getByText(/^Qloo measured a taste neighborhood that skews 55 and older/)).toBeAttached();
+  await expect(slot.getByText("36 Qloo calls, all replayed from the recording · zero live calls")).toBeAttached();
+  const screen = slot.locator("[data-slot='agent-demo']");
+  const before = await screen.boundingBox();
+  await slot.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  const after = await screen.boundingBox();
+  // The ratio is reserved in CSS: nothing that loads into it can change its size.
+  expect(after?.height).toBeCloseTo(before!.height, 0);
+  expect(before!.width / before!.height).toBeGreaterThan(0.6);
+  // The still fits its screen: nothing is clipped or stacked on top of something else.
+  // A container squeezed below its content reports a taller scrollHeight than its own height. (Text
+  // alone is left out: tight display leading lets glyphs reach past a line box without any overlap.)
+  const squeezed = await screen.evaluate((node) =>
+    [node, ...node.querySelectorAll<HTMLElement>("*")]
+      .filter((el) => el.children.length > 0 && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1)
+      .map((el) => el.className),
+  );
+  expect(squeezed).toEqual([]);
+});
+
+const FIGURES = ["55+", "#319 of 321", "0 of 19", "18 to 24"];
+
+test("the proof stats count up once to the recorded values, without moving the layout, and open their receipts", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/");
+  const proof = page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." });
+  const figures = proof.locator("[data-count-up]");
+  await expect(figures).toHaveCount(4);
+  // Below the fold at load: wound back to its floor (an age never counts from under 18), out of
+  // sight, with the full value for screen readers.
+  await expect(figures.first().locator("[data-count-up-live]")).toHaveText("18+");
+  await expect(figures.nth(1).locator("[data-count-up-live]")).toHaveText("#1 of 321");
+  await expect(figures.first().locator(".sr-only")).toHaveText("55+");
+  for (const [i, value] of FIGURES.entries()) {
+    const figure = figures.nth(i);
+    const box = await figure.boundingBox();
+    await figure.scrollIntoViewIfNeeded();
+    await expect(figure.locator("[data-count-up-live]")).toHaveText(value);
+    expect(await figure.boundingBox().then((b) => b?.height)).toBeCloseTo(box!.height, 0);
+  }
+  // Once: scrolling away and back does not count again (read once, no retrying until it settles).
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await figures.nth(1).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(120);
+  expect(await figures.nth(1).locator("[data-count-up-live]").textContent()).toBe("#319 of 321");
+
+  await proof.getByRole("button", { name: "See the receipt: Whisker & Brim, #319 of 321" }).click();
+  const drawer = page.getByRole("dialog", { name: "Receipt: Generic choice: city" });
+  await expect(drawer.getByText("Los Angeles, CA ranks #319 of 321 cities for this world").first()).toBeVisible();
+  await expect(drawer.getByText("/v2/insights").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test("below-the-fold sections rise in once as they scroll into view", async ({ page }) => {
+  await page.goto("/");
+  const cards = page.getByRole("region", { name: "From your link to the test, in four steps." }).locator("ol > li");
+  await expect(cards.first()).toHaveAttribute("data-reveal", "pending");
+  await cards.first().scrollIntoViewIfNeeded();
+  await expect(cards.first()).toHaveAttribute("data-reveal", "shown");
+  await expect(cards.first()).toHaveCSS("opacity", "1");
+  // The hero is never part of it, and nothing on screen at load is ever hidden.
+  await expect(page.locator("section[aria-labelledby='hero-title'] [data-reveal]")).toHaveCount(0);
+});
+
+test.describe("with reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("every number shows its recorded value and nothing is hidden or moving", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
+    await expect(page.locator("[data-reveal='pending']")).toHaveCount(0);
+  });
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the landing reads in full: the H1, the slot's still, every number and every section", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
+    await expect(page.getByText("Replay of a recorded run")).toBeVisible();
+    await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
+    await expect(page.locator("[data-reveal]").first()).toHaveAttribute("data-reveal", "idle");
+    await expect(page.locator("[data-reveal='pending']")).toHaveCount(0);
+  });
+});
+
+test("the whole landing scrolls without layout shift, sideways overflow or console errors", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/");
+  await page.evaluate(() => {
+    const w = window as unknown as { __cls: number };
+    w.__cls = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[]) if (!entry.hadRecentInput) w.__cls += entry.value;
+    }).observe({ type: "layout-shift", buffered: true });
+  });
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0; y < height; y += 600) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    await page.waitForTimeout(150);
+  }
+  await page.waitForTimeout(1200);
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  expect(await page.evaluate(() => (window as unknown as { __cls: number }).__cls)).toBeLessThan(0.05);
+  expect(errors).toEqual([]);
 });
 
 test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) => {

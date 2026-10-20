@@ -63,8 +63,9 @@ export default function Home() {
       />
       {/* The recorded-run player drops in here as children; until then the slot shows the run's still. */}
       <AgentDemoSlot still={still} />
-      <ProofStats stats={stats} />
+      {/* Beats 2 and 3 stay one screen from the hero; the proof band follows them. */}
       <ScreeningPreview view={preview} />
+      <ProofStats stats={stats} />
       <ExampleShelf items={shelf} />
       <ThreeWays />
       <HowItWorks skews={ageSkewMini(lead)} />

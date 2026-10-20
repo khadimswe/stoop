@@ -1,23 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { easeOutCubic, figurePartsAt, figureText, num, text } from "./count-up";
 
-const RANK = [text("#"), num(319), text(" of ", "sm"), num(321, "sm")];
+const RANK = [text("#"), num(319, { from: 1 }), text(" of 321", "sm")];
 
 describe("the count-up figure", () => {
   it("ends exactly on the recorded value", () => {
     expect(figureText(RANK)).toBe("#319 of 321");
-    expect(figurePartsAt(RANK, 1)).toEqual(["#", "319", " of ", "321"]);
+    expect(figurePartsAt(RANK, 1)).toEqual(["#", "319", " of 321"]);
   });
 
-  it("starts every number at 0 and keeps the words in place", () => {
-    expect(figurePartsAt(RANK, 0)).toEqual(["#", "0", " of ", "0"]);
-    expect(figurePartsAt([num(0), text(" of ", "sm"), num(19, "sm")], 0.5)[0]).toBe("0");
+  it("starts every number on its floor and keeps the words in place", () => {
+    expect(figurePartsAt(RANK, 0)).toEqual(["#", "1", " of 321"]);
+    expect(figurePartsAt([num(0), text(" of 19", "sm")], 0.5)).toEqual(["0", " of 19"]);
+    expect(figurePartsAt([num(55, { from: 18 }), text("+")], 0)).toEqual(["18", "+"]);
   });
 
-  it("only ever counts up, in whole numbers, and never past the value", () => {
-    let last = -1;
+  it("only ever counts up, in whole numbers, never under its floor or past its value", () => {
+    let last = 18;
     for (let i = 0; i <= 40; i++) {
-      const [value] = figurePartsAt([num(55)], i / 40).map(Number);
+      const [value] = figurePartsAt([num(55, { from: 18 })], i / 40).map(Number);
       expect(Number.isInteger(value)).toBe(true);
       expect(value).toBeGreaterThanOrEqual(last);
       expect(value).toBeLessThanOrEqual(55);
@@ -38,5 +39,6 @@ describe("the count-up figure", () => {
   it("refuses a figure it cannot count", () => {
     expect(() => num(-3)).toThrow();
     expect(() => num(2.5)).toThrow();
+    expect(() => num(10, { from: 18 })).toThrow();
   });
 });

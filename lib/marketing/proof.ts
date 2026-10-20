@@ -33,13 +33,12 @@ export const PROOF_PICKS: readonly ProofPick[] = [
   { slug: "home-candles", kind: "age" },
 ];
 
-/** Who made the claim a stat answers: the founder, or the LLM-only generic brief (never Qloo). */
-export type ClaimSource = "brand" | "generic";
+/** Who made the claim a stat answers: the founder, their site (as read), or the LLM-only generic brief. Never Qloo. */
+export type ClaimSource = "brand" | "site" | "generic";
 
 export interface ProofStatView {
   id: string;
   brand: string;
-  href: string;
   /** What was claimed before Qloo measured it: "Said 25 to 40", "Picked Los Angeles". */
   claim: { text: string; source: ClaimSource };
   /** The big figure. Numbers count up; the final figure is `figureText`. */
@@ -49,20 +48,26 @@ export interface ProofStatView {
   unit: string;
   /** One plain line of context: the world it was measured for, or where the age comes from. */
   detail: string;
-  /** The Qloo calls behind the figure. A stat without one is never shown. */
+  /** The Qloo calls behind every number the stat shows. A stat without one is never shown. */
   receipt: ReceiptView;
 }
 
 const brandOf = (report: Report) => report.inputs.product.brandName ?? report.inputs.product.name;
 
-/** "55 and older" as a figure: 55+. "18 to 24" (the youngest bucket, adults only) as 18 to 24. */
+/** The youngest age a counting figure may pass through: every frame of the count stays an adult band. */
+const ADULT = 18;
+
+/**
+ * An age bucket as a figure that counts up from 18, never through an age under 18: "55 and older"
+ * is 55+, the youngest bucket is "18 to 24" (adults only).
+ */
 export function ageFigure(bucket: AgeBucket): FigurePart[] {
-  if (bucket === "24_and_younger") return [num(18), text(" to ", "sm"), num(24)];
+  if (bucket === "24_and_younger") return [num(ADULT, { from: ADULT }), text(" to ", "sm"), num(24, { from: ADULT })];
   const older = /^(\d+)_and_older$/.exec(bucket);
-  if (older) return [num(Number(older[1])), text("+")];
+  if (older) return [num(Number(older[1]), { from: ADULT }), text("+")];
   const band = /^(\d+)_to_(\d+)$/.exec(bucket);
   if (!band) throw new Error(`Unknown age bucket ${bucket}`);
-  return [num(Number(band[1])), text(" to ", "sm"), num(Number(band[2]))];
+  return [num(Number(band[1]), { from: ADULT }), text(" to ", "sm"), num(Number(band[2]), { from: ADULT })];
 }
 
 /** The Reality Check's age line as a stat, only when it is a full gap: a near tie or a confirmed read is never a stat. */
@@ -74,11 +79,12 @@ export function ageStat(slug: ExampleSlug, report: Report, ledger: Ledger): Proo
   // The gap stage names the same bucket; if it ever disagrees, the stat is dropped rather than guessed.
   if (!top || !AGE_BUCKETS.includes(top) || !age.measured.startsWith(`top skew ${ageBandLabel(top)} `)) return null;
   const brand = brandOf(report);
-  const measured = `Qloo measured a taste neighborhood that skews ${ageBandLabel(top)}.`;
-  const calls = receiptView(ledger, age.evidenceIds, "Reality Check: age", `${brand} said ${age.stated}. ${measured}`);
+  const site = age.statedBy === "site";
+  const claim = site ? `Their site speaks to ${age.stated}` : `Said ${age.stated}`;
+  const calls = receiptView(ledger, age.evidenceIds, "Reality Check: age", `${claim}. Qloo measured a taste neighborhood that skews ${ageBandLabel(top)}.`);
   if (!calls) return null;
   const head: ReceiptRow[] = [
-    { label: age.statedBy === "site" ? "Read from their site" : "Brand said", value: age.stated },
+    { label: site ? "Read from their site" : "Brand said", value: age.stated },
     { label: "Qloo measured", value: age.measured },
     { label: "Outcome", value: "Gap: Qloo's top age skew is outside the stated band" },
   ];
@@ -86,8 +92,7 @@ export function ageStat(slug: ExampleSlug, report: Report, ledger: Ledger): Proo
   return {
     id: `${slug}-age`,
     brand,
-    href: `/examples/${slug}`,
-    claim: { text: `Said ${age.stated}`, source: "brand" },
+    claim: { text: claim, source: site ? "site" : "brand" },
     figure,
     figureText: figureText(figure),
     unit: `Qloo measured: skews ${ageBandLabel(top)}`,
@@ -108,6 +113,9 @@ function choicesOf(report: Report, dimension: ControlChoice["dimension"]): Score
 
 const worldLabel = (report: Report, segmentId: string) => report.worlds.find((w) => w.segmentId === segmentId)?.label ?? segmentId;
 
+/** Every Qloo call behind a stat: the world it shows, and each other world it names. */
+const evidenceOf = (worst: ScoredChoice, others: readonly ScoredChoice[]) => [...worst.choice.evidenceIds, ...others.flatMap((o) => o.choice.evidenceIds)];
+
 /** "Upbeat funk-soul groove with a tight drum break": a long brief line, cut at its first comma. */
 export function firstClause(value: string): string {
   return value.split(/[,.;]/)[0]?.trim() || value;
@@ -115,49 +123,51 @@ export function firstClause(value: string): string {
 
 /** The generic brief's city that ranks lowest (by its place in the world's city list) for one world. */
 export function cityStat(slug: ExampleSlug, report: Report, ledger: Ledger): ProofStatView | null {
-  const scored = choicesOf(report, "cities").filter((s) => s.choice.status === "below" && s.choice.rank && s.choice.measured);
-  const worst = [...scored].sort((a, b) => b.choice.rank!.rank / b.choice.rank!.of - a.choice.rank!.rank / a.choice.rank!.of)[0];
+  const ranked = choicesOf(report, "cities").filter((s) => s.choice.rank && s.choice.measured);
+  const below = ranked.filter((s) => s.choice.status === "below");
+  const worst = [...below].sort((a, b) => b.choice.rank!.rank / b.choice.rank!.of - a.choice.rank!.rank / a.choice.rank!.of)[0];
   if (!worst) return null;
   const { choice, segmentId } = worst;
   const rank = choice.rank!;
-  const city = /^(.+?) ranks #\d+ of \d+/.exec(choice.measured!)?.[1] ?? choice.text;
-  const calls = receiptView(ledger, choice.evidenceIds, "Generic choice: city", choice.measured!);
+  // The same city in the brand's other worlds, whatever the check found there: the whole picture, not one world.
+  const others = ranked.filter((s) => s !== worst && s.choice.text === choice.text);
+  const calls = receiptView(ledger, evidenceOf(worst, others), "Generic choice: city", choice.measured!);
   if (!calls) return null;
-  // The same city in the brand's other worlds, so the receipt shows the whole picture, not one world.
-  const others = scored.filter((s) => s !== worst && s.choice.text === choice.text);
   const head: ReceiptRow[] = [
     { label: "Generic AI brief", value: `Picked ${choice.text} (not from Qloo)` },
     { label: "World", value: worldLabel(report, segmentId) },
     { label: "Qloo measured", value: choice.measured! },
     { label: "Check", value: STATUS_LABELS[choice.status] },
-    ...others.map((o) => ({ label: "Other world", value: `${worldLabel(report, o.segmentId)}: ${o.choice.measured}` })),
+    ...others.map((o) => ({ label: "Other world", value: `${worldLabel(report, o.segmentId)}: ${o.choice.measured} (${STATUS_LABELS[o.choice.status]})` })),
   ];
-  const figure = [text("#"), num(rank.rank), text(" of ", "sm"), num(rank.of, "sm")];
+  // The rank counts up from #1; the size of the list stays put.
+  const figure = [text("#"), num(rank.rank, { from: 1 }), text(` of ${rank.of}`, "sm")];
   return {
     id: `${slug}-city`,
     brand: brandOf(report),
-    href: `/examples/${slug}`,
     claim: { text: `Picked ${choice.text}`, source: "generic" },
     figure,
     figureText: figureText(figure),
-    unit: `Where Qloo ranks ${city} among this world's cities`,
-    detail: [`World: ${worldLabel(report, segmentId)}.`, ...others.map((o) => `#${o.choice.rank!.rank} of ${o.choice.rank!.of} for the other.`)].join(" "),
+    // The brief's own word for the city; the receipt names the metro Qloo ranked ("Los Angeles, CA").
+    unit: `Where Qloo ranks ${choice.text} among this world's cities`,
+    detail: [`World: ${worldLabel(report, segmentId)}.`, ...others.map((o) => `For ${worldLabel(report, o.segmentId)}: #${o.choice.rank!.rank} of ${o.choice.rank!.of}.`)].join(" "),
     receipt: { ...calls, rows: [...head, ...calls.rows] },
   };
 }
 
 /** The generic brief's music where it lands lowest against a world's reference panel (only below the median). */
 export function musicStat(slug: ExampleSlug, report: Report, ledger: Ledger): ProofStatView | null {
-  const scored = choicesOf(report, "music").filter((s) => s.choice.status === "below" && s.choice.position && s.choice.position.aboveMedian === false);
-  const worst = [...scored].sort((a, b) => a.choice.position!.beats / a.choice.position!.of - b.choice.position!.beats / b.choice.position!.of)[0];
+  const placed = choicesOf(report, "music").filter((s) => s.choice.position);
+  const below = placed.filter((s) => s.choice.status === "below" && s.choice.position!.aboveMedian === false);
+  const worst = [...below].sort((a, b) => a.choice.position!.beats / a.choice.position!.of - b.choice.position!.beats / b.choice.position!.of)[0];
   if (!worst) return null;
   const { choice, segmentId } = worst;
   const position = choice.position!;
   const tag = report.control?.mappings.find((m) => m.dimension === "music" && m.text === choice.text)?.ref?.name ?? null;
-  const calls = receiptView(ledger, choice.evidenceIds, "Generic choice: music", choice.measured ?? choice.text);
-  if (!calls || !tag) return null;
   // The same music scored for the brand's other worlds, whatever it found: one brief, different fits.
-  const others = choicesOf(report, "music").filter((s) => s.segmentId !== segmentId && s.choice.text === choice.text && s.choice.position);
+  const others = placed.filter((s) => s !== worst && s.choice.text === choice.text);
+  const calls = receiptView(ledger, evidenceOf(worst, others), "Generic choice: music", choice.measured ?? choice.text);
+  if (!calls || !tag) return null;
   const head: ReceiptRow[] = [
     { label: "Generic AI brief", value: `${choice.text} (not from Qloo)` },
     { label: "Scored as", value: `${tag} (a Qloo music tag)` },
@@ -166,16 +176,19 @@ export function musicStat(slug: ExampleSlug, report: Report, ledger: Ledger): Pr
     { label: "Check", value: STATUS_LABELS[choice.status] },
     ...others.map((o) => ({ label: "Other world", value: `${worldLabel(report, o.segmentId)}: beats ${o.choice.position!.beats} of ${o.choice.position!.of} (${STATUS_LABELS[o.choice.status]})` })),
   ];
-  const figure = [num(position.beats), text(" of ", "sm"), num(position.of, "sm")];
+  // The panel position counts up from 0; the panel's size stays put.
+  const figure = [num(position.beats), text(` of ${position.of}`, "sm")];
   return {
     id: `${slug}-music`,
     brand: brandOf(report),
-    href: `/examples/${slug}`,
     claim: { text: `Picked ${firstClause(choice.text).toLowerCase()}`, source: "generic" },
     figure,
     figureText: figureText(figure),
     unit: `Reference music tags it beats, scored as “${tag}”`,
-    detail: [`World: ${worldLabel(report, segmentId)}.`, ...others.map((o) => `For the other world it beats ${o.choice.position!.beats} of ${o.choice.position!.of}.`)].join(" "),
+    detail: [
+      `World: ${worldLabel(report, segmentId)}.`,
+      ...others.map((o) => `For ${worldLabel(report, o.segmentId)} it beats ${o.choice.position!.beats} of ${o.choice.position!.of}.`),
+    ].join(" "),
     receipt: { ...calls, rows: [...head, ...calls.rows] },
   };
 }

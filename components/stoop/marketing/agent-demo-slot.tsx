@@ -18,35 +18,40 @@ export function AgentDemoStill({ view }: { view: AgentDemoStillView }) {
           <History aria-hidden="true" className="size-3.5" />
           Replay of a recorded run
         </p>
-        <p className="font-mono text-xs text-paper-dim">
+        {/* Phones drop this line: the section heading already names the brand. */}
+        <p className="hidden font-mono text-xs text-paper-dim sm:block">
           {view.brand} · recorded {view.date}
         </p>
       </div>
 
-      <ol aria-label="Steps in the recorded run" className="hidden flex-wrap gap-x-5 gap-y-2 md:flex">
-        {view.steps.map((step) => (
-          <li key={step.id} className="flex items-center gap-2 text-sm text-paper">
-            <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-paper text-screen">
-              <Check className="size-3" strokeWidth={3} />
-            </span>
-            {step.title}
-            <span className="font-mono text-[0.6875rem] text-paper-dim">{step.calls > 0 ? `${step.calls} calls` : "no calls"}</span>
-          </li>
-        ))}
-      </ol>
-
-      {view.measured && (
-        <div className="flex min-h-0 flex-col items-start gap-3">
-          <p className="font-mono text-[0.6875rem] tracking-widest text-paper-dim uppercase">Where the run landed</p>
-          <p className="max-w-[30ch] font-display text-[1.375rem] leading-[1.08] font-extrabold text-pretty [font-stretch:80%] sm:text-[2rem] lg:text-[2.75rem]">
-            {view.measured}
-          </p>
-          <SourceTag source="qloo" surface="screen" />
-        </div>
-      )}
+      <div className="grid min-h-0 flex-1 items-center gap-x-10 gap-y-6 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        {view.measured && (
+          <div className="flex min-h-0 flex-col items-start gap-3">
+            <p className="font-mono text-[0.6875rem] tracking-widest text-paper-dim uppercase">Where the run landed</p>
+            <p className="font-display text-[1.25rem] leading-[1.08] font-extrabold text-pretty [font-stretch:80%] sm:text-[1.75rem] lg:text-[2.375rem]">
+              {view.measured}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <SourceTag source="qloo" surface="screen" />
+              {view.receiptLine && <p className="min-w-0 font-mono text-[0.6875rem] break-words text-paper-dim">{view.receiptLine}</p>}
+            </div>
+          </div>
+        )}
+        <ol aria-label="Steps in the recorded run" className="hidden flex-col gap-3.5 border-l border-paper/15 pl-6 md:flex">
+          {view.steps.map((step) => (
+            <li key={step.id} className="flex items-center gap-2.5 text-sm text-paper lg:text-base">
+              <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-full bg-paper text-screen">
+                <Check className="size-3" strokeWidth={3} />
+              </span>
+              <span className="min-w-0 flex-1">{step.title}</span>
+              <span className="font-mono text-[0.6875rem] text-paper-dim">{step.calls > 0 ? `${step.calls} Qloo ${step.calls === 1 ? "call" : "calls"}` : "no Qloo calls"}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
 
       <p className="border-t border-paper/15 pt-3 font-mono text-xs text-paper-dim">
-        {view.calls} Qloo calls, {view.cached === view.calls ? "all replayed from the recording" : `${view.cached} from cache`} · zero live calls
+        {view.calls} Qloo {view.calls === 1 ? "call" : "calls"}, {view.cached === view.calls ? "all replayed from the recording" : `${view.cached} from cache`} · zero live calls
       </p>
     </div>
   );
@@ -66,7 +71,7 @@ export function AgentDemoSlot({ still, children, className }: { still: AgentDemo
         </h2>
         <p className="text-sm text-ink-soft">A recorded run on real Qloo responses. Nothing here calls Qloo again.</p>
       </div>
-      <Screen data-slot="agent-demo" className={cn("relative aspect-[4/5] w-full overflow-hidden sm:aspect-[4/3] md:aspect-[16/10] lg:aspect-video", className)}>
+      <Screen data-slot="agent-demo" className={cn("relative aspect-[2/3] w-full overflow-hidden sm:aspect-[4/3] md:aspect-[16/10] lg:aspect-video", className)}>
         {children ?? <AgentDemoStill view={still} />}
       </Screen>
     </section>

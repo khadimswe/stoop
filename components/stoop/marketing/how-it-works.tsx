@@ -13,7 +13,7 @@ function MiniScreen({ children, label, className }: { children: ReactNode; label
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={cn("flex aspect-[4/3] w-full flex-col gap-2.5 overflow-hidden rounded-2xl bg-screen p-4 text-paper", className)}
+      className={cn("flex h-48 w-full flex-col gap-2.5 overflow-hidden rounded-2xl bg-screen p-4 text-paper", className)}
     >
       {children}
     </div>
@@ -28,8 +28,8 @@ function ReadSite() {
         <Globe className="size-3.5 shrink-0" />
         <span className="truncate">yourstore.example/products/your-product</span>
       </div>
-      <div className="flex flex-1 gap-3">
-        <div className="aspect-square w-[38%] shrink-0 rounded-lg bg-screen-raised" />
+      <div className="flex min-h-0 flex-1 gap-3">
+        <div className="w-[34%] shrink-0 rounded-lg bg-screen-raised" />
         <div className="flex flex-1 flex-col gap-2 pt-1">
           <div className="h-2.5 w-4/5 rounded-full bg-paper/70" />
           <div className="h-2 w-2/5 rounded-full bg-paper/35" />
@@ -54,26 +54,36 @@ function SkewChart({ view }: { view: AgeSkewMiniView | null }) {
       </MiniScreen>
     );
   }
+  // The axis spans the largest skew either way, so the bars compare with each other; the numbers stay skews.
+  const span = Math.max(1, ...view.bars.map((b) => Math.abs(b.value)));
+  const top = view.bars.find((b) => b.top);
   return (
+    <div className="flex flex-col gap-2">
     <MiniScreen label={view.summary}>
-      <p className="font-mono text-[0.625rem] tracking-widest text-paper-dim uppercase">{view.brand} · age skews</p>
-      <ul className="flex flex-1 flex-col justify-between">
+      <p className="truncate font-mono text-[0.625rem] tracking-widest text-paper-dim uppercase">{view.brand} · age skews</p>
+      <ul className="flex min-h-0 flex-1 flex-col justify-between">
         {view.bars.map((bar) => (
-          <li key={bar.label} className="grid grid-cols-[4.75rem_1fr] items-center gap-2 text-[0.6875rem] leading-none">
+          <li key={bar.label} className="grid grid-cols-[4.5rem_1fr] items-center gap-2 text-[0.6875rem] leading-none">
             <span className={bar.top ? "font-semibold text-paper" : "text-paper-dim"}>{bar.label}</span>
             {/* A centered axis: under-indexing to the left, over-indexing to the right. */}
-            <span className="relative h-2.5">
-              <span className="absolute inset-y-0 left-1/2 w-px bg-paper/30" />
+            <span className="relative h-2">
+              <span className="absolute -inset-y-0.5 left-1/2 w-px bg-paper/30" />
               <span
-                className={cn("absolute inset-y-0 rounded-full", bar.top ? "bg-dusk-light" : "bg-paper/45")}
-                style={bar.value >= 0 ? { left: "50%", width: `${bar.value / 2}%` } : { right: "50%", width: `${-bar.value / 2}%` }}
+                className={cn("absolute inset-y-0", bar.top ? "bg-dusk-light" : "bg-paper-dim", bar.value >= 0 ? "rounded-r-full" : "rounded-l-full")}
+                style={bar.value >= 0 ? { left: "50%", width: `${(bar.value / span) * 50}%` } : { right: "50%", width: `${(-bar.value / span) * 50}%` }}
               />
             </span>
           </li>
         ))}
       </ul>
-      <span className="self-start rounded-full bg-dusk-light px-2.5 py-0.5 text-[0.6875rem] font-semibold text-screen">Qloo</span>
+      <p className="flex items-center gap-2 text-[0.6875rem] text-paper">
+        <span className="rounded-full bg-dusk-light px-2 py-0.5 font-semibold text-screen">Qloo</span>
+        {top && `${top.label}: ${top.text}`}
+      </p>
     </MiniScreen>
+    {/* The chart's receipt: the Qloo call its numbers come from. */}
+    <p className="font-mono text-[0.6875rem] leading-snug break-words text-ink-soft">{view.receiptLine}</p>
+    </div>
   );
 }
 
@@ -86,7 +96,7 @@ function Worlds() {
           <span className="text-[0.625rem] leading-tight font-semibold text-concrete-screen">Control</span>
         </div>
         {["World 1", "World 2"].map((world) => (
-          <div key={world} className="flex flex-col justify-end rounded-lg border-[1.5px] border-paper/60 bg-screen-raised p-1.5">
+          <div key={world} className="flex flex-col justify-end rounded-lg border-[1.5px] border-paper-dim bg-screen-raised p-1.5">
             <span className="text-[0.625rem] leading-tight font-semibold text-paper">{world}</span>
           </div>
         ))}
@@ -96,10 +106,10 @@ function Worlds() {
   );
 }
 
-/** Step 4: what every pack ends with before anything goes live. */
+/** Step 4: what every pack ends with before anything goes live. A guardrail, so screen readers get it too. */
 function Checklist() {
   return (
-    <MiniScreen>
+    <MiniScreen label="Before you launch: a human review checklist, an AI disclosure note, and export to your video tool. Nothing auto-publishes.">
       <p className="font-mono text-[0.625rem] tracking-widest text-paper-dim uppercase">Before you launch</p>
       <ul className="flex flex-1 flex-col justify-center gap-2">
         {["Human review checklist", "AI disclosure note", "Export to your video tool"].map((item) => (
@@ -126,7 +136,7 @@ export function HowItWorks({ skews }: { skews: AgeSkewMiniView | null }) {
     },
     {
       title: "Qloo measures the audience",
-      line: "Qloo maps your product's taste neighborhood: who it is, what else they love, where they cluster. Then it splits it into concept worlds.",
+      line: "Qloo maps your product's taste neighborhood: who it is, what else they love, where they cluster. Stoop splits it into 2 to 3 concept worlds.",
       art: <SkewChart view={skews} />,
     },
     {
@@ -148,7 +158,7 @@ export function HowItWorks({ skews }: { skews: AgeSkewMiniView | null }) {
             id="how-title"
             kicker="How it works"
             title="From your link to the test, in four steps."
-            lead="Qloo maps the audience around your product's taste neighborhood: who it is, what else they love, where they cluster."
+            lead="From one product link to ads made for an audience Qloo measured. Nothing to connect, nothing auto-publishes."
           />
         </div>
         <ol className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

@@ -21,7 +21,8 @@ export function Hero({
       {/* Decoration only: soft color fields behind the copy. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-x-clip">
         <div className="absolute -top-28 -left-44 size-[34rem] rounded-full bg-sun-soft/70" />
-        <div className="absolute top-[58%] left-[30%] hidden size-80 rounded-full bg-brick-soft/60 lg:block" />
+        {/* Peeks out from behind the hero object's lower left corner, clear of the copy. */}
+        <div className="absolute top-[62%] left-[50%] hidden size-72 rounded-full bg-brick-soft/70 lg:block" />
       </div>
       <div className="mx-auto grid max-w-6xl items-start gap-x-12 gap-y-10 px-5 pt-8 pb-16 sm:pt-12 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:pb-20">
         <div className="flex min-w-0 flex-col gap-6">
@@ -37,8 +38,8 @@ export function Hero({
           >
             Stop making ads for nobody.
           </h1>
-          <p className="max-w-[22ch] font-display text-[1.625rem] leading-[1.08] font-extrabold text-balance [font-stretch:85%] sm:text-[2rem]">
-            Ads are free to make now. Knowing who they&apos;re for isn&apos;t.
+          <p className="font-display text-[1.625rem] leading-[1.08] font-extrabold text-balance [font-stretch:85%] sm:text-[2rem]">
+            <span className="sm:block">Ads are free to make now.</span> <span className="sm:block">Knowing who they&apos;re for isn&apos;t.</span>
           </p>
           <p className="max-w-[34em] text-[0.9375rem] leading-normal text-pretty text-ink-soft sm:text-lg sm:leading-relaxed">
             Stoop uses Qloo&apos;s taste data to map the audience around your product: who they are, what else they love, where they cluster. Then it
