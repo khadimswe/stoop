@@ -5,7 +5,7 @@ import { cn } from "cn";
 
 /**
  * The report's sticky bottom bar: the page's one brick primary. Examples get "Make this for my
- * product" (to /start); live reports pass their own action ("Email me this kit"). It is sticky, not
+ * product" (to /start); live reports pass their own action ("Join the waitlist"). It is sticky, not
  * fixed, so it never covers the end of the page, and it pads for the home indicator on phones (the
  * inset applies once the viewport opts into viewport-fit=cover).
  */

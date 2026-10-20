@@ -23,10 +23,14 @@ async function LiveReportLoader({ params }: { params: PageProps<"/report/[id]">[
   return <LiveReport runId={id} />;
 }
 
+// The page's one <main> sits outside the Suspense boundary, so the skeleton and the report that
+// streams in to replace it never stand side by side as two landmarks.
 export default function LiveReportPage({ params }: PageProps<"/report/[id]">) {
   return (
-    <Suspense fallback={<ReportSkeleton />}>
-      <LiveReportLoader params={params} />
-    </Suspense>
+    <main className="flex flex-1 flex-col">
+      <Suspense fallback={<ReportSkeleton />}>
+        <LiveReportLoader params={params} />
+      </Suspense>
+    </main>
   );
 }

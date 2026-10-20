@@ -19,12 +19,27 @@ import { YourAdSection } from "./sections/your-ad";
  * A server component: pass it a view built on the server (lib/report/view/report.ts).
  *
  * - `banner`: the judge pass strip (./sections/judge-banner.tsx), decided on the client, since the
- *   pass is a cookie and example pages are static.
- * - `stickyAction`: replaces the examples' "Make this for my product" (live: "Email me this kit").
+ *   pass is a cookie and example pages are static; on live reports, the partial and expired notes.
+ * - `stickyAction`: replaces the examples' "Make this for my product" (live: "Join the waitlist").
+ * - `stickyNote`: the line beside it (examples: "Want this for your product?").
+ * - `landmark`: false when the route already has its <main> (the live report renders inside one).
  */
-export function ReportPage({ view, banner, stickyAction }: { view: ReportView; banner?: ReactNode; stickyAction?: ReactNode }) {
+export function ReportPage({
+  view,
+  banner,
+  stickyAction,
+  stickyNote,
+  landmark = true,
+}: {
+  view: ReportView;
+  banner?: ReactNode;
+  stickyAction?: ReactNode;
+  stickyNote?: ReactNode;
+  landmark?: boolean;
+}) {
+  const Root = landmark ? "main" : "div";
   return (
-    <main className="flex flex-1 flex-col">
+    <Root className="flex flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-4 pt-6 pb-16 sm:px-5 sm:pt-8">
         {banner}
         <ReportHeader view={view.header} />
@@ -37,7 +52,7 @@ export function ReportPage({ view, banner, stickyAction }: { view: ReportView; b
         <LaunchSection view={view.launch} />
         <WhySection view={view.why} />
       </div>
-      <StickyBar note={view.header.kind === "example" ? "Want this for your product?" : undefined} action={stickyAction} />
-    </main>
+      <StickyBar note={stickyNote ?? (view.header.kind === "example" ? "Want this for your product?" : undefined)} action={stickyAction} />
+    </Root>
   );
 }

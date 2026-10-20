@@ -2,6 +2,7 @@
 // replays. Stages emit events; the UI and the stored report are both built by `reduce`, so a stored
 // run replays to exactly the report it produced (the golden test).
 import { z } from "zod";
+import { CONTROL_SEGMENT } from "./api/requests";
 import { evidenceSchema, type Evidence } from "./evidence";
 import {
   citedEvidence,
@@ -20,7 +21,6 @@ import {
   type Stage,
 } from "./report/schema";
 import {
-  CONTROL_ID,
   comparisonSchema,
   conceptSetSchema,
   controlFitSchema,
@@ -50,7 +50,7 @@ const world = { ...base, segmentId: segmentIdSchema };
 
 export const runEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ ...base, type: z.literal("run.started"), runId: z.string().min(1), kind: z.enum(["live", "example"]), inputs: inputsSchema }),
-  // Run-scoped stages carry no segmentId; world-scoped ones carry the world's id, or CONTROL_ID for the Control.
+  // Run-scoped stages carry no segmentId; world-scoped ones carry the world's id, or CONTROL_SEGMENT for the Control.
   z.strictObject({ ...base, type: z.literal("stage.started"), stage: stageSchema, segmentId: segmentIdSchema.optional() }),
   z.strictObject({ ...base, type: z.literal("stage.done"), stage: stageSchema, stats: stageStatsSchema, segmentId: segmentIdSchema.optional() }),
   z.strictObject({ ...base, type: z.literal("trace.step"), step: traceStepSchema }),
@@ -196,11 +196,11 @@ const emptyControl: ControlState = {
 
 type Scope = { stats: World["stats"]; partial: World["partial"] };
 
-const hasWorld = (state: ReportState, segmentId: string) => segmentId !== CONTROL_ID && state.worlds.some((w) => w.segmentId === segmentId);
+const hasWorld = (state: ReportState, segmentId: string) => segmentId !== CONTROL_SEGMENT && state.worlds.some((w) => w.segmentId === segmentId);
 
 /** A world-scoped stage event lands on its world, or on the Control. */
 function scoped(state: ReportState, segmentId: string, change: (scope: Scope) => Scope): Pick<ReportState, "worlds" | "control"> {
-  if (segmentId === CONTROL_ID) {
+  if (segmentId === CONTROL_SEGMENT) {
     const control = state.control ?? emptyControl;
     return { worlds: state.worlds, control: { ...control, ...change(control) } };
   }

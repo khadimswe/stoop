@@ -4,7 +4,7 @@ import { EXAMPLES } from "../../demo/examples";
 import type { DemoMedia } from "../../demo/manifest";
 import { CAMERA_PRESETS } from "../../prompts/models.config";
 import type { Report } from "../schema";
-import { skewText } from "./format";
+import { settingNote, skewText } from "./format";
 import { outputViews } from "./output";
 import { ledgerOf } from "./receipts";
 import { screeningView } from "./screening";
@@ -16,7 +16,7 @@ const hex = (c: string) => c.repeat(64);
 describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Screening Room view for %s", (slug) => {
   const report = read(slug);
   const view = screeningView(report, ledgerOf(report), null);
-  const outputs = outputViews(report, { renderAccess: { kind: "off" } });
+  const outputs = outputViews(report);
   const segments = report.audience.segments!.items;
 
   it("pins the Control once, then one row per world in segment order", () => {
@@ -62,10 +62,12 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Screening Room view for 
       expect(theater).toMatchObject({ key: world.segmentId, isControl: false, label: world.label, conceptTitle: concept.title, hookLine: concept.scenes[0].overlayText, clip: null });
       // Each fact names what it measures and carries the same receipt as the row.
       expect(theater.facts).toEqual([
-        { text: `${row.ageBand} ${row.skewText}`, receipt: row.skewReceipt },
-        { text: `top cities by lift: ${row.topCities}`, receipt: row.topCitiesReceipt },
-        { text: `set in ${row.settingCity}`, receipt: row.settingReceipt },
+        { text: `${row.ageBand} ${row.skewText}`, receipt: row.skewReceipt, note: null },
+        { text: `top cities by lift: ${row.topCities}`, receipt: row.topCitiesReceipt, note: null },
+        { text: `set in ${row.settingCity}`, receipt: row.settingReceipt, note: row.settingNote },
       ]);
+      // The setting city is the whole neighborhood's pick, and the note next to it says so.
+      expect(row.settingNote).toBe(settingNote(world.settingCity!.audienceRank));
       expect(theater.facts[0].text).toMatch(/^(18 to 24|\d+ to \d+|55 and older) skews [+-]\d\.\d\d$/);
       expect(theater.cues).toEqual(outputs[i].cues);
       expect(theater.storyboard).toEqual(outputs[i].storyboard);

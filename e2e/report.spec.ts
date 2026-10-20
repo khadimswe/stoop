@@ -111,7 +111,10 @@ test("Why it works opens a receipt from every kind of number, and scores the gen
 
   await expect(why.getByText("Cliche flagged").first()).toBeVisible();
   await why.getByRole("button", { name: lead.control.fits[0].line }).first().click();
-  await expect(page.getByRole("dialog", { name: "Receipt: Generic brief vs Qloo" })).toBeVisible();
+  // The generic brief is headed as its own, checked with Qloo, never as a Qloo cue.
+  const generic = page.getByRole("dialog", { name: "Receipt: Generic AI brief, checked with Qloo" });
+  await expect(generic).toBeVisible();
+  await expect(generic.getByText("From Qloo:", { exact: false })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(why.getByText(/unsupported/i)).toHaveCount(0);
   await expect(why.getByText(/% of/)).toHaveCount(0);

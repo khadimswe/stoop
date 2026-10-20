@@ -36,7 +36,8 @@ import type { Storage } from "../storage";
 import { addRunCost, countingModel, emptyDelta, reportNames, runState, type CostDelta } from "../stages/after-run";
 import { critiqueFrames, frameChecklist, type CritiqueResult } from "../stages/critique";
 import { visitorId, type CookieVisitorId } from "../store/visitor";
-import { PAUSED_REASON, storyboardHold, storyboardsSpent, type StoryboardHold, type StoryboardLimits, type StoryboardVisitor } from "./storyboards";
+import { NO_SERVICE_REASON, PAUSED_REASON } from "./frame-reasons";
+import { storyboardHold, storyboardsSpent, type StoryboardHold, type StoryboardLimits, type StoryboardVisitor } from "./storyboards";
 
 if (typeof window !== "undefined") {
   throw new Error("lib/media/frames runs on the server only.");
@@ -44,8 +45,7 @@ if (typeof window !== "undefined") {
 
 /** The lock outlives the route's 300 s limit, so a crashed job frees its world within minutes. */
 export const FRAMES_LOCK_SECONDS = 10 * 60;
-export { PAUSED_REASON };
-export const NO_SERVICE_REASON = "Storyboards are not set up on this server.";
+export { NO_SERVICE_REASON, PAUSED_REASON };
 /** A failure that would only repeat: the route never starts it again. */
 export const BLOCKED_REASON = "Every frame prompt broke the guardrails.";
 export const FRAME_RENDER_TIMEOUT_MS = 90_000;

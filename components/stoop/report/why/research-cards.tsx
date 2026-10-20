@@ -13,7 +13,7 @@ export function SeedsCard({ seeds }: { seeds: SeedView[] }) {
         Qloo measured from these seeds
       </h3>
       {seeds.length > 0 ? (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-2 max-sm:gap-y-3">
           {seeds.map((seed) => (
             <li key={`${seed.kind}-${seed.name}`} className="max-w-full">
               <SeedReceipt origin={seed.origin} name={seed.name} kind={seed.kind} receipt={seed.receipt} />
@@ -88,7 +88,7 @@ function TagGroup({ title, tags: all }: { title: string; tags: TasteTagView[] })
   return (
     <div className="flex flex-col gap-2">
       <h4 className="text-sm font-semibold">{title}</h4>
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="flex flex-wrap gap-1.5 max-sm:gap-y-5">
         {tags.map((tag) => (
           <li key={tag.id} className="max-w-full">
             <OriginChip origin="qloo" receipt={tag.receipt} label={tag.name} />

@@ -113,6 +113,18 @@ export function planBudget(input: BudgetInput, cells: number): BudgetResult {
   };
 }
 
+/**
+ * The split box while the numbers do not split yet: the minimum when the daily budget is a real amount
+ * under $1 a cell (it says what to type, not "enter a budget"), else what is missing or still wrong.
+ */
+export function pendingSplitLine(input: BudgetInput, cells: number): string {
+  const n = Math.max(1, Math.floor(cells));
+  const daily = parseCents(input.daily.trim());
+  if (daily !== null && daily < n * 100) return `At least ${formatUsd(n * 100)} a day, so each of the ${n} cells gets $1.`;
+  if (!input.daily.trim() || !input.days.trim()) return "Enter a daily budget and the test days to see the split.";
+  return "Fix the numbers above to see the split.";
+}
+
 /** "$20 a day per cell · $140 per cell over 7 days · $420 in total". */
 export function splitLine(split: BudgetSplit): string {
   return `${formatUsd(split.perCellDailyCents)} a day per cell · ${formatUsd(split.perCellTotalCents)} per cell over ${days(split.days)} · ${formatUsd(split.totalCents)} in total`;

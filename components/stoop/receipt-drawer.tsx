@@ -40,7 +40,7 @@ export function ReceiptDrawer({
   };
   const title = `Receipt: ${receipt.cue}`;
   const panel = (className: string) => (
-    <ReceiptPanel cue={receipt.cue} title={receipt.title} rows={receipt.rows} note={receipt.note} onClose={() => setOpen(false)} className={className} />
+    <ReceiptPanel cue={receipt.cue} title={receipt.title} rows={receipt.rows} note={receipt.note} subject={receipt.subject} onClose={() => setOpen(false)} className={className} />
   );
 
   return (

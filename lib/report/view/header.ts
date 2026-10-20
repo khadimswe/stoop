@@ -1,5 +1,6 @@
 // The report header: product, provenance and the date the run was recorded. Also the judge pass
 // banner's props (the banner itself is decided on the client: the pass is a cookie).
+import { exampleRunHref, exampleSlugOf } from "../../run/start";
 import type { Report } from "../schema";
 import { formatDate } from "./format";
 import type { PartialView } from "./types";
@@ -15,6 +16,8 @@ export interface HeaderView {
   date: string;
   /** Set when the run stopped early: the report still shows what was measured. */
   partial: PartialView | null;
+  /** An example's recorded run replayed on /run ("Watch the agent build this"); null on live reports. */
+  runHref: string | null;
 }
 
 /**
@@ -37,5 +40,13 @@ export function headerView(report: Report): HeaderView {
     provenance: report.meta.provenance,
     date: formatDate(report.meta.createdAt),
     partial: report.partial,
+    runHref: exampleRunHrefOf(report),
   };
+}
+
+/** /run/example-<slug> for an example report (a replay with zero API calls), else null. */
+export function exampleRunHrefOf(report: Pick<Report, "meta">): string | null {
+  if (report.meta.kind !== "example") return null;
+  const slug = exampleSlugOf(report.meta.id);
+  return slug ? exampleRunHref(slug) : null;
 }

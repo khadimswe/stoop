@@ -2,10 +2,12 @@ import { Maximize2 } from "lucide-react";
 import { Screen } from "@/components/stoop/screen";
 import { VideoTile } from "@/components/stoop/video-tile";
 import { Button } from "@/components/ui/button";
+import { FACT_KEYS } from "@/lib/report/view/deep-link";
 import type { ScreeningView, ScreeningWorldView, TheaterView } from "@/lib/report/view/screening";
 import { REPORT_SECTIONS, ReportSection } from "../report-section";
 import { CueChips } from "../screening/cue-chip";
 import { Fact } from "../screening/fact";
+import { ReceiptDeepLink } from "../screening/receipt-deep-link";
 import { ConceptPoster } from "../storyboard";
 import { Theater } from "../theater";
 
@@ -48,12 +50,16 @@ function WorldRow({ world }: { world: ScreeningWorldView }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 py-0.5">
         <h3 className="font-display text-base leading-snug font-bold text-paper [font-stretch:90%] sm:text-lg">{world.label}</h3>
-        <p className="-my-3 flex flex-wrap gap-x-3 text-xs text-paper-dim">
-          {world.skewText && <Fact text={world.skewText} receipt={world.skewReceipt} />}
-          {world.topCities && <Fact text={`top cities by lift: ${world.topCities}`} receipt={world.topCitiesReceipt} />}
-          {world.settingCity && <Fact text={`set in ${world.settingCity}`} receipt={world.settingReceipt} />}
-        </p>
-        <CueChips cues={world.cues} surface="screen" label="From Qloo:" />
+        <div className="flex flex-col text-xs text-paper-dim">
+          <p className="-my-3 flex flex-wrap gap-x-3">
+            {world.skewText && <Fact text={world.skewText} receipt={world.skewReceipt} deepLink={FACT_KEYS.skew} />}
+            {world.topCities && <Fact text={`top cities by lift: ${world.topCities}`} receipt={world.topCitiesReceipt} deepLink={FACT_KEYS.topCities} />}
+            {world.settingCity && <Fact text={`set in ${world.settingCity}`} receipt={world.settingReceipt} deepLink={FACT_KEYS.setting} />}
+          </p>
+          {/* The setting city is ranked across the whole neighborhood, so it can differ from this world's own top cities. */}
+          {world.settingCity && world.settingNote && <p className="mt-3">{world.settingNote}</p>}
+        </div>
+        <CueChips cues={world.cues} surface="screen" label="From Qloo:" deepLinks />
         <div className="mt-auto pt-1">
           <OpenButton theater={world.theater} name={world.label} />
         </div>
@@ -101,6 +107,7 @@ export function ScreeningSection({ view }: { view: ScreeningView }) {
         </div>
         <p className="text-xs text-paper-dim">One clip plays at a time. Open one to see why each shot was chosen, with the receipts.</p>
       </Screen>
+      <ReceiptDeepLink />
     </ReportSection>
   );
 }

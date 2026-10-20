@@ -43,7 +43,7 @@ function Shot({ shot, view }: { shot: TheaterShotView; view: TheaterView }) {
           Line, in the brand&apos;s voice: <span className="font-semibold text-ink">&ldquo;{shot.dialogue}&rdquo;</span>
         </p>
       )}
-      <ul aria-label={`What shot ${shot.number} carries`} className="mt-0.5 flex flex-wrap gap-x-1.5 gap-y-4">
+      <ul aria-label={`What shot ${shot.number} carries`} className="mt-0.5 flex flex-wrap gap-x-1.5 gap-y-5">
         {carried.map((cue) => (
           <li key={cue.slot} className="flex max-w-full">
             <CueChip cue={cue} />
@@ -90,15 +90,22 @@ function TheaterBody({ view }: { view: TheaterView }) {
               </DialogDescription>
             ) : (
               // The same receipt-backed facts as the Screening Room row, each naming what it measures.
-              <DialogDescription asChild>
-                <ul className="-my-2 flex flex-wrap gap-x-3 text-sm text-ink-soft">
-                  {view.facts.map((fact) => (
-                    <li key={fact.text}>
-                      <Fact text={fact.text} receipt={fact.receipt} surface="paper" />
-                    </li>
-                  ))}
-                </ul>
-              </DialogDescription>
+              <>
+                <DialogDescription asChild>
+                  <ul className="-my-2 flex flex-wrap gap-x-3 text-sm text-ink-soft">
+                    {view.facts.map((fact) => (
+                      <li key={fact.text}>
+                        <Fact text={fact.text} receipt={fact.receipt} surface="paper" />
+                      </li>
+                    ))}
+                  </ul>
+                </DialogDescription>
+                {view.facts.map((fact) => fact.note && (
+                  <p key={`${fact.text}-note`} className="mt-2 text-xs text-ink-soft">
+                    {fact.note}
+                  </p>
+                ))}
+              </>
             )}
           </div>
           <DialogClose className="flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-concrete-line text-ink hover:bg-fill" aria-label="Close">

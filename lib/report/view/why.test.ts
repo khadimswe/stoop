@@ -7,7 +7,7 @@ import type { ControlFit, Revision, World } from "../world";
 import { plainType, skewText } from "./format";
 import { ledgerOf } from "./receipts";
 import { CITY_SUPPORT_RANK as CHECK_CITY_RANK } from "../../stages/check";
-import { CITY_SUPPORT_RANK, EXCLUDE_MAX, fieldOfSlot, latestJobSteps, revisionOutcome, slotLabel, STATUS_LABELS, TOP_CITIES, whyView } from "./why";
+import { CITY_SUPPORT_RANK, EXCLUDE_MAX, fieldOfSlot, genericCue, latestJobSteps, revisionOutcome, slotLabel, STATUS_LABELS, TOP_CITIES, whyView } from "./why";
 import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
@@ -98,14 +98,18 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Why it works view for %s
       expect(row.range).toBe(fit.range && `Across ${fit.range.runs} recorded generic briefs, ${fit.range.belowMin === fit.range.belowMax ? fit.range.belowMin : `${fit.range.belowMin} to ${fit.range.belowMax}`} choices missed.`);
       const choices = row.groups.flatMap((g) => g.choices);
       expect(choices.map((c) => [c.text, c.status, c.measured]).sort()).toEqual(fit.choices.map((c) => [c.text, c.status, c.measured]).sort());
+      // The generic brief's picks are headed as its own, checked with Qloo, never as Qloo cues.
+      expect(row.fitReceipt).toMatchObject({ cue: "Generic AI brief, checked with Qloo", subject: "generic" });
       for (const choice of choices) {
         expect(choice.statusLabel).toBe(STATUS_LABELS[choice.status]);
+        if (choice.receipt) expect(choice.receipt).toMatchObject({ cue: genericCue(choice.dimensionLabel), subject: "generic" });
+        if (choice.receipt) expect(choice.receipt.cue).toMatch(/^Generic AI brief's [a-z]+, checked with Qloo$/);
         if (choice.status === "below") expect(choice.statusLabel).toBe("Cliche flagged");
         if (choice.status === "supported" || choice.status === "below") expect(choice.receipt?.calls).toBeGreaterThan(0);
       }
       const world = report.worlds.find((w) => w.segmentId === fit.segmentId)!;
       expect(row.cliches.map((c) => [c.assumed, c.measured])).toEqual(world.check!.cliches.map((c) => [c.assumed, c.measured]));
-      for (const cliche of row.cliches) expect(cliche.receipt?.cue).toBe("Cliche flagged");
+      for (const cliche of row.cliches) expect(cliche.receipt).toMatchObject({ cue: "Generic AI brief's cliche, checked with Qloo", subject: "generic" });
       expect(row.qlooReceipt?.calls).toBe(new Set(line.evidenceIds).size);
     });
   });

@@ -8,7 +8,8 @@ import { AGE_BUCKETS } from "../qloo/constants";
 import { productSpecSchema } from "../prompts/brief";
 import { creativeDirectionSchema } from "../types";
 import { costSchema, partialSchema, stageSchema, stageStatsSchema, traceStageSchema } from "./stages";
-import { CONTROL_ID, comparisonSchema, controlSchema, worldSchema } from "./world";
+import { CONTROL_SEGMENT } from "../api/requests";
+import { comparisonSchema, controlSchema, worldSchema } from "./world";
 
 export { AFTER_RUN_STAGES, STAGES, costSchema, traceStageSchema, type TraceStage, stageSchema, stageStatsSchema, partialSchema, type Cost, type Stage, type StageStats } from "./stages";
 
@@ -284,8 +285,8 @@ export const reportSchema = reportShape.superRefine((report, ctx) => {
     if (framed && !world.revisions.some((r) => r.id === framed)) issue(`world ${world.segmentId} has frames for ${framed}, which is not one of its revisions`, ["worlds", i, "frames"]);
   });
   if (report.control) {
-    if (report.control.brief.segment.id !== CONTROL_ID) issue(`the Control's brief is for ${report.control.brief.segment.id}`, ["control", "brief"]);
-    if (report.control.pack && report.control.pack.segmentId !== CONTROL_ID) issue(`the Control carries the pack of ${report.control.pack.segmentId}`, ["control", "pack"]);
+    if (report.control.brief.segment.id !== CONTROL_SEGMENT) issue(`the Control's brief is for ${report.control.brief.segment.id}`, ["control", "brief"]);
+    if (report.control.pack && report.control.pack.segmentId !== CONTROL_SEGMENT) issue(`the Control carries the pack of ${report.control.pack.segmentId}`, ["control", "pack"]);
     report.control.fits.forEach((fit, i) => {
       if (!worldIds.has(fit.segmentId)) issue(`the Control's fit for ${fit.segmentId} has no world`, ["control", "fits", i]);
     });

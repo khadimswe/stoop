@@ -63,13 +63,13 @@ function Ingredients({ items }: { items: IngredientView[] }) {
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-xs font-semibold text-ink-soft">Draws on</p>
-      <ul className="flex flex-col gap-1.5" aria-label="What this concept draws on">
+      <ul className="flex flex-col gap-1.5 max-sm:gap-6" aria-label="What this concept draws on">
         {ORIGIN_GROUPS.map(({ origin, tag }) => {
           // No evidence, no display: a Qloo cue without a receipt is left out.
           const group = items.filter((item) => item.origin === origin && (item.receipt || (origin !== "qloo" && origin !== "interpreted")));
           if (group.length === 0 && origin !== "creative") return null;
           return (
-            <li key={origin} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+            <li key={origin} className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm max-sm:gap-y-6">
               <Chip origin={origin}>{tag}</Chip>
               {group.map((item, i) => (
                 <span key={item.slot}>
@@ -188,13 +188,28 @@ function CutCard({ card, video }: { card: CutCardView; video: PromptOptionView[]
         <p className={HOOK}>{card.platformLabel} cut</p>
       </div>
       <p className="text-sm text-ink-soft">
-        <span className="font-semibold text-ink">Hook:</span> {card.hookRule}
+        <span className="font-semibold text-ink">Hook:</span> <span className="text-ink">{card.hook}</span>
       </p>
       <p className="text-sm text-ink-soft">
         <span className="font-semibold text-ink">CTA button:</span> {card.cta}
       </p>
-      <p className="line-clamp-6 rounded-lg bg-fill px-3 py-2 text-xs leading-relaxed whitespace-pre-line text-ink-soft">{card.copy.text}</p>
-      <p className="text-xs text-ink-soft">Same concept and Culture Brief, written for {card.platformLabel}. The script speaks as the brand, never as a customer.</p>
+      {/* Whole lines only: the box never cuts a line in half; the rest of the script opens below it. */}
+      <div className="flex flex-col gap-1 rounded-lg bg-fill px-3 py-2 text-xs leading-relaxed text-ink-soft">
+        <ol aria-label={`${card.platformLabel} script, first lines`} className="flex flex-col gap-1">
+          {card.preview.lines.map((line, i) => (
+            <li key={`${i}-${line.slice(0, 16)}`}>{line}</li>
+          ))}
+        </ol>
+        {card.preview.more > 0 && (
+          <details className="group">
+            <summary className="flex min-h-11 cursor-pointer items-center rounded-sm font-semibold text-ink sm:min-h-8">The whole script</summary>
+            <p className="pt-1 whitespace-pre-line">{card.copy.text}</p>
+          </details>
+        )}
+      </div>
+      <p className="text-xs text-ink-soft">
+        Same concept and Culture Brief, written for {card.platformLabel} in the {card.formatLabel} format ({card.formatRule.charAt(0).toLowerCase() + card.formatRule.slice(1).replace(/\.$/, "")}). The script speaks as the brand, never as a customer.
+      </p>
       <Actions>
         <CopyButton text={card.copy.text} label={card.copy.label} variant="quiet" className={ACTION} />
         <PromptsMenu video={video} actor={card.actorPrompts} title={`${card.platformLabel} cut`} />
@@ -234,7 +249,7 @@ function PlanCard({ card }: { card: PlanCardView }) {
     <article aria-label={`Ad plan: ${card.name}`} className={CARD}>
       <CardTop left={<Tag>Meta ad set · TikTok ad group</Tag>} />
       <p className={HOOK}>{card.name}</p>
-      <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+      <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm max-sm:gap-y-6">
         <dt className="text-ink-soft">Age bands</dt>
         <dd>{card.ageBands.length ? <ReceiptLink receipt={card.receipt}>{`${card.ageBands.join(", ")} (optional)`}</ReceiptLink> : "Leave broad"}</dd>
         <dt className="text-ink-soft">Cities</dt>

@@ -7,11 +7,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { CONTROL_SEGMENT } from "../api/requests";
 import { hashOf } from "../hash";
 import type { BriefSlots } from "../prompts/brief";
 import { buildProductionPack, checkPack, packHashes, type PackProblem, type ProductionPack } from "../prompts/pack";
 import { reportSchema, type Report } from "../report/schema";
-import { CONTROL_ID, type ConceptSet, type CultureFieldResult, type Kit, type SettingCity } from "../report/world";
+import type { ConceptSet, CultureFieldResult, Kit, SettingCity } from "../report/world";
 import { reportNames } from "../stages/after-run";
 import type { DemoApprovals } from "./manifest";
 import { EXAMPLES, type ExampleSlug } from "./examples";
@@ -52,7 +53,7 @@ export function reportPacks(report: Report): ReportPack[] {
   const packs: ReportPack[] = [];
   const control = report.control;
   if (!control?.pack) throw new Error(`${report.meta.id} has no Control pack.`);
-  packs.push({ key: CONTROL_ID, segmentId: null, label: "Control (LLM-only brief)", pack: control.pack, brief: control.brief, concepts: control.concepts, kit: control.kit, culture: null, settingCity: null, richSlots: [] });
+  packs.push({ key: CONTROL_SEGMENT, segmentId: null, label: "Control (LLM-only brief)", pack: control.pack, brief: control.brief, concepts: control.concepts, kit: control.kit, culture: null, settingCity: null, richSlots: [] });
   for (const world of report.worlds) {
     if (!world.pack || !world.brief) throw new Error(`${report.meta.id}: world ${world.segmentId} has no pack.`);
     packs.push({ key: world.segmentId, segmentId: world.segmentId, label: world.label, pack: world.pack, brief: world.brief, concepts: world.concepts, kit: world.kit, culture: world.culture, settingCity: world.settingCity, richSlots: world.richSlots });

@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 
 function Connecting() {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-4 pt-8 pb-20 sm:px-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-4 pt-8 pb-20 sm:px-5">
       <h1 className="font-display text-[1.625rem] leading-tight font-extrabold [font-stretch:85%] sm:text-[1.875rem]">Building your Campaign Kit</h1>
       <p className="text-sm text-ink-soft">Connecting to the run…</p>
-    </main>
+    </div>
   );
 }
 
@@ -30,10 +30,14 @@ async function Run({ params, searchParams }: { params: PageProps<"/run/[id]">["p
   return <RunView runId={id} why={isReplayReason(why) ? why : null} />;
 }
 
+// The page's one <main> sits outside the Suspense boundary, so the "Connecting" fallback and the trace
+// that streams in to replace it never stand side by side as two landmarks.
 export default function RunPage({ params, searchParams }: PageProps<"/run/[id]">) {
   return (
-    <Suspense fallback={<Connecting />}>
-      <Run params={params} searchParams={searchParams} />
-    </Suspense>
+    <main className="flex flex-1 flex-col">
+      <Suspense fallback={<Connecting />}>
+        <Run params={params} searchParams={searchParams} />
+      </Suspense>
+    </main>
   );
 }
