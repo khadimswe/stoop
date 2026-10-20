@@ -61,6 +61,7 @@ describe("the exclude file", () => {
       "data/marketing/mcp-session.json",
       "docs/data-check-details.md",
       "MIRROR.md",
+      ".github/dependabot.yml",
     ]) {
       expect(exclude.excluded(gone), gone).toBe(true);
     }
@@ -75,6 +76,7 @@ describe("the exclude file", () => {
       "lib/culture/panels.ts",
       "public-mirror.exclude",
       "README.md",
+      ".github/workflows/checks.yml",
     ]) {
       expect(exclude.excluded(kept), kept).toBe(false);
     }

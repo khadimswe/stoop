@@ -27,3 +27,18 @@ for (const path of ["/report/not-a-run", "/examples/not-an-example", "/no-such-p
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(1);
   });
 }
+
+test("robots.txt disallows only the API, so crawlers can read the private pages' noindex", async ({ request }) => {
+  const response = await request.get("/robots.txt");
+  expect(response.status()).toBe(200);
+  const lines = (await response.text()).split("\n").map((line) => line.trim());
+  expect(lines).toContain("Allow: /");
+  expect(lines.filter((line) => line.startsWith("Disallow:"))).toEqual(["Disallow: /api/"]);
+});
+
+for (const path of ["/report/run_0123456789abcdef01234567", "/run/run_0123456789abcdef01234567"]) {
+  test(`${path} asks search engines not to index or follow it`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+  });
+}

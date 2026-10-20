@@ -41,6 +41,9 @@ data/marketing/
 docs/data-check-details.md
 # Founder notes for running the mirror.
 MIRROR.md
+# Dependency update config: updates land here and reach the mirror with main. In the mirror, the
+# same file would open pull requests there, and merging one would stop every later mirror push.
+.github/dependabot.yml
 # macOS folder metadata committed by accident once (it names local files).
 regex:(^|/)\.DS_Store$
 

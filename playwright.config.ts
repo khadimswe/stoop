@@ -16,7 +16,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // A private repository's CI runner has 2 cores, where the default is 1 worker. The tests mostly wait on the
+  // browser and the server, so 2 run side by side.
+  workers: process.env.CI ? 2 : undefined,
+  // In CI, annotations on the pull request plus an HTML report the workflow uploads when a test fails.
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
