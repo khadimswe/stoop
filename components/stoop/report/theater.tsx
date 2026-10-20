@@ -43,7 +43,7 @@ function Shot({ shot, view }: { shot: TheaterShotView; view: TheaterView }) {
           Line, in the brand&apos;s voice: <span className="font-semibold text-ink">&ldquo;{shot.dialogue}&rdquo;</span>
         </p>
       )}
-      <ul aria-label={`What shot ${shot.number} carries`} className="mt-0.5 flex flex-wrap gap-x-1.5 gap-y-3">
+      <ul aria-label={`What shot ${shot.number} carries`} className="mt-0.5 flex flex-wrap gap-x-1.5 gap-y-4">
         {carried.map((cue) => (
           <li key={cue.slot} className="flex max-w-full">
             <CueChip cue={cue} />
@@ -91,7 +91,7 @@ function TheaterBody({ view }: { view: TheaterView }) {
             ) : (
               // The same receipt-backed facts as the Screening Room row, each naming what it measures.
               <DialogDescription asChild>
-                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-soft">
+                <ul className="-my-2 flex flex-wrap gap-x-3 text-sm text-ink-soft">
                   {view.facts.map((fact) => (
                     <li key={fact.text}>
                       <Fact text={fact.text} receipt={fact.receipt} surface="paper" />

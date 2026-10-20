@@ -48,7 +48,7 @@ function WorldRow({ world }: { world: ScreeningWorldView }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 py-0.5">
         <h3 className="font-display text-base leading-snug font-bold text-paper [font-stretch:90%] sm:text-lg">{world.label}</h3>
-        <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-paper-dim">
+        <p className="-my-3 flex flex-wrap gap-x-3 text-xs text-paper-dim">
           {world.skewText && <Fact text={world.skewText} receipt={world.skewReceipt} />}
           {world.topCities && <Fact text={`top cities by lift: ${world.topCities}`} receipt={world.topCitiesReceipt} />}
           {world.settingCity && <Fact text={`set in ${world.settingCity}`} receipt={world.settingReceipt} />}

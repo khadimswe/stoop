@@ -53,7 +53,7 @@ export function CueChips({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {label && <span className={cn("text-xs", surface === "screen" ? "text-paper-dim" : "text-ink-soft")}>{label}</span>}
-      <ul aria-label={label?.replace(/:$/, "")} className="flex flex-wrap items-center gap-x-1.5 gap-y-3">
+      <ul aria-label={label?.replace(/:$/, "")} className="flex flex-wrap items-center gap-x-1.5 gap-y-4">
         {cues.map((cue, i) => (
           <li key={`${cue.label}-${i}`} className="flex max-w-full">
             <CueChip cue={cue} surface={surface} showOrigin={!label} />
