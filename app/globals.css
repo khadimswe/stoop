@@ -103,6 +103,26 @@
 
   --animate-stamp: stamp 640ms var(--ease-pop) both;
   --animate-rise: rise 520ms var(--ease-smooth) both;
+  /* The agent demo: a text caret, and a trace row that opens its own height so older rows glide up. */
+  --animate-caret: caret 1s step-end infinite;
+  --animate-row-in: row-in 420ms var(--ease-smooth) both;
+
+  @keyframes caret {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes row-in {
+    from {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+    to {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
 
   @keyframes stamp {
     from {

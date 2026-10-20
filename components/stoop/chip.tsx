@@ -82,14 +82,22 @@ export function Chip({
 export type SeedOrigin = "qloo" | "suggested" | "you";
 
 const SEED = {
-  qloo: { icon: BadgeCheck, tag: "Qloo", spoken: "Qloo tag from your page", style: "border-dusk bg-dusk text-paper" },
-  suggested: {
-    icon: Lightbulb,
-    tag: "Suggested",
-    spoken: "Suggested by Stoop and confirmed in Qloo",
-    style: "border-concrete-line bg-surface text-ink",
+  qloo: { icon: BadgeCheck, tag: "Qloo", spoken: "Qloo tag from your page" },
+  suggested: { icon: Lightbulb, tag: "Suggested", spoken: "Suggested by Stoop and confirmed in Qloo" },
+  you: { icon: UserRound, tag: "You", spoken: "Added by you" },
+} as const;
+
+const SEED_STYLE = {
+  paper: {
+    qloo: "border-dusk bg-dusk text-paper",
+    suggested: "border-concrete-line bg-surface text-ink",
+    you: "border-ink bg-surface text-ink",
   },
-  you: { icon: UserRound, tag: "You", spoken: "Added by you", style: "border-ink bg-surface text-ink" },
+  screen: {
+    qloo: "border-dusk-light bg-dusk-light text-screen",
+    suggested: "border-concrete-screen bg-transparent text-paper",
+    you: "border-paper bg-transparent text-paper",
+  },
 } as const;
 
 export function SeedChip({
@@ -97,6 +105,7 @@ export function SeedChip({
   name,
   kind,
   onRemove,
+  surface = "paper",
   className,
 }: {
   origin: SeedOrigin;
@@ -104,9 +113,11 @@ export function SeedChip({
   /** Qloo type in plain words, e.g. "brand", "tv", "tag". */
   kind: string;
   onRemove?: () => void;
+  surface?: "paper" | "screen";
   className?: string;
 }) {
-  const { icon: Icon, tag, spoken, style } = SEED[origin];
+  const { icon: Icon, tag, spoken } = SEED[origin];
+  const style = SEED_STYLE[surface][origin];
   return (
     <span
       className={cn(
