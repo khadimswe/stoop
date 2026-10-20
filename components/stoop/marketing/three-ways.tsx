@@ -1,6 +1,8 @@
 import { ArrowRight, Clapperboard, MessageSquareText, MousePointerClick, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { LEAD_EXAMPLE } from "@/lib/demo/examples";
+import { cn } from "cn";
+import { reveal, REVEAL_CLASS } from "./reveal";
 
 interface Way {
   title: string;
@@ -41,7 +43,7 @@ export function ThreeWays() {
       <h2 id="three-ways-title" className="type-kicker mb-5 text-ink-soft">
         Three ways to use it
       </h2>
-      <ul className="grid gap-x-8 gap-y-6 border-t-2 border-ink pt-6 md:grid-cols-3">
+      <ul {...reveal()} className={cn("grid gap-x-8 gap-y-6 border-t-2 border-ink pt-6 md:grid-cols-3", REVEAL_CLASS)}>
         {WAYS.map(({ title, line, href, linkLabel, icon: Icon }) => (
           <li key={title} className="flex flex-col items-start gap-2">
             <Icon aria-hidden="true" className="size-6 text-ink" strokeWidth={2.2} />
