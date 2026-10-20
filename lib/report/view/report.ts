@@ -44,7 +44,7 @@ export function reportView(report: Report, { media = null, renderAccess }: Repor
     yourAd: yourAdView(report.worlds[0], top),
     outputs,
     screening: screeningView(report, ledger, media),
-    kit: kitView(report),
+    kit: kitView(report, media),
     why: whyView(report, ledger),
   };
 }

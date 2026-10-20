@@ -6,7 +6,7 @@ import { Slot } from "radix-ui"
 // Stoop buttons: pills. `default` is the one brick primary action per view (ink label for AA).
 // `outline` and `ghost` keep their shadcn names because Dialog and Sheet use them internally.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border-2 border-transparent bg-clip-padding font-semibold whitespace-nowrap transition-[transform,box-shadow,background-color,color] duration-200 ease-(--ease-smooth) outline-none select-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-full border-2 border-transparent bg-clip-padding font-semibold whitespace-nowrap transition-[transform,box-shadow,background-color,color] duration-200 ease-(--ease-smooth) outline-none select-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

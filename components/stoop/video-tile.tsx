@@ -1,17 +1,26 @@
 "use client";
 
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { BadgeCheck, Pause, PenLine, Play, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePrefersReducedMotion } from "@/hooks/use-media-query";
 import { cn } from "cn";
+
+/** One clip plays at a time, page-wide: starting one pauses every other video on the page (autoplaying ones included). */
+function pauseOthers(current: HTMLVideoElement) {
+  for (const video of document.querySelectorAll("video")) {
+    if (video !== current && !video.paused) video.pause();
+  }
+}
 
 /**
  * A 9:16 ad clip on a dark screen.
  * - tone "control": the generic ad, framed in concrete and labeled, never relying on color alone.
- * - tone "culture": a culture-made ad, framed in color.
- * - No src yet: a labeled "clip coming" placeholder (never fake media).
+ * - tone "culture": a culture-made ad, framed in dusk (Qloo decided) and labeled in text. Sun is
+ *   decoration only, never this meaning.
+ * - No src: the `preview` (the concept preview: storyboard frame or first shot), or, with none, a
+ *   labeled "clip coming" placeholder (never fake media).
  * - Autoplay is muted, skipped under reduced motion, and falls back to "Tap to play" when blocked
- *   (iOS Low Power Mode, in-app browsers).
+ *   (iOS Low Power Mode, in-app browsers). One clip plays at a time across the page.
  */
 export function VideoTile({
   label,
@@ -22,6 +31,7 @@ export function VideoTile({
   autoPlay = false,
   muted = true,
   onToggleSound,
+  preview,
   className,
 }: {
   label: string;
@@ -34,6 +44,8 @@ export function VideoTile({
   muted?: boolean;
   /** When provided, the tile shows a sound toggle. The parent decides which single tile has sound. */
   onToggleSound?: () => void;
+  /** Shown in the frame when there is no clip: the concept preview. */
+  preview?: ReactNode;
   className?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -78,8 +90,9 @@ export function VideoTile({
     tone === "control"
       ? "border-concrete-screen"
       : tone === "culture"
-        ? "border-sun"
+        ? "border-dusk-light"
         : "border-paper/20";
+  const Mark = tone === "culture" ? BadgeCheck : tone === "control" ? PenLine : null;
 
   return (
     <figure className={cn("@container relative aspect-[9/16] overflow-hidden rounded-2xl border-[3px] bg-screen-raised", frame, className)}>
@@ -93,7 +106,9 @@ export function VideoTile({
           loop
           playsInline
           preload={autoPlay ? "metadata" : "none"}
-          onPlay={() => {
+          onPlay={(event) => {
+            // Muted autoplay (the landing's paired hook cuts) never stops anything; a clip someone starts does.
+            if (!autoPlay) pauseOthers(event.currentTarget);
             setPlaying(true);
             setUserPaused(false);
           }}
@@ -102,6 +117,8 @@ export function VideoTile({
         >
           {captions && <track kind="captions" src={captions} srcLang="en" label="English" default />}
         </video>
+      ) : preview ? (
+        preview
       ) : (
         <div className="flex size-full flex-col items-center justify-center gap-2 p-4 text-center">
           <span className="font-mono text-[0.6875rem] tracking-widest text-paper-dim uppercase">Clip coming</span>
@@ -111,11 +128,12 @@ export function VideoTile({
 
       <figcaption
         className={cn(
-          "absolute top-2 left-2 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold tracking-wide",
-          tone === "control" ? "bg-screen/85 text-concrete-screen" : "bg-screen/85 text-paper",
+          "absolute top-1.5 left-1.5 inline-flex max-w-[calc(100%-0.75rem)] items-center gap-1 rounded-full bg-screen px-2 py-1 text-[0.625rem] font-bold tracking-wide @[9rem]:top-2 @[9rem]:left-2 @[9rem]:px-2.5 @[9rem]:text-[0.6875rem]",
+          tone === "control" ? "text-concrete-screen" : tone === "culture" ? "text-dusk-light" : "text-paper",
         )}
       >
-        {label}
+        {Mark && <Mark aria-hidden="true" className="hidden size-3 shrink-0 @[9rem]:block" />}
+        <span className="truncate">{label}</span>
       </figcaption>
 
       {src && needsTap && (
@@ -144,7 +162,7 @@ export function VideoTile({
             ref.current?.pause();
           }}
           aria-label={`Pause ${label}`}
-          className="absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper"
+          className="absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper after:absolute after:-inset-1 after:content-['']"
         >
           <Pause aria-hidden="true" className="size-4" />
         </button>
@@ -156,7 +174,7 @@ export function VideoTile({
           onClick={onToggleSound}
           aria-label={muted ? `Turn sound on for ${label}` : `Mute ${label}`}
           aria-pressed={!muted}
-          className="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper"
+          className="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper after:absolute after:-inset-1 after:content-['']"
         >
           {muted ? <VolumeX aria-hidden="true" className="size-4" /> : <Volume2 aria-hidden="true" className="size-4" />}
         </button>
