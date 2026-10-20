@@ -78,9 +78,11 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
   const prefix: RunEvent[] = [];
   const snapshots: Pick<DemoStep, "recordedMs" | "rail" | "calls">[] = [];
   for (const event of events) {
+    const steps = state.trace.length;
     state = apply(state, event);
     prefix.push(event);
-    if (event.type !== "trace.step") continue;
+    // Only a step the reducer kept (a repeat or a stale attempt changes nothing).
+    if (event.type !== "trace.step" || state.trace.length === steps) continue;
     snapshots.push({
       recordedMs: Date.parse(event.at) - t0,
       rail: railRows(prefix, { ended: false, failed: false }).map((row) => row.status),
@@ -91,6 +93,7 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
   if (final.runId !== report.meta.id || final.trace.length !== report.trace.length) throw new Error("The recorded events and report disagree: regenerate the run.");
   const worldNames = final.worlds.map((w) => ({ segmentId: w.segmentId, label: w.label }));
   const rows = traceRows(final.trace, worldNames);
+  if (rows.length !== snapshots.length) throw new Error("The trace and its snapshots disagree.");
   const steps: DemoStep[] = rows.map((row, i) => ({
     stageLabel: row.stageLabel,
     startsGroup: row.startsGroup,

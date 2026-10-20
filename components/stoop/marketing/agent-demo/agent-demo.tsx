@@ -28,7 +28,7 @@ export function AgentDemo({ script, launchPlan, speedParam = false, className }:
         <p className="sr-only">{script.summary}</p>
         <Link
           href={script.reportHref}
-          className="sr-only rounded-full bg-paper px-4 py-2.5 text-sm font-semibold text-ink focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:left-2 focus-visible:z-10 focus-visible:outline-dusk-light"
+          className="sr-only rounded-full bg-paper px-4 py-3 text-sm font-semibold text-ink focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:left-2 focus-visible:z-10 focus-visible:outline-dusk-light"
         >
           Skip the replay: open the full report
         </Link>

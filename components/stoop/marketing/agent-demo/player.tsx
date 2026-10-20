@@ -2,11 +2,11 @@
 
 import { ArrowRight, ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { usePrefersReducedMotion } from "@/hooks/use-media-query";
 import { demoTimeline, frameAt, speedFromQuery } from "@/lib/marketing/demo-timeline";
-import { DEMO_BEAT_LABELS, DEMO_BEATS, type DemoBeat, type DemoScript } from "@/lib/marketing/demo-types";
+import { DEMO_BEAT_LABELS, type DemoBeat, type DemoScript } from "@/lib/marketing/demo-types";
 import { BeatSegments, TopBar } from "./chrome";
 import { ComposerBeat } from "./composer-beat";
 import { LaunchPlanPlaceholder } from "./launch-plan";
@@ -53,10 +53,11 @@ function usePageVisible(): boolean {
   return visible;
 }
 
-/** The replay's clock: runs while `running`, loops at `total`, and can jump to any time. */
-function useReplayClock(total: number, running: boolean, speed: number) {
-  const elapsed = useRef(0);
-  const [t, setT] = useState(0);
+/**
+ * The replay's clock: while `running`, it advances `elapsed` (the caller's, so Replay can reset it),
+ * loops at `total`, and shows the time through `setT` at most every TICK ms.
+ */
+function useReplayClock(total: number, running: boolean, speed: number, elapsed: RefObject<number>, setT: Dispatch<SetStateAction<number>>) {
   useEffect(() => {
     if (!running) return;
     let frame = 0;
@@ -73,12 +74,7 @@ function useReplayClock(total: number, running: boolean, speed: number) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [running, speed, total]);
-  const seek = useCallback((ms: number) => {
-    elapsed.current = ms;
-    setT(ms);
-  }, []);
-  return { t, seek };
+  }, [running, speed, total, elapsed, setT]);
 }
 
 const ROUTE: Record<DemoBeat, keyof DemoScript["routes"]> = {
@@ -104,20 +100,30 @@ export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: Agen
   const [ref, onScreen] = useOnScreen<HTMLDivElement>();
   const pageVisible = usePageVisible();
   const [paused, setPaused] = useState(false);
+  /** Where the pointer and the keyboard are: on "Open the full report", the replay holds, so the link never vanishes under them. */
+  const cta = useRef<HTMLAnchorElement>(null);
+  const [hovering, setHovering] = useState(false);
+  const [focused, setFocused] = useState(false);
+  /** The beats with something to show (a run with no storyboard skips that beat). */
+  const shown = useMemo(() => timeline.beats.flatMap((span, i) => (span.end > span.start ? [i] : [])), [timeline]);
   /** Reduced motion: the beat whose end is showing, starting at the last (the end of the run). */
-  const [step, setStep] = useState(DEMO_BEATS.length - 1);
-  const playing = !reduced && !paused && onScreen && pageVisible;
-  const clock = useReplayClock(timeline.total, playing, speed);
-
-  const t = reduced ? timeline.beats[step].end : clock.t;
-  const frame = frameAt(timeline, script, t);
+  const [step, setStep] = useState(() => shown.at(-1) ?? 0);
+  const elapsed = useRef(0);
+  const [t, setClock] = useState(0);
+  const frame = frameAt(timeline, script, reduced ? timeline.beats[step].end : t);
   const { beat } = frame;
+  const showCta = beat === "launch" && frame.launch.cta;
+  // Only while the link is on screen: a stale hover or focus never holds a later beat.
+  const held = showCta && (hovering || focused);
+  const playing = !reduced && !paused && !held && onScreen && pageVisible;
+  useReplayClock(timeline.total, playing, speed, elapsed, setClock);
 
   const replay = () => {
-    clock.seek(0);
+    elapsed.current = 0;
+    setClock(0);
     setPaused(false);
   };
-  const stepThrough = () => setStep((current) => (current + 1) % DEMO_BEATS.length);
+  const stepThrough = () => setStep((current) => shown[(shown.indexOf(current) + 1) % shown.length]);
 
   let stage: ReactNode;
   switch (beat) {
@@ -140,22 +146,26 @@ export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: Agen
       stage = <StoryboardBeat script={script} frame={frame.storyboard} />;
       break;
     case "launch":
-      stage = launchPlan ?? <LaunchPlanPlaceholder plan={script.launchPlan} rows={frame.launch.rows} />;
+      // A Launch plan passed in may hold links or buttons, so it renders outside the hidden stage below.
+      stage = launchPlan ? null : <LaunchPlanPlaceholder plan={script.launchPlan} rows={frame.launch.rows} />;
       break;
   }
-  const showCta = beat === "launch" && frame.launch.cta;
-
   return (
-    <div ref={ref} data-demo-beat={beat} data-demo-playing={playing ? "true" : "false"} data-demo-mode={reduced ? "steps" : "autoplay"} data-demo-steps={frame.trace.steps}>
+    <div
+      ref={ref}
+      onPointerMove={(event) => setHovering(Boolean(cta.current?.contains(event.target as Node)))}
+      onPointerLeave={() => setHovering(false)}
+      data-demo-beat={beat} data-demo-playing={playing ? "true" : "false"} data-demo-mode={reduced ? "steps" : "autoplay"} data-demo-steps={frame.trace.steps}>
       <TopBar label={script.label} route={script.routes[ROUTE[beat]]} live={playing} />
       <div className={STAGE_BOX}>
         <div aria-hidden="true" key={beat} className="absolute inset-0 p-4 motion-safe:animate-rise @2xl:p-6 @4xl:p-8">
           {stage}
         </div>
+        {beat === "launch" && launchPlan && <div className="absolute inset-0 p-4 motion-safe:animate-rise @2xl:p-6 @4xl:p-8">{launchPlan}</div>}
         {showCta && (
           <div className="absolute inset-x-0 bottom-0 flex justify-center p-4 motion-safe:animate-rise @2xl:justify-end @2xl:p-6 @4xl:p-8">
             <Button asChild>
-              <Link href={script.reportHref}>
+              <Link ref={cta} href={script.reportHref} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
                 Open the full report
                 <ArrowRight aria-hidden="true" />
               </Link>
@@ -167,7 +177,7 @@ export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: Agen
         <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-1.5">
           <BeatSegments index={frame.index} progress={frame.progress} />
           <p className="truncate font-mono text-[0.6875rem] leading-4 text-paper-dim">
-            {frame.index + 1} of {DEMO_BEATS.length} · {DEMO_BEAT_LABELS[beat]}
+            {Math.max(1, shown.indexOf(frame.index) + 1)} of {shown.length} · {DEMO_BEAT_LABELS[beat]}
           </p>
         </div>
         {reduced ? (

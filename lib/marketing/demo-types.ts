@@ -16,7 +16,7 @@ export type DemoBeat = (typeof DEMO_BEATS)[number];
 
 /** What each beat is called in the player's progress line. */
 export const DEMO_BEAT_LABELS: Readonly<Record<DemoBeat, string>> = {
-  composer: "Describe the product",
+  composer: "The product",
   seeds: "Seeds",
   trace: "Agent at work",
   reality: "Reality Check",
@@ -42,7 +42,7 @@ export interface DemoStep {
   reason: string | null;
   served: TraceRow["served"];
   world: string | null;
-  /** Milliseconds after run.started, from the recorded event timestamps (the player compresses them). */
+  /** Milliseconds after run.started, from the recorded event timestamps (evenly spaced by the recorder; the player scales them). */
   recordedMs: number;
   /** Each rail stage's status once this step arrived, in rail order (DemoTrace.stages). */
   rail: RailStatus[];

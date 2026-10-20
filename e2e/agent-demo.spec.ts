@@ -79,6 +79,19 @@ test("pause holds the frame, play resumes it, and replay starts over", async ({ 
   expect(errors).toEqual([]);
 });
 
+test("holds on the last beat while the pointer is on Open the full report", async ({ page }) => {
+  const { region, player } = await openDemo(page, 3);
+  // The whole screen in view first, so the hover never has to scroll the page.
+  await player.evaluate((node) => node.scrollIntoView({ block: "end" }));
+  const open = region.getByRole("link", { name: "Open the full report", exact: true });
+  await expect(open).toBeVisible({ timeout: 30_000 });
+  await open.hover();
+  await expect(player).toHaveAttribute("data-demo-playing", "false");
+  await page.waitForTimeout(1_500);
+  await expect(player).toHaveAttribute("data-demo-beat", "launch");
+  await expect(open).toBeVisible();
+});
+
 test("stops while off screen or in a hidden tab", async ({ page }) => {
   const { player } = await openDemo(page, 2);
   await expect(player).toHaveAttribute("data-demo-playing", "true");

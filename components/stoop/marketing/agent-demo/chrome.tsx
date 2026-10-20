@@ -10,8 +10,8 @@ export function TopBar({ label, route, live = false }: { label: string; route?: 
   return (
     <div className="flex min-h-11 items-center gap-3 border-b border-paper/10 px-4 py-2 @2xl:px-5">
       <span aria-hidden="true" className="relative flex size-2 shrink-0">
-        {live && <span className="absolute inset-0 rounded-full bg-dusk-light opacity-60 motion-safe:animate-ping" />}
-        <span className="relative size-2 rounded-full bg-dusk-light" />
+        {live && <span className="absolute inset-0 rounded-full bg-paper opacity-50 motion-safe:animate-ping" />}
+        <span className="relative size-2 rounded-full bg-paper-dim" />
       </span>
       <p className="min-w-0 flex-1 font-mono text-[0.6875rem] leading-4 text-paper-dim @md:text-xs">{label}</p>
       {route && <span className="hidden shrink-0 rounded-full border border-paper/15 px-2.5 py-1 font-mono text-[0.6875rem] leading-none text-paper-dim @2xl:inline-block">{route}</span>}

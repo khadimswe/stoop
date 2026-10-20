@@ -16,7 +16,7 @@ export function LaunchPlanPlaceholder({ plan, rows }: { plan: DemoLaunchPlan; ro
         <BeatTitle>
           {plan.cells.length} test {plan.cells.length === 1 ? "cell" : "cells"}, one per concept world
         </BeatTitle>
-        <p className="text-[0.8125rem] text-paper-dim">The Control is the baseline.</p>
+        <p className="text-[0.8125rem] text-paper-dim">From each world&apos;s ad plan, with the Control as the baseline.</p>
       </div>
       <ol className="flex flex-col gap-2">
         {plan.cells.slice(0, shown).map((cell, i) => (

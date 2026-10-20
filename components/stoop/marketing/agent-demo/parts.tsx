@@ -4,7 +4,7 @@ import { cn } from "cn";
 // Small pieces the demo's beats share. No hooks: they render the same on the server and in the player.
 
 /** The stage's fixed shape: a tall card on phones, 4:3 on tablets, 16:9 on desktops (no layout shift). */
-export const STAGE_BOX = "relative aspect-[9/15] w-full overflow-hidden @xl:aspect-[4/3] @4xl:aspect-[16/9]";
+export const STAGE_BOX = "relative aspect-[9/16] w-full overflow-hidden @xl:aspect-[4/3] @4xl:aspect-[16/9]";
 /** The control bar's fixed height. */
 export const BAR_BOX = "flex h-[4.25rem] items-center gap-2 border-t border-paper/10 px-3 @md:gap-3 @2xl:px-5";
 
@@ -26,7 +26,7 @@ export function Panel({ children, className }: { children: ReactNode; className?
 /** The text cursor while a field is being typed into. Still under reduced motion. */
 export function Caret({ show = true }: { show?: boolean }) {
   if (!show) return null;
-  return <span className="ml-px inline-block h-[1.1em] w-0.5 translate-y-[0.18em] rounded-full bg-dusk-light motion-safe:animate-caret" />;
+  return <span className="ml-px inline-block h-[1.1em] w-0.5 translate-y-[0.18em] rounded-full bg-paper motion-safe:animate-caret" />;
 }
 
 /** A button on the replayed screen: it looks pressed for a moment when the replay presses it. Not interactive. */

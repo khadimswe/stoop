@@ -67,6 +67,14 @@ describe("the agent demo's timeline", () => {
     expect(Math.abs(half.trace.steps - recordedHalf)).toBeLessThanOrEqual(1);
   });
 
+  it("skips the storyboard beat when the run has no concept to preview", () => {
+    const bare = { ...script, storyboard: null };
+    const short = demoTimeline(bare);
+    expect(short.total).toBe(timeline.total - (span("storyboard").end - span("storyboard").start));
+    for (let t = 0; t <= short.total; t += 50) expect(frameAt(short, bare, t).beat).not.toBe("storyboard");
+    expect(frameAt(short, bare, short.total).beat).toBe("launch");
+  });
+
   it("clamps times outside the replay", () => {
     expect(frameAt(timeline, script, -500).beat).toBe("composer");
     expect(frameAt(timeline, script, timeline.total + 10_000).beat).toBe("launch");

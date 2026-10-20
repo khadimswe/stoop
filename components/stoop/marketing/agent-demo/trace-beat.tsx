@@ -18,8 +18,8 @@ function StatusIcon({ status, className }: { status: RailStatus; className?: str
   if (status === "current")
     return (
       <span className={cn("relative flex size-4 shrink-0 items-center justify-center", className)}>
-        <span className="absolute inset-0.5 rounded-full border-2 border-dusk-light border-r-transparent motion-safe:animate-spin" />
-        <span className="size-1.5 rounded-full bg-dusk-light motion-safe:hidden" />
+        <span className="absolute inset-0.5 rounded-full border-2 border-paper border-r-transparent motion-safe:animate-spin" />
+        <span className="size-1.5 rounded-full bg-paper motion-safe:hidden" />
       </span>
     );
   return <span className={cn("m-0.5 size-3 shrink-0 rounded-full border-[1.5px] border-paper/30", className)} />;
@@ -55,8 +55,9 @@ function Row({ step, heading }: { step: DemoStep; heading: boolean }) {
 }
 
 /**
- * Beat 3, /run: the recorded trace streaming in at its own (compressed) pace, the rail moving stage to
- * stage, and the Qloo calls rising to the run's real count, cached ones counted separately.
+ * Beat 3, /run: the recorded trace streaming in, in the order the run wrote it, the rail moving stage
+ * to stage, and the Qloo calls rising to the run's real count, cached ones counted separately.
+ * Progress is the agent's, not Qloo's, so the rail and its spinner are paper; dusk marks Qloo calls only.
  */
 export function TraceBeat({ script, frame }: { script: DemoScript; frame: DemoFrame["trace"] }) {
   const { trace, product } = script;
@@ -105,7 +106,7 @@ export function TraceBeat({ script, frame }: { script: DemoScript; frame: DemoFr
 
         <div className="flex items-end gap-3 @2xl:flex-col @2xl:items-start @2xl:gap-1">
           <p className="flex items-baseline gap-2">
-            <span key={total} className="font-mono text-[1.75rem] leading-none font-semibold text-paper tabular-nums motion-safe:animate-rise @4xl:text-[2.25rem]">
+            <span key={total} className="font-mono text-[1.75rem] leading-none font-semibold text-paper tabular-nums motion-safe:animate-rise @4xl:text-[2rem]">
               {total}
             </span>
             <span className="text-sm text-paper">Qloo calls</span>

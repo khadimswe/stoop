@@ -56,7 +56,7 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
     expect(steps.map((s) => s.world)).toEqual(r.trace.map((s) => (s.segmentId ? (s.segmentId === "control" ? "Control" : worldsById.get(s.segmentId)) : null)));
   });
 
-  it("paces the steps by the recorded timestamps", () => {
+  it("orders and spaces the steps by their recorded timestamps", () => {
     const all = events("food-hot-sauce");
     const t0 = Date.parse(all.find((e) => e.type === "run.started")!.at);
     const recorded = all.filter((e) => e.type === "trace.step").map((e) => Date.parse(e.at) - t0);

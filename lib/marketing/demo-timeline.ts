@@ -3,7 +3,8 @@
 // (types only), so the player derives every frame from one clock and pausing is just stopping it.
 //
 // Only presentation lives here: typing speed, how long a line holds. The trace keeps the run's own
-// rhythm: its steps arrive at their recorded timestamps, scaled into about 10.5 seconds.
+// order: its steps arrive at their recorded timestamps, scaled into about 10.5 seconds. (The recorder
+// spaces events evenly, so this is the event order at an even pace, not the run's wall-clock time.)
 import { DEMO_BEATS, type DemoBeat, type DemoScript } from "./demo-types";
 
 /** Presentation timings, in milliseconds. */
@@ -12,10 +13,11 @@ export const PACE = {
   seeds: { lead: 400, perChip: 380, gap: 250, perChar: 22, minTyping: 700, maxTyping: 1_600, hold: 400, press: 380 },
   /** The recorded run is scaled to last about this long, plus a lead-in and a closing hold. */
   trace: { target: 10_500, lead: 300, hold: 1_100 },
-  reality: { lead: 250, perLine: 900, receipt: 600, hold: 2_600 },
-  worlds: { lead: 250, perCard: 700, headline: 600, hold: 2_800 },
+  reality: { lead: 250, perLine: 900, receipt: 600, hold: 2_200 },
+  worlds: { lead: 250, perCard: 700, headline: 600, hold: 2_400 },
   storyboard: { lead: 300, perShot: 400, hold: 2_400 },
-  launch: { lead: 300, perCell: 450, cta: 500, hold: 3_000 },
+  /** The closing hold keeps "Open the full report" up for a few seconds before the loop. */
+  launch: { lead: 300, perCell: 450, cta: 500, hold: 3_800 },
 } as const;
 
 export interface BeatSpan {
@@ -90,7 +92,8 @@ function durations(script: DemoScript) {
     trace: traceDoneAt + trace.hold,
     reality: reality.lead + Math.max(0, lines - 1) * reality.perLine + reality.receipt + reality.hold,
     worlds: worlds.lead + Math.max(0, cards - 1) * worlds.perCard + worlds.headline + worlds.hold,
-    storyboard: storyboard.lead + Math.max(0, shots - 1) * storyboard.perShot + storyboard.hold,
+    // A run with no concept yet has no storyboard: the beat takes no time and is skipped.
+    storyboard: shots === 0 ? 0 : storyboard.lead + Math.max(0, shots - 1) * storyboard.perShot + storyboard.hold,
     launch: launch.lead + Math.max(0, rows - 1) * launch.perCell + launch.cta + launch.hold,
   };
   return { span, traceScale, stepAt, traceDoneAt };
@@ -110,10 +113,9 @@ export function demoTimeline(script: DemoScript): DemoTimeline {
 /** The frame at `t` ms into the replay (clamped to the replay). At a beat's `end`, that beat is complete. */
 export function frameAt(timeline: DemoTimeline, script: DemoScript, t: number): DemoFrame {
   const time = clamp(t, 0, timeline.total);
-  const index = Math.max(
-    0,
-    timeline.beats.findIndex((b) => time <= b.end),
-  );
+  // The first beat still running at `time`; a beat with no length is never the one on screen.
+  const found = timeline.beats.findIndex((b) => b.end > b.start && time <= b.end);
+  const index = found === -1 ? timeline.beats.length - 1 : found;
   const current = timeline.beats[index];
   /** Milliseconds into a beat: below 0 before it, past its length after it, so earlier beats read as complete. */
   const into = (beat: DemoBeat) => {
