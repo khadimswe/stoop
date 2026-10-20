@@ -3,7 +3,15 @@ import { expect, test, type Page } from "@playwright/test";
 import { EXAMPLES } from "../lib/demo/examples";
 import type { Report } from "../lib/report/schema";
 import { launchPlanView } from "../lib/report/view/launch";
-import { launchSheetCsv, launchSheetMarkdown, planBudget, type BudgetInput } from "../lib/report/view/launch-sheet";
+import {
+  CONTROL_INTEREST_NOTE,
+  INTEREST_NOTE,
+  LAUNCH_SHEET_COLUMNS,
+  launchSheetCsv,
+  launchSheetMarkdown,
+  planBudget,
+  type BudgetInput,
+} from "../lib/report/view/launch-sheet";
 
 // The Launch plan on its review route, against the recorded runs. Expected values come from the same
 // view model the page renders, built from the same JSON: nothing here is hand-written Qloo data.
@@ -63,8 +71,21 @@ for (const { slug, brandName } of EXAMPLES) {
     // The Control's options say where they came from; a world's open receipts.
     await expect(section.locator('[data-launch-cell="control"]').getByText("From the generic brief, not from Qloo.")).toBeVisible();
     await expect(section.locator('[data-launch-cell="control"]').getByRole("button", { name: /opens its receipt/ })).toHaveCount(0);
-    const world = view.cells[1];
-    await expect(section.locator(`[data-launch-cell="${world.key}"]`).getByRole("button", { name: /opens its receipt/ })).toHaveCount(world.ageBands.length + world.cities.length);
+    for (const world of view.cells.slice(1)) {
+      const card = section.locator(`[data-launch-cell="${world.key}"]`);
+      await expect(card.getByRole("button", { name: /opens its receipt/ })).toHaveCount(world.ageBands.length + world.cities.length + world.interests.length);
+      // Interest searches: only what Qloo returned for this world, at most 8, each opening its receipt, labeled as suggestions.
+      const interests = card.locator("[data-launch-interests]");
+      await expect(interests.getByRole("heading", { level: 4 })).toHaveText("Interest searches to try in Ads Manager (suggestions)");
+      await expect(interests.getByRole("listitem")).toHaveCount(world.interests.length);
+      expect(world.interests.length).toBeGreaterThan(0);
+      expect(world.interests.length).toBeLessThanOrEqual(8);
+      for (const interest of world.interests) await expect(interests.getByRole("button", { name: new RegExp(`${escape(interest.name)}.*opens its receipt`) })).toBeVisible();
+      await expect(interests.getByText(INTEREST_NOTE)).toBeVisible();
+    }
+    const controlInterests = section.locator('[data-launch-cell="control"] [data-launch-interests]');
+    await expect(controlInterests.getByText(CONTROL_INTEREST_NOTE)).toBeVisible();
+    await expect(controlInterests.getByRole("listitem")).toHaveCount(0);
 
     await expect(section.getByText("$20 a day per cell · $140 per cell over 7 days · $420 in total")).toBeVisible();
     await expect(section.getByText(/measuring that lift is our November pilot/)).toBeVisible();
@@ -143,7 +164,9 @@ test("the launch sheet downloads as a CSV with a BOM, one guarded row per cell",
   expect(text).toBe(launchSheetCsv(view, splitOf({ daily: "90", days: "10", target: "" }, view.cells.length), pageUrl));
   expect(text.startsWith("﻿")).toBe(true);
   const lines = text.slice(1).trimEnd().split("\r\n");
-  expect(lines[0]).toBe("Campaign,Ad set name,Ad name,Daily budget (USD),Placements,Age bands,Cities,Audience options from,Hook,Prompt reference,What to watch,Qloo receipts");
+  expect(lines[0]).toBe(LAUNCH_SHEET_COLUMNS.join(","));
+  expect(lines[0]).toContain(",Cities,Interest searches (suggestions),");
+  for (const cell of view.cells.slice(1)) expect(text).toContain(cell.interests.map((x) => x.name).join("; "));
   expect(lines).toHaveLength(view.cells.length + 1);
   expect(lines[1]).toContain("Control · generic AI brief");
   expect(lines[1]).toContain(",30,");
@@ -185,9 +208,16 @@ test("a Qloo option opens its receipt, which closes with Esc and returns focus",
 
   await card.getByRole("button", { name: new RegExp(`${escape(world.ageBands[0].text)}.*opens its receipt`) }).click();
   const age = page.getByRole("dialog", { name: "Receipt: Age band" });
-  await expect(age.getByText("urn:demographics")).toBeVisible();
+  await expect(age.getByText("urn:demographics", { exact: true })).toBeVisible();
   await age.getByRole("button", { name: "Close receipt" }).click();
   await expect(age).toBeHidden();
+
+  const interest = world.interests[0];
+  await card.getByRole("button", { name: new RegExp(`${escape(interest.name)}.*opens its receipt`) }).click();
+  const searched = page.getByRole("dialog", { name: "Receipt: Interest search" });
+  await expect(searched.getByText(interest.receipt.title)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(searched).toBeHidden();
   expect(errors).toEqual([]);
 });
 
