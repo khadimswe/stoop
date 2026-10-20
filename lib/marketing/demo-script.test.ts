@@ -8,7 +8,8 @@ import { skewText } from "../report/view/format";
 import { worldCues, worldStoryboard } from "../report/view/output";
 import { ledgerOf } from "../report/view/receipts";
 import { callCounts, RAIL, STAGE_LABELS } from "../run/rail";
-import { buildDemoScript, firstSentence, receiptLine, shortDate } from "./demo-script";
+import { launchPlanView } from "../report/view/launch";
+import { buildDemoScript, DEMO_INTERESTS, receiptLine, shortDate } from "./demo-script";
 import { DEMO_BEATS } from "./demo-types";
 import { demoTimeline } from "./demo-timeline";
 
@@ -161,13 +162,18 @@ describe("the agent demo for the lead example (food-hot-sauce)", () => {
     expect(framed.storyboard.view.frames.map((f) => f.src)).toEqual(["/demo/food-hot-sauce/frames/w1-0.webp", "/demo/food-hot-sauce/frames/w1-1.webp"]);
   });
 
-  it("builds the launch plan from each world's ad plan, with the Control as the baseline", () => {
-    expect(script.launchPlan.cells.map((c) => c.name)).toEqual(r.worlds.map((w) => w.kit!.adPlan!.name));
+  it("ends on the report's launch plan: the Control as the baseline, then each world with a few interest searches", () => {
+    const plan = launchPlanView(r, ledgerOf(r));
+    expect(plan.unavailable).toBeNull();
+    expect(script.launchPlan.campaign).toBe(plan.campaign);
+    expect(script.launchPlan.cells.map((c) => [c.key, c.kind, c.name, c.label, c.conceptTitle, c.watch])).toEqual(plan.cells.map((c) => [c.key, c.kind, c.name, c.label, c.creative.title, c.watch]));
+    expect(script.launchPlan.cells.map((c) => c.name)).toEqual(["Control", "World 1", "World 2"]);
+    expect(script.launchPlan.cells[0]).toMatchObject({ kind: "control", label: "Generic AI brief · not from Qloo", interests: [] });
     script.launchPlan.cells.forEach((cell, i) => {
-      expect(r.worlds[i].kit!.adPlan!.watch.startsWith(cell.watch)).toBe(true);
-      expect(cell.watch.endsWith(".")).toBe(true);
+      expect(cell.interests).toEqual(plan.cells[i].interests.slice(0, DEMO_INTERESTS).map(({ name, kind }) => ({ name, kind })));
+      if (cell.kind === "world") expect(cell.interests).toHaveLength(DEMO_INTERESTS);
+      expect(cell.conceptTitle).toBe(i === 0 ? r.control!.concepts!.best.concept.title : r.worlds[i - 1].concepts!.best.concept.title);
     });
-    expect(script.launchPlan.baseline).toBe("Control");
   });
 
   it("summarizes the run for screen readers with the run's own lines and counts", () => {
@@ -211,12 +217,6 @@ describe.each(EXAMPLES.map((e) => e.slug))("the agent demo for %s", (slug) => {
 });
 
 describe("helpers", () => {
-  it("keeps the first sentence of a line verbatim", () => {
-    expect(firstSentence("Watch whether A beats B. Compare this ad set.")).toBe("Watch whether A beats B.");
-    expect(firstSentence("No full stop here")).toBe("No full stop here");
-    expect(firstSentence("Costs $14.50 a bottle. More.")).toBe("Costs $14.50 a bottle.");
-  });
-
   it("names the calls behind a fact as the receipts do", () => {
     const entry = (cached: boolean, endpoint = "/v2/insights") => ({ cached, endpoint }) as Parameters<typeof receiptLine>[0][number];
     expect(receiptLine([])).toBeNull();

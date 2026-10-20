@@ -9,7 +9,7 @@ import { demoTimeline, frameAt, speedFromQuery } from "@/lib/marketing/demo-time
 import { DEMO_BEAT_LABELS, type DemoBeat, type DemoScript } from "@/lib/marketing/demo-types";
 import { BeatSegments, TopBar } from "./chrome";
 import { ComposerBeat } from "./composer-beat";
-import { LaunchPlanPlaceholder } from "./launch-plan";
+import { LaunchPlanBeat } from "./launch-plan";
 import { BAR_BOX, STAGE_BOX } from "./parts";
 import { RealityBeat, StoryboardBeat, WorldsBeat } from "./report-beats";
 import { SeedsBeat } from "./seeds-beat";
@@ -17,8 +17,6 @@ import { TraceBeat } from "./trace-beat";
 
 export interface AgentDemoPlayerProps {
   script: DemoScript;
-  /** Replaces the Launch plan placeholder in the last beat. */
-  launchPlan?: ReactNode;
   /** The review route only: `?speed=` in the URL speeds the replay up (or down). */
   speedParam?: boolean;
 }
@@ -93,7 +91,7 @@ const ROUTE: Record<DemoBeat, keyof DemoScript["routes"]> = {
  * it never plays: it shows the end of the run and steps through the beats on request.
  * The animated stage is hidden from screen readers (the region carries a summary instead).
  */
-export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: AgentDemoPlayerProps) {
+export function AgentDemoPlayer({ script, speedParam = false }: AgentDemoPlayerProps) {
   const timeline = useMemo(() => demoTimeline(script), [script]);
   const reduced = usePrefersReducedMotion();
   const [speed] = useState(() => (speedParam ? speedFromQuery(window.location.search) : 1));
@@ -146,8 +144,7 @@ export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: Agen
       stage = <StoryboardBeat script={script} frame={frame.storyboard} />;
       break;
     case "launch":
-      // A Launch plan passed in may hold links or buttons, so it renders outside the hidden stage below.
-      stage = launchPlan ? null : <LaunchPlanPlaceholder plan={script.launchPlan} rows={frame.launch.rows} />;
+      stage = <LaunchPlanBeat plan={script.launchPlan} cells={frame.launch.rows} />;
       break;
   }
   return (
@@ -161,7 +158,6 @@ export function AgentDemoPlayer({ script, launchPlan, speedParam = false }: Agen
         <div aria-hidden="true" key={beat} className="absolute inset-0 p-4 motion-safe:animate-rise @2xl:p-6 @4xl:p-8">
           {stage}
         </div>
-        {beat === "launch" && launchPlan && <div className="absolute inset-0 p-4 motion-safe:animate-rise @2xl:p-6 @4xl:p-8">{launchPlan}</div>}
         {showCta && (
           <div className="absolute inset-x-0 bottom-0 flex justify-center p-4 motion-safe:animate-rise @2xl:justify-end @2xl:p-6 @4xl:p-8">
             <Button asChild>

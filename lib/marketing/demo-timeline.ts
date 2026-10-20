@@ -51,7 +51,7 @@ export interface DemoFrame {
   /** Cards shown: the worlds first, then the Control. */
   worlds: { cards: number; headline: boolean };
   storyboard: { shots: number };
-  /** Rows shown: the test cells, then the baseline. */
+  /** Launch plan cells shown: the Control first, then each world. */
   launch: { rows: number; cta: boolean };
 }
 
@@ -85,7 +85,7 @@ function durations(script: DemoScript) {
   const lines = script.reality.lines.length;
   const cards = script.worlds.length + 1;
   const shots = script.storyboard ? (script.storyboard.view.kind === "frames" ? script.storyboard.view.frames.length : script.storyboard.view.shots.length) : 0;
-  const rows = script.launchPlan.cells.length + 1;
+  const rows = script.launchPlan.cells.length;
   const span: Record<DemoBeat, number> = {
     composer: composer.lead + typingMs(description, composer) + composer.hold + composer.press,
     seeds: seeds.lead + script.seeds.items.length * seeds.perChip + seeds.gap + typingMs(stated, seeds) + seeds.hold + seeds.press,
@@ -142,7 +142,7 @@ export function frameAt(timeline: DemoTimeline, script: DemoScript, t: number): 
   const b = into("storyboard");
   const shots = script.storyboard ? (script.storyboard.view.kind === "frames" ? script.storyboard.view.frames.length : script.storyboard.view.shots.length) : 0;
   const l = into("launch");
-  const rows = script.launchPlan.cells.length + 1;
+  const rows = script.launchPlan.cells.length;
   const length = current.end - current.start;
 
   return {

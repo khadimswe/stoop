@@ -104,11 +104,30 @@ export interface DemoShot extends Pick<ShotView, "scene" | "number" | "beat" | "
 
 export type DemoStoryboard = { kind: "frames"; frames: StoryboardFrameView[]; shots: DemoShot[] } | { kind: "shots"; shots: DemoShot[] };
 
-/** The Launch plan beat: one test cell per world (its kit.adPlan entry), the Control as the baseline. */
+/** One cell of the Launch plan (lib/report/view/launch.ts): the Control, or a concept world. */
+export interface DemoLaunchCell {
+  /** The world's segment id, or "control". */
+  key: string;
+  kind: "world" | "control";
+  /** "Control", "World 1". */
+  name: string;
+  /** The world's label (what Qloo measured), or "Generic AI brief · not from Qloo". */
+  label: string;
+  /** The kept concept's title (origin creative): the ad this cell runs. */
+  conceptTitle: string;
+  /** The first few interest searches Qloo returned for this world, each with its receipt in the report; none on the Control. */
+  interests: { name: string; kind: string }[];
+  /** What to watch, as the launch plan wrote it (the Control's says it is the baseline). */
+  watch: string;
+}
+
+/** The Launch plan beat: the report's launch plan, the Control (the baseline) first, then each world. No budget math. */
 export interface DemoLaunchPlan {
-  cells: { segmentId: string; name: string; watch: string }[];
-  /** The Control's label: the baseline every cell is compared with. */
-  baseline: string;
+  /** "Porchlight Pepper Co. · concept world test". */
+  campaign: string;
+  cells: DemoLaunchCell[];
+  /** Why the test cannot run yet; null when it can. */
+  unavailable: string | null;
 }
 
 export interface DemoScript {

@@ -40,7 +40,7 @@ describe("the agent demo's timeline", () => {
     expect(frameAt(timeline, script, span("reality").end).reality).toEqual({ lines: script.reality.lines.length, receipt: true });
     expect(frameAt(timeline, script, span("worlds").end).worlds).toEqual({ cards: script.worlds.length + 1, headline: true });
     expect(frameAt(timeline, script, span("storyboard").end).storyboard.shots).toBe(script.storyboard!.view.shots.length);
-    expect(frameAt(timeline, script, timeline.total)).toMatchObject({ beat: "launch", progress: 1, launch: { rows: script.launchPlan.cells.length + 1, cta: true } });
+    expect(frameAt(timeline, script, timeline.total)).toMatchObject({ beat: "launch", progress: 1, launch: { rows: script.launchPlan.cells.length, cta: true } });
   });
 
   it("only ever moves forward", () => {

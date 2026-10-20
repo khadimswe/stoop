@@ -7,7 +7,7 @@ import type { Evidence } from "../evidence";
 import { apply, initialState, type ReportState, type RunEvent } from "../events";
 import { DESCRIPTION_MAX, RUN_SEEDS } from "../api/requests";
 import type { Report } from "../report/schema";
-import { currentWorld } from "../report/view/current";
+import { launchPlanView } from "../report/view/launch";
 import { worldCues, worldStoryboard, type ShotView } from "../report/view/output";
 import { ledgerOf } from "../report/view/receipts";
 import { formatDate, plainType } from "../report/view/format";
@@ -17,7 +17,10 @@ import { priceFrom } from "../run/intake-view";
 import { DEFAULT_FORMAT, exampleRunHref } from "../run/start";
 import { traceRows } from "../run/trace";
 import type { ExampleSlug } from "../demo/examples";
-import type { DemoRealityLine, DemoScript, DemoShot, DemoStep, DemoStoryboard, DemoWorld } from "./demo-types";
+import type { DemoLaunchPlan, DemoRealityLine, DemoScript, DemoShot, DemoStep, DemoStoryboard, DemoWorld } from "./demo-types";
+
+/** Interest searches the demo shows per world (the report shows more). */
+export const DEMO_INTERESTS = 3;
 
 export interface DemoSource {
   slug: ExampleSlug;
@@ -32,12 +35,6 @@ export interface DemoSource {
 /** "Oct 16" from an ISO timestamp (UTC, fixed locale, so server and browser agree). */
 const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 export const shortDate = (iso: string) => SHORT_DATE.format(new Date(iso));
-
-/** The first sentence of a stage-written line, verbatim ("Watch whether ... audience."). */
-export function firstSentence(text: string): string {
-  const match = /^.+?[.!?](?=\s|$)/.exec(text.trim());
-  return match ? match[0] : text.trim();
-}
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -154,11 +151,21 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
     storyboard = { world: top.label, conceptTitle: kept?.conceptTitle ?? "", view };
   }
 
-  // The launch plan: each world's ad plan entry as a test cell, the Control as the baseline.
-  const cells = report.worlds.flatMap((world) => {
-    const plan = currentWorld(world).kit?.adPlan;
-    return plan ? [{ segmentId: world.segmentId, name: plan.name, watch: firstSentence(plan.watch) }] : [];
-  });
+  // The report's own launch plan: the Control as the baseline, then each world with its first few interest searches.
+  const plan = launchPlanView(report, ledgerOf(report));
+  const launchPlan: DemoLaunchPlan = {
+    campaign: plan.campaign,
+    unavailable: plan.unavailable,
+    cells: plan.cells.map((cell) => ({
+      key: cell.key,
+      kind: cell.kind,
+      name: cell.name,
+      label: cell.label,
+      conceptTitle: cell.creative.title,
+      interests: cell.interests.slice(0, DEMO_INTERESTS).map(({ name, kind }) => ({ name, kind })),
+      watch: cell.watch,
+    })),
+  };
 
   const totals = callCounts(final.trace);
   const date = shortDate(report.meta.createdAt);
@@ -207,7 +214,7 @@ export function buildDemoScript({ slug, events: raw, report, media }: DemoSource
     worlds,
     control: { conceptTitle: controlConcept?.title ?? null, hook: controlConcept?.hook ?? null, headline: final.comparison?.headline ?? null },
     storyboard,
-    launchPlan: { cells, baseline: "Control" },
+    launchPlan,
     summary,
   };
 }
