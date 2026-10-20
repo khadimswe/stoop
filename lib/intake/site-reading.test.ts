@@ -18,6 +18,7 @@ import {
   toStatedAudience,
   type AudienceReading,
 } from "./site-reading";
+import { describeRecorded, itRecorded } from "../testing/recorded";
 
 // Claude is the AI SDK mock; Qloo tag lookups replay the real recordings in strict mode. Only the two
 // recordings these requests live in are loaded (no other fixture records them), not every fixture.
@@ -66,7 +67,7 @@ const answer = (overrides: Record<string, unknown> = {}) => ({
 
 const COPY = "Soft heavyweight hoodies for slow Sunday mornings, record shopping and late study sessions with a playlist on.";
 
-describe("readAudience", () => {
+describeRecorded("readAudience", () => {
   it("reads age bands, a gender skew and Qloo-resolved taste tags with receipts, labeled as read from the site", async () => {
     const { lookup, asked } = replay();
     const reading = await readAudience(COPY, { model: mock(answer()), lookup });
@@ -223,7 +224,7 @@ describe("toStatedAudience", () => {
       ...overrides,
     });
 
-  it("gives the Reality Check a site reading, scoring only music-genre tags", async () => {
+  itRecorded("gives the Reality Check a site reading, scoring only music-genre tags", async () => {
     const real = await readAudience(COPY, {
       model: mock(answer({ genderSkew: "balanced", place: "Texas", tasteTags: [{ query: "Lo-fi hip hop", kind: "music" }, { query: "coffee shop", kind: "place" }] })),
       lookup: replay().lookup,

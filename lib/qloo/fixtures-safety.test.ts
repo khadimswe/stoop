@@ -4,16 +4,17 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { RATE_LIMIT_HEADERS } from "./constants";
 import { FIXTURES_DIR, loadFixtures } from "./fixtures";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const texts = readdirSync(FIXTURES_DIR)
+const texts = ifRecorded(() => readdirSync(FIXTURES_DIR)
   .filter((f) => f.endsWith(".json") || f.endsWith(".json.gz"))
   .map((f) => {
     const raw = readFileSync(path.join(FIXTURES_DIR, f));
     return { file: f, text: f.endsWith(".gz") ? gunzipSync(raw).toString("utf8") : raw.toString("utf8") };
-  });
+  }));
 
 // The same patterns as .gitleaks.toml, plus the header name itself.
 const SECRET_PATTERNS = [
@@ -23,7 +24,7 @@ const SECRET_PATTERNS = [
   /x-api-key/i,
 ];
 
-describe("committed fixtures", () => {
+describeRecorded("committed fixtures", () => {
   it("exist", () => {
     expect(texts.length).toBeGreaterThan(5);
   });

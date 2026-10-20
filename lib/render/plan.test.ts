@@ -4,6 +4,7 @@ import { draftUsd, VIDEO_MODELS } from "../prompts/models.config";
 import { buildRenderPlan, canPlan, demoBaseUrl, multiShotJob, PHOTO_ENCODING, RenderError, renderSource, type PlanDeps } from "./plan";
 import { renderPlanSchema } from "./schema";
 import { approvedFor, BRAND_PHOTO, exampleFor, exampleReport, LIVE_RUN_ID, liveReport, SLUGS, targetsOf } from "./testing";
+import { describeRecorded } from "../testing/recorded";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const deps = (over: Partial<PlanDeps> = {}): PlanDeps => ({
@@ -14,7 +15,7 @@ const deps = (over: Partial<PlanDeps> = {}): PlanDeps => ({
   ...over,
 });
 
-describe("render plans for the examples", () => {
+describeRecorded("render plans for the examples", () => {
   for (const slug of SLUGS) {
     it(`plan every world and the Control of ${slug} from the approved storyboard and packshot`, async () => {
       const report = exampleReport(slug);
@@ -95,7 +96,7 @@ describe("render plans for the examples", () => {
   });
 });
 
-describe("render plans for live runs", () => {
+describeRecorded("render plans for live runs", () => {
   it("use the world's storyboard (the critique's re-render where there is one) and the brand's own product photo, presigned", async () => {
     const report = liveReport();
     const photoUrl = vi.fn(deps().photoUrl);
@@ -144,7 +145,7 @@ describe("render plans for live runs", () => {
   });
 });
 
-describe("render targets that cannot plan", () => {
+describeRecorded("render targets that cannot plan", () => {
   it("are refused with the API's codes", () => {
     const report = exampleReport("food-hot-sauce");
     const demo = exampleFor(report);

@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { Report } from "../schema";
 import { formatDate, plainType, skewText } from "./format";
 import { ledgerOf, panelNoun, panelText, rankText, receiptView, receiptWithSources, sourceRows } from "./receipts";
+import { describeRecorded, ifRecorded } from "../../testing/recorded";
 
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
-const ledger = ledgerOf(report);
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
+const ledger = ifRecorded(() => ledgerOf(report));
 
-describe("receipts", () => {
+describeRecorded("receipts", () => {
   it("shows the call, the exact query and when Qloo served it", () => {
     const entry = report.ledger[0];
     const receipt = receiptView(ledger, [entry.id], "Music style", "Roots rock")!;
@@ -44,7 +45,7 @@ describe("formatters", () => {
   });
 });
 
-describe("panel positions and Qloo picks in receipts", () => {
+describeRecorded("panel positions and Qloo picks in receipts", () => {
   const world = report.worlds[0];
   const music = world.culture!.find((f) => f.field === "music")!;
 

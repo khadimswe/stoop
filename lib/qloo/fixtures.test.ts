@@ -10,8 +10,9 @@ import type { Endpoint } from "./constants";
 import { encodeFixture, FixtureCache, findFixture, GZIP_ABOVE_BYTES, loadFixtures, readFixtureFile } from "./fixtures";
 import { cacheKey } from "./params";
 import { searchEntities } from "./search";
+import { ifRecorded, itRecorded } from "../testing/recorded";
 
-const smoke = readFixtureFile(findFixture("smoke") as string);
+const smoke = ifRecorded(() => readFixtureFile(findFixture("smoke") as string));
 
 function replayClient() {
   const fetchMock = vi.fn<typeof fetch>(async () => {
@@ -22,7 +23,7 @@ function replayClient() {
 }
 
 describe("FixtureCache (QLOO_MODE=fixtures)", () => {
-  it("replays a recorded request with no key and no network, as recorded evidence", async () => {
+  itRecorded("replays a recorded request with no key and no network, as recorded evidence", async () => {
     const { client, fetchMock } = replayClient();
     const ctx = createRunContext({ runId: "replay" });
     const { data, evidence } = await searchEntities(client, ctx, { query: "Olipop", types: ["urn:entity:brand"], take: 3 });
@@ -49,7 +50,7 @@ describe("FixtureCache (QLOO_MODE=fixtures)", () => {
     ).rejects.toThrow(/\/search\?query=Not%20recorded/);
   });
 
-  it("leaves out probe fixtures, whose params the app could never send", async () => {
+  itRecorded("leaves out probe fixtures, whose params the app could never send", async () => {
     const all = loadFixtures();
     const probe = all.find((f) => f.name === "probe-extra");
     expect(probe?.probe).toBe(true);
@@ -59,7 +60,7 @@ describe("FixtureCache (QLOO_MODE=fixtures)", () => {
     expect(await cache.get(cacheKey(request?.endpoint as Endpoint, request?.params ?? {}))).toBeUndefined();
   });
 
-  it("is read-only", async () => {
+  itRecorded("is read-only", async () => {
     const cache = new FixtureCache([smoke]);
     const before = cache.size;
     await cache.set();
@@ -77,7 +78,7 @@ describe("fixture files", () => {
     expect(large.text.length).toBeGreaterThan(GZIP_ABOVE_BYTES);
   });
 
-  it("reads gzipped fixtures", () => {
+  itRecorded("reads gzipped fixtures", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "stoop-fixtures-"));
     writeFileSync(path.join(dir, "zipped.json.gz"), gzipSync(JSON.stringify(smoke)));
     expect(findFixture("zipped", dir)).toBe(path.join(dir, "zipped.json.gz"));

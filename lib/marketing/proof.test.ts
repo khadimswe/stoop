@@ -6,6 +6,7 @@ import { ledgerOf } from "../report/view/receipts";
 import type { Report } from "../report/schema";
 import { figurePartsAt, figureText } from "./count-up";
 import { ageFigure, ageStat, cityStat, firstClause, musicStat, PROOF_PICKS, proofStats } from "./proof";
+import { describeRecorded } from "../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const load = (slug: ExampleSlug) => {
@@ -15,7 +16,7 @@ const load = (slug: ExampleSlug) => {
 const DASH = String.fromCharCode(0x2014);
 const BANNED = new RegExp(`real buyers|really buys|measures your buyers|find my buyers|andromeda|24 and younger|24_and_younger|%|percentile|${DASH}`, "i");
 
-describe("the proof band, pinned to the recorded runs", () => {
+describeRecorded("the proof band, pinned to the recorded runs", () => {
   const stats = proofStats(PROOF_PICKS, load);
 
   it("shows the four picks, in order, with the recorded figures", () => {
@@ -54,7 +55,7 @@ describe("the proof band, pinned to the recorded runs", () => {
   });
 });
 
-describe("Porchlight Pepper Co.: stated 25 to 40, measured 55 and older", () => {
+describeRecorded("Porchlight Pepper Co.: stated 25 to 40, measured 55 and older", () => {
   const report = read("food-hot-sauce");
   const stat = ageStat("food-hot-sauce", report, ledgerOf(report))!;
   const age = report.audience.gap!.dimensions.find((d) => d.dimension === "age")!;
@@ -76,7 +77,7 @@ describe("Porchlight Pepper Co.: stated 25 to 40, measured 55 and older", () => 
   });
 });
 
-describe("Lowlight Candle Co.: stated 28 to 45, measured 18 to 24", () => {
+describeRecorded("Lowlight Candle Co.: stated 28 to 45, measured 18 to 24", () => {
   const report = read("home-candles");
   const stat = ageStat("home-candles", report, ledgerOf(report))!;
 
@@ -87,7 +88,7 @@ describe("Lowlight Candle Co.: stated 28 to 45, measured 18 to 24", () => {
   });
 });
 
-describe("Whisker & Brim: the generic brief's city", () => {
+describeRecorded("Whisker & Brim: the generic brief's city", () => {
   const report = read("pets-outfits");
   const stat = cityStat("pets-outfits", report, ledgerOf(report))!;
   const cities = report.control!.fits.flatMap((f) => f.choices.filter((c) => c.dimension === "cities" && c.text === "Los Angeles"));
@@ -111,7 +112,7 @@ describe("Whisker & Brim: the generic brief's city", () => {
   });
 });
 
-describe("Porchlight Pepper Co.: the generic brief's music", () => {
+describeRecorded("Porchlight Pepper Co.: the generic brief's music", () => {
   const report = read("food-hot-sauce");
   const stat = musicStat("food-hot-sauce", report, ledgerOf(report))!;
   const music = report.control!.fits.flatMap((f) => f.choices.filter((c) => c.dimension === "music"));

@@ -23,6 +23,7 @@ import type { Revision, World, WorldFrames } from "../world";
 import { controlOutput, exportView, MCP_LINK, outputViews, panelNoun, pickRow, shotCarries, shotList, signalRows, worldOutput, type OutputContext } from "./output";
 import { ledgerOf } from "./receipts";
 import type { RenderAccess } from "./types";
+import { describeRecorded, itRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const OFF: RenderAccess = { kind: "off" };
@@ -43,7 +44,7 @@ const contextOf = (report: Report, renderAccess: RenderAccess = OFF, media: Demo
   media,
 });
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", (slug) => {
   const report = read(slug);
   const outputs = outputViews(report, { media: NO_MEDIA, renderAccess: OFF });
   const packs: ProductionPack[] = [...report.worlds.map((w) => w.pack!), report.control!.pack!];
@@ -192,7 +193,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", (slug) =
 });
 
 describe("receipt wording", () => {
-  it("states each field's signal with its own counts of strong picks", () => {
+  itRecorded("states each field's signal with its own counts of strong picks", () => {
     for (const slug of EXAMPLES.map((e) => e.slug)) {
       for (const world of read(slug).worlds) {
         for (const field of world.culture!.filter((f) => f.signal !== "none")) {
@@ -221,7 +222,7 @@ describe("receipt wording", () => {
     expect(panelNoun("urn:tag:emotional_tone:qloo")).toBe("mood tags");
   });
 
-  it("states a pick's rank and panel position, and a place's explanation, never a percentile", () => {
+  itRecorded("states a pick's rank and panel position, and a place's explanation, never a percentile", () => {
     const report = read("food-hot-sauce");
     const culture = report.worlds[0].culture!;
     const artist = culture.find((f) => f.field === "music")!.sources[0];
@@ -235,7 +236,7 @@ describe("receipt wording", () => {
   });
 });
 
-describe("the Output section with media, frames and revisions", () => {
+describeRecorded("the Output section with media, frames and revisions", () => {
   const report = read("food-hot-sauce");
   const world = report.worlds[0];
   const concept = world.pack!.concept;

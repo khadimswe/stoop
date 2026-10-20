@@ -10,6 +10,7 @@ import { pollRender } from "./jobs";
 import { photoPath } from "./photo";
 import { createRenderAccessGet, createRenderPlanPost, createRenderPost, createRenderStatusGet, type RenderRouteDeps } from "./routes";
 import { approvedFor, demoFor, exampleReport, fakePrivateStorage, fakeStorage, FakeQueue, LIVE_RUN_ID, liveReport, SLUGS, videoFetch } from "./testing";
+import { describeRecorded, ifRecorded, itRecorded } from "../testing/recorded";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const SITE = "https://stoop.example";
@@ -23,10 +24,10 @@ const ENV = {
   RENDERS_TOTAL_CAP: "20",
   RENDER_REFS_BASE_URL: SITE,
 };
-const HOT_SAUCE = exampleReport("food-hot-sauce");
-const WORLD = HOT_SAUCE.worlds[0].segmentId;
+const HOT_SAUCE = ifRecorded(() => exampleReport("food-hot-sauce"));
+const WORLD = ifRecorded(() => HOT_SAUCE.worlds[0].segmentId);
 /** As if the founder had approved every example's prompt (the shipped approvals list none yet). */
-const ALL_APPROVED: ReadonlySet<string> = new Set(SLUGS.flatMap((slug) => [...approvedFor(exampleReport(slug))]));
+const ALL_APPROVED: ReadonlySet<string> = ifRecorded(() => new Set(SLUGS.flatMap((slug) => [...approvedFor(exampleReport(slug))])));
 
 async function png(): Promise<Uint8Array> {
   return new Uint8Array(await sharp({ create: { width: 8, height: 8, channels: 3, background: "#c04020" } }).png().toBuffer());
@@ -86,7 +87,7 @@ function setup(over: { env?: Record<string, string>; queue?: FakeQueue | null; s
 const target = (segment = WORLD, reportId = HOT_SAUCE.meta.id) => ({ reportId, segment });
 const used = async (store: MemoryStore) => (await store.get<number>(keys.daily("renders", "2026-11-03"))) ?? 0;
 
-describe("the exact Origin match on the paid routes", () => {
+describeRecorded("the exact Origin match on the paid routes", () => {
   it("refuses a request with no Origin header, before anything is built or reserved", async () => {
     const t = setup();
     const request = new Request(`${SITE}/api/render`, { method: "POST", headers: { "content-type": "application/json", cookie: t.pass() }, body: JSON.stringify({ target: target() }) });
@@ -122,7 +123,7 @@ describe("the exact Origin match on the paid routes", () => {
   });
 });
 
-describe("POST /api/render", () => {
+describeRecorded("POST /api/render", () => {
   it("needs a judge pass: without one, or with one from before the code rotated, nothing renders", async () => {
     const t = setup();
     const none = await t.render(target());
@@ -183,7 +184,7 @@ describe("POST /api/render", () => {
   });
 });
 
-describe("GET /api/render/access", () => {
+describeRecorded("GET /api/render/access", () => {
   it("says byok to visitors without a pass, and off when BYOK is off too", async () => {
     expect(await (await setup().access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "byok", rendersLeft: null, byok: true });
     expect(await (await setup({ env: { ENABLE_BYOK: "false" } }).access(HOT_SAUCE.meta.id, WORLD)).json()).toEqual({ video: "off", rendersLeft: null, byok: false });
@@ -234,7 +235,7 @@ describe("GET /api/render/access", () => {
   });
 });
 
-describe("POST /api/render/plan", () => {
+describeRecorded("POST /api/render/plan", () => {
   it("answers the plan built on the server, whatever else the request carries", async () => {
     const t = setup();
     const response = await t.plan(target());
@@ -269,7 +270,7 @@ describe("POST /api/render/plan", () => {
 });
 
 describe("GET /api/render/<jobId>", () => {
-  it("checks fal only when no poller has touched the job lately, after answering, and only once", async () => {
+  itRecorded("checks fal only when no poller has touched the job lately, after answering, and only once", async () => {
     const t = setup();
     const { job } = (await (await t.render(target(), { cookie: t.pass() })).json()) as { job: { id: string } };
     const calls = t.queue!.statusCalls;

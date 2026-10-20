@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { IntakeResponse } from "../api/responses";
 import type { Report } from "../report/schema";
 import { productFrom } from "../runtime/intake";
 import { priceFrom, seedsReceipt, seedView, siteSpeaksTo } from "./intake-view";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
 
-describe("the product card", () => {
+describeRecorded("the product card", () => {
   it("reads the price the page gave from the seller facts, and nothing when there is none", () => {
     const description = "A fermented red chile hot sauce made in small batches.";
     const read = { url: "https://porchlight.example/products/red", source: "shopify" as const, copy: "", flags: [], fetches: [] };
@@ -21,7 +22,7 @@ describe("the product card", () => {
   });
 });
 
-describe("Your site speaks to", () => {
+describeRecorded("Your site speaks to", () => {
   // A reading in Qloo's dimensions; its taste tag is a real Qloo tag from the recorded run, with its receipt.
   const tag = report.audience.proof!.tags[0];
   const site: NonNullable<IntakeResponse["site"]> = {
@@ -46,7 +47,7 @@ describe("Your site speaks to", () => {
   });
 });
 
-describe("the seeds", () => {
+describeRecorded("the seeds", () => {
   it("show each seed's name, plain type and origin", () => {
     expect(report.inputs.seeds.map(seedView)).toEqual(report.inputs.seeds.map((s) => ({ id: s.ref.id, name: s.ref.name, kind: expect.any(String), origin: s.origin })));
     expect(seedView(report.inputs.seeds.find((s) => s.ref.type === "urn:entity:tv_show")!).kind).toBe("tv show");

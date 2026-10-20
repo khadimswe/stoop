@@ -19,7 +19,7 @@
 // recorded pool replays them.
 import { z } from "zod";
 import { SEARCH_TYPES } from "../api/requests";
-import { TAG_PANELS, ENTITY_PANELS } from "../culture/panels";
+import { entityPanel, tagPanel } from "../culture/panels";
 import { moodTerm, musicTerm } from "../data-check/score";
 import { TAG_KINDS, tagQuery, toneTag } from "../data-check/plan";
 import type { Evidence } from "../evidence";
@@ -303,7 +303,7 @@ export async function scoreBrief(input: ScoreBriefInput, deps: ScoreBriefDeps): 
   await Promise.all(
     touched.map(async (type) => {
       const isTag = type === "music" || type === "tone";
-      const panel = isTag ? TAG_PANELS[type].map((p) => p.id) : ENTITY_PANELS[type].map((p) => p.id);
+      const panel = isTag ? tagPanel(type).map((p) => p.id) : entityPanel(type).map((p) => p.id);
       const result = await safe(`Qloo's ${LABEL[type]}`, async () => {
         const list = isTag
           ? await request("prove", `Reading ${band}top ${LABEL[type]}`, ENDPOINTS.insights, { ...signal(type), "filter.type": "urn:tag", "filter.tag.types": [TAG_KINDS[type]], take: TAG_LIST_TAKE }, insightsTagsResponse)
@@ -335,7 +335,7 @@ export async function scoreBrief(input: ScoreBriefInput, deps: ScoreBriefDeps): 
     const s = scored.get(type);
     if (!s) return { s: null, position: null };
     const own = new Set(s.top.map((t) => t.id));
-    const panel = (type === "music" || type === "tone" ? TAG_PANELS[type] : ENTITY_PANELS[type]).map((p) => p.id);
+    const panel = (type === "music" || type === "tone" ? tagPanel(type) : entityPanel(type)).map((p) => p.id);
     const panelScores = panel.filter((pid) => pid !== id && !own.has(pid) && s.scores.has(pid)).map((pid) => s.scores.get(pid) as number);
     const score = s.scores.get(id);
     return { s, position: score === undefined ? null : panelPosition(score, panelScores) };

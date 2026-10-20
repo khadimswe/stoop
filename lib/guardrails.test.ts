@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkText, checkValue, formatGuardIssues, stripEmDashes, type GuardOptions, type GuardRule } from "./guardrails";
+import { checkText, checkValue, formatGuardIssues, stripEmDashes, unsupportedClaims, type GuardOptions, type GuardRule } from "./guardrails";
 
 const EM_DASH = String.fromCharCode(0x2014);
 const rulesOf = (text: string, options?: GuardOptions): GuardRule[] => checkText(text, options).map((issue) => issue.rule);
@@ -165,6 +165,13 @@ describe("named-reference", () => {
   it("checks nothing without names", () => {
     expect(rulesOf("a Gap hoodie")).toEqual([]);
   });
+
+  it("with exact-case names, a title written as a title is caught and the plain phrase is not", () => {
+    const titles = ["Every Day", "The Mending Bench"];
+    expect(flagged("named-reference", "the small ritual of every day", { names: titles, exactCaseNames: true })).toBe(false);
+    expect(flagged("named-reference", "a look like Every Day", { names: titles, exactCaseNames: true })).toBe(true);
+    expect(flagged("named-reference", "the small ritual of every day", { names: titles })).toBe(true);
+  });
 });
 
 describe("health-claim", () => {
@@ -326,4 +333,21 @@ describe("Qloo tag names kept in the fixtures", () => {
       expect(checkText(name).some((issue) => issue.rule === "ethnicity" || issue.rule === "minor")).toBe(true);
     },
   );
+});
+
+describe("unsupportedClaims", () => {
+  const seller = "Soy wax candles poured by hand. Each one burns for about 50 hours in a reusable glass jar. Price: $36.";
+
+  it("passes the facts the seller gave, in any spelling of the same number and unit", () => {
+    expect(unsupportedClaims("A 50-hour burn in a reusable jar, $36.", seller)).toEqual([]);
+    expect(unsupportedClaims("Burns 50 hours.", seller)).toEqual([]);
+  });
+
+  it("names prices, quantities and claims the seller never made", () => {
+    expect(unsupportedClaims("Now $29, burns 80 hours, vegan and machine washable.", seller)).toEqual(["$29", "80 hours", "machine washable", "vegan"]);
+  });
+
+  it("leaves plain numbers and timecodes alone", () => {
+    expect(unsupportedClaims("Scene 3, 0 to 3 s, two hands, 9:16.", seller)).toEqual([]);
+  });
 });

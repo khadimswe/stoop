@@ -6,7 +6,6 @@
 //   npm run data-check -- panels
 //   npm run data-check -- analyze
 import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CANDIDATES } from "../lib/demo/candidates";
@@ -49,6 +48,7 @@ import {
   type SignalLevel,
 } from "../lib/data-check/score";
 import { checkText } from "../lib/guardrails";
+import { loadPanels as readPanelsFile, PANELS_FILE, type ReferencePanels } from "../lib/culture/panels";
 import {
   placesId,
   scoringId,
@@ -179,17 +179,17 @@ async function readAudience(resolution: Resolution, cells: HeatmapPoint[], sets:
 }
 
 /** Every recorded reference-audience request (both batches), rebuilt from code so replay keys match. */
-function referenceRequests(panels: PanelModule): PlannedRequest[] {
+function referenceRequests(panels: ReferencePanels): PlannedRequest[] {
   const heatmap = (signal: Record<string, string[]>) => ({ "filter.type": "urn:heatmap", ...signal, "filter.location.query": "United States" });
   const entities = ENTITY_TYPES_SCORED.flatMap((type) =>
-    spread(panels.ENTITY_PANELS[type], REFERENCE_PICKS[type]).map((entry) => ({
+    spread(panels.entity[type], REFERENCE_PICKS[type]).map((entry) => ({
       id: referenceAudienceId(type, entry.id),
       endpoint: "/v2/insights" as const,
       params: heatmap({ "signal.interests.entities": [entry.id] }),
       note: `Reference audience: fans of ${entry.name} (${type}, popularity ${entry.popularity.toFixed(2)}).`,
     })),
   );
-  const tags = spread(panels.TAG_PANELS.music, REFERENCE_TAG_PICKS).map((entry) => ({
+  const tags = spread(panels.tag.music, REFERENCE_TAG_PICKS).map((entry) => ({
     id: referenceAudienceId("music-tag", entry.id.replace(/[^a-z0-9]+/gi, "-")),
     endpoint: "/v2/insights" as const,
     params: heatmap({ "signal.interests.tags": [entry.id] }),
@@ -201,15 +201,21 @@ function referenceRequests(panels: PanelModule): PlannedRequest[] {
 /**
  * The two reference sets for city ranking: the 9 candidates on their shared grid, and the full set
  * (the candidates plus every recorded reference audience that covers at least COVERAGE_FLOOR of
- * that grid; sparser ones would mostly add bottom-tied cells, which is noise).
+ * that grid; sparser ones would mostly add bottom-tied cells, which is noise). Reference audiences
+ * are picked from the panels, so the `panels` command itself, on a fresh recording, may run before
+ * they exist (`firstPanels`): then the full set is the candidates alone. Every other command needs them.
  */
-async function buildReferenceSets(candidateHeatmaps: HeatmapPoint[][], lookup: Lookup): Promise<{ sets: ReferenceSets; dense: string[]; sparse: string[] }> {
+async function buildReferenceSets(
+  candidateHeatmaps: HeatmapPoint[][],
+  lookup: Lookup,
+  firstPanels = false,
+): Promise<{ sets: ReferenceSets; dense: string[]; sparse: string[] }> {
   const candidates = buildReferenceHeatmap(candidateHeatmaps);
   const grid = new Set(candidates.keys());
-  const panels = await loadPanels();
+  const panels = firstPanels && !existsSync(PANELS_FILE) ? null : await loadPanels();
   const dense: { id: string; cells: HeatmapPoint[] }[] = [];
   const sparse: string[] = [];
-  for (const request of referenceRequests(panels)) {
+  for (const request of panels ? referenceRequests(panels) : []) {
     const cells = await lookup(request, heatmapResponse);
     if (gridCoverage(cells, grid) >= COVERAGE_FLOOR) dense.push({ id: request.id, cells });
     else sparse.push(request.id);
@@ -226,12 +232,12 @@ async function buildReferenceSets(candidateHeatmaps: HeatmapPoint[][], lookup: L
   };
 }
 
-async function readAllAudiences(): Promise<{ audiences: Audience[]; placeGenres: MappedTag[]; sets: ReferenceSets; dense: string[]; sparse: string[] }> {
+async function readAllAudiences(firstPanels = false): Promise<{ audiences: Audience[]; placeGenres: MappedTag[]; sets: ReferenceSets; dense: string[]; sparse: string[] }> {
   const lookup = replayLookup();
   const { resolutions, placeGenres } = await resolveAll(lookup);
   const heatmaps: HeatmapPoint[][] = [];
   for (const resolution of resolutions) heatmaps.push(await lookup(audienceRequest(resolution, "heatmap"), heatmapResponse));
-  const { sets, dense, sparse } = await buildReferenceSets(heatmaps, lookup);
+  const { sets, dense, sparse } = await buildReferenceSets(heatmaps, lookup, firstPanels);
   const audiences: Audience[] = [];
   for (const [index, resolution] of resolutions.entries()) audiences.push(await readAudience(resolution, heatmaps[index], sets, lookup));
   return { audiences, placeGenres, sets, dense, sparse };
@@ -271,8 +277,6 @@ async function planSegments(): Promise<void> {
 
 // --- Panels ------------------------------------------------------------------------------------
 
-const PANELS_FILE = path.join("lib", "culture", "panels.ts");
-
 function excludedIds(audiences: readonly Audience[]): Set<string> {
   const ids = new Set<string>();
   for (const a of audiences) {
@@ -298,8 +302,8 @@ function tagPool(audiences: readonly Audience[], kind: TagKind): PanelCandidate[
   );
 }
 
-/** JSON for a generated TypeScript file: U+2014 inside Qloo's names is written as an escape, so the em dash scan stays clean. */
-const tsLiteral = (value: unknown) => JSON.stringify(value, null, 2).replace(/\u2014/g, "\\u2014");
+/** JSON for a generated data file: U+2014 inside Qloo's names is written as an escape, so the em dash scan stays clean. */
+const jsonText = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\u2014/g, "\\u2014")}\n`;
 
 const REFERENCE_FILE = path.join("data", "geo", "reference-heatmap.json");
 
@@ -334,7 +338,7 @@ async function writeReference(): Promise<void> {
 
 async function writePanels(force: boolean): Promise<void> {
   if (existsSync(PANELS_FILE) && !force) fail(`${PANELS_FILE} is frozen. Pass --force only before any scoring call has used it.`);
-  const { audiences, sets } = await readAllAudiences();
+  const { audiences, sets } = await readAllAudiences(true);
   const exclude = excludedIds(audiences);
   // Panel names appear in receipts, so they pass the same minor and ethnicity guardrails as generated text.
   const guarded = (pool: PanelCandidate[]) => {
@@ -344,31 +348,15 @@ async function writePanels(force: boolean): Promise<void> {
   const pick = (pool: PanelCandidate[]) => buildPanel(guarded(pool), { exclude }).map(({ id, name, popularity, request }) => ({ id, name, popularity, request }));
   const entity = Object.fromEntries(ENTITY_TYPES_SCORED.map((type) => [type, pick(entityPool(audiences, type))]));
   const tag = Object.fromEntries((Object.keys(TAG_KINDS) as TagKind[]).map((kind) => [kind, pick(tagPool(audiences, kind))]));
-  const text = `// Frozen reference panels. GENERATED by \`npm run data-check -- panels\` (Gate 2, ${new Date().toISOString().slice(0, 10)}); do not edit by hand.
-//
-// Qloo affinity only compares within one call, so every scoring call sends Qloo's picks, any
-// Control picks and one of these panels together (filter.results.entities or filter.results.tags)
-// and reports a pick as "beats N of M reference artists". Each panel is 25 real entities or tags
-// from the recorded audience lists of all 9 candidates (fixtures/pool-audience.json.gz), spread
-// evenly across Qloo popularity, at most 3 from any one candidate, never a seed or a Control pick,
-// and never a name the minor or ethnicity guardrails flag (panel names appear in receipts). A panel
-// entry can be one of some audience's own top picks; that audience's comparison leaves it out, so
-// M can be under 25. \`request\` names the recording each came from.
-// Changing a panel changes every score, so panels are frozen once a scoring call has used them.
-
-export interface PanelEntry {
-  id: string;
-  name: string;
-  popularity: number;
-  request: string;
-}
-
-export const ENTITY_PANELS = ${tsLiteral(entity)} as const satisfies Record<"artist" | "brand" | "movie" | "tv_show", readonly PanelEntry[]>;
-
-export const TAG_PANELS = ${tsLiteral(tag)} as const satisfies Record<"music" | "tone", readonly PanelEntry[]>;
-`;
+  const file = {
+    source:
+      "Frozen reference panels: 25 real entities or tags per panel from the recorded audience lists of all 9 candidates (fixtures/pool-audience.json.gz), spread evenly across Qloo popularity, at most 3 from any one candidate, never a seed, a Control pick or a name the minor or ethnicity guardrails flag. `request` names the recording each came from. Generated by npm run data-check -- panels.",
+    built: new Date().toISOString().slice(0, 10),
+    entity,
+    tag,
+  };
   await mkdir(path.dirname(PANELS_FILE), { recursive: true });
-  await writeFile(PANELS_FILE, text);
+  await writeFile(PANELS_FILE, jsonText(file));
   await writeReferenceHeatmap(sets);
   for (const [type, panel] of Object.entries({ ...entity, ...tag })) {
     const pops = (panel as { popularity: number }[]).map((p) => p.popularity);
@@ -379,31 +367,26 @@ export const TAG_PANELS = ${tsLiteral(tag)} as const satisfies Record<"music" | 
 
 // --- Stage 4: scoring ---------------------------------------------------------------------------
 
-interface PanelModule {
-  ENTITY_PANELS: Record<ScoredType, readonly { id: string; name: string; popularity: number }[]>;
-  TAG_PANELS: Record<TagKind, readonly { id: string; name: string; popularity: number }[]>;
-}
-
-/** Loaded at runtime: the panels file is generated by this script, so it may not exist at compile time. */
-async function loadPanels(): Promise<PanelModule> {
+/** The panels file is generated by this script, so it may not exist yet. */
+async function loadPanels(): Promise<ReferencePanels> {
   if (!existsSync(PANELS_FILE)) fail(`${PANELS_FILE} is missing. Run: npm run data-check -- panels`);
-  return (await import(pathToFileURL(path.resolve(PANELS_FILE)).href)) as PanelModule;
+  return readPanelsFile();
 }
 
 /** Qloo's top picks scored next to the panel: the first 10 of each recorded list. */
 export const TOP_PICKS = 10;
 
-function scoringInputs(a: Audience, panels: PanelModule) {
+function scoringInputs(a: Audience, panels: ReferencePanels) {
   const entityIds = {} as Record<ScoredType, string[]>;
   for (const type of ENTITY_TYPES_SCORED) {
     const control = a.resolution.references.filter((r) => r.type === type && r.entity).map((r) => (r.entity as { id: string }).id);
-    entityIds[type] = [...a.entities[type].slice(0, TOP_PICKS).map((e) => e.id), ...control, ...panels.ENTITY_PANELS[type].map((p) => p.id)];
+    entityIds[type] = [...a.entities[type].slice(0, TOP_PICKS).map((e) => e.id), ...control, ...panels.entity[type].map((p) => p.id)];
   }
   const tagIds = {} as Record<TagKind, string[]>;
   for (const kind of Object.keys(TAG_KINDS) as TagKind[]) {
     const mapped = (kind === "music" ? a.resolution.music : a.resolution.tone).tag;
     const top = a.tags[kind].filter((t) => t.type === TAG_KINDS[kind]).slice(0, TOP_PICKS).map((t) => t.id);
-    tagIds[kind] = [...top, ...(mapped ? [mapped.id] : []), ...panels.TAG_PANELS[kind].map((p) => p.id)];
+    tagIds[kind] = [...top, ...(mapped ? [mapped.id] : []), ...panels.tag[kind].map((p) => p.id)];
   }
   return { entityIds, tagIds };
 }
@@ -425,7 +408,7 @@ async function planScoring(): Promise<void> {
 
 const round = (n: number, digits = 3) => Number(n.toFixed(digits));
 
-async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule, lookup: Lookup) {
+async function analyzeOne(a: Audience, placeTags: string[], panels: ReferencePanels, lookup: Lookup) {
   const slug = a.resolution.candidate.slug;
   const { entityIds, tagIds } = scoringInputs(a, panels);
   const scoring = new Map(scoringRequests(slug, a.seedIds, entityIds, tagIds).map((r) => [r.id, r]));
@@ -452,12 +435,12 @@ async function analyzeOne(a: Audience, placeTags: string[], panels: PanelModule,
   };
   const entityField: Record<string, Awaited<ReturnType<typeof fieldLevel>>> = {};
   for (const type of ENTITY_TYPES_SCORED) {
-    entityField[type] = await fieldLevel(scoringId(slug, type), a.entities[type].slice(0, TOP_PICKS).map((e) => e.id), panels.ENTITY_PANELS[type].map((p) => p.id), "entities");
+    entityField[type] = await fieldLevel(scoringId(slug, type), a.entities[type].slice(0, TOP_PICKS).map((e) => e.id), panels.entity[type].map((p) => p.id), "entities");
   }
   const tagField: Record<string, Awaited<ReturnType<typeof fieldLevel>>> = {};
   for (const kind of Object.keys(TAG_KINDS) as TagKind[]) {
     const top = a.tags[kind].filter((t) => t.type === TAG_KINDS[kind]).slice(0, TOP_PICKS).map((t) => t.id);
-    tagField[kind] = await fieldLevel(scoringId(slug, `tags-${kind}`), top, panels.TAG_PANELS[kind].map((p) => p.id), "tags");
+    tagField[kind] = await fieldLevel(scoringId(slug, `tags-${kind}`), top, panels.tag[kind].map((p) => p.id), "tags");
   }
 
   // Settings: everyday places in the top-lift metro.

@@ -7,12 +7,13 @@ import { MemoryStore } from "./memory";
 import { appendRunEvents, getRunMeta, indexAfter, loadReport, readRunEvents, refreshReport, setRunMeta, type RunMeta } from "./runs";
 import type { Store } from "./types";
 import { clientIp, saltedHash, visitorId } from "./visitor";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 // A real recorded full run, written into a store as the runtime would write it.
-const full = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
+const full = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[]);
 const runId = `run_${"c".repeat(24)}`;
 const meta: RunMeta = { runId, attempt: 1, status: "done", briefHash: "d".repeat(64), createdAt: "2026-10-17T00:00:00.000Z", updatedAt: "2026-10-17T00:01:00.000Z" };
-const [segA, segB] = reduce(full).worlds.map((w) => w.segmentId);
+const [segA, segB] = ifRecorded(() => reduce(full).worlds.map((w) => w.segmentId)) ?? [];
 const frames = { revisionId: null, status: "paused" as const, reason: "Storyboards paused today.", frames: [], critiques: [] };
 
 async function storedRun(store: Store = new MemoryStore(), status: RunMeta["status"] = "done") {
@@ -23,7 +24,7 @@ async function storedRun(store: Store = new MemoryStore(), status: RunMeta["stat
   return store;
 }
 
-describe("the run log", () => {
+describeRecorded("the run log", () => {
   it("gives concurrent writers distinct seqs after the run's own, and the report picks them up", async () => {
     const store = await storedRun();
     const [a, b] = await Promise.all([

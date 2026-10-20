@@ -12,7 +12,7 @@
 // fit shows the range across them.
 import type { BaselineRun } from "../agent/baseline";
 import { REFERENCE_TYPES } from "../agent/baseline";
-import { ENTITY_PANELS, TAG_PANELS } from "../culture/panels";
+import { entityPanel, tagPanel } from "../culture/panels";
 import { moodTerm, musicTerm } from "../data-check/score";
 import { TAG_KINDS, tagQuery, toneTag } from "../data-check/plan";
 import { METROS, rankCities, shortMetroName, type ReferenceSets } from "../geo/metros";
@@ -228,7 +228,7 @@ export async function checkWorld(
   for (const type of SCORED_ENTITY_TYPES) {
     const own = input.candidates.filter((c) => typeOfCandidate(c) === type).slice(0, TOP_PICKS).map((c) => c.id);
     const control = input.control.flatMap((m) => m.references.filter((r) => r.type === type && r.ref).map((r) => (r.ref as { id: string }).id));
-    const panel = ENTITY_PANELS[type].map((p) => p.id);
+    const panel = entityPanel(type).map((p) => p.id);
     const ids = [...own, ...control, ...panel].filter((id) => !seedIds.has(id));
     const result = await qloo(env, "score", `Scoring ${band}'s ${TYPE_LABELS[type]} against Qloo's reference ${TYPE_LABELS[type]}`, {
       endpoint: ENDPOINTS.insights,
@@ -246,7 +246,7 @@ export async function checkWorld(
       const ref = kind === "music" ? m.music.ref : m.mood.ref;
       return ref ? [ref.id] : [];
     });
-    const panel = TAG_PANELS[kind].map((p) => p.id);
+    const panel = tagPanel(kind).map((p) => p.id);
     const result = await qloo(env, "score", `Scoring ${band}'s ${TAG_LABELS[kind]} against Qloo's reference ${TAG_LABELS[kind]}`, {
       endpoint: ENDPOINTS.insights,
       params: tagScoringParams(seeds, segment.bucket, [...own, ...control, ...panel]),

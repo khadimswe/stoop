@@ -1,0 +1,160 @@
+name: public mirror
+
+# Publishes main, without Qloo response data, to the public mirror of this repository. Qloo's
+# hackathon developer guide asks that Qloo response data never be stored in a public repository, so
+# git filter-repo drops every path and old file version listed in public-mirror.exclude from all of
+# history, the filtered copy must pass the public-mode checks and `npm run check:public`, and only
+# then is it pushed, fast-forward only. The filter is deterministic, so each push extends the
+# mirror's history; a change that rewrites published history makes the push fail instead (no force).
+#
+# Two jobs, so the deploy key never shares a runner with installed packages or tests: "filter" has
+# no secrets, runs every check and hands over a git bundle and its head commit; "push" only clones
+# that bundle, checks the head and pushes.
+#
+# Setup (MIRROR.md in the working repository): the secret PUBLIC_MIRROR_DEPLOY_KEY (the private half
+# of a deploy key with write access on the mirror) and the variable PUBLIC_MIRROR_REPO (its SSH URL,
+# for example git@github.com:khadimswe/stoop-public.git). Without either, nothing runs past the check.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-mirror
+  cancel-in-progress: false
+
+jobs:
+  filter:
+    name: Filter and check the mirror
+    if: github.ref == 'refs/heads/main'
+    # A fixed image: the filtered commit ids depend on how git exports history, and they must stay
+    # the same from push to push.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      enabled: ${{ steps.setup.outputs.enabled }}
+      head: ${{ steps.filter.outputs.head }}
+    steps:
+      - name: Check the mirror setup
+        id: setup
+        env:
+          HAS_DEPLOY_KEY: ${{ secrets.PUBLIC_MIRROR_DEPLOY_KEY != '' }}
+          MIRROR_REPO: ${{ vars.PUBLIC_MIRROR_REPO }}
+        run: |
+          if [ "$HAS_DEPLOY_KEY" != "true" ] || [ -z "$MIRROR_REPO" ]; then
+            echo "::notice title=Public mirror not set up::Nothing was published. Set the secret PUBLIC_MIRROR_DEPLOY_KEY and the variable PUBLIC_MIRROR_REPO to publish the mirror."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$MIRROR_REPO" in
+            git@github.com:*/*.git) ;;
+            *) echo "::error::PUBLIC_MIRROR_REPO must be an SSH URL like git@github.com:owner/repo.git"; exit 1 ;;
+          esac
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the full history
+        if: steps.setup.outputs.enabled == 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        if: steps.setup.outputs.enabled == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Install git-filter-repo (pinned by hash)
+        if: steps.setup.outputs.enabled == 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/filter-repo"
+          echo "git-filter-repo==2.47.0 --hash=sha256:2cd04929b9024e83e65db571cbe36aec65ead0cb5f9ec5abe42158654af5ad83" > "$RUNNER_TEMP/filter-repo.txt"
+          "$RUNNER_TEMP/filter-repo/bin/pip" install --quiet --no-deps --require-hashes -r "$RUNNER_TEMP/filter-repo.txt"
+
+      # The bundle and the head commit are taken before anything is installed or run, so later steps
+      # cannot change what gets pushed: the push job refuses a bundle whose head is not this one.
+      - name: Filter every Qloo data path and old version out of history
+        id: filter
+        if: steps.setup.outputs.enabled == 'true'
+        run: |
+          node scripts/public-mirror.mjs filter-args "$RUNNER_TEMP/filter"
+          # A fresh clone of main alone: no other branches, no tags, no remote credentials.
+          git clone --quiet --no-local --single-branch --branch main --no-tags "$GITHUB_WORKSPACE" "$RUNNER_TEMP/mirror"
+          cd "$RUNNER_TEMP/mirror"
+          "$RUNNER_TEMP/filter-repo/bin/git-filter-repo" --invert-paths --paths-from-file "$RUNNER_TEMP/filter/paths.txt" --strip-blobs-with-ids "$RUNNER_TEMP/filter/blobs.txt"
+          mkdir -p "$RUNNER_TEMP/bundle"
+          git bundle create "$RUNNER_TEMP/bundle/mirror.bundle" main
+          echo "head=$(git rev-parse main)" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Filtered copy"
+            echo "- Commits: $(git rev-list --count main)"
+            echo "- Files in main: $(git ls-files | wc -l)"
+            echo "- Head: \`$(git rev-parse --short main)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Public-mode checks on the filtered copy
+        if: steps.setup.outputs.enabled == 'true'
+        working-directory: ${{ runner.temp }}/mirror
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npm run check
+          # The names Qloo returned come from this repository's recordings; the filtered copy has none.
+          npm run check:public -- --history --names-from "$GITHUB_WORKSPACE/fixtures"
+
+      - name: Hand the filtered history to the push job
+        if: steps.setup.outputs.enabled == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-mirror-bundle
+          path: ${{ runner.temp }}/bundle/mirror.bundle
+          retention-days: 1
+          if-no-files-found: error
+
+  push:
+    name: Push the public mirror
+    needs: filter
+    if: github.ref == 'refs/heads/main' && needs.filter.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Restrict this environment to main in the repository settings (MIRROR.md).
+    environment: public-mirror
+    steps:
+      - name: Get the filtered history
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: public-mirror-bundle
+          path: ${{ runner.temp }}/bundle
+
+      - name: Push to the mirror, fast-forward only
+        env:
+          DEPLOY_KEY: ${{ secrets.PUBLIC_MIRROR_DEPLOY_KEY }}
+          MIRROR_REPO: ${{ vars.PUBLIC_MIRROR_REPO }}
+          HEAD_SHA: ${{ needs.filter.outputs.head }}
+        run: |
+          git clone --quiet --bare "$RUNNER_TEMP/bundle/mirror.bundle" "$RUNNER_TEMP/mirror.git"
+          cd "$RUNNER_TEMP/mirror.git"
+          if [ -z "$HEAD_SHA" ] || [ "$(git rev-parse main)" != "$HEAD_SHA" ]; then
+            echo "::error::The bundle's main is not the commit the filter job checked. Nothing was pushed."
+            exit 1
+          fi
+          install -d -m 700 "$RUNNER_TEMP/ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/ssh/deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/deploy_key"
+          # GitHub's published host key (https://api.github.com/meta), so the push never trusts on first use.
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$RUNNER_TEMP/ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/ssh/deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/ssh/known_hosts -o StrictHostKeyChecking=yes"
+          if ! git -c core.hooksPath=/dev/null push "$MIRROR_REPO" "$HEAD_SHA:refs/heads/main"; then
+            echo "::error title=Mirror push refused::The filtered history no longer extends the mirror's main (a change to public-mirror.exclude rewrote published history, or someone pushed to the mirror). Nothing was forced. See MIRROR.md."
+            exit 1
+          fi
+
+      - name: Remove the deploy key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh"

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createQlooClient } from "../qloo/client";
 import { FixtureCache, readFixtureFile } from "../qloo/fixtures";
 import { MemoryStore } from "../store/memory";
@@ -6,6 +6,7 @@ import type { VisitorId } from "../store/visitor";
 import { saveIntake } from "./record";
 import { SEARCHES_PER_INTAKE, searchSeeds } from "./search";
 import { startRun } from "./start";
+import { describeRecorded } from "../testing/recorded";
 
 // Qloo answers replay the real seed searches (fixtures/pool-resolve.json).
 const client = () => createQlooClient({ cache: new FixtureCache([readFixtureFile("fixtures/pool-resolve.json")], { strict: true }) });
@@ -29,7 +30,7 @@ async function withIntake() {
   return store;
 }
 
-describe("searching for a seed", () => {
+describeRecorded("searching for a seed", () => {
   it("returns Qloo's own entities as 'you' seeds with a receipt, which the run then accepts", async () => {
     const store = await withIntake();
     const found = await searchSeeds({ client: client(), env: LIVE }, { intakeId, q: "Hot Ones", type: "tv_show" }, ctx(store));

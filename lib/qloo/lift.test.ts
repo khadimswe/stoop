@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { findFixture, readFixtureFile, recorded } from "./fixtures";
 import { joinByGeohash, linearFit, mean, median, panelPosition, rankWithin, ratioLift, residualLift, topBy } from "./lift";
 import { heatmapResponse } from "./types";
+import { describeRecorded } from "../testing/recorded";
 
 describe("linearFit", () => {
   it("recovers a perfect line", () => {
@@ -101,7 +102,7 @@ describe("panelPosition", () => {
   });
 });
 
-describe("heatmap fixtures", () => {
+describeRecorded("heatmap fixtures", () => {
   // Recorded US heatmap for the apparel candidate's seeds (fixtures/probe-insights.json heatmap-us).
   const cells = heatmapResponse.parse(recorded(readFixtureFile(findFixture("probe-insights") as string), "heatmap-us").body);
   const correlation = (xs: number[], ys: number[]) => {

@@ -5,7 +5,7 @@
 // what the founder didn't state (cities, taste tags). The generic AI brief's assumptions show
 // whenever they differ from Qloo, even when the founder matched.
 // No Qloo calls except an optional taste check (stated taste tags scored against the tag panel).
-import { TAG_PANELS } from "../culture/panels";
+import { tagPanel } from "../culture/panels";
 import { METROS, STATES } from "../geo/metros";
 import { ENDPOINTS, type AgeBucket } from "../qloo/constants";
 import { insightsTagsResponse } from "../qloo/types";
@@ -143,7 +143,7 @@ function cityCheck(proof: Proof, stated: StatedAudience | null): DimensionCheck 
 /** The scoring call for stated taste tags: Qloo's own top tags, the stated tags, then the frozen tag panel. */
 export function tasteRequest(seeds: readonly Seed[], proof: Proof, kind: "music" | "tone", statedIds: readonly string[]) {
   const top = proof.tags.filter((t) => t.kind === kind).map((t) => t.id);
-  const ids = [...new Set([...top, ...statedIds, ...TAG_PANELS[kind].map((p) => p.id)])];
+  const ids = [...new Set([...top, ...statedIds, ...tagPanel(kind).map((p) => p.id)])];
   return { ...seedSignal(seeds), "filter.type": "urn:tag", "filter.results.tags": ids, take: ids.length };
 }
 
@@ -167,7 +167,7 @@ async function tasteCheck(env: StageEnv, seeds: readonly Seed[], proof: Proof, s
     evidence.push(result.evidence.id);
     const scores = new Map(result.data.flatMap((t) => (t.affinity === null ? [] : [[t.id, t.affinity] as const])));
     const own = new Set(proof.tags.filter((t) => t.kind === kind).map((t) => t.id));
-    const panel = TAG_PANELS[kind].filter((p) => !own.has(p.id)).flatMap((p) => (scores.has(p.id) ? [scores.get(p.id) as number] : []));
+    const panel = tagPanel(kind).filter((p) => !own.has(p.id)).flatMap((p) => (scores.has(p.id) ? [scores.get(p.id) as number] : []));
     for (const tag of mine) {
       const score = scores.get(tag.id);
       if (score === undefined || panel.length === 0) unscored.push(tag.name);

@@ -6,9 +6,10 @@ import { reportNames } from "../stages/after-run";
 import { exampleReport } from "../stages/fixture-run";
 import { buildFramePrompt, frameBody, frameReference, frameScenes, FRAMES_PER_WORLD } from "./frames";
 import { FRAME_MODELS } from "./models.config";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const report = exampleReport();
-const names = reportNames(report);
+const report = ifRecorded(() => exampleReport());
+const names = ifRecorded(() => reportNames(report));
 const scenes = (visible: boolean[]) => visible.map((productVisible) => ({ productVisible }));
 
 describe("frameScenes", () => {
@@ -25,7 +26,7 @@ describe("frameScenes", () => {
   });
 });
 
-describe("frameReference", () => {
+describeRecorded("frameReference", () => {
   it("takes the first product-only photo and never one that shows a person", () => {
     const images = (list: [string, boolean][]) => ({ ...report.inputs.product, source: { kind: "images" as const, images: list.map(([url, showsPerson]) => ({ url, showsPerson })) } });
     expect(frameReference(images([["https://a.example/person.jpg", true], ["https://a.example/bottle.jpg", false]]))).toBe("https://a.example/bottle.jpg");
@@ -33,7 +34,7 @@ describe("frameReference", () => {
   });
 });
 
-describe.each(report.worlds.map((w) => [w.segmentId, w] as const))("frames for %s", (_, world) => {
+describeRecorded.each(ifRecorded(() => report.worlds.map((w) => [w.segmentId, w] as const)))("frames for %s", (_, world) => {
   const pack = world.pack!;
   const brief = world.brief!;
   const product = report.inputs.product;

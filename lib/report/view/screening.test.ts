@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import type { DemoMedia } from "../../demo/manifest";
 import { CAMERA_PRESETS } from "../../prompts/models.config";
@@ -8,11 +8,12 @@ import { skewText } from "./format";
 import { outputViews } from "./output";
 import { ledgerOf } from "./receipts";
 import { screeningView } from "./screening";
+import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
 const hex = (c: string) => c.repeat(64);
 
-describe.each(EXAMPLES.map((e) => e.slug))("the Screening Room view for %s", (slug) => {
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Screening Room view for %s", (slug) => {
   const report = read(slug);
   const view = screeningView(report, ledgerOf(report), null);
   const outputs = outputViews(report, { renderAccess: { kind: "off" } });
@@ -88,7 +89,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Screening Room view for %s", (sl
   });
 });
 
-describe("the Screening Room with approved media", () => {
+describeRecorded("the Screening Room with approved media", () => {
   it("plays a world's own approved clip and the Control's, in the row and in the theater", () => {
     const report = read("food-hot-sauce");
     const world = report.worlds[0];

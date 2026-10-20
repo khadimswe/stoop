@@ -12,11 +12,12 @@ import { EXAMPLES } from "./examples";
 import { approvalsSchema } from "./manifest";
 import { NOT_APPROVED, reportExport } from "./report-export";
 import { freezeReportPacks, frozenReportPackFile, isExampleSlug, loadExampleReport, reportPackProblems, reportPacks } from "./report-packs";
+import { describeRecorded } from "../testing/recorded";
 
 const slugs = EXAMPLES.map((e) => e.slug);
 const EM_DASH = String.fromCharCode(0x2014);
 
-describe("the export from the reports", () => {
+describeRecorded("the export from the reports", () => {
   it.each(slugs.map((s) => [s] as const))("%s: lists exactly each report pack's hashes, plus the demo packshot", (slug) => {
     const report = loadExampleReport(slug);
     const files = reportExport(report);
@@ -79,7 +80,7 @@ describe("the export from the reports", () => {
   });
 });
 
-describe("freezing from the reports", () => {
+describeRecorded("freezing from the reports", () => {
   let root: string;
   afterEach(() => rmSync(root, { recursive: true, force: true }));
   const tempRoot = () => {

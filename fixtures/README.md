@@ -2,6 +2,8 @@
 
 Recorded **real** Qloo API responses. They are the source of truth for tests and for offline mode (`QLOO_MODE=fixtures`), and `docs/data-check.md` explains what they showed.
 
+Qloo's hackathon developer guide asks that Qloo response data stay out of public repositories, so the public mirror of this repository keeps only this README and the recipes that hold no response data (`public-mirror.exclude` lists what it leaves out). README.md ("Data and the Qloo API") explains how to record your own.
+
 Rules:
 
 - Real responses only. Never hand-write or edit Qloo data here.
@@ -13,7 +15,7 @@ Rules:
 - Fixtures over 1 MB are stored gzipped as `<name>.json.gz` (read one with `gunzip -c`). Smaller ones stay readable JSON.
 - `--probe` skips param validation, to test what Qloo does with params we do not allow yet, and allows probe-only endpoints (`/v2/trending`). Probe results are labeled `"probe": true` and are never replayed by the app.
 
-The Gate 2 recordings (`probe-*`, `pool-*`) were planned by `npm run data-check -- plan <stage>`, which writes the recipes from code, so a replay sends exactly the params that were recorded. `plan missing` writes a top-up (`pool-refresh`, then `pool-refresh-2` and so on) with only the requests the current code needs and no fixture holds. Replay is keyed by params, not by request id: `apparel-everyday--places` appears in both `pool-segments` (Huntington, WV) and `pool-refresh` (Flint, MI), recorded before and after the city method changed.
+The Gate 2 recordings (`probe-*`, `pool-*`) were planned by `npm run data-check -- plan <stage>`, which writes the recipes from code, so a replay sends exactly the params that were recorded. `plan missing` writes a top-up (`pool-refresh`, then `pool-refresh-2` and so on) with only the requests the current code needs and no fixture holds. Replay is keyed by params, not by request id: `apparel-everyday--places` appears in both `pool-segments` and `pool-refresh`, for two different cities, recorded before and after the city method changed.
 
 Recipe format:
 

@@ -113,7 +113,7 @@ export const ETHNICITY_TERMS = [
   "chicano",
   "chicana",
   "blackface",
-  // Seen in kept Qloo style tags (Gate 2 fixtures): "Indigenous visual vernacular", "Afro-Indigenous Influenced".
+  // Seen in kept Qloo style tags (Gate 2 fixtures), as parts of longer style names.
   "indigenous",
   "afro-indigenous",
 ] as const;

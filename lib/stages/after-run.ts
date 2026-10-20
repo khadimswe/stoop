@@ -5,7 +5,7 @@
 //   addRunCost     adds a frames or revise job's cost to the run's last cost, as a new run.cost
 //   reportNames    every real name a report knows, kept out of rewritten prompts and notes
 import { wrapLanguageModel, type LanguageModel } from "ai";
-import { ENTITY_PANELS } from "../culture/panels";
+import { entityPanelEntries } from "../culture/panels";
 import { reduce, type RunEvent } from "../events";
 import type { Cost, Report } from "../report/schema";
 import { claudeUsd } from "../runtime/cost";
@@ -117,7 +117,7 @@ export function reportNames(report: Pick<Report, "inputs" | "audience" | "worlds
     for (const pick of world.check?.picks ?? []) if (pick.kind === "entity") names.add(pick.name);
     for (const revision of world.revisions) for (const field of revision.culture) for (const source of field.sources) if (source.kind === "entity") names.add(source.name);
   }
-  for (const panel of Object.values(ENTITY_PANELS)) for (const entry of panel) names.add(entry.name);
+  for (const entry of entityPanelEntries()) names.add(entry.name);
   for (const mapping of report.control?.mappings ?? []) {
     if (mapping.dimension !== "reference") continue;
     names.add(mapping.text);

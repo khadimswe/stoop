@@ -1,0 +1,125 @@
+# What the public mirror of this repository leaves out, in every commit of its history.
+#
+# Qloo's hackathon developer guide: "Do not store Qloo response data in a public repository."
+# Recorded Qloo responses, and every file built from them (entity ids, names Qloo returned,
+# affinity or popularity scores, ranks, tags, demographics, heatmap values), stay in the
+# working repository only. README.md ("Data and the Qloo API") explains how to record your own.
+#
+# One source of truth, read by two tools:
+#   - .github/workflows/public-mirror.yml filters history with `git filter-repo --invert-paths`
+#     (path lines, through `node scripts/public-mirror.mjs filter-args`) and
+#     `--strip-blobs-with-ids` (the blob: lines).
+#   - `npm run check:public` fails when any of these paths exists in the filtered tree or history.
+#
+# Path lines use git filter-repo's syntax: a literal path matches that file or everything under
+# that directory; `glob:` matches the whole path (`*` crosses slashes); `regex:` is searched in
+# the path (write only syntax Python and JavaScript read the same way).
+# A change here rewrites the mirror's history from the first commit it touches: when a line removes
+# a path that already reached the mirror, the next push is no longer a fast-forward and stops
+# (MIRROR.md says what to do then).
+
+# Recorded Qloo responses: every fixture at the top of fixtures/, plain or gzipped.
+regex:^fixtures/[^/]+\.json(\.gz)?$
+# Full raw Qloo bodies (gitignored; listed in case one is ever added).
+fixtures/raw/
+# Recorded Claude answers for the example runs: they cite Qloo entity ids and names.
+fixtures/llm/
+# Recipes that hold ids or names Qloo returned (resolved seeds, top picks, panel ids, top metros).
+# The four kept hold only queries Stoop wrote: smoke, probe-search, pool-resolve, pool-refresh-2.
+regex:^fixtures/recipes/(?!(smoke|probe-search|pool-resolve|pool-refresh-2)\.json$)
+# The stored example runs: reports and event traces built from Qloo answers.
+data/runs/
+# The frozen reference panels: Qloo entity and tag ids, names and popularity.
+data/culture/
+# Reference audiences for city ranking: per-cell sums of Qloo heatmap percentiles.
+data/geo/reference-heatmap.json
+# The Gate 2 analysis: per-candidate skews, cities, segments, top picks and panel positions.
+data/data-check/
+# The /mcp page's example session: score_brief's answer (Qloo tags and panel positions).
+data/marketing/
+# The data check's per-product and per-entity results.
+docs/data-check-details.md
+# Founder notes for running the mirror.
+MIRROR.md
+# macOS folder metadata committed by accident once (it names local files).
+regex:(^|/)\.DS_Store$
+
+# Names the Qloo name check (`--names-from`) would flag that are ordinary words or public place
+# names in Stoop's own code: a site name, phrases in comments, US states and the counties and
+# towns that locality tests and comments use to show how a city name is matched.
+allow-name: GitHub
+allow-name: The Report
+allow-name: Echo Park
+allow-name: Puerto Rico
+allow-name: West Virginia
+allow-name: Hong Kong
+allow-name: Washoe County
+allow-name: East Baton Rouge Parish
+allow-name: Flint Charter Township
+allow-name: Genesee County
+
+# Old versions of kept files that held Qloo data before it moved to the paths above (an earlier
+# panels module, tests with recorded ids or names inline, the first data check write-ups, comments
+# quoting Qloo answers). Each line is a blob id, then the path it had; the filter drops that version
+# from history (the file keeps its previous clean version, or is absent until a clean one lands).
+blob:088ff339c607d80ad96ac7c6a1451d87e74c7809 docs/data-check.md
+blob:0debd41f0732fe0bde3abc5fbd42ff8a22d3dda1 docs/data-check.md
+blob:1fcee9bf6ba52912ec2dfc87fe05769bc84348ee docs/data-check.md
+blob:28dfca30b010c996f6e682d5b822305f3deda08d docs/data-check.md
+blob:7426ee6c61e27aa35f108193fdcc8f123967c1a4 docs/data-check.md
+blob:95cc5f0769eb8b361af096d574adb10eaa38d762 e2e/examples.spec.ts
+blob:9b0f1f1001c9f028f6a81a1a3e1d15227faf7391 e2e/examples.spec.ts
+blob:c9120814a947eda684e13adbc5037fecee1a652a e2e/examples.spec.ts
+blob:fe827a08e1b4d1f95955a529524ef60461e51a13 e2e/examples.spec.ts
+blob:cfae8dd1cc9f9f1820134b47702bdf879450ca9c e2e/examples.spec.ts
+blob:869c89e7deb4893dbee0b63603f44ffd4dcd07fc lib/agent/orchestrator.test.ts
+blob:87a1405d4d40651d6259fd1231b556fd0d769926 lib/agent/orchestrator.test.ts
+blob:d7ad76308c0771e4602cca18ea23aa9e44c3ae2b lib/agent/orchestrator.test.ts
+blob:a7129f3cacb868e2b203b706f85ee7dcc211eb6b lib/culture/panels.ts
+blob:51f076ea6bf5767aaf7d1138dd79211f49a60e0b lib/data-check/plan.test.ts
+blob:c3abf23b8fe6a8acb1663e0e9723a70cc0602258 lib/data-check/plan.test.ts
+blob:19512993563e0d64635dbe03326b352f2b8876a1 lib/demo/render-demo.test.ts
+blob:80d44c9ef549bacb259e3f731572bae3503073a6 lib/demo/render-demo.test.ts
+blob:c864fa0616d25ab1f73a024ff090fc153e393083 lib/demo/render-demo.test.ts
+blob:1bd67218ee7c3546bc6c24d0fb52c98013b61a29 lib/guardrails.test.ts
+blob:f59325fbb8580214039640d90714ccb3e286d852 lib/guardrails.test.ts
+blob:e73158c64c06c178cf89eadf9312b9c92cd610ff lib/hash.test.ts
+blob:24007acddd3e8da3dcd227e44b14e094576429a5 lib/intake/seeds.test.ts
+blob:ac8b6b89b77abb77a51a577da1c6aa3fd503e2fd lib/intake/seeds.test.ts
+blob:c4f6729c04093ff4b6d5979ab326191a9b3c9065 lib/intake/seeds.test.ts
+blob:f856314acef577c83155a4b1929d0cae9eb8285b lib/intake/seeds.test.ts
+blob:5de93f235f15596758ce3348b2fcddac5aaa86c1 lib/marketing/landing.test.ts
+blob:72e8bdb11fff081451951aba26af2e43ec216bed lib/marketing/landing.test.ts
+blob:a2271b66fe9f5a461c987792031c0cfec167e603 lib/marketing/landing.test.ts
+blob:c148c5000cf0193eeaf529a6f1171ce364f5db97 lib/marketing/landing.test.ts
+blob:6ea168eec31b22ff89b2c000c060b29db90bd300 lib/marketing/landing.ts
+blob:7f2cf4f3a83952ff440f6c955f1cdd75f7d51328 lib/marketing/landing.ts
+blob:eb55a4816a813ea3bb0accb2b4237483c60d7542 lib/marketing/landing.ts
+blob:f9164f43c6ae2c6834cb1ca4d602eeccd4e982db lib/marketing/landing.ts
+blob:400df353443bc64f41fa7682e1838a771b7bfcb0 lib/marketing/mcp-session.ts
+blob:a577c48b97c299189cc157c8e72b9c25e08d2fa0 lib/mcp/score-brief.test.ts
+blob:17c2ccabc7cd66a790bd0ed102010eaecdd13ed9 lib/media/frames.test.ts
+blob:1ebfe0dacba8a3e9ed0d5e5a78f778909d7b1d30 lib/media/frames.test.ts
+blob:6d982bde8d219ad1a3dee26d21571987e5a13001 lib/media/frames.test.ts
+blob:92fbd6b2c83a52aa0b65c27580c89b4ade5a80ee lib/media/frames.test.ts
+blob:ab563880da26b6794f9a4620e3c3a38da9b84c61 lib/media/frames.test.ts
+blob:b4d0b15a0c8ce18d37a6fc08b6c895e1c8579640 lib/media/frames.test.ts
+blob:e444df20892f9cd2ec9a24effb33daccba05053d lib/media/frames.test.ts
+blob:eff573a9d216aa5ef57dbcc46dcac03b9c3bbb9e lib/media/frames.test.ts
+blob:3cb5dc506e69549a5e8996c16354cf6151c98e67 lib/qloo/match.test.ts
+blob:a95110bf92fc61cb62911ec13aec20d052c73b97 lib/qloo/match.ts
+blob:5839bb44ed2869bc7ee5b77fb8269456b477f340 lib/qloo/resolve.test.ts
+blob:9697c5b6d0ec19718426896126e4b36784e07ae5 lib/qloo/resolve.test.ts
+blob:d2803265bbc8ba3645d5b32b26beb8fe15f2e86e lib/qloo/resolve.test.ts
+blob:4552e4715783b1844ab96d1c7ce49c5aeaab4e36 lib/qloo/types.test.ts
+blob:b3d289d70fc88a5c109ec0f6ca9fc0f9d35d58b3 lib/qloo/types.test.ts
+blob:33bd96b6dd086389dd1899945c33c34025f22d57 lib/stages/after-run.test.ts
+blob:80acc474c3457c821f6dcb238a84712f6f593ceb lib/stages/check.test.ts
+blob:a76db4c6a8d53e8ed5b9d3d7ce6473d4f6f6dbf1 lib/stages/check.test.ts
+blob:0f4125e956938b2fed883766a763123a9caf5c27 lib/stages/critique.test.ts
+blob:f6966e5c24156bfb4ebac04a52876225166b17f9 lib/stages/critique.test.ts
+blob:85b57152ce72e2acb7e20cfcdc38dd329e64cf01 lib/stages/culture.test.ts
+blob:12e80a019c35c2234c26fc970fc7cee610d0b4a7 lib/stages/culture.ts
+blob:38e39245093fde3501e49d89a9fe1bf0267b6dc0 lib/stages/culture.ts
+blob:d80e066cb0f4c4cc019e022aeb8cc97a397a6112 lib/stages/culture.ts
+blob:3e36a52f6ade873e6751d5aa84ea460958b7bfd2 lib/stages/revise.test.ts

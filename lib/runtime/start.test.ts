@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { Report } from "../report/schema";
 import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
@@ -10,11 +10,12 @@ import { ApiFailure } from "./errors";
 import { loadRunRecord, saveIntake } from "./record";
 import { MAX_LIVE_RUNS, RUNS_PER_HOUR, resumeRun, startRun, type StartDeps } from "./start";
 import type { RequestContext } from "./types";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 // A real stored run's inputs and receipts stand in for an intake.
-const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
+const report = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report);
 const intakeId = `in_${"1".repeat(24)}`;
-const seedIds = report.inputs.seeds.map((s) => s.ref.id);
+const seedIds = ifRecorded(() => report.inputs.seeds.map((s) => s.ref.id));
 const LIVE = { STOOP_LIVE: "true" };
 
 async function setup(env: Record<string, string> = LIVE, wrap: (store: MemoryStore) => Store = (s) => s) {
@@ -46,7 +47,7 @@ const liveId = (reply: Awaited<ReturnType<typeof startRun>>) => {
   return reply.runId;
 };
 
-describe("starting a live run", () => {
+describeRecorded("starting a live run", () => {
   it("replays an example while STOOP_LIVE is off, without touching the store", async () => {
     const { start, store } = await setup({});
     expect(await start()).toMatchObject({ mode: "example", slug: "food-hot-sauce", reason: "replay" });
@@ -191,7 +192,7 @@ describe("starting a live run", () => {
   });
 });
 
-describe("resuming a run", () => {
+describeRecorded("resuming a run", () => {
   it("resumes a stopped run under the next attempt, and joins one still running or finished", async () => {
     const { start, store, deps, ctx, scheduled } = await setup();
     const runId = liveId(await start());

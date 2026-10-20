@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { replayClient } from "../demo/example-run";
 import { createEmitter } from "../events";
 import { referenceSets } from "../geo/reference";
@@ -7,10 +7,11 @@ import { checkText } from "../guardrails";
 import { createRunContext } from "../qloo/context";
 import type { Report } from "../report/schema";
 import { prove, proveRequests } from "./prove";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
-const sauce = JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.report.json", "utf8")) as Report;
+const sauce = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/audience.report.json", "utf8")) as Report);
 
-describe("Prove", () => {
+describeRecorded("Prove", () => {
   it("stops as partial with fewer than 2 seeds, before any Qloo call", async () => {
     const emitter = createEmitter(() => new Date("2026-10-16T20:00:00.000Z"));
     const ctx = createRunContext({ runId: "prove-test", cap: 4 });

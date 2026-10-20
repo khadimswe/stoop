@@ -26,9 +26,10 @@ import { claudeUsd } from "./cost";
 import { executeRun, estimateUsd, type ExecuteDeps } from "./execute";
 import { saveRunRecord } from "./record";
 import { resumeRun } from "./start";
+import { describeRecorded, ifRecorded, itRecorded } from "../testing/recorded";
 
 const slug = "food-hot-sauce";
-const stored = JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
+const stored = ifRecorded(() => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report);
 const runId = `run_${"a".repeat(24)}`;
 
 const realFetch = globalThis.fetch;
@@ -86,7 +87,7 @@ async function liveRun(store: MemoryStore) {
 }
 
 describe("a live run", () => {
-  it("runs the real pipeline into the store and ends with the same worlds as the recorded example", async () => {
+  itRecorded("runs the real pipeline into the store and ends with the same worlds as the recorded example", async () => {
     const store = new MemoryStore();
     const { options, deps } = await liveRun(store);
     const asked: string[] = [];
@@ -112,7 +113,7 @@ describe("a live run", () => {
     expect(new Set(asked).size).toBe(asked.length);
   });
 
-  it("stops at the deadline, resumable, and a resume finishes without asking Claude any step again", async () => {
+  itRecorded("stops at the deadline, resumable, and a resume finishes without asking Claude any step again", async () => {
     const store = new MemoryStore();
     const { options, deps } = await liveRun(store);
     const asked: string[] = [];
@@ -145,7 +146,7 @@ describe("a live run", () => {
   });
 });
 
-describe("a live run that cannot finish", () => {
+describeRecorded("a live run that cannot finish", () => {
   it("stops at the deadline even while the Control never answers, and frees its slot", async () => {
     const store = new MemoryStore();
     const { options, deps } = await liveRun(store);
@@ -175,7 +176,7 @@ describe("a live run that cannot finish", () => {
 
 const noCost = { durationMs: 0, qloo: { live: 0, cached: 0 }, claude: { calls: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }, frames: 0, estimateUsd: 0 };
 
-describe("frames during a live run", () => {
+describeRecorded("frames during a live run", () => {
   it("starts each world's frames as its pack lands, and folds their cost into the run's", async () => {
     const store = new MemoryStore();
     const { options, deps } = await liveRun(store);
@@ -332,7 +333,7 @@ describe("frames during a live run", () => {
   });
 });
 
-describe("frames that outlast the run", () => {
+describeRecorded("frames that outlast the run", () => {
   it("are stopped by the run's deadline, and the run still ends with its cost and report", async () => {
     const store = new MemoryStore();
     const { options, deps } = await liveRun(store);

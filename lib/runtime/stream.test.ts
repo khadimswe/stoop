@@ -5,8 +5,9 @@ import { keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { appendRunEvents, runLease, setRunMeta, type RunMeta } from "../store/runs";
 import { streamExample, streamLiveRun } from "./stream";
+import { describeRecorded, ifRecorded, itRecorded } from "../testing/recorded";
 
-const recorded = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[];
+const recorded = ifRecorded(() => JSON.parse(readFileSync("data/runs/food-hot-sauce/run.events.json", "utf8")) as RunEvent[]);
 const runId = `run_${"d".repeat(24)}`;
 const at = "2026-10-17T12:00:00.000Z";
 const meta: RunMeta = { runId, attempt: 1, status: "running", briefHash: "e".repeat(64), createdAt: at, updatedAt: at };
@@ -57,7 +58,7 @@ function clock(onSleep: (polls: number) => Promise<void> | void = () => undefine
 }
 
 describe("the live run stream", () => {
-  it("sends the attempt's events with attempt:seq ids, its status, and ends a while after the run is done", async () => {
+  itRecorded("sends the attempt's events with attempt:seq ids, its status, and ends a while after the run is done", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
     await hold(store);
@@ -77,7 +78,7 @@ describe("the live run stream", () => {
     expect(JSON.parse(out.at(-1)!.data!).status).toBe("done");
   });
 
-  it("picks up after Last-Event-ID, and stops with a resumable status when the run stopped", async () => {
+  itRecorded("picks up after Last-Event-ID, and stops with a resumable status when the run stopped", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, { ...meta, status: "stopped" });
     await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(0, 30)));
@@ -88,7 +89,7 @@ describe("the live run stream", () => {
     expect(JSON.parse(out.find((f) => f.event === "status")!.data!)).toEqual({ status: "stopped", attempt: 1, resumable: true });
   });
 
-  it("follows a resume to the next attempt from seq 0, even when the viewer last saw the old one", async () => {
+  itRecorded("follows a resume to the next attempt from seq 0, even when the viewer last saw the old one", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
     await hold(store);
@@ -110,7 +111,7 @@ describe("the live run stream", () => {
     ]);
   });
 
-  it("shows a run still marked running, whose lease is gone, as stopped and resumable", async () => {
+  itRecorded("shows a run still marked running, whose lease is gone, as stopped and resumable", async () => {
     const store = new MemoryStore();
     await setRunMeta(store, meta);
     await appendRunEvents(store, runId, 1, inputsOf(recorded.slice(0, 4)));
@@ -136,7 +137,7 @@ describe("the live run stream", () => {
   });
 });
 
-describe("the example stream", () => {
+describeRecorded("the example stream", () => {
   it("replays the recorded trace at a reading pace and ends done, from where the viewer left off", async () => {
     const paced: number[] = [];
     const out = await frames(streamExample(recorded, { sleep: async (ms) => void paced.push(ms), lastEventId: "1:99" }));

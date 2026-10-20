@@ -1,4 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_DATA_FILES, missingDataMessage, missingFiles } from "./lib/recorded-data";
+
+// The end-to-end tests walk the stored examples and replay recorded Qloo answers. Without them (the
+// public mirror leaves them out) stop here with one message, before any server starts.
+const missing = missingFiles(E2E_DATA_FILES);
+if (missing.length > 0) {
+  console.error(missingDataMessage("npm run e2e", missing));
+  process.exit(1);
+}
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
