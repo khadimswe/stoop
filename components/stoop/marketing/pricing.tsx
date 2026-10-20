@@ -3,6 +3,7 @@ import type { WaitlistRequest } from "@/lib/api/requests";
 import { cn } from "cn";
 import { InlineWaitlist } from "./inline-waitlist";
 import { ReserveTrigger } from "./reserve-trigger";
+import { reveal, REVEAL_CLASS } from "./reveal";
 import { SectionIntro } from "./section-intro";
 
 interface Plan {
@@ -53,7 +54,10 @@ const PLANS: Plan[] = [
   },
 ];
 
-/** #pricing: four plans with "Reserve" (the waitlist, tagged with the plan), the roadmap line, then the inline waitlist. */
+/**
+ * #pricing: four plans with "Reserve" (the waitlist, tagged with the plan), the roadmap line, then the
+ * inline waitlist. The plan cards rise in once, one after another (the section's one motion); the form never moves.
+ */
 export function Pricing() {
   return (
     <section id="pricing" aria-labelledby="pricing-title" className="scroll-mt-24 border-t border-hairline bg-paper-raised py-20">
@@ -65,12 +69,14 @@ export function Pricing() {
           lead="Everything is free while Stoop is in beta, within daily limits. Plans start after beta: Reserve holds your spot, no payment."
         />
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PLANS.map((plan) => (
+          {PLANS.map((plan, i) => (
             <li
               key={plan.plan}
+              {...reveal(i * 90)}
               className={cn(
                 "flex min-w-0 flex-col gap-4 rounded-card p-6",
                 plan.emphasized ? "border-2 border-ink bg-sun" : "border border-hairline bg-paper",
+                REVEAL_CLASS,
               )}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
