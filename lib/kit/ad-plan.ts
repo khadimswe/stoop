@@ -7,12 +7,9 @@
 import { AGE_BUCKETS, type AgeBucket } from "../qloo/constants";
 import type { Concept } from "../prompts/brief";
 import { adPlanEntrySchema, type AdPlanEntry } from "../report/world";
+import { AD_PLAN_MAX_CITIES, AD_PLAN_NOTE, AD_PLAN_OPTIONAL, hypothesisWatch } from "./ad-plan-copy";
 
-export const AD_PLAN_NOTE = "Targeting suggestions from aggregate taste data.";
-export const AD_PLAN_OPTIONAL =
-  "The age bands and cities are optional: use them only where a campaign allows them, and leave broad campaigns broad. The cities are where this world's age band clusters; the ad's own setting comes from the audience's headline cities.";
-/** Cities shown per world at most (the top of its ranked list). */
-export const AD_PLAN_MAX_CITIES = 5;
+export { AD_PLAN_MAX_CITIES, AD_PLAN_NOTE, AD_PLAN_OPTIONAL, hypothesisWatch };
 
 export interface AdPlanInput {
   /** The world's label (what Qloo measured: taste, age band, region). */
@@ -29,9 +26,7 @@ export interface AdPlanInput {
 /** What to watch, from the concept's test hypothesis: a question to answer, never a result. */
 export function watchLine(concept: Concept): string {
   const compare = "Compare this ad set (Meta) or ad group (TikTok) with the other worlds' on the same objective and budget.";
-  const hypothesis = concept.testHypothesis?.trim().replace(/[.!?]+$/, "");
-  if (!hypothesis) return `Watch how "${concept.title}" does against the other worlds' concepts. ${compare}`;
-  return /^whether\b/i.test(hypothesis) ? `Watch ${hypothesis.charAt(0).toLowerCase()}${hypothesis.slice(1)}. ${compare}` : `Watch: ${hypothesis}. ${compare}`;
+  return `${hypothesisWatch(concept) ?? `Watch how "${concept.title}" does against the other worlds' concepts.`} ${compare}`;
 }
 
 export function adPlanEntry({ label, ageBands, cities, concept, evidenceIds }: AdPlanInput): AdPlanEntry {
