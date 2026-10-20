@@ -1,8 +1,8 @@
 // The landing's big numbers, as parts: text that stays put and whole numbers that count up once, from
 // their floor to their value, when the figure scrolls into view. The final figure is what the server
 // renders, so a page without JavaScript, or with reduced motion, shows the recorded value and nothing
-// else. Floors keep every frame of the count meaningful: an age never passes under 18, a rank never
-// reads #0.
+// else. Only ranks and panel positions count (ages and age bands are plain text, so no frame shows an
+// age Qloo did not measure), and floors keep every frame meaningful: a rank never reads #0.
 
 /** One piece of a figure. `lg` parts are the giant digits; `sm` parts sit beside them, smaller. */
 export type FigurePart = { kind: "text"; text: string; size: "lg" | "sm" } | { kind: "number"; value: number; from: number; size: "lg" | "sm" };

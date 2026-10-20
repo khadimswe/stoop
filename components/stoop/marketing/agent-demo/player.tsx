@@ -95,8 +95,10 @@ export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
   const [ref, onScreen] = useOnScreen<HTMLDivElement>();
   const pageVisible = usePageVisible();
   const [paused, setPaused] = useState(false);
-  /** Where the pointer and the keyboard are: on "Open the full report", the replay holds, so the link never vanishes under them. */
-  const cta = useRef<HTMLAnchorElement>(null);
+  /**
+   * Whether the pointer or the keyboard focus is anywhere on the demo. On the end card, the replay
+   * holds while either is, so "Open the full report" never vanishes under someone reading or reaching for it.
+   */
   const [hovering, setHovering] = useState(false);
   const [focused, setFocused] = useState(false);
   /** The beats with something to show (a run with no storyboard skips that beat). */
@@ -108,7 +110,8 @@ export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
   const frame = frameAt(timeline, script, reduced ? timeline.beats[step].end : t);
   const { beat } = frame;
   const showCta = beat === "launch" && frame.launch.cta;
-  // Only while the link is on screen: a stale hover or focus never holds a later beat.
+  // Only on the end card: earlier beats play on under the pointer. The end card itself lasts at least
+  // END_CARD_MS (lib/marketing/demo-timeline.ts) before the loop, and never loops while held.
   const held = showCta && (hovering || focused);
   const playing = !reduced && !paused && !held && onScreen && pageVisible;
   useReplayClock(timeline.total, playing, elapsed, setClock);
@@ -147,8 +150,12 @@ export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
   return (
     <div
       ref={ref}
-      onPointerMove={(event) => setHovering(Boolean(cta.current?.contains(event.target as Node)))}
+      // A mouse resting on the demo holds the end card; a tap (touch, pen) never leaves it held.
+      onPointerEnter={(event) => setHovering(event.pointerType === "mouse")}
+      onPointerMove={(event) => setHovering(event.pointerType === "mouse")}
       onPointerLeave={() => setHovering(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => setFocused(event.currentTarget.contains(event.relatedTarget as Node | null))}
       data-demo-beat={beat} data-demo-playing={playing ? "true" : "false"} data-demo-mode={reduced ? "steps" : "autoplay"} data-demo-steps={frame.trace.steps}>
       <TopBar label={script.label} route={script.routes[ROUTE[beat]]} live={playing} />
       <div className={STAGE_BOX}>
@@ -158,7 +165,7 @@ export function AgentDemoPlayer({ script }: AgentDemoPlayerProps) {
         {showCta && (
           <div className="absolute inset-x-0 bottom-0 flex justify-center p-4 motion-safe:animate-rise @2xl:justify-end @2xl:p-6 @4xl:p-8">
             <Button asChild>
-              <Link ref={cta} href={script.reportHref} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
+              <Link href={script.reportHref}>
                 Open the full report
                 <ArrowRight aria-hidden="true" />
               </Link>

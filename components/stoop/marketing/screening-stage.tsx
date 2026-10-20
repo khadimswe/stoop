@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import type { ScreeningPreviewView } from "@/lib/marketing/landing";
 import type { ReceiptView } from "@/lib/report/view/types";
 import { cn } from "cn";
+import { ConceptScreen } from "./concept-screen";
 
 /** A measured fact on a tile (the age skew, the setting city): it opens its receipt, or shows nothing without one. */
 function Fact({ text, receipt }: { text: string; receipt: ReceiptView | null }) {
@@ -28,7 +29,8 @@ function Fact({ text, receipt }: { text: string; receipt: ReceiptView | null }) 
  * Beats 2 and 3 on the landing: the lead example's Screening Room (the Control once, then one tile
  * per concept world) with one receipt open next to it, music style by default. Each world's cues
  * switch the open receipt; "See the full receipt" opens every Qloo call behind it. Clips show only
- * once approved; until then each tile is a labeled "Clip coming" still, never an empty player.
+ * once approved; until then each screen shows its concept preview (the hook line and the first shot,
+ * labeled), never an empty player.
  */
 export function ScreeningStage({ view }: { view: ScreeningPreviewView }) {
   const { screening, cues } = view;
@@ -46,14 +48,28 @@ export function ScreeningStage({ view }: { view: ScreeningPreviewView }) {
       >
         {screening.control && (
           <div className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto sm:min-w-0">
-            <VideoTile label="Control" tone="control" src={screening.control.clip?.src} poster={screening.control.clip?.poster ?? undefined} />
+            <VideoTile
+              label="Control"
+              tone="control"
+              src={screening.control.clip?.src}
+              poster={screening.control.clip?.poster ?? undefined}
+              captions={screening.control.clip?.captions ?? undefined}
+              preview={screening.control.theater ? <ConceptScreen theater={screening.control.theater} control /> : undefined}
+            />
             <p className="text-sm font-semibold text-concrete-screen">Control: the generic AI brief</p>
             <p className="text-xs text-paper-dim">LLM-only brief, same template and model. Not from Qloo.</p>
           </div>
         )}
         {screening.worlds.map((world) => (
           <div key={world.segmentId} className="flex w-40 shrink-0 snap-start flex-col gap-2 sm:w-auto sm:min-w-0">
-            <VideoTile label="Culture-made" tone="culture" src={world.clip?.src} poster={world.clip?.poster ?? undefined} />
+            <VideoTile
+              label="Culture-made"
+              tone="culture"
+              src={world.clip?.src}
+              poster={world.clip?.poster ?? undefined}
+              captions={world.clip?.captions ?? undefined}
+              preview={world.theater ? <ConceptScreen theater={world.theater} /> : undefined}
+            />
             <p className="text-sm leading-snug font-semibold text-paper">{world.label}</p>
             <p className="flex flex-wrap gap-x-2 text-xs text-paper-dim">
               {world.skewText && <Fact text={world.skewText} receipt={world.skewReceipt} />}

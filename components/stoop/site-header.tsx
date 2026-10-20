@@ -31,7 +31,7 @@ export function SiteHeader() {
           >
             {TRY_LINK.label}
           </Link>
-          <WaitlistTrigger />
+          <WaitlistTrigger className="pointer-coarse:h-11" />
           <MobileMenu />
         </div>
       </nav>

@@ -1,6 +1,7 @@
 import { ReceiptDrawer } from "@/components/stoop/receipt-drawer";
 import { Button } from "@/components/ui/button";
 import type { ProofStatView } from "@/lib/marketing/proof";
+import { FICTIONAL_BRANDS_NOTE } from "@/lib/marketing/site";
 import { CountUp } from "./count-up";
 import { SectionIntro } from "./section-intro";
 import { SourceTag } from "./source-tag";
@@ -15,12 +16,15 @@ export function ProofStats({ stats }: { stats: ProofStatView[] }) {
   if (stats.length === 0) return null;
   return (
     <section id="proof" aria-labelledby="proof-title" className="mx-auto flex max-w-6xl scroll-mt-24 flex-col gap-10 px-5 pb-24">
-      <SectionIntro
-        id="proof-title"
-        kicker="Proof from the examples"
-        title="Founders guess. AI briefs guess. Qloo measures."
-        lead="Numbers from the recorded example runs, on real Qloo responses: what the brand said or a generic AI brief picked, then what Qloo measured. Each one opens the Qloo calls behind it."
-      />
+      <div className="flex flex-col gap-3">
+        <SectionIntro
+          id="proof-title"
+          kicker="Proof from the examples"
+          title="Founders guess. AI briefs guess. Qloo measures."
+          lead="Numbers from the recorded example runs, on real Qloo responses: what the brand said or a generic AI brief picked, then what Qloo measured. Each one opens the Qloo calls behind it."
+        />
+        <p className="max-w-[44rem] text-sm font-semibold text-ink">{FICTIONAL_BRANDS_NOTE}</p>
+      </div>
       <ul className="grid border-t-2 border-ink md:grid-cols-2">
         {stats.map((stat, i) => (
           <li

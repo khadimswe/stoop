@@ -41,9 +41,12 @@ describeRecorded("the proof band, pinned to the recorded runs", () => {
     }
   });
 
-  it("never shows an age under 18, on any frame of the count", () => {
-    for (const stat of stats.filter((s) => s.id.endsWith("-age"))) {
-      for (let i = 0; i <= 20; i++) for (const part of figurePartsAt(stat.figure, i / 20)) if (/^\d+$/.test(part)) expect(Number(part)).toBeGreaterThanOrEqual(18);
+  it("never counts an age: every frame shows the band Qloo measured, and only ranks count up", () => {
+    for (const stat of stats) {
+      const counts = stat.figure.some((part) => part.kind === "number");
+      expect(counts).toBe(!stat.id.endsWith("-age"));
+      if (counts) continue;
+      for (let i = 0; i <= 20; i++) expect(figurePartsAt(stat.figure, i / 20).join("")).toBe(stat.figureText);
     }
   });
 
@@ -132,11 +135,15 @@ describeRecorded("Porchlight Pepper Co.: the generic brief's music", () => {
 });
 
 describe("figure helpers", () => {
-  it("writes each age bucket as adults only, counting from 18", () => {
+  it("writes each age bucket as adults only, and never counts it", () => {
     expect(figureText(ageFigure("24_and_younger"))).toBe("18 to 24");
     expect(figureText(ageFigure("35_to_44"))).toBe("35 to 44");
     expect(figureText(ageFigure("55_and_older"))).toBe("55+");
-    for (const bucket of AGE_BUCKETS) for (const part of figurePartsAt(ageFigure(bucket), 0)) if (/^\d+$/.test(part)) expect(Number(part)).toBe(18);
+    for (const bucket of AGE_BUCKETS) {
+      const figure = ageFigure(bucket);
+      expect(figure.every((part) => part.kind === "text")).toBe(true);
+      expect(figurePartsAt(figure, 0)).toEqual(figurePartsAt(figure, 1));
+    }
   });
 
   it("cuts a long brief line at its first clause", () => {
