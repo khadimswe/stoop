@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { liveRunIdSchema } from "@/lib/api/requests";
+import { LiveReport } from "./live-report";
+import { ReportSkeleton } from "./states";
 
-// Stub: a live run's report. The live-data lane loads the stored Report and renders <ReportPage>
-// (components/stoop/report/report-page.tsx) from it; examples live at /examples/[slug].
+// A live run's report. The shell (the app bar and the skeleton) is static; the run loads in the
+// browser from GET /api/report/<id> and the run's event stream (live-report.tsx), so frames and
+// revisions that land after the run show up in place. Examples live at /examples/[slug].
 //
 // Without generateStaticParams the id is request data, so it is read behind <Suspense>. A malformed
 // id renders the not-found page (with noindex), but the status stays 200: the static shell (the app
@@ -14,21 +17,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function LiveReport({ params }: { params: PageProps<"/report/[id]">["params"] }) {
+async function LiveReportLoader({ params }: { params: PageProps<"/report/[id]">["params"] }) {
   const { id } = await params;
   if (!liveRunIdSchema.safeParse(id).success) notFound();
-  return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-4 pt-10 pb-20 sm:px-5">
-      <h1 className="font-display text-[1.625rem] leading-tight font-extrabold [font-stretch:85%]">Your report</h1>
-      <p className="text-sm text-ink-soft">Live reports open here once the run finishes.</p>
-    </main>
-  );
+  return <LiveReport runId={id} />;
 }
 
 export default function LiveReportPage({ params }: PageProps<"/report/[id]">) {
   return (
-    <Suspense fallback={<main className="flex-1" />}>
-      <LiveReport params={params} />
+    <Suspense fallback={<ReportSkeleton />}>
+      <LiveReportLoader params={params} />
     </Suspense>
   );
 }
