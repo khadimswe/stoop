@@ -470,8 +470,18 @@ function choiceView(ledger: Ledger, choice: ControlChoice): ChoiceView {
     status: choice.status,
     statusLabel: STATUS_LABELS[choice.status],
     measured: choice.measured,
-    receipt: receiptView(ledger, choice.evidenceIds, `Generic choice: ${CHOICE_LABELS[choice.dimension].toLowerCase()}`, choice.measured ?? choice.text),
+    receipt: genericReceipt(receiptView(ledger, choice.evidenceIds, genericCue(CHOICE_LABELS[choice.dimension]), choice.measured ?? choice.text)),
   };
+}
+
+/** "Generic AI brief's city, checked with Qloo": how a receipt for the generic brief's pick is headed. */
+export function genericCue(choice: string | null): string {
+  return choice ? `Generic AI brief's ${choice.toLowerCase()}, checked with Qloo` : "Generic AI brief, checked with Qloo";
+}
+
+/** Marks a receipt as the generic brief's pick checked with Qloo (ReceiptView.subject). */
+export function genericReceipt(receipt: ReceiptView | null): ReceiptView | null {
+  return receipt && { ...receipt, subject: "generic" };
 }
 
 /** The check's rule per kind of choice, as lib/stages/check.ts applies it. */
@@ -518,11 +528,13 @@ function scoreboardView(report: Report, ledger: Ledger): ScoreboardView | null {
         segmentId: fit.segmentId,
         label: labels.get(fit.segmentId) ?? fit.segmentId,
         fitLine: fit.line,
-        fitReceipt: receiptView(
-          ledger,
-          fit.choices.flatMap((c) => c.evidenceIds),
-          "Generic brief vs Qloo",
-          fit.line,
+        fitReceipt: genericReceipt(
+          receiptView(
+            ledger,
+            fit.choices.flatMap((c) => c.evidenceIds),
+            genericCue(null),
+            fit.line,
+          ),
         ),
         counts: { checkable: fit.checkable, below: fit.below, missing: fit.missing, unverifiable: fit.unverifiable },
         range: rangeText(fit.range),
@@ -533,7 +545,7 @@ function scoreboardView(report: Report, ledger: Ledger): ScoreboardView | null {
           dimension: c.dimension,
           assumed: c.assumed,
           measured: c.measured,
-          receipt: receiptView(ledger, c.evidenceIds, "Cliche flagged", c.measured),
+          receipt: genericReceipt(receiptView(ledger, c.evidenceIds, genericCue("cliche"), c.measured)),
         })),
       };
     }),

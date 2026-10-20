@@ -45,7 +45,8 @@ import {
   type ImageFormat,
 } from "./demo-renders";
 import type { ExampleSlug } from "./examples";
-import { approvalsSchema, CONTROL_KEY, demoMediaFor, manifestSchema, type DemoApprovals, type DemoClip, type DemoFrame, type DemoManifest, type DemoPackshot, type DemoStoryboard } from "./manifest";
+import { CONTROL_SEGMENT } from "../api/requests";
+import { approvalsSchema, demoMediaFor, manifestSchema, type DemoApprovals, type DemoClip, type DemoFrame, type DemoManifest, type DemoPackshot, type DemoStoryboard } from "./manifest";
 import { NOT_APPROVED } from "./report-export";
 import { isExampleSlug, loadExampleReport, reportPacks } from "./report-packs";
 
@@ -354,7 +355,7 @@ function mismatchedBoards(manifest: DemoManifest, report: ReturnType<typeof load
       const expected = new Set(entry ? storyboardPlan(report, entry, reference, names).frames.map((f) => f.promptHash) : []);
       return s.frames.some((f) => f.modelId !== endpoint || (f.attempt === 1 && !expected.has(f.promptHash)));
     })
-    .map((s) => s.segmentId ?? CONTROL_KEY);
+    .map((s) => s.segmentId ?? CONTROL_SEGMENT);
 }
 
 export async function storyboardsCommand(deps: DemoDeps, slugArg: string, select: StoryboardSelect, flags: SpendFlags): Promise<CommandResult> {
@@ -807,7 +808,7 @@ export async function approveList(deps: Pick<DemoDeps, "root">, slugArg: string)
     if (!files.has(p.sha256)) needFile.set(p.sha256, `packshot ${p.file}`);
   }
   for (const board of manifest.storyboards.filter((x) => x.example === slug)) {
-    const key = board.segmentId ?? CONTROL_KEY;
+    const key = board.segmentId ?? CONTROL_SEGMENT;
     for (const f of board.frames) {
       if (!prompts.has(f.promptHash)) needPrompt.set(f.promptHash, `storyboard ${key} shot ${f.scene + 1}${f.attempt === 2 ? " (critique rewrite)" : ""}`);
       if (!files.has(f.sha256)) needFile.set(f.sha256, `storyboard ${key} shot ${f.scene + 1}, ${f.file}`);
@@ -828,7 +829,7 @@ export async function approveList(deps: Pick<DemoDeps, "root">, slugArg: string)
     ? [
         "",
         `Pending critique rewrites (not rendered). Read each prompt in ${path.join("exports", slug, "pending-rewrites.json")} first; approve only the ones you want re-rendered:`,
-        ...needRewrite.flatMap((p) => [`  rewrite ${p.promptHash}  storyboard ${p.segmentId ?? CONTROL_KEY} shot ${p.scene + 1}: ${p.issues.join("; ") || "no issue listed"}`, `    ${p.prompt.replace(/\n+/g, " ")}`]),
+        ...needRewrite.flatMap((p) => [`  rewrite ${p.promptHash}  storyboard ${p.segmentId ?? CONTROL_SEGMENT} shot ${p.scene + 1}: ${p.issues.join("; ") || "no issue listed"}`, `    ${p.prompt.replace(/\n+/g, " ")}`]),
         ...approvedLines("prompts", needRewrite.map((p) => p.promptHash)),
         `Then: npm run render:demo -- storyboards ${slug} --rerender --yes`,
       ]

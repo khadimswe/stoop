@@ -1,13 +1,14 @@
 // The Output section, per world and for the Control: the storyboard (the concept preview), the video
-// line, the copy-ready export and the MCP link. Pure: render jobs live outside the Report, so the page
-// passes in what the Render button may do (RenderAccess) and, on examples, the approved demo media.
-// Also the brief cues each world's pack carries, with their receipts, which "Your ad" and the
-// Screening Room show as chips.
-import type { RenderTarget } from "../../api/requests";
-import { CONTROL_KEY, type DemoClip, type DemoMedia } from "../../demo/manifest";
+// line, the copy-ready export and the MCP link. Pure. What the video line may do for a visitor is not
+// part of the Report: the page learns it after mount from GET /api/render/access
+// (hooks/use-render-access.ts), so the view carries only the approved example clip. Also the brief
+// cues each world's pack carries, with their receipts, which "Your ad" and the Screening Room show as chips.
+import { CONTROL_SEGMENT, type RenderTarget } from "../../api/requests";
+import type { DemoClip, DemoMedia } from "../../demo/manifest";
+import { PAUSED_REASON } from "../../media/frame-reasons";
 import type { BriefSlot, BriefSlots, Concept, Scene } from "../../prompts/brief";
 import { timecodes } from "../../prompts/lines";
-import { CAMERA_PRESETS, getModel, type ModelId } from "../../prompts/models.config";
+import { CAMERA_PRESETS, getModel, hostName, type ModelId } from "../../prompts/models.config";
 import { STRONG_SHARE } from "../../data-check/score";
 import { contentStems, distinctiveStems } from "../../prompts/stems";
 import { strong } from "../../stages/craft";
@@ -58,32 +59,20 @@ export interface StoryboardFrameView {
 export type StoryboardView =
   | { kind: "frames"; source: "live" | "example"; frames: StoryboardFrameView[]; shots: ShotView[] }
   | { kind: "rendering"; shots: ShotView[] }
-  /** `paused`: the daily frame cap was reached ("Storyboards paused today"). */
-  | { kind: "shots"; shots: ShotView[]; paused: boolean }
+  /**
+   * `paused`: why this world's frames are paused, in the frame job's own words: the day's frames are
+   * spent ("Storyboards paused today.") or no frame service is set up on this server. Null when the
+   * shot list shows because no frames were asked for.
+   */
+  | { kind: "shots"; shots: ShotView[]; paused: string | null }
   | { kind: "none" };
 
 /**
- * What the Render button may do for this visitor. Render jobs live outside the Report, so the page
- * decides this and passes it in (a static page passes its default; a client component can swap it).
- *   judge        "Render draft video" (judge pass, server-paid drafts)
- *   byok         "Render with your fal key"
- *   budget-used  "Render budget used. Here's the storyboard and the example clip."
- *   off          no render button
- */
-export type RenderAccess =
-  | { kind: "judge" }
-  | { kind: "byok" }
-  | { kind: "budget-used"; exampleClip: ClipView | null }
-  | { kind: "off" };
-
-/**
- * The Video line. An approved example clip plays first when there is one; the access line follows it
- * either way. `access` is the static default the page passed in: the client swaps it once
- * GET /api/render/access has answered for this visitor (hooks/use-render-access.ts).
+ * The Video line's static part: an approved example clip, which plays first when there is one. What
+ * the visitor may render (a judge draft, BYOK, a spent budget, off) is asked after mount, per world.
  */
 export interface VideoView {
   clip: ClipView | null;
-  access: RenderAccess;
 }
 
 /**
@@ -111,6 +100,8 @@ export interface PromptView {
   modelId: ModelId;
   /** From lib/prompts/models.config.ts; UI code never hardcodes a model name. */
   modelName: string;
+  /** Where the model runs ("Higgsfield"), or the model's own name (models.config hostName). */
+  hostName: string;
   kind: "multi-shot" | "scene";
   /** 1-based scene numbers this prompt renders. */
   scenes: number[];
@@ -185,7 +176,6 @@ export const MCP_LINK: McpLinkView = { href: "/mcp", label: "Use Stoop inside yo
 export interface OutputOptions {
   /** An example's approved demo media. Omit on live reports. */
   media?: DemoMedia | null;
-  renderAccess: RenderAccess;
 }
 
 /** What one world's output needs from the rest of the report: its id (the render target) and the ledger (receipts). */
@@ -440,7 +430,25 @@ function storyboardView(parts: CurrentParts, brief: BriefSlots | null, live: Wor
   if (own?.status === "rendering") return { kind: "rendering", shots };
   const approved = example ? latestFrames(example.frames, concept) : [];
   if (approved.length > 0) return { kind: "frames", source: "example", frames: approved.map((f) => frameView(concept, f.scene, f.file, f.attempt)), shots };
-  return { kind: "shots", shots, paused: own?.status === "paused" };
+  return { kind: "shots", shots, paused: own?.status === "paused" ? (own.reason ?? PAUSED_REASON) : null };
+}
+
+/** How many storyboard frames the collapsed Storyboard line shows as thumbnails. */
+export const STRIP_FRAMES = 4;
+
+/** The collapsed Storyboard line, in a few words: what the board holds. Null before a concept exists. */
+export function storyboardSummary(view: StoryboardView): string | null {
+  const shots = (n: number) => `Shot list: ${n} ${n === 1 ? "shot" : "shots"}`;
+  switch (view.kind) {
+    case "frames":
+      return `${view.frames.length} storyboard ${view.frames.length === 1 ? "frame" : "frames"}, ${view.shots.length} ${view.shots.length === 1 ? "shot" : "shots"}`;
+    case "rendering":
+      return `Storyboard rendering. ${shots(view.shots.length)}`;
+    case "shots":
+      return shots(view.shots.length);
+    case "none":
+      return null;
+  }
 }
 
 function clipView(clip: DemoClip, label: string): ClipView {
@@ -455,8 +463,8 @@ export function approvedClip(media: DemoMedia | null | undefined, segmentId: str
 }
 
 /** An approved example clip for this world (or the Control) plays first; the access line follows. */
-function videoView(media: DemoMedia | null | undefined, segmentId: string | null, label: string, access: RenderAccess): VideoView {
-  return { clip: approvedClip(media, segmentId, label), access };
+function videoView(media: DemoMedia | null | undefined, segmentId: string | null, label: string): VideoView {
+  return { clip: approvedClip(media, segmentId, label) };
 }
 
 function startFrameText(job: RenderJob): string | null {
@@ -465,10 +473,12 @@ function startFrameText(job: RenderJob): string | null {
 }
 
 function promptView(job: RenderJob): PromptView {
+  const model = getModel(job.modelId);
   return {
     id: job.id,
     modelId: job.modelId,
-    modelName: getModel(job.modelId).displayName,
+    modelName: model.displayName,
+    hostName: hostName(model),
     kind: job.kind,
     scenes: job.sceneIndexes.map((i) => i + 1),
     renderSeconds: job.renderSeconds,
@@ -526,7 +536,7 @@ export function worldStoryboard(world: World, media: DemoMedia | null | undefine
 }
 
 export function controlStoryboard(control: Control, media: DemoMedia | null | undefined): StoryboardView {
-  return storyboardView(currentControl(control), control.brief, null, media?.storyboards[CONTROL_KEY]);
+  return storyboardView(currentControl(control), control.brief, null, media?.storyboards[CONTROL_SEGMENT]);
 }
 
 /** The brief cues of a world's pack on show, with receipts (lib/report/view/screening.ts shares it). */
@@ -541,7 +551,7 @@ export function controlCues(control: Control, ledger: Ledger): BriefCueView[] {
   return briefCues(control.brief, null, control.concepts?.best.verifiedUses ?? [], ledger);
 }
 
-export function worldOutput(world: World, { media, renderAccess, reportId, ledger }: OutputContext): OutputView {
+export function worldOutput(world: World, { media, reportId, ledger }: OutputContext): OutputView {
   const parts = currentWorld(world);
   return {
     key: world.segmentId,
@@ -550,23 +560,23 @@ export function worldOutput(world: World, { media, renderAccess, reportId, ledge
     target: { reportId, segment: world.segmentId },
     partial: world.partial,
     storyboard: worldStoryboard(world, media),
-    video: videoView(media, world.segmentId, world.label, renderAccess),
+    video: videoView(media, world.segmentId, world.label),
     export: parts.pack && exportView(parts.pack),
     cues: worldCues(world, ledger),
     mcp: MCP_LINK,
   };
 }
 
-export function controlOutput(control: Control, { media, renderAccess, reportId, ledger }: OutputContext): OutputView {
+export function controlOutput(control: Control, { media, reportId, ledger }: OutputContext): OutputView {
   const parts = currentControl(control);
   return {
-    key: CONTROL_KEY,
+    key: CONTROL_SEGMENT,
     isControl: true,
     label: "Control",
-    target: { reportId, segment: CONTROL_KEY },
+    target: { reportId, segment: CONTROL_SEGMENT },
     partial: control.partial,
     storyboard: controlStoryboard(control, media),
-    video: videoView(media, null, "Control", renderAccess),
+    video: videoView(media, null, "Control"),
     export: parts.pack && exportView(parts.pack),
     cues: controlCues(control, ledger),
     mcp: MCP_LINK,
@@ -574,7 +584,7 @@ export function controlOutput(control: Control, { media, renderAccess, reportId,
 }
 
 /** Every world in segment order, then the Control. */
-export function outputViews(report: Pick<Report, "meta" | "ledger" | "worlds" | "control">, options: OutputOptions): OutputView[] {
+export function outputViews(report: Pick<Report, "meta" | "ledger" | "worlds" | "control">, options: OutputOptions = {}): OutputView[] {
   const context: OutputContext = { ...options, reportId: report.meta.id, ledger: ledgerOf(report) };
   const worlds = report.worlds.map((world) => worldOutput(world, context));
   return report.control ? [...worlds, controlOutput(report.control, context)] : worlds;

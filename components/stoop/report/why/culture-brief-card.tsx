@@ -26,7 +26,7 @@ function FieldRow({ segmentId, field, revisable }: { segmentId: string; field: C
             <p className="text-sm leading-relaxed">{cue.text}</p>
             <OriginChip origin={cue.origin} receipt={cue.receipt} />
             {cue.was && (
-              <p className="text-xs text-ink-soft">
+              <p className="text-xs text-ink-soft max-sm:mt-4.5">
                 was: <span className="line-through decoration-concrete-line">{cue.was.text}</span>{" "}
                 {cue.was.receipt ? (
                   <ReceiptLink receipt={cue.was.receipt}>(Qloo receipt)</ReceiptLink>

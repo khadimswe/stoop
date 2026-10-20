@@ -72,12 +72,22 @@ export interface CutCardView {
   platform: UgcScript["platform"];
   platformLabel: string;
   formatLabel: string;
-  /** What the format's first second does. */
-  hookRule: string;
+  /** This cut's own hook: its script's opening line (quoted) or, without one, what the hook shot shows. */
+  hook: string;
+  /** What the format's first second does, in general (lib/prompts/ugc/formats.ts hookType). */
+  formatRule: string;
   cta: string;
   conceptTitle: string;
   copy: CopyView;
+  /** The script's shot list in whole lines, for the card's box (never a line cut in half). */
+  preview: ScriptPreview;
   actorPrompts: PromptOptionView[];
+}
+
+/** A script's first whole lines, and how many lines the box leaves out (shown behind "The whole script"). */
+export interface ScriptPreview {
+  lines: string[];
+  more: number;
 }
 
 export interface CaptionLineView {
@@ -256,6 +266,55 @@ export function conceptText(concept: Concept): string {
     "",
     "Concept by Stoop's Creative Director (not from Qloo). Its cultural details come from this world's Culture Brief.",
   ].join("\n");
+}
+
+const quoted = (text: string | undefined) => (text ? `“${text}”` : null);
+
+/**
+ * A cut's own hook, read from its script (lib/prompts/ugc/scripts.ts lays out each tool's script):
+ * the hook beat's on-screen line, else its spoken line, else what the hook shot shows. Null when the
+ * script has no hook beat it can read.
+ */
+export function scriptHook(script: string): string | null {
+  // A creator script's shot list: "1. 0 to 3 s, hook: <show> Say: "..." On screen: "..."".
+  const shot = /^\d+\. \d+ to \d+ s, hook: (.+)$/m.exec(script)?.[1];
+  if (shot) {
+    const shows = shot.split(/ (?:Say|On screen): /)[0]?.trim();
+    return quoted(/On screen: "([^"]+)"/.exec(shot)?.[1]) ?? quoted(/Say: "([^"]+)"/.exec(shot)?.[1]) ?? (shows || null);
+  }
+  // A Creatify script: "Scene 1 (hook, 0 to 3 s). Script: "..." Visual: ... On-screen text: "..."".
+  const scene = /^Scene \d+ \(hook, [^)]*\)\. (.+)$/m.exec(script)?.[1];
+  if (scene) {
+    const shows = /Visual: (.+?)(?: On-screen text: |$)/.exec(scene)?.[1]?.trim();
+    return quoted(/On-screen text: "([^"]+)"/.exec(scene)?.[1]) ?? quoted(/Script: "([^"]+)"/.exec(scene)?.[1]) ?? (shows || null);
+  }
+  // An Arcads script names only the hook's on-screen text.
+  return quoted(/^On-screen text, added in the edit: "([^"]+)"$/m.exec(script)?.[1]);
+}
+
+/** The cut's hook from its script, or the kept concept's own hook when the script has none to read. */
+export function cutHook(script: string, concept: Pick<Concept, "hook">): string {
+  return scriptHook(script) ?? concept.hook;
+}
+
+/**
+ * What the cut card's script box shows: its shot list (the lines after "Shot list:", or the whole
+ * script without one) in whole lines, as many as fit in `maxChars`, at least one. The box never cuts a
+ * line in half; `more` counts the lines left for "The whole script".
+ */
+export function scriptPreview(script: string, maxChars = 420): ScriptPreview {
+  const all = script.split("\n");
+  const start = all.findIndex((line) => line.trim() === "Shot list:");
+  const body = (start === -1 ? all : all.slice(start + 1)).filter((line) => line.trim() !== "");
+  const lines: string[] = [];
+  let used = 0;
+  for (const line of body) {
+    if (lines.length > 0 && used + line.length > maxChars) break;
+    lines.push(line);
+    used += line.length;
+  }
+  const total = all.filter((line) => line.trim() !== "").length;
+  return { lines, more: total - lines.length };
 }
 
 /** Seconds from a WebVTT timestamp ("00:00:03.000" or "00:03.000"). */
@@ -523,10 +582,12 @@ function worldView(report: Report, ledger: Ledger, world: World, media: DemoMedi
         platform,
         platformLabel: PLATFORM_LABELS[platform],
         formatLabel: spec.label,
-        hookRule: spec.hookType,
+        hook: cutHook(lead.script, concept),
+        formatRule: spec.hookType,
         cta: lead.cta,
         conceptTitle: concept.title,
         copy: { label: "Copy script", text: lead.script },
+        preview: scriptPreview(lead.script),
         actorPrompts: actorPrompts(scripts, platform, lead),
       });
     });

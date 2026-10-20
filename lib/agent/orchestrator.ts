@@ -13,6 +13,7 @@
 // count or the rate. One world failing stops only that world (world.partial); the run goes on. The
 // creative steps (concept writer, pack, kit) are passed in, so this file depends only on their shapes.
 import type { LanguageModel } from "ai";
+import { CONTROL_SEGMENT } from "../api/requests";
 import { entityPanelEntries } from "../culture/panels";
 import type { BaselineRun } from "./baseline";
 import { CONTROL_RUN, controlBrief } from "./baseline-brief";
@@ -21,7 +22,7 @@ import { sellerText, type BriefSlots, type Concept, type PackSettings, type Prod
 import type { PackProblem, ProductionPack } from "../prompts/pack";
 import type { Stage, StageStats } from "../report/schema";
 import { QlooBudgetError, QlooHttpError, QlooShapeError } from "../qloo/errors";
-import { CONTROL_ID, MIN_PANEL_FOR_MEDIAN, type AdPlanEntry, type Comparison, type ConceptSet, type ControlFit, type CreatorBrief, type CultureFieldResult, type UgcScript, type World } from "../report/world";
+import { MIN_PANEL_FOR_MEDIAN, type AdPlanEntry, type Comparison, type ConceptSet, type ControlFit, type CreatorBrief, type CultureFieldResult, type UgcScript, type World } from "../report/world";
 import type { AgeBucket } from "../qloo/constants";
 import { ageBandLabel, type CreativeDirection } from "../types";
 import { measureAudience, stageTimer, type AudienceEnv, type AudienceRun, type MeasuredAudience } from "../stages/audience";
@@ -375,7 +376,7 @@ export async function runWorld(
 /** The Control's concepts and pack, from the same writer, templates and settings as every world. */
 async function runControl(env: BriefEnv, run: BriefRun, brief: BriefSlots, maps: readonly ControlRunMap[]): Promise<null> {
   const { emit } = env.emitter;
-  const stages = worldStages(env, CONTROL_ID);
+  const stages = worldStages(env, CONTROL_SEGMENT);
   const names = knownNames(run, [], maps);
   try {
     stages.started("concepts");
@@ -391,7 +392,7 @@ async function runControl(env: BriefEnv, run: BriefRun, brief: BriefSlots, maps:
       const pack = env.creative.buildPack({ product: run.inputs.product, brief, concept, settings: run.settings });
       // The Control has no Qloo-backed slots; its pack still passes the same coverage and guardrail checks.
       const problems = env.creative.checkPack(pack, brief, run.inputs.product, names, { richSlots: [] });
-      if (problems.length) decide({ client: env.client, ctx: env.ctx, emit, reference: env.reference, inReference: env.inReference, segmentId: CONTROL_ID }, "prompts", `The generic brief's pack has ${problems.length} ${problems.length === 1 ? "problem" : "problems"}`, problems.slice(0, 3).map((p) => p.message).join(" "));
+      if (problems.length) decide({ client: env.client, ctx: env.ctx, emit, reference: env.reference, inReference: env.inReference, segmentId: CONTROL_SEGMENT }, "prompts", `The generic brief's pack has ${problems.length} ${problems.length === 1 ? "problem" : "problems"}`, problems.slice(0, 3).map((p) => p.message).join(" "));
       const scripts = env.creative.kitScripts({ product: run.inputs.product, brief, concept, names });
       return { pack, kit: { ...scripts, adPlan: null, creatorBrief: null } };
     });

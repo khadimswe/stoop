@@ -6,7 +6,7 @@ import type { Report } from "../schema";
 import { headerView, type HeaderView } from "./header";
 import { kitView, type KitView } from "./kit";
 import { launchPlanView, type LaunchPlanView } from "./launch";
-import { outputViews, type OutputView, type RenderAccess } from "./output";
+import { outputViews, type OutputView } from "./output";
 import { realityView, type RealityView } from "./reality";
 import { ledgerOf } from "./receipts";
 import { screeningView, type ScreeningView } from "./screening";
@@ -29,17 +29,11 @@ export interface ReportView {
 export interface ReportViewOptions {
   /** An example's approved demo media (lib/report/load.ts). Omit on live reports. */
   media?: DemoMedia | null;
-  /**
-   * What the Render button may do for this visitor; render jobs live outside the Report. A static
-   * page passes its default here and lets a client component swap it once it knows the visitor
-   * (a judge pass is a cookie).
-   */
-  renderAccess: RenderAccess;
 }
 
-export function reportView(report: Report, { media = null, renderAccess }: ReportViewOptions): ReportView {
+export function reportView(report: Report, { media = null }: ReportViewOptions = {}): ReportView {
   const ledger = ledgerOf(report);
-  const outputs = outputViews(report, { media, renderAccess });
+  const outputs = outputViews(report, { media });
   const top = outputs[0]?.isControl ? undefined : outputs[0];
   return {
     header: headerView(report),

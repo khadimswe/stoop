@@ -3,13 +3,13 @@
 // and templates. Every cue is labeled creative: none of it comes from Qloo.
 // The Control is always run 1, fixed before anyone sees the results; runs 2 and 3 exist only to show
 // Gate 2's range of scores.
+import { CONTROL_SEGMENT } from "../api/requests";
 import { productSpecSchema, type BriefSlots, type ProductSpec } from "../prompts/brief";
 import { creativeDirectionSchema, type CreativeDirection, type Cue } from "../types";
 import type { Candidate } from "../demo/candidates";
 import type { BaselineRun } from "./baseline";
 
 export const CONTROL_RUN = 1;
-export const CONTROL_SEGMENT_ID = "control";
 export const CONTROL_LABEL = "LLM-only brief (no Qloo)";
 
 const creative = (text: string): Cue => ({ text, origin: "creative", evidenceIds: [] });
@@ -40,7 +40,7 @@ export function controlBrief(run: BaselineRun): BriefSlots {
   if (run.run !== CONTROL_RUN) throw new Error(`The Control is always run ${CONTROL_RUN}; got run ${run.run}.`);
   const { brief } = run;
   return {
-    segment: { id: CONTROL_SEGMENT_ID, label: CONTROL_LABEL, ageBands: brief.audience.ageBands },
+    segment: { id: CONTROL_SEGMENT, label: CONTROL_LABEL, ageBands: brief.audience.ageBands },
     productRole: creative(brief.productRole),
     mood: creative(brief.mood),
     music: creative(`${brief.music.style}, ${brief.music.tempo}`),

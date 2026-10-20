@@ -21,7 +21,7 @@ import type { CookieVisitorId, TokenVisitorId, VisitorId } from "../store/visito
 import type { FramesOutcome } from "./frames";
 
 /** The world.frames reason when the day's frames are spent, globally or for this visitor: one message for both. */
-export const PAUSED_REASON = "Storyboards paused today.";
+export { PAUSED_REASON } from "./frame-reasons";
 
 /** Who a storyboard job counts against. */
 export interface StoryboardVisitor {

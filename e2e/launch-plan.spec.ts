@@ -65,7 +65,7 @@ for (const { slug, brandName } of EXAMPLES) {
       await expect(page.locator(`#${cell.creative.anchor}`)).toHaveCount(1);
       await expect(card.locator("[data-launch-budget]")).toContainText("$20");
       for (const option of [...cell.ageBands, ...cell.cities]) {
-        if (option.receipt) await expect(card.getByRole("button", { name: new RegExp(`${escape(option.text)}.*opens its receipt`) })).toBeVisible();
+        if (option.receipt) await expect(card.getByRole("button", { name: new RegExp(`^From Qloo: ${escape(option.text)}.*opens its receipt`) })).toBeVisible();
         else await expect(card.getByText(option.text, { exact: true })).toBeVisible();
       }
     }
@@ -74,7 +74,9 @@ for (const { slug, brandName } of EXAMPLES) {
     await expect(section.locator('[data-launch-cell="control"]').getByRole("button", { name: /opens its receipt/ })).toHaveCount(0);
     for (const world of view.cells.slice(1)) {
       const card = section.locator(`[data-launch-cell="${world.key}"]`);
-      await expect(card.getByRole("button", { name: /opens its receipt/ })).toHaveCount(world.ageBands.length + world.cities.length + world.interests.length);
+      await expect(card.getByRole("button", { name: /opens its receipt/ })).toHaveCount(world.ageBands.length + world.cities.length + world.interests.length + (world.creative.setting ? 1 : 0));
+      // The setting city says it is the whole neighborhood's pick, next to this world's own city options.
+      if (world.creative.setting) await expect(card.getByText(world.creative.setting.note, { exact: true })).toBeVisible();
       // Interest searches: only what Qloo returned for this world, at most 8, each opening its receipt, labeled as suggestions.
       const interests = card.locator("[data-launch-interests]");
       await expect(interests.getByRole("heading", { level: 4 })).toHaveText("Interest searches to try in Ads Manager (suggestions)");
@@ -124,9 +126,11 @@ test("invalid numbers say what to fix, and the sheet waits for them", async ({ p
   const days = section.getByLabel("Test days");
   const download = section.getByRole("button", { name: "Download launch sheet (CSV)" });
 
-  // While typing, the split just waits; the error shows once you leave the field.
+  // While typing, the split box says the minimum (never "enter a daily budget"); the error shows once you leave the field.
+  await daily.fill("1");
+  await expect(section.locator("[data-launch-split]")).toHaveText("At least $3 a day, so each of the 3 cells gets $1.");
   await daily.fill("2");
-  await expect(section.locator("[data-launch-split]")).toHaveText("Enter a daily budget and the test days to see the split.");
+  await expect(section.locator("[data-launch-split]")).toHaveText("At least $3 a day, so each of the 3 cells gets $1.");
   await expect(section.getByText("Use at least $3 a day, so each of the 3 cells gets $1.")).toHaveCount(0);
   await daily.blur();
   await expect(section.getByText("Use at least $3 a day, so each of the 3 cells gets $1.")).toBeVisible();
@@ -200,7 +204,7 @@ test("a Qloo option opens its receipt, which closes with Esc and returns focus",
   const world = view.cells[1];
   const card = page.locator(`[data-launch-cell="${world.key}"]`);
 
-  const city = card.getByRole("button", { name: new RegExp(`${escape(world.cities[0].text)}.*opens its receipt`) });
+  const city = card.getByRole("button", { name: new RegExp(`^From Qloo: ${escape(world.cities[0].text)}.*opens its receipt`) });
   await city.click();
   const drawer = page.getByRole("dialog", { name: "Receipt: City" });
   await expect(drawer).toBeVisible();
@@ -210,7 +214,7 @@ test("a Qloo option opens its receipt, which closes with Esc and returns focus",
   await expect(drawer).toBeHidden();
   await expect(city).toBeFocused();
 
-  await card.getByRole("button", { name: new RegExp(`${escape(world.ageBands[0].text)}.*opens its receipt`) }).click();
+  await card.getByRole("button", { name: new RegExp(`^From Qloo: ${escape(world.ageBands[0].text)}.*opens its receipt`) }).click();
   const age = page.getByRole("dialog", { name: "Receipt: Age band" });
   await expect(age.getByText("urn:demographics", { exact: true })).toBeVisible();
   await age.getByRole("button", { name: "Close receipt" }).click();
@@ -223,6 +227,23 @@ test("a Qloo option opens its receipt, which closes with Esc and returns focus",
   await page.keyboard.press("Escape");
   await expect(searched).toBeHidden();
   expect(errors).toEqual([]);
+});
+
+test("See its prompts points up to the Output card and lands it below the sticky header", async ({ page }) => {
+  await page.goto(`/examples/${LEAD}`);
+  const view = launchPlanView(read(LEAD));
+  const world = view.cells[1];
+  const link = page.locator(`[data-launch-cell="${world.key}"]`).getByRole("link", { name: /See its prompts/ });
+  // The Output section sits above the Launch plan, so the arrow points up.
+  await expect(link.locator("svg")).toHaveClass(/lucide-arrow-up/);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`#${world.creative.anchor}$`));
+  const target = page.locator(`#${world.creative.anchor}`);
+  await expect(target).toBeInViewport();
+  // The 56 px app bar never covers the card's heading.
+  const box = (await target.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(56);
+  await expect(target.getByRole("heading", { level: 3 })).toBeInViewport();
 });
 
 test("the sticky nav jumps to the Launch plan", async ({ page }) => {

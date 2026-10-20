@@ -12,10 +12,10 @@ import { LaunchExport } from "./launch-export";
 const noSubscription = () => () => {};
 
 /** The report's absolute URL for the sheet's prompt links; null on the server. */
-function usePageUrl(reportPath: string | undefined): string | null {
+function usePageUrl(): string | null {
   return useSyncExternalStore(
     noSubscription,
-    () => `${window.location.origin}${reportPath ?? window.location.pathname}`,
+    () => `${window.location.origin}${window.location.pathname}`,
     () => null,
   );
 }
@@ -24,15 +24,15 @@ const GRID: Record<number, string> = { 2: "md:grid-cols-2", 3: "md:grid-cols-2 l
 
 /**
  * The interactive part of the Launch plan: the budget helper owns the numbers, and the cells, the
- * rule and the launch sheet all read the same split. `reportPath` is the report the cells' prompt
- * links point at (default: this page).
+ * rule and the launch sheet all read the same split. Each cell links to its prompts in this page's
+ * Output section.
  */
-export function LaunchPlan({ view, reportPath }: { view: LaunchPlanView; reportPath?: string }) {
+export function LaunchPlan({ view }: { view: LaunchPlanView }) {
   const [input, setInput] = useState<BudgetInput>({ ...BUDGET_DEFAULTS });
   const [touched, setTouched] = useState<Partial<Record<BudgetField, boolean>>>({});
   const result = useMemo(() => planBudget(input, view.cells.length), [input, view.cells.length]);
   const split = result.ok ? result.split : null;
-  const pageUrl = usePageUrl(reportPath);
+  const pageUrl = usePageUrl();
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +48,7 @@ export function LaunchPlan({ view, reportPath }: { view: LaunchPlanView; reportP
       <ul aria-label="Test cells" className={cn("grid gap-3", GRID[view.cells.length] ?? GRID[3])}>
         {view.cells.map((cell) => (
           <li key={cell.key} className="min-w-0">
-            <LaunchCell cell={cell} dailyCents={split?.perCellDailyCents ?? null} promptsHref={`${reportPath ?? ""}#${cell.creative.anchor}`} />
+            <LaunchCell cell={cell} dailyCents={split?.perCellDailyCents ?? null} promptsHref={`#${cell.creative.anchor}`} />
           </li>
         ))}
       </ul>

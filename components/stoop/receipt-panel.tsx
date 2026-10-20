@@ -1,19 +1,22 @@
-import { X } from "lucide-react";
-import type { ReceiptRow } from "@/lib/report/view/types";
+import { PenLine, X } from "lucide-react";
+import type { ReceiptRow, ReceiptView } from "@/lib/report/view/types";
 import { Chip } from "./chip";
 import { cn } from "cn";
 
 export type { ReceiptRow };
 
 /**
- * One receipt, demo beat 3: the Qloo request and result behind a single cue. Gate 7 renders it inside
- * the receipts drawer from the run's Evidence; the key is never shown.
+ * One receipt, demo beat 3: the Qloo request and result behind a single cue, from the run's Evidence;
+ * the key is never shown. A generic AI brief's pick checked with Qloo (`subject: "generic"`) is headed
+ * in dashed concrete with its own words ("Generic AI brief's city, checked with Qloo"), never as a
+ * Qloo cue.
  */
 export function ReceiptPanel({
   cue,
   title,
   rows,
   note = "API key never shown. Aggregate taste data, not individuals.",
+  subject,
   onClose,
   className,
 }: {
@@ -23,6 +26,7 @@ export function ReceiptPanel({
   title: string;
   rows: ReceiptRow[];
   note?: string;
+  subject?: ReceiptView["subject"];
   onClose?: () => void;
   className?: string;
 }) {
@@ -32,7 +36,14 @@ export function ReceiptPanel({
       className={cn("flex min-w-0 flex-col gap-4 rounded-2xl border border-hairline bg-surface p-5 shadow-l2", className)}
     >
       <div className="flex items-center justify-between gap-3">
-        <Chip origin="qloo">{cue}</Chip>
+        {subject === "generic" ? (
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-concrete-line bg-paper-raised px-2.5 py-1 text-[0.8125rem] leading-tight font-semibold text-ink-soft">
+            <PenLine aria-hidden="true" className="size-3.5 shrink-0" />
+            <span>{cue}</span>
+          </span>
+        ) : (
+          <Chip origin="qloo">{cue}</Chip>
+        )}
         {onClose && (
           <button
             type="button"

@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  accessStateOf,
   accessUrl,
   byokHref,
+  draftSecondsOf,
   fetchRenderAccess,
+  loadAccess,
+  refreshReportAccess,
   hasJudgeHint,
   OFF_ACCESS,
   parseAccess,
@@ -12,21 +16,26 @@ import {
   retryAfterMs,
   startDraft,
 } from "../../../hooks/use-render-access";
+import { renderLimits } from "../../config";
 import { EXAMPLES } from "../../demo/examples";
+import { DEFAULT_DRAFT_SECONDS } from "../../render/draft";
 import type { DemoClip, DemoMedia, DemoStoryboard } from "../../demo/manifest";
 import { FRAMES_PER_WORLD } from "../../prompts/frames";
-import { getModel } from "../../prompts/models.config";
+import { NO_SERVICE_REASON, PAUSED_REASON } from "../../media/frame-reasons";
+import { getModel, hostName } from "../../prompts/models.config";
 import type { ProductionPack } from "../../prompts/pack";
 import { distinctiveStems } from "../../stages/concepts";
 import type { Report } from "../schema";
 import type { Revision, World, WorldFrames } from "../world";
-import { controlOutput, exportView, MCP_LINK, outputViews, panelNoun, pickRow, shotCarries, shotList, signalRows, worldOutput, type OutputContext } from "./output";
+import { controlOutput, exportView, MCP_LINK, outputViews, panelNoun, pickRow, shotCarries, shotList, signalRows, storyboardSummary, worldOutput, type OutputContext } from "./output";
 import { ledgerOf } from "./receipts";
-import type { RenderAccess } from "./types";
+import { settingNote } from "./format";
+import { exampleRunHrefOf } from "./header";
+import { genericCue } from "./why";
+import type { ShotView } from "./output";
 import { describeRecorded, itRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
-const OFF: RenderAccess = { kind: "off" };
 const NO_MEDIA: DemoMedia = { packshot: null, storyboards: {}, clips: [] };
 const hex = (c: string) => c.repeat(64);
 /** The brief's own cue behind a slot key ("music", "voice.tone", "setting.1"). */
@@ -37,16 +46,15 @@ function briefCue(world: World, slot: string) {
   return brief[slot as "music" | "visual" | "mood" | "wardrobe" | "productRole" | "talent"]!;
 }
 
-const contextOf = (report: Report, renderAccess: RenderAccess = OFF, media: DemoMedia | null = null): OutputContext => ({
+const contextOf = (report: Report, media: DemoMedia | null = null): OutputContext => ({
   reportId: report.meta.id,
   ledger: ledgerOf(report),
-  renderAccess,
   media,
 });
 
 describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", (slug) => {
   const report = read(slug);
-  const outputs = outputViews(report, { media: NO_MEDIA, renderAccess: OFF });
+  const outputs = outputViews(report, { media: NO_MEDIA });
   const packs: ProductionPack[] = [...report.worlds.map((w) => w.pack!), report.control!.pack!];
   const briefs = [...report.worlds.map((w) => w.brief!), report.control!.brief];
   const uses = [...report.worlds.map((w) => w.concepts!.best.verifiedUses), report.control!.concepts!.best.verifiedUses];
@@ -62,7 +70,7 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", 
   it("previews each kept concept as its shot list while no frames exist", () => {
     outputs.forEach((output, i) => {
       const { concept } = packs[i];
-      expect(output.storyboard).toMatchObject({ kind: "shots", paused: false });
+      expect(output.storyboard).toMatchObject({ kind: "shots", paused: null });
       if (output.storyboard.kind !== "shots") return;
       const { shots } = output.storyboard;
       expect(shots).toEqual(shotList(concept, briefs[i], uses[i]));
@@ -148,6 +156,7 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", 
         id: multi.id,
         modelId: pack.settings.models.multiShot,
         modelName: getModel(pack.settings.models.multiShot).displayName,
+        hostName: hostName(getModel(pack.settings.models.multiShot)),
         kind: "multi-shot",
         scenes: pack.concept.scenes.map((_, n) => n + 1),
         renderSeconds: multi.renderSeconds,
@@ -180,14 +189,18 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", 
     });
   });
 
-  it("links to /mcp and passes the render access through, with no clip when none is approved", () => {
+  it("links to /mcp, with no clip when none is approved (what a visitor may render is asked after mount)", () => {
     for (const output of outputs) {
       expect(output.mcp).toEqual({ href: "/mcp", label: "Use Stoop inside your Claude" });
-      expect(output.video).toEqual({ clip: null, access: OFF });
+      expect(output.video).toEqual({ clip: null });
     }
-    const accesses: RenderAccess[] = [{ kind: "judge" }, { kind: "byok" }, { kind: "budget-used", exampleClip: null }];
-    for (const access of accesses) {
-      expect(outputViews(report, { renderAccess: access }).map((o) => o.video)).toEqual(outputs.map(() => ({ clip: null, access })));
+  });
+
+  it("names the multi-shot prompt's host and sums up each storyboard in a few words", () => {
+    for (const output of outputs) {
+      const multiShot = output.export!.multiShot!;
+      expect(multiShot.hostName).toBe(hostName(getModel(multiShot.modelId)));
+      expect(storyboardSummary(output.storyboard)).toBe(`Shot list: ${output.storyboard.kind === "shots" ? output.storyboard.shots.length : 0} shots`);
     }
   });
 });
@@ -271,7 +284,7 @@ describeRecorded("the Output section with media, frames and revisions", () => {
 
   it("shows an example's approved storyboard, the newest attempt per scene, in scene order", () => {
     const media: DemoMedia = { ...NO_MEDIA, storyboards: { [world.segmentId]: board(world.segmentId, [[3, 1], [0, 1], [3, 2], [9, 1]]), control: board(null, [[0, 1]]) } };
-    const [first, , control] = outputViews(report, { media, renderAccess: OFF });
+    const [first, , control] = outputViews(report, { media });
     expect(first.storyboard).toMatchObject({ kind: "frames", source: "example" });
     if (first.storyboard.kind !== "frames") return;
     // Scene 9 does not exist in the concept, so it is dropped.
@@ -289,13 +302,12 @@ describeRecorded("the Output section with media, frames and revisions", () => {
       ...NO_MEDIA,
       clips: [clip({ id: "hero", role: "hero-culture" }), clip({ id: "culture" }), clip({ id: "control", role: "control", segmentId: null, file: "/demo/food-hot-sauce/control.mp4" })],
     };
-    const [first, second, control] = outputViews(report, { media, renderAccess: { kind: "judge" } });
+    const [first, second, control] = outputViews(report, { media });
     expect(first.video).toEqual({
       clip: { id: "culture", src: "/demo/food-hot-sauce/clip.mp4", poster: "/demo/food-hot-sauce/clip.webp", captions: null, label: world.label },
-      access: { kind: "judge" },
     });
-    expect(second.video).toEqual({ clip: null, access: { kind: "judge" } });
-    expect(control.video).toMatchObject({ clip: { id: "control", label: "Control" }, access: { kind: "judge" } });
+    expect(second.video).toEqual({ clip: null });
+    expect(control.video).toMatchObject({ clip: { id: "control", label: "Control" } });
   });
 
   it("follows a live frame job: rendering, done, paused, failed", () => {
@@ -304,8 +316,11 @@ describeRecorded("the Output section with media, frames and revisions", () => {
     const done = worldOutput(withFrames(liveFrames("done")), ctx).storyboard;
     expect(done).toMatchObject({ kind: "frames", source: "live" });
     if (done.kind === "frames") expect(done.frames.map((f) => f.src)).toEqual([0, 1, 2, 4].map((s) => `https://frames.example/${s}.webp`));
-    expect(worldOutput(withFrames(liveFrames("paused")), ctx).storyboard).toEqual({ kind: "shots", shots: shots(), paused: true });
-    expect(worldOutput(withFrames(liveFrames("failed")), ctx).storyboard).toEqual({ kind: "shots", shots: shots(), paused: false });
+    // A pause says why, in the frame job's own words: the day's frames are spent, or no service is set up here.
+    expect(worldOutput(withFrames(liveFrames("paused")), ctx).storyboard).toEqual({ kind: "shots", shots: shots(), paused: PAUSED_REASON });
+    const notSetUp = { ...liveFrames("paused"), reason: NO_SERVICE_REASON };
+    expect(worldOutput(withFrames(notSetUp), ctx).storyboard).toEqual({ kind: "shots", shots: shots(), paused: NO_SERVICE_REASON });
+    expect(worldOutput(withFrames(liveFrames("failed")), ctx).storyboard).toEqual({ kind: "shots", shots: shots(), paused: null });
   });
 
   it("shows the newest revision's pack and brief, and only frames rendered for it", () => {
@@ -374,6 +389,43 @@ const JOB = "rj_0123456789abcdef01234567";
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const job = (status: string, over: Record<string, unknown> = {}) => ({ job: { id: JOB, target: TARGET, status, videoUrl: null, reason: null, cached: false, ...over } });
 
+describe("the Output section's one-line summaries", () => {
+  const shot = (scene: number): ShotView => ({ scene, number: scene + 1, beat: "hook", seconds: 3, start: 0, end: 3, action: "A hand.", overlayText: null, productVisible: false, carries: [] });
+  const frame = (scene: number) => ({ scene, src: `/demo/x/${scene}.webp`, alt: "Storyboard frame", attempt: 1 as const });
+
+  it("sums up the storyboard: its frames, its rendering or its shot count", () => {
+    expect(storyboardSummary({ kind: "shots", shots: [shot(0)], paused: null })).toBe("Shot list: 1 shot");
+    expect(storyboardSummary({ kind: "shots", shots: [0, 1, 2, 3, 4].map(shot), paused: PAUSED_REASON })).toBe("Shot list: 5 shots");
+    expect(storyboardSummary({ kind: "rendering", shots: [0, 1].map(shot) })).toBe("Storyboard rendering. Shot list: 2 shots");
+    expect(storyboardSummary({ kind: "frames", source: "live", frames: [0, 1, 2, 3].map(frame), shots: [0, 1, 2, 3, 4].map(shot) })).toBe("4 storyboard frames, 5 shots");
+    expect(storyboardSummary({ kind: "none" })).toBeNull();
+  });
+
+  it("names Higgsfield for the models it hosts, else the model itself, from models.config", () => {
+    expect(hostName({ vendor: "ByteDance (on Higgsfield)", displayName: "Model A" })).toBe("Higgsfield");
+    expect(hostName({ vendor: "Higgsfield", displayName: "Model B" })).toBe("Higgsfield");
+    expect(hostName({ vendor: "Google", displayName: "Model C" })).toBe("Model C");
+    expect(hostName(getModel("seedance-2-5"))).toBe("Higgsfield");
+    expect(hostName(getModel("veo-3-1"))).toBe(getModel("veo-3-1").displayName);
+  });
+
+  it("says where a world's setting city is ranked, next to the world's own top cities", () => {
+    expect(settingNote(1)).toBe("Setting: the whole taste neighborhood's top city");
+    expect(settingNote(3)).toBe("Setting: the whole taste neighborhood's #3 city");
+  });
+
+  it("links an example to its recorded run's replay, and a live report to nothing", () => {
+    expect(exampleRunHrefOf({ meta: { kind: "example", id: "example-food-hot-sauce" } } as Pick<Report, "meta">)).toBe("/run/example-food-hot-sauce");
+    expect(exampleRunHrefOf({ meta: { kind: "example", id: "example-not-a-slug" } } as Pick<Report, "meta">)).toBeNull();
+    expect(exampleRunHrefOf({ meta: { kind: "live", id: "run_0123456789abcdef01234567" } } as Pick<Report, "meta">)).toBeNull();
+  });
+
+  it("heads a generic brief's pick as its own, checked with Qloo", () => {
+    expect(genericCue("City")).toBe("Generic AI brief's city, checked with Qloo");
+    expect(genericCue(null)).toBe("Generic AI brief, checked with Qloo");
+  });
+});
+
 describe("the render access answer", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -404,6 +456,61 @@ describe("the render access answer", () => {
     expect(parseAccess({ video: "judge", rendersLeft: 2 })).toBeNull();
     expect(parseAccess(null)).toBeNull();
     expect(parseAccess({ video: "byok", rendersLeft: null, byok: true })).toEqual({ video: "byok", rendersLeft: null, byok: true });
+  });
+
+  it("reads the draft's length when the answer has one, else says the server's default", () => {
+    expect(parseAccess({ video: "judge", rendersLeft: 2, byok: true, draftSeconds: 8 })).toEqual({ video: "judge", rendersLeft: 2, byok: true, draftSeconds: 8 });
+    expect(draftSecondsOf(parseAccess({ video: "judge", rendersLeft: 2, byok: true, draftSeconds: 8 }))).toBe(8);
+    // Out of range or not a whole number: the line says the default instead, never a made-up length.
+    for (const draftSeconds of [3, 16, 7.5, "8", null]) {
+      const access = parseAccess({ video: "judge", rendersLeft: 2, byok: true, draftSeconds });
+      expect(access).toEqual({ video: "judge", rendersLeft: 2, byok: true });
+      expect(draftSecondsOf(access)).toBe(DEFAULT_DRAFT_SECONDS);
+    }
+    expect(draftSecondsOf(null)).toBe(DEFAULT_DRAFT_SECONDS);
+    expect(DEFAULT_DRAFT_SECONDS).toBe(renderLimits({}).draftSeconds);
+    expect(renderLimits({ RENDER_DRAFT_SECONDS: "8" }).draftSeconds).toBe(8);
+  });
+
+  it("asks again for every world of the report after a draft, so the pass's drafts left agree everywhere", async () => {
+    const reportId = "example-refresh-test";
+    let left = 3;
+    const fetchImpl = vi.fn(async () => json({ video: "judge", rendersLeft: left, byok: true }));
+    const worlds = ["seg-a", "seg-b", "control"].map((segment) => ({ reportId, segment }));
+    // Nothing was asked yet: a refresh asks nothing, and reading asks nothing either.
+    await refreshReportAccess(reportId, fetchImpl);
+    expect(accessStateOf(worlds[0])).toEqual({ status: "loading" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    // Each world's line asks once on mount.
+    await Promise.all(worlds.map((target) => loadAccess(target, fetchImpl)));
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    for (const target of worlds) expect(accessStateOf(target)).toEqual({ status: "ready", access: { video: "judge", rendersLeft: 3, byok: true } });
+    // A draft settles in one world: every world (the banner's top world too) reads the new count.
+    left = 2;
+    await refreshReportAccess(reportId, fetchImpl);
+    for (const target of worlds) expect(accessStateOf(target)).toEqual({ status: "ready", access: { video: "judge", rendersLeft: 2, byok: true } });
+    // Another report's answers are left alone.
+    expect(accessStateOf({ reportId: "example-other-report", segment: "seg-a" })).toEqual({ status: "loading" });
+  });
+
+  it("never lets a refresh settle on an answer asked before the draft", async () => {
+    const target = { reportId: "example-race-test", segment: "seg-a" };
+    let left = 3;
+    let release = () => {};
+    // The mount's ask is slow; the draft settles (2 left) while it is still in flight.
+    const slow = vi.fn(async () => {
+      const answer = { video: "judge", rendersLeft: left, byok: true };
+      await new Promise<void>((resolve) => (release = resolve));
+      return json(answer);
+    });
+    const mounted = loadAccess(target, slow);
+    await Promise.resolve();
+    left = 2;
+    const refreshed = refreshReportAccess(target.reportId, vi.fn(async () => json({ video: "judge", rendersLeft: left, byok: true })));
+    release();
+    await mounted;
+    await refreshed;
+    expect(accessStateOf(target)).toEqual({ status: "ready", access: { video: "judge", rendersLeft: 2, byok: true } });
   });
 
   it("reads the judge hint cookie, never anything else", () => {

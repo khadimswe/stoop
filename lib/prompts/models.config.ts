@@ -483,6 +483,11 @@ export function getModel(id: ModelId): ModelConfig {
   return model;
 }
 
+/** The platform the report names on a copy button: Higgsfield for the models it hosts (by vendor), else the model's own name. */
+export function hostName(model: Pick<ModelConfig, "vendor" | "displayName">): string {
+  return /\bHiggsfield\b/.test(model.vendor) ? "Higgsfield" : model.displayName;
+}
+
 /**
  * Default model per role. Images (asset sheets, location plates) render on Nano Banana Pro. The main
  * 15 s ad is one multi-shot clip on Seedance 2.5 (Draft Mode first; Cinema Studio 4.0 shares the

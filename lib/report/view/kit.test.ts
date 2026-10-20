@@ -1,11 +1,29 @@
 import { readFileSync } from "node:fs";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
 import type { DemoMedia, DemoStoryboard } from "../../demo/manifest";
 import { getModel } from "../../prompts/models.config";
+import { UGC_FORMAT_SPECS } from "../../prompts/ugc/formats";
 import type { Report } from "../schema";
 import type { Revision, World, WorldFrames } from "../world";
-import { captionLines, conceptText, fenced, fenceFor, fileSlug, kitView, leadFor, storyboardView, unescapeVtt, videoPrompts, type ConceptCardView, type CutCardView, type KitWorldView } from "./kit";
+import {
+  captionLines,
+  conceptText,
+  cutHook,
+  fenced,
+  fenceFor,
+  fileSlug,
+  kitView,
+  leadFor,
+  scriptHook,
+  scriptPreview,
+  storyboardView,
+  unescapeVtt,
+  videoPrompts,
+  type ConceptCardView,
+  type CutCardView,
+  type KitWorldView,
+} from "./kit";
 import { describeRecorded } from "../../testing/recorded";
 
 const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.report.json`, "utf8")) as Report;
@@ -236,5 +254,66 @@ describeRecorded("kit text layouts", () => {
     const veo = options.find((o) => o.id === "veo-3-1")!;
     expect(veo.text.indexOf("Scene 1 ·")).toBeLessThan(veo.text.indexOf("Scene 2 ·"));
     expect(veo.detail).toBe(`${getModel("veo-3-1").vendor} · ${concept.scenes.length} scene prompts, one per shot`);
+  });
+});
+
+describeRecorded.each(EXAMPLES.map((e) => e.slug))("the cut card for %s", (slug) => {
+  const report = read(slug);
+  const view = kitView(report);
+
+  it("shows the cut's own hook from its script, never the format's generic instruction", () => {
+    view.worlds.forEach((row, i) => {
+      const lead = leadFor(report.worlds[i].kit!.ugc, "tiktok")!;
+      for (const cut of cutCards(row)) {
+        expect(cut.hook).toBe(cutHook(lead.script, report.worlds[i].pack!.concept));
+        expect(cut.hook).not.toBe(UGC_FORMAT_SPECS[lead.format].hookType);
+        expect(cut.formatRule).toBe(UGC_FORMAT_SPECS[lead.format].hookType);
+        // The hook's line is quoted from the script itself.
+        expect(lead.script).toContain(cut.hook.replace(/^“|”$/g, ""));
+      }
+    });
+  });
+
+  it("previews the script in whole lines, never a line cut in half", () => {
+    for (const row of view.worlds) {
+      for (const cut of cutCards(row)) {
+        const lines = cut.copy.text.split("\n");
+        expect(cut.preview.lines.length).toBeGreaterThan(0);
+        for (const line of cut.preview.lines) expect(lines).toContain(line);
+        expect(cut.preview.more).toBe(lines.filter((l) => l.trim()).length - cut.preview.lines.length);
+      }
+    }
+  });
+});
+
+describe("reading a cut's hook and preview from its script", () => {
+  const creator = [
+    "CREATOR SCRIPT",
+    "Format: Example (Meta-friendly). Platform: TikTok. Vertical 9:16, about 15 s.",
+    "Hook: Show the product working in the first second.",
+    "",
+    "Shot list:",
+    '1. 0 to 3 s, hook: A hand lifts a jar lid. Say: "Spoken line." On screen: "Screen line."',
+    "2. 3 to 6 s, demo: The jar on a table.",
+    "",
+    "CTA button: Shop Now",
+  ].join("\n");
+
+  it("prefers the hook beat's on-screen line, then its spoken line, then what it shows", () => {
+    expect(scriptHook(creator)).toBe("“Screen line.”");
+    expect(scriptHook(creator.replace(' On screen: "Screen line."', ""))).toBe("“Spoken line.”");
+    expect(scriptHook(creator.replace(' Say: "Spoken line." On screen: "Screen line."', ""))).toBe("A hand lifts a jar lid.");
+    const creatify = 'CREATIFY SCRIPT\nScene 1 (hook, 0 to 3 s). Script: "Said." Visual: A jar. On-screen text: "Shown."';
+    expect(scriptHook(creatify)).toBe("“Shown.”");
+    expect(scriptHook('ARCADS SCRIPT\nOn-screen text, added in the edit: "Edit line."')).toBe("“Edit line.”");
+    expect(scriptHook("A script with no hook beat.")).toBeNull();
+    expect(cutHook("A script with no hook beat.", { hook: "The concept's own hook." })).toBe("The concept's own hook.");
+  });
+
+  it("previews the shot list in whole lines up to the budget, always at least one", () => {
+    const lines = creator.split("\n");
+    expect(scriptPreview(creator)).toEqual({ lines: [lines[5], lines[6], "CTA button: Shop Now"], more: 4 });
+    expect(scriptPreview(creator, 10)).toEqual({ lines: [lines[5]], more: 6 });
+    expect(scriptPreview("One line only.")).toEqual({ lines: ["One line only."], more: 0 });
   });
 });

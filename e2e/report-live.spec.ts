@@ -242,11 +242,31 @@ test("a finished run renders the full report with the live sticky action", async
   const order = await page.locator("[data-report-section]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-report-section")));
   expect(order).toEqual(["reality", "your-ad", "output", "screening", "kit", "launch", "why"]);
   await expect(page.getByRole("region", { name: "Launch plan" }).locator("[data-launch-cell]")).toHaveCount(recordedReport.worlds.length + 1);
-  await expect(page.getByRole("button", { name: "Email me this kit" })).toBeVisible();
+  // The sticky action only joins the waitlist, and says so.
+  await expect(page.getByRole("button", { name: "Join the waitlist" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Email me this kit/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Make this for my product" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Storyboards" })).toHaveCount(recordedReport.worlds.length);
+  await expect(page.locator("[data-actions-expired]")).toHaveCount(0);
+  await expect(page.getByRole("main")).toHaveCount(1);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+  expect(errors).toEqual([]);
+});
+
+test("once the run's events have expired, storyboards and Not this vibe give way to one plain line", async ({ page }) => {
+  const mock: Mock = { ...doneMock(), report: () => ({ status: 200, body: { status: "done", report: liveReport, eventsUrl: null } }) };
+  const errors = await mockApi(page, mock);
+  await page.goto(`/report/${RUN}`);
+  await expect(page.getByRole("heading", { level: 1, name: BRAND })).toBeVisible();
+  await expect(page.locator("[data-actions-expired]")).toHaveText(
+    'Storyboards and "Not this vibe" are closed for this run: they work for the first 7 days. The report stays readable for 30 days.',
+  );
+  await expect(page.getByRole("button", { name: "Storyboards" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Not this vibe/ })).toHaveCount(0);
+  // The report itself is all there.
+  await expect(page.getByRole("heading", { level: 2, name: "Campaign Kit" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Join the waitlist" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -316,7 +336,7 @@ test("Not this vibe revises a cue and shows the diff, with the old receipt kept"
   await brief.getByRole("button", { name: "Not this vibe: Music feel" }).click();
   await page.getByLabel("What feels off? (optional)").fill(NOTE);
   await page.getByRole("button", { name: "Revise", exact: true }).click();
-  await expect(brief.getByText("What changed")).toBeVisible();
+  await expect(brief.getByText("What changed", { exact: true })).toBeVisible();
   await expect(brief.getByText(NOTE)).toBeVisible();
   const oldMusic = world.brief.music.text as string;
   await expect(brief.getByText(oldMusic).first()).toBeVisible();

@@ -1,7 +1,8 @@
-import { ArrowDownRight, BadgeCheck, PenLine } from "lucide-react";
+import { ArrowUp, BadgeCheck, PenLine } from "lucide-react";
 import type { ReactNode } from "react";
 import { Chip } from "@/components/stoop/chip";
 import { ReceiptDrawer } from "@/components/stoop/receipt-drawer";
+import { ReceiptLink } from "../why/receipt-link";
 import { cn } from "cn";
 import { CONTROL_INTEREST_NOTE, formatUsd, INTEREST_HEADING, INTEREST_NOTE } from "@/lib/report/view/launch-sheet";
 import type { LaunchCellView, LaunchInterestView, LaunchOptionView, ReceiptView } from "@/lib/report/view/types";
@@ -150,13 +151,23 @@ export function LaunchCell({ cell, dailyCents, promptsHref }: { cell: LaunchCell
           <span className="font-semibold">Hook: </span>
           {cell.creative.hook}
         </p>
+        {cell.creative.setting && (
+          <div className="flex flex-col gap-0.5 text-sm">
+            <p>
+              <span className="font-semibold">Set in </span>
+              <ReceiptLink receipt={cell.creative.setting.receipt}>{cell.creative.setting.city}</ReceiptLink>
+            </p>
+            <p className="text-xs text-ink-soft">{cell.creative.setting.note}</p>
+          </div>
+        )}
+        {/* The Output section sits above the Launch plan, so the arrow points up. */}
         <a
           href={promptsHref}
           className="-my-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-sm text-sm font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick"
         >
           See its prompts
-          <span className="sr-only"> for {control ? "the Control" : cell.label}</span>
-          <ArrowDownRight aria-hidden="true" className="size-4" />
+          <span className="sr-only"> for {control ? "the Control" : cell.label}, in the Output section above</span>
+          <ArrowUp aria-hidden="true" className="size-4" />
         </a>
       </div>
 

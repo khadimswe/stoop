@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Screen } from "@/components/stoop/screen";
 import { VideoTile } from "@/components/stoop/video-tile";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { byokHref, useDraftRender, useRenderAccess, type DraftState } from "@/hooks/use-render-access";
+import { byokHref, draftSecondsOf, useDraftRender, useRenderAccess, type DraftState } from "@/hooks/use-render-access";
 import type { RenderAccessResponse } from "@/lib/api/responses";
 import type { RenderTarget } from "@/lib/render/schema";
 import type { VideoView } from "@/lib/report/view/output";
@@ -46,7 +46,7 @@ export function ByokLink({ target }: { target: RenderTarget }) {
 }
 
 function Line({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("text-sm text-ink-soft", className)}>{children}</p>;
+  return <p className={cn("flex min-h-11 items-center text-sm text-ink-soft sm:min-h-9", className)}>{children}</p>;
 }
 
 function AccessLine({
@@ -75,7 +75,7 @@ function AccessLine({
       // The status is announced once; the ticking timer stays out of the live region.
       return (
         <div className="flex flex-wrap items-center gap-x-2 text-sm text-ink">
-          <p role="status">Rendering a 15 s draft. It takes a few minutes; keep reading meanwhile.</p>
+          <p role="status">Rendering a {draftSecondsOf(access)} s draft. It takes a few minutes; keep reading meanwhile.</p>
           <span aria-hidden="true">
             <Elapsed since={draft.startedAt} />
           </span>
@@ -111,7 +111,7 @@ function AccessLine({
       break;
   }
 
-  if (!access) return <Line className="min-h-11 content-center">{OFF_LINE}</Line>;
+  if (!access) return <Line>{OFF_LINE}</Line>;
   switch (access.video) {
     case "judge":
       return (
@@ -121,7 +121,7 @@ function AccessLine({
           </Button>
           <span className="text-xs text-ink-soft">
             {access.rendersLeft !== null && `${access.rendersLeft} ${access.rendersLeft === 1 ? "draft" : "drafts"} left on your judge pass · `}
-            15 s, 480p, from the prompt below
+            {draftSecondsOf(access)} s, 480p, from this Production Pack
           </span>
         </div>
       );

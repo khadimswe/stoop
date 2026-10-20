@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { CONTROL_SEGMENT } from "../api/requests";
 import { FRAMES_PER_WORLD } from "../prompts/frames";
-import { approvalsSchema, CONTROL_KEY, demoMediaFor, MAX_DEMO_FRAMES, manifestSchema, type DemoApprovals, type DemoClip, type DemoManifest, type DemoStoryboard } from "./manifest";
+import { approvalsSchema, demoMediaFor, MAX_DEMO_FRAMES, manifestSchema, type DemoApprovals, type DemoClip, type DemoManifest, type DemoStoryboard } from "./manifest";
 
 const hex = (c: string) => c.repeat(64);
 const clip: DemoClip = {
@@ -83,7 +84,7 @@ describe("demoMediaFor", () => {
     const oneFrame = approvals({ prompts: [hex("2"), hex("3")], files: [hex("b")] });
     expect(demoMediaFor(all, oneFrame, "food-hot-sauce").storyboards).toEqual({});
     const both = approvals({ prompts: [hex("2"), hex("3")], files: [hex("b"), hex("c")] });
-    expect(Object.keys(demoMediaFor(all, both, "food-hot-sauce").storyboards).sort()).toEqual([CONTROL_KEY, "seg-a"]);
+    expect(Object.keys(demoMediaFor(all, both, "food-hot-sauce").storyboards).sort()).toEqual([CONTROL_SEGMENT, "seg-a"]);
   });
 
   it("shows a clip only when its rendered file is approved too", () => {

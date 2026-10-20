@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useLiveReport } from "@/hooks/use-live-report";
 import type { Report } from "@/lib/report/schema";
 import { reportView } from "@/lib/report/view/report";
+import { ACTIONS_EXPIRED_LINE, RETENTION_LINE } from "@/lib/report/view/retention";
 import { EXAMPLE_HREF, ExampleLink, ReportSkeleton, STAGE_WORDS, StateCard, StateShell } from "./states";
 
 /** A run that failed before Qloo measured anything has nothing to show but what happened. */
@@ -30,22 +31,37 @@ function PartialBanner({ report }: { report: Report }) {
   );
 }
 
-function EmailKit({ runId }: { runId: string }) {
+/** The sticky action: it joins the waitlist (with this run as the source), and says so. */
+function JoinWaitlist({ runId }: { runId: string }) {
   return (
     <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
-      <WaitlistTrigger label="Email me this kit" variant="default" size="default" source={runId} />
+      <WaitlistTrigger label="Join the waitlist" variant="default" size="default" source={runId} />
     </div>
   );
 }
 
-function LiveReportView({ report, runId, actions }: { report: Report; runId: string; actions: ReturnType<typeof useLiveReport>["actions"] }) {
-  // The same view models as the examples; render access stays off until the render lane swaps it.
-  const view = useMemo(() => reportView(report, { renderAccess: { kind: "off" } }), [report]);
+/** Once a run's events have expired, storyboards and "Not this vibe" are gone: one plain line says so. */
+function ActionsExpired() {
   return (
-    <LiveActionsProvider value={actions}>
-      <ReportPage view={view} banner={report.partial ? <PartialBanner report={report} /> : undefined} stickyAction={<EmailKit runId={runId} />} />
-    </LiveActionsProvider>
+    <p data-actions-expired className="flex items-start gap-2 rounded-xl border border-hairline bg-surface px-4 py-2.5 text-sm text-ink-soft">
+      {ACTIONS_EXPIRED_LINE}
+    </p>
   );
+}
+
+function LiveReportView({ report, runId, actions, actionsOpen }: { report: Report; runId: string; actions: ReturnType<typeof useLiveReport>["actions"]; actionsOpen: boolean }) {
+  // The same view models as the examples; each video line asks what this visitor may render after mount.
+  const view = useMemo(() => reportView(report), [report]);
+  const banner =
+    report.partial || !actionsOpen ? (
+      <>
+        {report.partial && <PartialBanner report={report} />}
+        {!actionsOpen && <ActionsExpired />}
+      </>
+    ) : undefined;
+  const page = <ReportPage view={view} banner={banner} stickyAction={<JoinWaitlist runId={runId} />} stickyNote={RETENTION_LINE} landmark={false} />;
+  // Without the provider, the after-run controls (Storyboards, "Not this vibe") render nothing.
+  return actionsOpen ? <LiveActionsProvider value={actions}>{page}</LiveActionsProvider> : page;
 }
 
 /**
@@ -55,7 +71,7 @@ function LiveReportView({ report, runId, actions }: { report: Report; runId: str
  * what happened, and anything that cannot load points to the examples.
  */
 export function LiveReport({ runId }: { runId: string }) {
-  const { phase, resume, onResume, retry, actions } = useLiveReport(runId);
+  const { phase, resume, onResume, retry, actions, actionsOpen } = useLiveReport(runId);
 
   switch (phase.kind) {
     case "loading":
@@ -103,7 +119,7 @@ export function LiveReport({ runId }: { runId: string }) {
         <StateShell>
           <StateCard title={phase.reason === "not_found" ? "This report is not here" : "This report could not load"}>
             <p className="text-sm text-ink-soft">
-              {phase.message} {phase.reason === "not_found" ? "Live reports are kept for a limited time." : "The examples always work."}
+              {phase.message} {phase.reason === "not_found" ? RETENTION_LINE : "The examples always work."}
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <ExampleLink primary />
@@ -141,6 +157,6 @@ export function LiveReport({ runId }: { runId: string }) {
           </StateShell>
         );
       }
-      return <LiveReportView report={phase.report} runId={runId} actions={actions} />;
+      return <LiveReportView report={phase.report} runId={runId} actions={actions} actionsOpen={actionsOpen} />;
   }
 }

@@ -65,7 +65,7 @@ export function useLiveReport(runId: string) {
   const reportUrl = `/api/report/${runId}`;
   const eventsUrl = `/api/run/${runId}/events`;
 
-  const [fetched, setFetched] = useState<{ kind: "loading" } | { kind: "done"; report: Report } | { kind: "running"; resumable: boolean } | Extract<LivePhase, { kind: "unavailable" }>>({ kind: "loading" });
+  const [fetched, setFetched] = useState<{ kind: "loading" } | { kind: "done"; report: Report; actionsOpen: boolean } | { kind: "running"; resumable: boolean } | Extract<LivePhase, { kind: "unavailable" }>>({ kind: "loading" });
   const [runState, setRunState] = useState<ReportState>(initialState);
   const [stream, setStream] = useState<StreamStatus | null>(null);
   const [frames, setFrames] = useState<Record<string, FramesNote & { key: string }>>({});
@@ -190,7 +190,7 @@ export function useLiveReport(runId: string) {
           setFetched({ kind: "unavailable", reason: "failed", message: "This report could not be read." });
           return;
         }
-        setFetched({ kind: "done", report: parsed.data });
+        setFetched({ kind: "done", report: parsed.data, actionsOpen: Boolean(body.eventsUrl) });
         // Frames and revisions still arrive on the run's stream: replay it from the start.
         if (body.eventsUrl) connect(null);
         return;
@@ -301,7 +301,7 @@ export function useLiveReport(runId: string) {
     close();
     lastId.current = null;
     setRunState(initialState);
-    setFetched({ kind: "done", report: parsed.data });
+    setFetched({ kind: "done", report: parsed.data, actionsOpen: Boolean(body.eventsUrl) });
     if (body.eventsUrl) connect(null);
   }, [close, connect, reportUrl]);
 
@@ -439,5 +439,10 @@ export function useLiveReport(runId: string) {
     [requestFrames, requestRevision, runId, shownFrames, shownRevisions],
   );
 
-  return { phase, resume, onResume, retry, actions };
+  // Storyboards and "Not this vibe" need the run's events, which are kept for fewer days than the
+  // report: once the report route answers without an events URL, they are closed. A report rebuilt
+  // from the stream has its events by definition.
+  const actionsOpen = fetched.kind === "done" ? fetched.actionsOpen : true;
+
+  return { phase, resume, onResume, retry, actions, actionsOpen };
 }
