@@ -28,13 +28,12 @@ for (const path of ["/report/not-a-run", "/examples/not-an-example", "/no-such-p
   });
 }
 
-test("robots.txt keeps reports, live runs, /byok and the API out of search", async ({ request }) => {
+test("robots.txt disallows only the API, so crawlers can read the private pages' noindex", async ({ request }) => {
   const response = await request.get("/robots.txt");
   expect(response.status()).toBe(200);
   const lines = (await response.text()).split("\n").map((line) => line.trim());
   expect(lines).toContain("Allow: /");
-  for (const path of ["/report/", "/byok", "/run/", "/api/"]) expect(lines).toContain(`Disallow: ${path}`);
-  expect(lines).not.toContain("Disallow: /examples/");
+  expect(lines.filter((line) => line.startsWith("Disallow:"))).toEqual(["Disallow: /api/"]);
 });
 
 for (const path of ["/report/run_0123456789abcdef01234567", "/run/run_0123456789abcdef01234567"]) {

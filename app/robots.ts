@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 
-// The landing, the examples, /judges, /mcp and /start are for everyone. A visitor's own report and live
-// run, the /byok page and the API are not for search engines: those pages also say noindex themselves
-// (their metadata, and /byok's meta tag and X-Robots-Tag header), for crawlers that skip this file.
+// Only the API is off limits to crawlers. A visitor's own report, a live run and the /byok page stay
+// crawlable on purpose, so crawlers can read their noindex (page metadata, and /byok's meta tag and
+// X-Robots-Tag header): a disallowed URL can still be listed, without content, when something links to it.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/report/", "/byok", "/run/", "/api/"],
+      disallow: "/api/",
     },
   };
 }

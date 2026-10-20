@@ -74,8 +74,8 @@ const PAGE = `<!doctype html>
 </html>
 `;
 
-// Not for search engines: the meta tag above, this header for crawlers that read headers only, and
-// app/robots.ts.
+// Not for search engines: the meta tag above, and this header for crawlers that read headers only.
+// app/robots.ts leaves /byok crawlable on purpose, so crawlers can see both.
 export function GET(): Response {
   return new Response(PAGE, { headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex, nofollow" } });
 }
