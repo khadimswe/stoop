@@ -28,8 +28,8 @@ const FIELDS: readonly {
 /**
  * The budget helper: the brand's daily budget, test days and an optional target cost per result,
  * validated as they type, and the even split across every cell (the Control included). Errors show
- * once a field has been left or holds something that is not a number; the summary is a polite live
- * region, so the new split is read out without moving focus.
+ * once a field has been left; the summary is a polite live region, so the new split is read out
+ * without moving focus.
  */
 export function BudgetHelper({
   cells,
@@ -50,7 +50,8 @@ export function BudgetHelper({
 }) {
   const id = useId();
   const leftover = split && leftoverLine(split);
-  const shown = (field: BudgetField) => (touched[field] || input[field].trim() !== "" ? errors[field] : undefined);
+  // Errors wait until a field has been left, so typing "100" never flashes the $1-a-cell minimum.
+  const shown = (field: BudgetField) => (touched[field] ? errors[field] : undefined);
   const submit = (event: FormEvent) => event.preventDefault();
 
   return (

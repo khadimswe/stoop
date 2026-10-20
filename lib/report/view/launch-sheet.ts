@@ -201,7 +201,7 @@ export function launchSheetRows(view: LaunchPlanView, split: BudgetSplit, pageUr
 
 /** The launch sheet: a UTF-8 byte order mark (so spreadsheet apps read the dots as written), then the CSV, every cell guarded against formulas. */
 export function launchSheetCsv(view: LaunchPlanView, split: BudgetSplit, pageUrl: string | null = null): string {
-  return "﻿" + toCsv([[...LAUNCH_SHEET_COLUMNS], ...launchSheetRows(view, split, pageUrl)]);
+  return "\uFEFF" + toCsv([[...LAUNCH_SHEET_COLUMNS], ...launchSheetRows(view, split, pageUrl)]);
 }
 
 /** Inline Markdown text: one line, with the characters that would turn into markup escaped. */

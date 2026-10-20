@@ -123,24 +123,27 @@ test("invalid numbers say what to fix, and the sheet waits for them", async ({ p
   const days = section.getByLabel("Test days");
   const download = section.getByRole("button", { name: "Download launch sheet (CSV)" });
 
+  // While typing, the split just waits; the error shows once you leave the field.
   await daily.fill("2");
+  await expect(section.locator("[data-launch-split]")).toHaveText("Enter a daily budget and the test days to see the split.");
+  await expect(section.getByText("Use at least $3 a day, so each of the 3 cells gets $1.")).toHaveCount(0);
+  await daily.blur();
   await expect(section.getByText("Use at least $3 a day, so each of the 3 cells gets $1.")).toBeVisible();
   await expect(daily).toHaveAttribute("aria-invalid", "true");
   await expect(daily).toHaveAccessibleDescription(/Use at least \$3 a day/);
-  await expect(section.locator("[data-launch-split]")).toHaveText("Enter a daily budget and the test days to see the split.");
   await expect(section.locator("[data-launch-budget]")).toHaveCount(0);
   await expect(download).toBeDisabled();
   await expect(section.getByRole("button", { name: "Copy as Markdown" })).toBeDisabled();
 
-  // An empty field only complains once you leave it.
   await daily.fill("");
-  await expect(section.getByText("Enter a daily budget, like 60.")).toHaveCount(0);
-  await daily.blur();
   await expect(section.getByText("Enter a daily budget, like 60.")).toBeVisible();
 
   await days.fill("1.5");
+  await days.blur();
   await expect(section.getByText("Enter whole days, like 7.")).toBeVisible();
-  await section.getByLabel("Target cost per result (optional)").fill("abc");
+  const target = section.getByLabel("Target cost per result (optional)");
+  await target.fill("abc");
+  await target.blur();
   await expect(section.getByText("Enter a dollar amount, like 25, or leave it empty.")).toBeVisible();
 
   await daily.fill("60");
@@ -162,7 +165,7 @@ test("the launch sheet downloads as a CSV with a BOM, one guarded row per cell",
   const text = readFileSync((await download.path())!, "utf8");
   const pageUrl = `${new URL(page.url()).origin}/examples/${LEAD}`;
   expect(text).toBe(launchSheetCsv(view, splitOf({ daily: "90", days: "10", target: "" }, view.cells.length), pageUrl));
-  expect(text.startsWith("﻿")).toBe(true);
+  expect(text.startsWith("\uFEFF")).toBe(true);
   const lines = text.slice(1).trimEnd().split("\r\n");
   expect(lines[0]).toBe(LAUNCH_SHEET_COLUMNS.join(","));
   expect(lines[0]).toContain(",Cities,Interest searches (suggestions),");

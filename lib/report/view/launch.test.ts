@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
+import { CONTROL_KEY } from "../../demo/manifest";
 import { ageBandLabel } from "../../types";
 import type { Report } from "../schema";
 import { skewText } from "./format";
@@ -8,7 +9,6 @@ import {
   CONTROL_CELL_KEY,
   CONTROL_CELL_LABEL,
   CONTROL_WATCH,
-  fileSlug,
   INTEREST_TYPES,
   LAUNCH_MAX_INTERESTS,
   LAUNCH_PLACEMENTS,
@@ -191,7 +191,7 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (slug) => {
   it("writes one launch sheet row per cell, with a BOM, the budget split and the receipts", () => {
     const s = split(view.cells.length);
     const csv = launchSheetCsv(view, s, "https://stoop.example/examples/x#ignored");
-    expect(csv.startsWith("﻿")).toBe(true);
+    expect(csv.startsWith("\uFEFF")).toBe(true);
     const rows = parseCsv(csv.slice(1));
     expect(rows[0]).toEqual([...LAUNCH_SHEET_COLUMNS]);
     expect(rows).toHaveLength(view.cells.length + 1);
@@ -371,10 +371,9 @@ describe("the launch sheet's guards", () => {
     expect(md).toContain("- Hook: Pour \\*slowly\\* \\<b\\>now\\</b\\> \\[x\\](y)");
   });
 
-  it("slugs a brand for the file name", () => {
-    expect(fileSlug("Whisker & Brim")).toBe("whisker-and-brim");
-    expect(fileSlug("Porchlight Pepper Co.")).toBe("porchlight-pepper-co");
-    expect(fileSlug("Café Ñu")).toBe("cafe-nu");
-    expect(fileSlug("!!!")).toBe("stoop");
+  it("names the file after the brand, and keys the Control like its Output card", () => {
+    expect(launchPlanView(read("pets-outfits")).fileName).toBe("whisker-brim-launch-sheet.csv");
+    expect(view.fileName).toBe("porchlight-pepper-co-launch-sheet.csv");
+    expect(CONTROL_CELL_KEY).toBe(CONTROL_KEY);
   });
 });

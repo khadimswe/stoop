@@ -16,7 +16,8 @@ import type { CityCue, Report, Segment } from "../schema";
 import type { Control, CultureSource, World } from "../world";
 import { currentControl, currentWorld, keptConcept } from "./current";
 import { plainType, skewText } from "./format";
-import { ledgerOf, receiptView, type Ledger } from "./receipts";
+import { fileSlug } from "./kit";
+import { ledgerOf, panelNoun, panelText, receiptView, type Ledger } from "./receipts";
 import type { ReceiptView } from "./types";
 
 /** The Control's cell key: the same key its Output card uses. */
@@ -108,18 +109,6 @@ export interface LaunchPlanView {
   unavailable: string | null;
 }
 
-/** A file-name slug: lowercase ASCII words joined by hyphens. */
-export function fileSlug(text: string): string {
-  const slug = text
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "stoop";
-}
-
 /** The world's demographics call when it is among the segment's receipts (the call the skew comes from), else all of them. */
 function ageEvidence(ledger: Ledger, ids: readonly string[]): string[] {
   const demographics = ids.filter((id) => ledger.get(id)?.params["filter.type"] === "urn:demographics");
@@ -145,14 +134,6 @@ function cityOptions(ledger: Ledger, labels: readonly string[], cues: readonly C
     return receipt ? [{ text, detail: cue ? `#${cue.rank} by lift` : null, receipt, evidenceIds: [...new Set(ids)] }] : [];
   });
 }
-
-const PANEL_NOUN: Readonly<Record<string, string>> = {
-  "urn:entity:brand": "brands",
-  "urn:entity:artist": "artists",
-  "urn:entity:tv_show": "TV shows",
-  "urn:entity:movie": "movies",
-  "urn:entity:podcast": "podcasts",
-};
 
 /**
  * The world's interest searches: entities from its Culture Brief (this world's own calls, not the
@@ -181,10 +162,10 @@ function interestOptions(ledger: Ledger, world: World): LaunchInterestView[] {
   const ordered = Array.from({ length: turns }, (_, i) => lists.flatMap((list) => (list[i] ? [list[i]] : []))).flat();
   return ordered
     .flatMap((source) => {
-      const kind = plainType(source.type);
-      const panel = source.position && source.position.of > 0 ? `, beats ${source.position.beats} of ${source.position.of} reference ${PANEL_NOUN[source.type]}` : "";
+      const kind = source.type === "urn:entity:tv_show" ? "TV show" : plainType(source.type);
+      const panel = source.position && source.position.of > 0 ? `, ${panelText(source.position, panelNoun(source.type))}` : "";
       const receipt = receiptView(ledger, source.evidenceIds, "Interest search", `${source.name}: #${source.rank} in Qloo's ${kind} results for this world${panel}`);
-      return receipt ? [{ id: source.id, name: source.name, kind: kind === "tv show" ? "TV show" : kind, rank: source.rank, receipt, evidenceIds: [...new Set(source.evidenceIds)] }] : [];
+      return receipt ? [{ id: source.id, name: source.name, kind, rank: source.rank, receipt, evidenceIds: [...new Set(source.evidenceIds)] }] : [];
     })
     .slice(0, LAUNCH_MAX_INTERESTS);
 }
