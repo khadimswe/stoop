@@ -7,6 +7,7 @@
 import type { LanguageModel } from "ai";
 import { generateBaseline, type BaselineRun } from "../agent/baseline";
 import { CONTROL_RUN } from "../agent/baseline-brief";
+import { failureForLog, plainFailure } from "../agent/failure";
 import { runBrief, type BriefRun, type Creative } from "../agent/orchestrator";
 import { createEmitter, reduce, type RunEventInput } from "../events";
 import type { FramesJob, FramesOutcome } from "../media/frames";
@@ -163,8 +164,9 @@ export async function executeRun(deps: ExecuteDeps, runId: string): Promise<void
         status = "stopped";
       } else {
         status = "failed";
-        const message = stop.signal.reason instanceof StoreDownError ? stop.signal.reason.message : error instanceof Error ? error.message : String(error);
-        emitter.emit({ type: "run.failed", stage: null, message });
+        const cause = stop.signal.reason instanceof StoreDownError ? stop.signal.reason : error;
+        console.error(`[run ${runId}] failed: ${failureForLog(cause)}`);
+        emitter.emit({ type: "run.failed", stage: null, message: plainFailure(cause) });
       }
     }
 
