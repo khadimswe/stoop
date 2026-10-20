@@ -11,7 +11,7 @@ const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.re
 describeRecorded.each(EXAMPLES.map((e) => e.slug))("Your ad for %s", (slug) => {
   const report = read(slug);
   const world = report.worlds[0];
-  const outputs = outputViews(report, { renderAccess: { kind: "off" } });
+  const outputs = outputViews(report);
   const view = yourAdView(world, outputs[0])!;
   const concept = world.pack!.concept;
 
@@ -68,7 +68,7 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("Your ad for %s", (slug) => {
 describe("Your ad", () => {
   itRecorded("waits for a world with a concept", () => {
     const report = read("food-hot-sauce");
-    const outputs = outputViews(report, { renderAccess: { kind: "off" } });
+    const outputs = outputViews(report);
     expect(yourAdView(undefined, undefined)).toBeNull();
     expect(yourAdView({ ...report.worlds[0], concepts: null, pack: null }, outputs[0])).toBeNull();
   });

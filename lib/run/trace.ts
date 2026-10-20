@@ -1,12 +1,10 @@
 // The agent trace as one-line rows: each Qloo call and each agent decision, in the order they
 // happened, with the stage they belong to and, while worlds run side by side, which world. Pure and
 // client-safe, so the live /run page and a recorded replay render the same rows.
+import { CONTROL_SEGMENT } from "../api/requests";
 import type { TraceStep } from "../report/schema";
 import type { TraceStage } from "../report/stages";
 import { STAGE_LABELS } from "./rail";
-
-/** The Control's segment id on world-scoped events (lib/report/world.ts CONTROL_ID). */
-const CONTROL = "control";
 
 export interface TraceRow {
   /** Position in the trace: steps only ever append, so it is stable while a run streams. */
@@ -51,7 +49,7 @@ export function traceRows(steps: readonly TraceStep[], worlds: readonly WorldNam
       label: step.label,
       reason: step.reason?.trim() || null,
       served: step.kind === "tool" ? (step.cached ? "cached" : "live") : null,
-      world: step.segmentId ? (step.segmentId === CONTROL ? "Control" : (names.get(step.segmentId) ?? null)) : null,
+      world: step.segmentId ? (step.segmentId === CONTROL_SEGMENT ? "Control" : (names.get(step.segmentId) ?? null)) : null,
       evidenceId: step.evidenceId ?? null,
     });
   });

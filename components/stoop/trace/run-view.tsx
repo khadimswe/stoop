@@ -15,6 +15,7 @@ import { callCounts, hasEnded, railRows, STAGE_LABELS } from "@/lib/run/rail";
 import { browserStorage, markRecent, removeRecent } from "@/lib/run/recents";
 import { resultsView } from "@/lib/run/results";
 import { EXAMPLE_CHIPS, exampleRunHref, exampleSlugOf, REPLAY_NOTES, reportHref, type ReplayReason } from "@/lib/run/start";
+import { RETENTION_LINE } from "@/lib/report/view/retention";
 import { ProgressRail } from "./progress-rail";
 import { RunResults } from "./run-results";
 import { TraceList } from "./trace-list";
@@ -140,7 +141,7 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
   const current = rows.filter((row) => row.status === "current").map((row) => row.label);
   const subtitle =
     phase === "expired"
-      ? problem!.message
+      ? `${problem!.message} ${RETENTION_LINE}`
       : phase === "unavailable"
         ? problem!.message
         : product
@@ -166,7 +167,7 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
   const showTrace = phase !== "expired" && phase !== "unavailable";
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pt-8 pb-20 sm:px-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pt-8 pb-20 sm:px-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           {(isExample || state.partial) && (
@@ -241,6 +242,12 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
       )}
       {(phase === "expired" || phase === "unavailable") && (
         <div className="flex flex-col gap-4 rounded-xl border border-hairline bg-surface p-4 text-sm sm:p-5">
+          {/* A live run's trace is kept for fewer days than its report, which may still be there. */}
+          {phase === "expired" && !isExample && (
+            <Link href={reportHref(runId)} className="self-start font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
+              Open the report
+            </Link>
+          )}
           <p>The examples show a full run: the Reality Check, the concept worlds and the Campaign Kit.</p>
           <ExampleLinks />
           <Link href="/start" className="self-start font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
@@ -280,6 +287,6 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
           </section>
         </div>
       )}
-    </main>
+    </div>
   );
 }

@@ -37,7 +37,7 @@ const PATH = [
   {
     title: "One receipt",
     line: "Tap any Qloo chip. The drawer shows the exact query, whether it came from cache, the rank and the panel position. The API key never appears.",
-    href: `${LEAD}#reality`,
+    href: `${LEAD}#receipt-music`,
     cta: "Open a receipt",
   },
   {

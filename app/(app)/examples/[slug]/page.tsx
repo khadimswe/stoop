@@ -29,13 +29,10 @@ export async function generateMetadata({ params }: PageProps<"/examples/[slug]">
 export default async function ExamplePage({ params }: PageProps<"/examples/[slug]">) {
   const { slug } = await params;
   if (!isExampleSlug(slug)) notFound();
-  const view = reportView(loadExampleReport(slug), {
-    media: loadExampleMedia(slug),
-    // The static default. Each video line asks GET /api/render/access after mount and swaps it (BYOK
-    // for anyone, "Render draft video" with a judge pass); the judge banner does the same for the top
-    // world, so the page stays prerendered.
-    renderAccess: { kind: "off" },
-  });
+  // What each world's video line may do (BYOK for anyone, "Render draft video" with a judge pass) is
+  // asked after mount from GET /api/render/access, and the judge banner asks the same for the top
+  // world, so the page stays prerendered.
+  const view = reportView(loadExampleReport(slug), { media: loadExampleMedia(slug) });
   const top = view.outputs.find((o) => !o.isControl);
   return <ReportPage view={view} banner={<JudgeBanner target={top?.target ?? null} />} />;
 }

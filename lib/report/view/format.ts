@@ -14,6 +14,14 @@ export function skewText(skew: number): string {
   return `skews ${sign}${Math.abs(rounded).toFixed(2)}`;
 }
 
+/**
+ * Where a world's setting city comes from, said next to it: it is ranked across the whole taste
+ * neighborhood, while a world's "top cities by lift" are its own age band's, so the two can differ.
+ */
+export function settingNote(audienceRank: number): string {
+  return audienceRank === 1 ? "Setting: the whole taste neighborhood's top city" : `Setting: the whole taste neighborhood's #${audienceRank} city`;
+}
+
 /** A Qloo type in plain words: "urn:entity:tv_show" is "tv show", any tag is "tag". */
 export function plainType(type: string): string {
   if (type.startsWith("urn:tag")) return "tag";

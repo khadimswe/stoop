@@ -7,11 +7,8 @@ import { REPORT_SECTIONS, ReportSection } from "../report-section";
  * becomes a test cell next to the generic Control, with an even budget split, one rule to call it
  * relative to the Control, and a launch sheet to set up by hand. Stoop never touches an ad account.
  * The budget helper and exports are the client part (../launch).
- *
- * - `reportPath`: the report the prompt links point at, when this renders outside it. Omit it on the
- *   report itself (the links stay on the page).
  */
-export function LaunchSection({ view, reportPath }: { view: LaunchPlanView; reportPath?: string }) {
+export function LaunchSection({ view }: { view: LaunchPlanView }) {
   return (
     <ReportSection
       id={REPORT_SECTIONS.launch}
@@ -28,7 +25,7 @@ export function LaunchSection({ view, reportPath }: { view: LaunchPlanView; repo
           ))}
         </div>
       ) : (
-        <LaunchPlan view={view} reportPath={reportPath} />
+        <LaunchPlan view={view} />
       )}
     </ReportSection>
   );

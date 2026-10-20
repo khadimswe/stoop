@@ -3,7 +3,7 @@
 import { CircleAlert } from "lucide-react";
 import { useId, type FormEvent } from "react";
 import { cn } from "cn";
-import { BOTH_PLATFORMS, leftoverLine, splitLine, type BudgetErrors, type BudgetField, type BudgetInput, type BudgetSplit } from "@/lib/report/view/launch-sheet";
+import { BOTH_PLATFORMS, leftoverLine, pendingSplitLine, splitLine, type BudgetErrors, type BudgetField, type BudgetInput, type BudgetSplit } from "@/lib/report/view/launch-sheet";
 
 const FIELDS: readonly {
   field: BudgetField;
@@ -117,7 +117,7 @@ export function BudgetHelper({
             <p className="text-xs text-ink-soft">{BOTH_PLATFORMS}</p>
           </>
         ) : (
-          <p className="text-ink-soft">Enter a daily budget and the test days to see the split.</p>
+          <p className="text-ink-soft">{pendingSplitLine(input, cells)}</p>
         )}
       </div>
     </form>

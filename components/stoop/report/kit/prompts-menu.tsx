@@ -71,7 +71,9 @@ export function PromptsMenu({ video, actor, title, className }: { video: PromptO
       <PopoverContent
         align="start"
         sideOffset={6}
-        collisionPadding={12}
+        // Clear of the 56 px app bar and the sticky section nav above, and the sticky bar below: the
+        // menu flips or shrinks to fit between them, never over the site header.
+        collisionPadding={{ top: 112, right: 12, bottom: 88, left: 12 }}
         aria-label={`Prompts for ${title}`}
         className="max-h-[min(70dvh,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-2rem)] gap-2 overflow-y-auto rounded-xl border border-hairline bg-surface p-2 shadow-l2 ring-0">
         <Group title="Video prompts" options={video} />

@@ -40,6 +40,8 @@ test("the lead example's recorded run streams end to end in replay mode", async 
   const errors = consoleErrors(page);
   await page.goto("/run/example-food-hot-sauce");
   await expect(page.getByRole("heading", { level: 1, name: "Building the Campaign Kit" })).toBeVisible();
+  // One main landmark, while the trace streams in and after.
+  await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.locator("[data-run-status]")).toContainText("Recorded run");
   await expect(page.locator("[data-run-status]")).not.toContainText("of 50 Qloo calls");
   await expect(page.getByRole("list", { name: "Progress" }).getByRole("listitem")).toHaveCount(7);
@@ -52,6 +54,7 @@ test("the lead example's recorded run streams end to end in replay mode", async 
   await expect(open).toBeVisible({ timeout: 30_000 });
   await expect(open).toHaveAttribute("href", "/examples/food-hot-sauce");
   await expect(page.getByRole("heading", { level: 1, name: "The Campaign Kit is ready" })).toBeVisible();
+  await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.locator("[data-run-status]")).toHaveText(/Recorded run · \d+ Qloo answers replayed · no live calls/);
   await expect(page.locator('[data-status="done"]')).toHaveCount(7);
   await expect(page.locator("[data-trace-step]")).toHaveCount(STEPS);
@@ -123,6 +126,9 @@ test("an unknown run says it has expired and points to the examples, never a bla
   const errors = consoleErrors(page, [/status of 404/, /EventSource/]);
   await page.goto(`/run/run_${"0".repeat(24)}`);
   await expect(page.getByRole("heading", { level: 1, name: "That run has expired" })).toBeVisible();
+  // The trace is kept for fewer days than the report, so the report may still be there.
+  await expect(page.getByText(/Live reports are kept for 30 days/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the report" })).toHaveAttribute("href", `/report/run_${"0".repeat(24)}`);
   await expect(page.getByRole("link", { name: "Start a new run" })).toHaveAttribute("href", "/start");
   await expect(page.getByRole("link", { name: "Lowlight Candle Co. example report" })).toBeVisible();
   await noHorizontalScroll(page);
@@ -132,4 +138,5 @@ test("an unknown run says it has expired and points to the examples, never a bla
 test("a malformed run id is a not-found page", async ({ page }) => {
   await page.goto("/run/not-a-run");
   await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("main")).toHaveCount(1);
 });

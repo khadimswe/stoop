@@ -1,6 +1,7 @@
 // Runtime switches and caps from the environment (the live switch, the daily caps and the video flags), read in one place so
 // the runtime, frames, revise, MCP and health agree. Pure: callers pass their env, so tests never
 // touch the real one. Secrets are not read here; each vendor adapter reads its own key.
+import { DEFAULT_DRAFT_SECONDS, DRAFT_SECONDS_RANGE } from "./render/draft";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -77,8 +78,9 @@ export interface RenderLimits {
 
 /** Limits on server-paid draft video, on top of dailyCaps().renders. BYOK renders bill the visitor's own fal key and pass none of these. */
 export function renderLimits(env: Env = process.env): RenderLimits {
-  const draftSeconds = count(env.RENDER_DRAFT_SECONDS, 15);
-  if (draftSeconds < 4 || draftSeconds > 15) throw new Error(`RENDER_DRAFT_SECONDS must be 4 to 15, got ${draftSeconds}.`);
+  const draftSeconds = count(env.RENDER_DRAFT_SECONDS, DEFAULT_DRAFT_SECONDS);
+  const { min, max } = DRAFT_SECONDS_RANGE;
+  if (draftSeconds < min || draftSeconds > max) throw new Error(`RENDER_DRAFT_SECONDS must be ${min} to ${max}, got ${draftSeconds}.`);
   return { total: count(env.RENDERS_TOTAL_CAP, 0), perPass: RENDERS_PER_PASS, perIpDaily: RENDERS_PER_IP_DAILY, draftSeconds };
 }
 

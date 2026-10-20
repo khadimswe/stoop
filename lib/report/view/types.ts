@@ -25,6 +25,11 @@ export interface ReceiptView {
   /** How many ledger entries the rows come from. */
   calls: number;
   note?: string;
+  /**
+   * What the receipt is about. Omitted: a Qloo fact or cue. "generic": a generic AI brief's pick,
+   * checked with Qloo; the panel heads it as not from Qloo, never as a Qloo cue.
+   */
+  subject?: "generic";
 }
 
 /** A pre-rendered clip that may be shown (approved in public/demo/approvals.json). */
@@ -62,7 +67,6 @@ export type {
   McpLinkView,
   OutputView,
   PromptView,
-  RenderAccess,
   ShotView,
   StoryboardFrameView,
   StoryboardView,

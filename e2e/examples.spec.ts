@@ -128,27 +128,65 @@ test.describe("the lead example report", () => {
 });
 
 test.describe("the Output section", () => {
-  test("shows the four lines in order for every world and the Control", async ({ page }) => {
+  test("shows one line each, in order, for every world and the Control", async ({ page }) => {
     await setup(page);
     await page.goto(URL);
     for (const key of [TOP, SECOND, "control"]) {
       const card = output(page, key);
       await expect(card.locator("dt")).toHaveText(["Storyboard", "Video", "Export", "In your Claude"]);
       await expect(card.getByRole("link", { name: "Use Stoop inside your Claude" })).toHaveAttribute("href", "/mcp");
-      await expect(card.getByRole("button", { name: "Copy prompt" })).toBeVisible();
-      await expect(card.getByRole("button", { name: "Copy scene 1" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Copy Higgsfield prompt" })).toBeVisible();
+      await expect(card.getByText(/^Shot list: \d shots$/)).toBeVisible();
+      // Collapsed: the full board, the scene prompts and the pack wait behind their buttons.
+      for (const name of [/^Full board, /, /scene prompts \(\d\), /, /^Production Pack, /]) {
+        await expect(card.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+      }
+      await expect(card.getByRole("button", { name: "Copy scene 1" })).toBeHidden();
     }
     await expect(output(page, "control").getByText("LLM-only brief · not from Qloo")).toBeVisible();
-    // The shot list is the concept preview, never a "clip coming" tile, and it lists every shot (5 here).
-    const shotList = output(page, TOP).getByRole("region", { name: `Shot list, ${TOP_LABEL}` });
+    await expect(page.getByText("Clip coming")).toHaveCount(0);
+  });
+
+  test("each expander opens today's full content in place and keeps focus on its button", async ({ page }) => {
+    await setup(page);
+    await page.goto(URL);
+    const top = output(page, TOP);
+    // The full board: the shot list is the concept preview, never a "clip coming" tile, and it lists every shot (5 here).
+    const board = top.getByRole("button", { name: `Full board, ${TOP_LABEL}` });
+    await board.click();
+    await expect(board).toHaveAttribute("aria-expanded", "true");
+    await expect(board).toBeFocused();
+    const shotList = top.getByRole("region", { name: `Shot list, ${TOP_LABEL}`, exact: true });
     await expect(shotList).toBeVisible();
     await expect(shotList.getByRole("listitem").filter({ hasText: /^Shot \d · / })).toHaveCount(5);
-    await expect(page.getByText("Clip coming")).toHaveCount(0);
-    // The rest of the Production Pack sits behind one disclosure.
-    const top = output(page, TOP);
-    await top.getByText("The rest of the Production Pack").click();
+    // The per-scene prompts, by keyboard.
+    const scenes = top.getByRole("button", { name: new RegExp(`scene prompts \\(5\\), ${escapeRegExp(TOP_LABEL)}$`) });
+    await scenes.focus();
+    await page.keyboard.press("Enter");
+    await expect(scenes).toHaveAttribute("aria-expanded", "true");
+    await expect(top.getByRole("button", { name: "Copy scene 1" })).toBeVisible();
+    // The rest of the Production Pack.
+    await top.getByRole("button", { name: `Production Pack, ${TOP_LABEL}` }).click();
     await expect(top.getByRole("button", { name: "Copy product_sheet.png" })).toBeVisible();
     await expect(top.getByRole("button", { name: "Copy Director's Guide" })).toBeVisible();
+    await expect(top.getByText("AI disclosure:")).toBeVisible();
+    // And they close again.
+    await board.click();
+    await expect(shotList).toBeHidden();
+  });
+
+  test("puts the Screening Room within a short scroll of the Reality Check", async ({ page }) => {
+    await setup(page);
+    // Desktop is measured on a 1440 x 900 screen; phones at their own size.
+    const desktop = page.viewportSize()!.width >= 1024;
+    if (desktop) await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(URL);
+    const viewport = page.viewportSize()!;
+    const realityBottom = await page.locator("#reality").evaluate((el) => el.getBoundingClientRect().bottom + window.scrollY);
+    const screeningTop = await page.locator("#screening").evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    const screens = (screeningTop - realityBottom) / viewport.height;
+    // About 1.5 screens on desktop and 3 on a phone, counted from the end of the Reality Check.
+    expect(screens).toBeLessThan(desktop ? 1.55 : 3.05);
   });
 
   test("off: no render control, a quiet line pointing to the prompts", async ({ page }) => {

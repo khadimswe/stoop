@@ -8,7 +8,8 @@ import { cn } from "cn";
 
 /**
  * Text that opens its receipt (a number, a measured line). Dusk underline: Qloo decided this. Without
- * a receipt it is plain text, never a dead link.
+ * a receipt it is plain text, never a dead link. A pseudo-element makes the tap area 44 px tall
+ * without changing the text's look; lists of these leave room between rows so no two areas overlap.
  */
 export function ReceiptLink({
   receipt,
@@ -28,7 +29,7 @@ export function ReceiptLink({
       <button
         type="button"
         className={cn(
-          "inline rounded-sm text-left underline decoration-dusk decoration-[1.5px] underline-offset-[3px] hover:decoration-2 hover:decoration-ink",
+          "relative inline rounded-sm text-left underline after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-[''] decoration-dusk decoration-[1.5px] underline-offset-[3px] hover:decoration-2 hover:decoration-ink",
           className,
         )}
       >
@@ -68,7 +69,7 @@ export function OriginChip({ origin, receipt, label, className }: { origin: CueO
   if (!receipt) return <span className={cn("inline-flex max-w-full", className)}>{chip}</span>;
   return (
     <ReceiptDrawer receipt={receipt}>
-      <button type="button" className={cn("inline-flex max-w-full rounded-full", className)}>
+      <button type="button" className={cn("relative inline-flex max-w-full rounded-full after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']", className)}>
         {chip}
         <span className="sr-only"> (opens the receipt for {receipt.cue})</span>
       </button>
@@ -82,7 +83,7 @@ export function SeedReceipt({ origin, name, kind, receipt }: { origin: SeedOrigi
   if (!receipt) return chip;
   return (
     <ReceiptDrawer receipt={receipt}>
-      <button type="button" className="inline-flex max-w-full rounded-full">
+      <button type="button" className="relative inline-flex max-w-full rounded-full after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']">
         {chip}
         <span className="sr-only"> (opens its receipt)</span>
       </button>

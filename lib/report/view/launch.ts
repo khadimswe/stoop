@@ -9,19 +9,18 @@
 // No medians, no benchmarks, no promised results: the budget math (launch-sheet.ts) only does
 // arithmetic on what the brand types in.
 // Pure and client-safe: types only from the Report contract, so it never pulls in the pack compiler.
+import { CONTROL_SEGMENT } from "../../api/requests";
 import { AD_PLAN_MAX_CITIES, AD_PLAN_NOTE, AD_PLAN_OPTIONAL, hypothesisWatch } from "../../kit/ad-plan-copy";
 import type { AgeBucket } from "../../qloo/constants";
 import { ageBandLabel } from "../../types";
 import type { CityCue, Report, Segment } from "../schema";
 import type { Control, CultureSource, World } from "../world";
 import { currentControl, currentWorld, keptConcept } from "./current";
-import { plainType, skewText } from "./format";
+import { plainType, settingNote, skewText } from "./format";
 import { fileSlug } from "./kit";
 import { ledgerOf, panelNoun, panelText, receiptView, type Ledger } from "./receipts";
 import type { ReceiptView } from "./types";
 
-/** The Control's cell key: the same key its Output card uses. */
-export const CONTROL_CELL_KEY = "control";
 export const CONTROL_CELL_LABEL = "Generic AI brief · not from Qloo";
 /** Reels + TikTok 9:16, the default format: Meta Reels and Stories, plus TikTok. */
 export const LAUNCH_PLACEMENTS = ["Meta Reels", "Meta Stories", "TikTok"] as const;
@@ -69,6 +68,11 @@ export interface LaunchCreativeView {
   hook: string;
   /** The id of this cell's card in the Output section (`#${anchor}`), where its prompts are. */
   anchor: string;
+  /**
+   * The city the ad is set in (Qloo heatmap lift across the whole taste neighborhood), with the line
+   * that says so next to the world's own city options, and its receipt. Null on the Control.
+   */
+  setting: { city: string; note: string; receipt: ReceiptView } | null;
 }
 
 export interface LaunchCellView {
@@ -170,6 +174,14 @@ function interestOptions(ledger: Ledger, world: World): LaunchInterestView[] {
     .slice(0, LAUNCH_MAX_INTERESTS);
 }
 
+/** The world's setting city with its receipt (no evidence, no display). */
+function settingOf(ledger: Ledger, world: World): LaunchCreativeView["setting"] {
+  const city = world.settingCity;
+  if (!city) return null;
+  const receipt = receiptView(ledger, city.evidenceIds, "Setting city", `${city.label}, #${city.audienceRank} of the taste neighborhood's cities by lift`);
+  return receipt ? { city: city.label, note: settingNote(city.audienceRank), receipt } : null;
+}
+
 function worldCell(ledger: Ledger, world: World, number: number, segment: Segment | undefined): LaunchCellView | null {
   const parts = currentWorld(world);
   const concept = keptConcept(parts);
@@ -185,7 +197,7 @@ function worldCell(ledger: Ledger, world: World, number: number, segment: Segmen
     name,
     label: world.label,
     adSetName: `${name} · ${world.label}`,
-    creative: { title: concept.title, hook: concept.hook, anchor: outputAnchor(world.segmentId) },
+    creative: { title: concept.title, hook: concept.hook, anchor: outputAnchor(world.segmentId), setting: settingOf(ledger, world) },
     optionsFrom: "qloo",
     ageBands: ageOptions(ledger, buckets, segment, planIds),
     cities: cityOptions(ledger, cities, segment?.cities ?? [], planIds),
@@ -200,12 +212,12 @@ function controlCell(control: Control): LaunchCellView | null {
   if (!concept) return null;
   const generic = (text: string): LaunchOptionView => ({ text, detail: null, receipt: null, evidenceIds: [] });
   return {
-    key: CONTROL_CELL_KEY,
+    key: CONTROL_SEGMENT,
     kind: "control",
     name: "Control",
     label: CONTROL_CELL_LABEL,
     adSetName: "Control · generic AI brief",
-    creative: { title: concept.title, hook: concept.hook, anchor: outputAnchor(CONTROL_CELL_KEY) },
+    creative: { title: concept.title, hook: concept.hook, anchor: outputAnchor(CONTROL_SEGMENT), setting: null },
     optionsFrom: "generic",
     ageBands: control.assumed.ageBands.map((bucket) => generic(ageBandLabel(bucket))),
     cities: [...new Set(control.assumed.cities)].slice(0, AD_PLAN_MAX_CITIES).map(generic),

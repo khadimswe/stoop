@@ -22,10 +22,10 @@ export const STAGE_WORDS: Readonly<Record<string, string>> = {
 
 export function StateShell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 pt-6 pb-20 sm:px-5 sm:pt-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 pt-6 pb-20 sm:px-5 sm:pt-8">
       <h1 className="font-display text-[1.75rem] leading-tight font-extrabold tracking-tight [font-stretch:85%]">Your report</h1>
       {children}
-    </main>
+    </div>
   );
 }
 

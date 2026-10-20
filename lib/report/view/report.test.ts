@@ -17,7 +17,7 @@ const read = (slug: string) => JSON.parse(readFileSync(`data/runs/${slug}/run.re
 
 describeRecorded.each(EXAMPLES)("the report view for $slug", ({ slug, brandName }) => {
   const report = read(slug);
-  const view = reportView(report, { renderAccess: { kind: "off" } });
+  const view = reportView(report);
 
   it("heads the page with the brand, the recorded provenance and the date", () => {
     expect(view.header).toEqual({
@@ -28,6 +28,8 @@ describeRecorded.each(EXAMPLES)("the report view for $slug", ({ slug, brandName 
       provenance: "recorded",
       date: "Oct 16, 2026",
       partial: null,
+      // The recorded run replays on /run with zero API calls ("Watch the agent build this").
+      runHref: `/run/${report.meta.id}`,
     });
   });
 
@@ -37,7 +39,7 @@ describeRecorded.each(EXAMPLES)("the report view for $slug", ({ slug, brandName 
       header: headerView(report),
       reality: realityView(report, ledger),
       yourAd: view.yourAd,
-      outputs: outputViews(report, { renderAccess: { kind: "off" } }),
+      outputs: outputViews(report),
       screening: screeningView(report, ledger, null),
       kit: kitView(report),
       launch: launchPlanView(report, ledger),

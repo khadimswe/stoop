@@ -40,11 +40,11 @@ function ShotCard({ shot, cues }: { shot: ShotView; cues: readonly BriefCueView[
   );
 }
 
-/** The shot list as the concept preview: a sideways shelf on phones, every shot in one row from lg up. */
+/** The shot list as the concept preview: a sideways shelf on phones, a wrapping grid from lg up. */
 export function ShotList({ shots, cues, label }: { shots: ShotView[]; cues: readonly BriefCueView[]; label: string }) {
   return (
     <ScrollRegion label={label} className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5 lg:mx-0 lg:overflow-visible lg:px-0">
-      <ol className="flex snap-x gap-2 lg:grid lg:auto-cols-fr lg:grid-flow-col">
+      <ol className="flex snap-x gap-2 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]">
         {shots.map((shot) => (
           <ShotCard key={shot.scene} shot={shot} cues={cues} />
         ))}
@@ -92,7 +92,7 @@ export function Storyboard({ view, cues, label }: { view: StoryboardView; cues: 
     case "shots":
       return (
         <div className="flex flex-col gap-2">
-          {view.paused && <p className="font-mono text-xs text-ink-soft">Storyboards paused today</p>}
+          {view.paused && <p className="font-mono text-xs text-ink-soft">{view.paused}</p>}
           <ShotList shots={view.shots} cues={cues} label={`Shot list, ${label}`} />
         </div>
       );

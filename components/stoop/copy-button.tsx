@@ -46,6 +46,7 @@ export function CopyButton({
   text,
   label,
   copiedLabel = "Copied",
+  context,
   variant = "ghost",
   size = "sm",
   className,
@@ -53,6 +54,8 @@ export function CopyButton({
   text: string;
   label: string;
   copiedLabel?: string;
+  /** Spoken after the label when several buttons share it ("Copy Higgsfield prompt, Control"). */
+  context?: string;
   variant?: ComponentProps<typeof Button>["variant"];
   size?: ComponentProps<typeof Button>["size"];
   className?: string;
@@ -73,6 +76,7 @@ export function CopyButton({
       <Button type="button" variant={variant} size={size} onClick={onClick} className={cn("gap-1.5", className)}>
         {state === "copied" ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
         {state === "copied" ? copiedLabel : label}
+        {context && <span className="sr-only">, {context}</span>}
       </Button>
       <span role="status" aria-live="polite" className="sr-only">
         {state === "copied" ? copiedLabel : state === "failed" ? "Copy failed. Select the text and copy it by hand." : ""}

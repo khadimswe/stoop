@@ -2,44 +2,44 @@ import { ArrowRight, BadgeCheck, PenLine } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { OutputView } from "@/lib/report/view/types";
+import { outputAnchor } from "@/lib/report/view/launch";
 import { cn } from "cn";
 import { ExportLine } from "../output/export-line";
+import { StoryboardLine } from "../output/storyboard-line";
 import { VideoLine } from "../output/video-line";
 import { REPORT_SECTIONS, ReportSection } from "../report-section";
-import { Storyboard } from "../storyboard";
 
-// The Output section: per world, then the Control, one line each and in this order: Storyboard (the
-// concept preview), Video, Export, and "Use Stoop inside your Claude". App register: white cards,
-// hairlines, no shadow. The Control is framed in dashed concrete and labeled not from Qloo.
+// The Output section: per world, then the Control, a compact block with one line each, in this order:
+// Storyboard (a thumbnail strip or the shot count), Video (what this visitor may render), Export
+// (copy the Higgsfield prompt; the Veo scene prompts and the Production Pack open below), and "Use
+// Stoop inside your Claude". Every expander reveals the full content in place, so the Screening Room
+// (demo beat 2) stays close to the Reality Check. App register: white cards, no shadow. The Control
+// is framed in dashed concrete and labeled not from Qloo.
 
-function Row({ term, children }: { term: ReactNode; children: ReactNode }) {
+function Line({ term, children }: { term: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid gap-2 py-4 first:pt-0 last:pb-0 lg:grid-cols-[8rem_minmax(0,1fr)] lg:gap-6">
-      <dt className="text-xs font-semibold tracking-wide text-ink-soft uppercase lg:pt-1">{term}</dt>
+    <div className="flex flex-col gap-0.5 lg:grid lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-4">
+      <dt className="text-xs font-semibold tracking-wide text-ink-soft uppercase lg:flex lg:min-h-9 lg:items-center">{term}</dt>
       <dd className="min-w-0">{children}</dd>
     </div>
   );
 }
 
-function storyboardLine(view: OutputView): string {
-  if (view.storyboard.kind === "frames") return "The concept preview: the storyboard frames from this pack.";
-  if (view.isControl) return "The concept preview, shot by shot. Its brief came from an LLM with no Qloo data, so no shot carries a Qloo cue.";
-  return "The concept preview, shot by shot, with the Qloo cues each shot carries.";
-}
-
-function OutputCard({ view }: { view: OutputView }) {
-  const id = `output-${view.key}`;
+function OutputBlock({ view }: { view: OutputView }) {
+  const id = outputAnchor(view.key);
   return (
     <article
-      aria-labelledby={id}
+      id={id}
+      aria-labelledby={`${id}-title`}
       data-output={view.key}
       className={cn(
-        "flex flex-col gap-4 rounded-xl bg-surface p-4 sm:p-5",
+        "flex scroll-mt-28 flex-col gap-2 rounded-xl bg-surface px-4 py-3 sm:px-5 lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:items-start lg:gap-x-6",
         view.isControl ? "border-[1.5px] border-dashed border-concrete-line" : "border border-hairline",
       )}
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h3 id={id} className="font-display text-lg leading-snug font-bold [font-stretch:90%]">
+      {/* Phones and tablets: the name over the lines. Desktop: the name in its own column, so each block stays four lines tall. */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 lg:flex-col lg:items-start lg:gap-y-1.5 lg:pt-1.5">
+        <h3 id={`${id}-title`} className="font-display text-base leading-snug font-bold text-balance [font-stretch:90%] sm:text-lg">
           {view.label}
         </h3>
         {view.isControl ? (
@@ -53,31 +53,28 @@ function OutputCard({ view }: { view: OutputView }) {
             Culture-made
           </span>
         )}
+        {view.partial && <p className="text-sm text-ink-soft">Partial: {view.partial.reason}</p>}
       </header>
-      {view.partial && <p className="text-sm text-ink-soft">Partial: {view.partial.reason}</p>}
-      <dl className="flex flex-col divide-y divide-hairline">
-        <Row term="Storyboard">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-ink-soft">{storyboardLine(view)}</p>
-            <Storyboard view={view.storyboard} cues={view.cues} label={view.label} />
-          </div>
-        </Row>
-        <Row term="Video">
+      <dl className="flex min-w-0 flex-col gap-2 lg:gap-1">
+        <Line term="Storyboard">
+          <StoryboardLine view={view.storyboard} cues={view.cues} label={view.label} isControl={view.isControl} />
+        </Line>
+        <Line term="Video">
           <VideoLine video={view.video} target={view.target} tone={view.isControl ? "control" : "culture"} />
-        </Row>
-        <Row term="Export">
+        </Line>
+        <Line term="Export">
           {view.export ? (
             <ExportLine view={view.export} worldLabel={view.label} />
           ) : (
-            <p className="text-sm text-ink-soft">The Production Pack appears once this world&apos;s concept is written.</p>
+            <p className="flex min-h-11 items-center text-sm text-ink-soft sm:min-h-9">The Production Pack appears once this world&apos;s concept is written.</p>
           )}
-        </Row>
-        <Row term="In your Claude">
-          <Link href={view.mcp.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick lg:min-h-0">
+        </Line>
+        <Line term="In your Claude">
+          <Link href={view.mcp.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick sm:min-h-9">
             {view.mcp.label}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
-        </Row>
+        </Line>
       </dl>
     </article>
   );
@@ -85,14 +82,10 @@ function OutputCard({ view }: { view: OutputView }) {
 
 export function OutputSection({ views }: { views: OutputView[] }) {
   return (
-    <ReportSection
-      id={REPORT_SECTIONS.output}
-      title="Output"
-      description="For each concept world and the generic Control: the storyboard, the video, and the Production Pack to render it in your own tool."
-    >
-      <div className="flex flex-col gap-3">
+    <ReportSection id={REPORT_SECTIONS.output} title="Output" description="Each concept world and the generic Control: storyboard, video, and the prompts for your own video tool.">
+      <div className="flex flex-col gap-2">
         {views.map((view) => (
-          <OutputCard key={view.key} view={view} />
+          <OutputBlock key={view.key} view={view} />
         ))}
       </div>
     </ReportSection>

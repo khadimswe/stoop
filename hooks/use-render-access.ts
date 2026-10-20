@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { RenderAccessResponse } from "@/lib/api/responses";
 import { JUDGE_HINT_COOKIE } from "@/lib/judge/constants";
+import { DEFAULT_DRAFT_SECONDS, DRAFT_SECONDS_RANGE } from "@/lib/render/draft";
 import type { RenderStatus, RenderTarget, VideoAccess } from "@/lib/render/schema";
 
 // The report's video line, on the client. Example pages are static, so who the visitor is (a judge
@@ -42,11 +43,21 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 /** renderAccessResponseSchema, checked by hand so the client bundle stays free of the schema modules. */
 export function parseAccess(body: unknown): RenderAccessResponse | null {
   if (!isRecord(body)) return null;
-  const { video, rendersLeft, byok } = body;
+  const { video, rendersLeft, byok, draftSeconds } = body;
   if (typeof video !== "string" || !(video in VIDEO)) return null;
   if (rendersLeft !== null && !(typeof rendersLeft === "number" && Number.isInteger(rendersLeft) && rendersLeft >= 0)) return null;
   if (typeof byok !== "boolean") return null;
-  return { video: video as VideoAccess, rendersLeft, byok };
+  const access: RenderAccessResponse = { video: video as VideoAccess, rendersLeft, byok };
+  // Optional: an answer without it (or with a length out of range) reads as the shared default.
+  if (typeof draftSeconds === "number" && Number.isInteger(draftSeconds) && draftSeconds >= DRAFT_SECONDS_RANGE.min && draftSeconds <= DRAFT_SECONDS_RANGE.max) {
+    access.draftSeconds = draftSeconds;
+  }
+  return access;
+}
+
+/** The draft's length as this visitor's access answer says it, or the length the server defaults to. */
+export function draftSecondsOf(access: Pick<RenderAccessResponse, "draftSeconds"> | null): number {
+  return access?.draftSeconds ?? DEFAULT_DRAFT_SECONDS;
 }
 
 /** A draft's video lives on Stoop's public storage: an https URL, never anything else. */
@@ -245,14 +256,18 @@ export async function pollDraft(jobId: string, options: PollOptions = {}): Promi
 
 // --- The shared access store ---------------------------------------------------------------------
 // One answer per report and world, shared by every component that asks (the judge banner and the
-// top world's video line ask the same question), and refreshed after a draft settles.
+// top world's video line ask the same question). A pass's drafts are counted per pass, not per world,
+// so a draft that settles in any world refreshes every world of that report, the banner included.
 
 export type AccessState = { status: "loading" } | { status: "ready"; access: RenderAccessResponse };
 
 interface Entry {
   state: AccessState;
   listeners: Set<() => void>;
-  loading: boolean;
+  /** The request in flight, so a second ask joins it. */
+  loading: Promise<void> | null;
+  /** A fresh ask made while a request was in flight: it asks again once that one lands. */
+  next: Promise<void> | null;
 }
 
 const LOADING: AccessState = { status: "loading" };
@@ -262,29 +277,52 @@ const keyOf = (target: RenderTarget) => `${target.reportId}|${target.segment}`;
 function entryFor(key: string): Entry {
   let entry = store.get(key);
   if (!entry) {
-    entry = { state: LOADING, listeners: new Set(), loading: false };
+    entry = { state: LOADING, listeners: new Set(), loading: null, next: null };
     store.set(key, entry);
   }
   return entry;
 }
 
-function load(target: RenderTarget, fetchImpl: Fetch = browserFetch) {
+/**
+ * Asks for one report and world. A plain ask joins a request already in flight. A `fresh` ask (after
+ * a draft settles) never trusts a request sent before it: it asks again once that one lands, so the
+ * drafts left on screen are never older than the draft.
+ */
+export function loadAccess(target: RenderTarget, fetchImpl: Fetch = browserFetch, fresh = false): Promise<void> {
   const entry = entryFor(keyOf(target));
-  if (entry.loading) return;
-  entry.loading = true;
-  void fetchRenderAccess(target, fetchImpl).then((access) => {
-    entry.loading = false;
+  if (entry.loading) {
+    if (!fresh) return entry.loading;
+    entry.next ??= entry.loading.then(() => {
+      entry.next = null;
+      return loadAccess(target, fetchImpl);
+    });
+    return entry.next;
+  }
+  entry.loading = fetchRenderAccess(target, fetchImpl).then((access) => {
+    entry.loading = null;
     entry.state = { status: "ready", access };
     for (const listener of entry.listeners) listener();
   });
+  return entry.loading;
 }
 
-/** Tests only: forget every cached answer. */
-export function resetRenderAccessStore() {
-  store.clear();
+/**
+ * Asks again for every world of a report this page has asked about: after a draft settles anywhere,
+ * the pass's drafts left change for all of them. Resolves when every answer is in.
+ */
+export function refreshReportAccess(reportId: string, fetchImpl: Fetch = browserFetch): Promise<void> {
+  const loads = [...store.keys()]
+    .filter((key) => key.startsWith(`${reportId}|`))
+    .map((key) => loadAccess({ reportId, segment: key.slice(reportId.length + 1) }, fetchImpl, true));
+  return Promise.all(loads).then(() => undefined);
 }
 
-/** Asks once per report and world; `refresh` asks again (after a draft, the renders left change). */
+/** The current answer for one report and world, as the hook reads it. Reading never asks. */
+export function accessStateOf(target: RenderTarget): AccessState {
+  return store.get(keyOf(target))?.state ?? LOADING;
+}
+
+/** Asks once per report and world; `refresh` asks again for the whole report (after a draft, the renders left change). */
 export function useRenderAccess(target: RenderTarget | null): { state: AccessState; refresh: () => void } {
   // The target arrives as a fresh object each render; its two strings are what identify it.
   const reportId = target?.reportId ?? null;
@@ -294,7 +332,7 @@ export function useRenderAccess(target: RenderTarget | null): { state: AccessSta
       if (reportId === null || segment === null) return () => {};
       const entry = entryFor(keyOf({ reportId, segment }));
       entry.listeners.add(onChange);
-      if (entry.state.status === "loading") load({ reportId, segment });
+      if (entry.state.status === "loading") void loadAccess({ reportId, segment });
       return () => {
         entry.listeners.delete(onChange);
       };
@@ -307,8 +345,8 @@ export function useRenderAccess(target: RenderTarget | null): { state: AccessSta
     () => LOADING,
   );
   const refresh = useCallback(() => {
-    if (reportId !== null && segment !== null) load({ reportId, segment });
-  }, [reportId, segment]);
+    if (reportId !== null) void refreshReportAccess(reportId);
+  }, [reportId]);
   return { state, refresh };
 }
 

@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { EXAMPLES } from "../../demo/examples";
-import { CONTROL_KEY } from "../../demo/manifest";
+import { CONTROL_SEGMENT } from "../../api/requests";
 import { ageBandLabel } from "../../types";
 import type { Report } from "../schema";
-import { skewText } from "./format";
+import { settingNote, skewText } from "./format";
 import {
-  CONTROL_CELL_KEY,
   CONTROL_CELL_LABEL,
   CONTROL_WATCH,
   INTEREST_TYPES,
@@ -29,6 +28,7 @@ import {
   launchSheetRows,
   leftoverLine,
   paceLine,
+  pendingSplitLine,
   parseCents,
   PILOT_NOTE,
   planBudget,
@@ -91,7 +91,7 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (sl
     expect(view.unavailable).toBeNull();
     expect(view.skipped).toEqual([]);
     expect(view.cells.map((c) => [c.key, c.kind, c.name])).toEqual([
-      [CONTROL_CELL_KEY, "control", "Control"],
+      [CONTROL_SEGMENT, "control", "Control"],
       ...report.worlds.map((w, i) => [w.segmentId, "world", `World ${i + 1}`]),
     ]);
     expect(view.brand).toBe(report.inputs.product.brandName);
@@ -101,10 +101,14 @@ describeRecorded.each(EXAMPLES.map((e) => e.slug))("the Launch plan for %s", (sl
 
   it("gives every cell its kept concept, the anchor of its Output card and the placements", () => {
     const [control, ...worlds] = view.cells;
-    expect(control.creative).toEqual({ title: report.control!.pack!.concept.title, hook: report.control!.pack!.concept.hook, anchor: "output-control" });
+    expect(control.creative).toEqual({ title: report.control!.pack!.concept.title, hook: report.control!.pack!.concept.hook, anchor: "output-control", setting: null });
     worlds.forEach((cell, i) => {
       const { concept } = report.worlds[i].pack!;
-      expect(cell.creative).toEqual({ title: concept.title, hook: concept.hook, anchor: `output-${report.worlds[i].segmentId}` });
+      const city = report.worlds[i].settingCity!;
+      expect(cell.creative).toMatchObject({ title: concept.title, hook: concept.hook, anchor: `output-${report.worlds[i].segmentId}` });
+      // The setting city says where it is ranked, so it never reads as one of this world's own cities.
+      expect(cell.creative.setting).toMatchObject({ city: city.label, note: settingNote(city.audienceRank) });
+      expect(cell.creative.setting!.receipt.calls).toBe(new Set(city.evidenceIds).size);
       expect(cell.label).toBe(report.worlds[i].label);
       expect(cell.adSetName).toBe(`World ${i + 1} · ${report.worlds[i].label}`);
     });
@@ -259,7 +263,7 @@ describeRecorded("the Launch plan when the test cannot run", () => {
     const report = structuredClone(base);
     report.worlds[1] = { ...report.worlds[1], concepts: null, pack: null, kit: null, partial: { stage: "concepts", reason: "The concept writer timed out." } };
     const view = launchPlanView(report);
-    expect(view.cells.map((c) => c.key)).toEqual([CONTROL_CELL_KEY, report.worlds[0].segmentId]);
+    expect(view.cells.map((c) => c.key)).toEqual([CONTROL_SEGMENT, report.worlds[0].segmentId]);
     expect(view.skipped).toEqual([{ label: report.worlds[1].label, reason: "Stopped early: The concept writer timed out." }]);
     for (const world of report.worlds) world.concepts = world.pack = world.kit = null;
     expect(launchPlanView(report)).toMatchObject({ cells: [], unavailable: expect.stringMatching(/No concept world/) });
@@ -337,6 +341,17 @@ describe("the budget helper", () => {
     expect(errors("x", "y", "z")).toMatchObject({ daily: expect.any(String), days: expect.any(String), target: expect.any(String) });
   });
 
+  it("says the minimum in the split box for a budget under $1 a cell, never 'enter a daily budget'", () => {
+    const line = (daily: string, days = "7", cells = 3) => pendingSplitLine({ daily, days, target: "" }, cells);
+    expect(line("1")).toBe("At least $3 a day, so each of the 3 cells gets $1.");
+    expect(line("$2.99", "7", 3)).toBe("At least $3 a day, so each of the 3 cells gets $1.");
+    expect(line("0", "", 4)).toBe("At least $4 a day, so each of the 4 cells gets $1.");
+    expect(line("")).toBe("Enter a daily budget and the test days to see the split.");
+    expect(line("60", "")).toBe("Enter a daily budget and the test days to see the split.");
+    expect(line("sixty")).toBe("Fix the numbers above to see the split.");
+    expect(line("60", "200")).toBe("Fix the numbers above to see the split.");
+  });
+
   it("reads dollar amounts the way people type them, in cents", () => {
     expect(parseCents("60")).toBe(6000);
     expect(parseCents(" $60 ")).toBe(6000);
@@ -375,6 +390,6 @@ describeRecorded("the launch sheet's guards", () => {
   it("names the file after the brand, and keys the Control like its Output card", () => {
     expect(launchPlanView(read("pets-outfits")).fileName).toBe("whisker-brim-launch-sheet.csv");
     expect(view.fileName).toBe("porchlight-pepper-co-launch-sheet.csv");
-    expect(CONTROL_CELL_KEY).toBe(CONTROL_KEY);
+    expect(view.cells[0].key).toBe(CONTROL_SEGMENT);
   });
 });

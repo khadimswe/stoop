@@ -15,6 +15,7 @@ test("the judge's guide follows the three beats and links to the lead example", 
   await expect(path.getByRole("heading", { level: 3 })).toHaveText([/The Reality Check/, /The Screening Room/, /One receipt/, /Try it free/]);
   await expect(path.getByRole("link", { name: "Open the report" })).toHaveAttribute("href", "/examples/food-hot-sauce");
   await expect(path.getByRole("link", { name: "Go to the Screening Room" })).toHaveAttribute("href", "/examples/food-hot-sauce#screening");
+  await expect(path.getByRole("link", { name: "Open a receipt" })).toHaveAttribute("href", "/examples/food-hot-sauce#receipt-music");
   await expect(path.getByRole("link", { name: "Try it free" })).toHaveAttribute("href", "/start");
 
   // What Qloo decides, with a code link per call.

@@ -20,9 +20,6 @@ const evidenceIds = z.array(z.string().regex(/^ev_[0-9a-f]{12}$/));
 const receipts = evidenceIds.min(1);
 const segmentId = z.string().regex(/^[a-z0-9-]+$/);
 
-/** The LLM-only Control's id wherever a segment id goes (its brief, its pack, its stage events). */
-export const CONTROL_ID = "control";
-
 /** A brief slot key, as lib/prompts/brief.ts briefCueTexts names them ("setting.0", "voice.tone"). */
 export const BRIEF_SLOT = /^(?:productRole|mood|music|visual|voice\.tone|wardrobe|talent|setting\.[0-2])$/;
 const briefSlot = z.string().regex(BRIEF_SLOT);

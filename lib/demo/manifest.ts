@@ -125,8 +125,6 @@ export interface DemoMedia {
   clips: DemoClip[];
 }
 
-export const CONTROL_KEY = CONTROL_SEGMENT;
-
 export function demoMediaFor(manifest: DemoManifest, approvals: DemoApprovals, example: ExampleSlug): DemoMedia {
   const prompt = new Set(approvals.prompts);
   const file = new Set(approvals.files);
@@ -135,7 +133,7 @@ export function demoMediaFor(manifest: DemoManifest, approvals: DemoApprovals, e
   for (const board of manifest.storyboards) {
     if (board.example !== example) continue;
     if (!board.frames.every((f) => prompt.has(f.promptHash) && file.has(f.sha256))) continue;
-    storyboards[board.segmentId ?? CONTROL_KEY] = board;
+    storyboards[board.segmentId ?? CONTROL_SEGMENT] = board;
   }
   const clips = manifest.clips.filter((c) => c.example === example && prompt.has(c.promptHash) && file.has(c.sha256));
   return { packshot, storyboards, clips };

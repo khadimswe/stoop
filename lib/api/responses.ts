@@ -6,6 +6,7 @@ import { productSpecSchema } from "../prompts/brief";
 import { costSchema, reportSchema, seedSchema } from "../report/schema";
 import { ageBandLabel, ageBucketSchema } from "../types";
 import { TOKEN_PATTERN } from "../mcp/token";
+import { DRAFT_SECONDS_RANGE } from "../render/draft";
 import { renderPlanSchema, renderStatusSchema, VIDEO_ACCESS } from "../render/schema";
 import { exampleSlugSchema, runIdSchema, intakeIdSchema, VOTE_CHOICES } from "./requests";
 
@@ -182,6 +183,8 @@ export const renderAccessResponseSchema = z.strictObject({
   video: z.enum(VIDEO_ACCESS),
   rendersLeft: z.number().int().nonnegative().nullable(),
   byok: z.boolean(),
+  /** Seconds per draft (renderLimits().draftSeconds). Optional: without it the page says DEFAULT_DRAFT_SECONDS (lib/render/draft.ts). */
+  draftSeconds: z.number().int().min(DRAFT_SECONDS_RANGE.min).max(DRAFT_SECONDS_RANGE.max).optional(),
 });
 export type RenderAccessResponse = z.infer<typeof renderAccessResponseSchema>;
 

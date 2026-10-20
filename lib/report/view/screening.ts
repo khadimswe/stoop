@@ -3,14 +3,14 @@
 // approved; until then each screen shows the concept preview (storyboard frames or the first shot).
 // Also the theater per row: the shot timeline, the cues behind it and the prompt that made it.
 import type { DemoMedia } from "../../demo/manifest";
-import { CONTROL_KEY } from "../../demo/manifest";
+import { CONTROL_SEGMENT } from "../../api/requests";
 import type { BriefSlot, BriefSlots, Concept, Scene } from "../../prompts/brief";
 import { timecodes } from "../../prompts/lines";
 import { CAMERA_PRESETS } from "../../prompts/models.config";
 import type { Report } from "../schema";
 import type { Control, World } from "../world";
 import { currentControl, currentWorld, keptConcept, type CurrentParts } from "./current";
-import { skewText } from "./format";
+import { settingNote, skewText } from "./format";
 import { approvedClip, controlCues, controlStoryboard, exportView, shotCarries, worldBrief, worldCues, worldStoryboard, type BriefCueView } from "./output";
 import { receiptView, type Ledger } from "./receipts";
 import type { ClipView, PromptView, ReceiptView, ScriptView, StoryboardView } from "./types";
@@ -40,6 +40,8 @@ export interface TheaterShotView {
 export interface FactView {
   text: string;
   receipt: ReceiptView;
+  /** A short line that keeps the fact from reading as a contradiction (the setting city's scope). */
+  note: string | null;
 }
 
 /** "Why this ad": what the theater shows next to the player. */
@@ -75,6 +77,8 @@ export interface ScreeningWorldView {
   /** The setting city (Qloo heatmap lift), never the cast. */
   settingCity: string | null;
   settingReceipt: ReceiptView | null;
+  /** settingNote(): the setting city is the whole neighborhood's pick, not from this world's own list. */
+  settingNote: string | null;
   clip: ClipView | null;
   /** The Qloo-backed cues the kept concept uses, for the row's chips. */
   cues: BriefCueView[];
@@ -146,10 +150,11 @@ function worldRow(world: World, report: Report, ledger: Ledger, media: DemoMedia
   const skewReceipt = segment ? receiptView(ledger, segment.evidenceIds, "Age skew", `${segment.ageBand}, ${skew}`) : null;
   const settingReceipt = city ? receiptView(ledger, city.evidenceIds, "Setting city", `${city.label}, #${city.audienceRank} of the taste neighborhood's cities by lift`) : null;
   // No evidence, no display: a fact shows only with its receipt.
+  const note = city && settingReceipt ? settingNote(city.audienceRank) : null;
   const facts: FactView[] = [
-    segment && skew && skewReceipt ? { text: `${segment.ageBand} ${skew}`, receipt: skewReceipt } : null,
-    topCities && topReceipt ? { text: `top cities by lift: ${topCities}`, receipt: topReceipt } : null,
-    city && settingReceipt ? { text: `set in ${city.label}`, receipt: settingReceipt } : null,
+    segment && skew && skewReceipt ? { text: `${segment.ageBand} ${skew}`, receipt: skewReceipt, note: null } : null,
+    topCities && topReceipt ? { text: `top cities by lift: ${topCities}`, receipt: topReceipt, note: null } : null,
+    city && settingReceipt ? { text: `set in ${city.label}`, receipt: settingReceipt, note } : null,
   ].filter((fact): fact is FactView => fact !== null);
   return {
     segmentId: world.segmentId,
@@ -161,6 +166,7 @@ function worldRow(world: World, report: Report, ledger: Ledger, media: DemoMedia
     topCitiesReceipt: topReceipt,
     settingCity: city?.label ?? null,
     settingReceipt,
+    settingNote: note,
     clip,
     cues: cues.filter((c) => c.used && c.receipt !== null),
     theater: theaterView({
@@ -183,7 +189,7 @@ function controlRow(control: Control, ledger: Ledger, media: DemoMedia | null | 
   return {
     clip,
     theater: theaterView({
-      key: CONTROL_KEY,
+      key: CONTROL_SEGMENT,
       isControl: true,
       label: "Control",
       facts: [],
