@@ -10,9 +10,17 @@ import { SheetContent } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type { TheaterShotView, TheaterView } from "@/lib/report/view/screening";
 import { CueChip, CueChips } from "./screening/cue-chip";
+import { Fact } from "./screening/fact";
 import { carriedCues, ConceptPoster, shotLabel } from "./storyboard";
 
 const noSubscription = () => () => {};
+
+/** What the player shows, in words: the clip, frame 1 of the storyboard, or the title card. */
+function playerCaption(view: TheaterView): string {
+  if (view.clip) return "AI-generated, rendered from the approved Production Pack.";
+  if (view.storyboard.kind === "frames") return "Storyboard frame 1, the concept preview. The prompt below renders the clip.";
+  return "The concept preview: the hook line and the first shot. The prompt below renders the clip.";
+}
 
 /** Opening the theater stops whatever plays on the page: one clip at a time. */
 function pauseAll() {
@@ -68,9 +76,7 @@ function TheaterBody({ view }: { view: TheaterView }) {
             preview={<ConceptPoster view={view.storyboard} hookLine={view.hookLine} fallbackTitle={view.conceptTitle} />}
           />
         </div>
-        <p className="max-w-[17rem] text-xs text-paper-dim md:text-center">
-          {view.clip ? "AI-generated, rendered from the approved Production Pack." : "The concept preview: the hook line and the first shot. The prompt below renders the clip."}
-        </p>
+        <p className="max-w-[17rem] text-xs text-paper-dim md:text-center">{playerCaption(view)}</p>
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-col bg-surface">
@@ -78,9 +84,22 @@ function TheaterBody({ view }: { view: TheaterView }) {
           <div className="flex min-w-0 flex-col gap-1">
             <p className="type-kicker text-ink-soft">Why this ad</p>
             <DialogTitle className="font-display text-xl leading-tight font-extrabold tracking-tight text-ink [font-stretch:85%]">{view.label}</DialogTitle>
-            <DialogDescription className="text-sm text-ink-soft">
-              {view.isControl ? "Brief written by an LLM with no Qloo data. Same template, model and settings as the others." : (view.meta ?? "A concept world Qloo measured.")}
-            </DialogDescription>
+            {view.isControl || view.facts.length === 0 ? (
+              <DialogDescription className="text-sm text-ink-soft">
+                {view.isControl ? "Brief written by an LLM with no Qloo data. Same template, model and settings as the others." : "A concept world Qloo measured."}
+              </DialogDescription>
+            ) : (
+              // The same receipt-backed facts as the Screening Room row, each naming what it measures.
+              <DialogDescription asChild>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-soft">
+                  {view.facts.map((fact) => (
+                    <li key={fact.text}>
+                      <Fact text={fact.text} receipt={fact.receipt} surface="paper" />
+                    </li>
+                  ))}
+                </ul>
+              </DialogDescription>
+            )}
           </div>
           <DialogClose className="flex size-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-concrete-line text-ink hover:bg-fill" aria-label="Close">
             <X aria-hidden="true" className="size-4" />

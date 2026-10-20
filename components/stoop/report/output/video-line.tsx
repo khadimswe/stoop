@@ -17,11 +17,15 @@ import { cn } from "cn";
 // fal key on /byok, a spent budget says so plainly, and "off" points to the prompts. A missing video
 // never looks like a failure: the storyboard above is the preview.
 
-export const BUDGET_USED = "Render budget used. Here's the storyboard and the example clip.";
+/** At cap. It mentions the example clip only when one is approved for this world: the copy must be true. */
+export function budgetUsedLine(hasClip: boolean): string {
+  return hasClip ? "Render budget used. Here's the storyboard and the example clip." : "Render budget used. Here's the storyboard.";
+}
 const OFF_LINE = "Stoop is the brain, you bring your own camera. Copy the prompts below into your video tool.";
 
 function Elapsed({ since }: { since: number }) {
-  const [now, setNow] = useState(since);
+  // Starts at the true elapsed time, also for a draft resumed after a reload (shown only after mount).
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -45,7 +49,20 @@ function Line({ children, className }: { children: ReactNode; className?: string
   return <p className={cn("text-sm text-ink-soft", className)}>{children}</p>;
 }
 
-function AccessLine({ access, target, draft, start }: { access: RenderAccessResponse | null; target: RenderTarget; draft: DraftState; start: () => void }) {
+function AccessLine({
+  access,
+  target,
+  draft,
+  start,
+  hasClip,
+}: {
+  access: RenderAccessResponse | null;
+  target: RenderTarget;
+  draft: DraftState;
+  start: () => void;
+  /** An approved example clip for this world plays above. */
+  hasClip: boolean;
+}) {
   // A draft in progress, or its outcome, comes first.
   switch (draft.phase) {
     case "starting":
@@ -71,15 +88,14 @@ function AccessLine({ access, target, draft, start }: { access: RenderAccessResp
     case "budget-used":
       return (
         <div className="flex flex-col items-start gap-2">
-          <Line>{BUDGET_USED}</Line>
+          <Line>{budgetUsedLine(hasClip)}</Line>
           {access?.byok && <ByokLink target={target} />}
         </div>
       );
-    case "off":
-      return <Line>{OFF_LINE}</Line>;
     case "failed":
     case "error": {
-      const again = access?.video === "judge" && access.rendersLeft !== 0;
+      // Not while an earlier try at this exact draft may still be rendering (a 409 busy).
+      const again = access?.video === "judge" && access.rendersLeft !== 0 && (draft.phase === "failed" || draft.retry);
       return (
         <div className="flex flex-col items-start gap-2">
           <Line>{draft.phase === "failed" ? "This draft didn't finish. The storyboard and the prompts still work." : draft.message}</Line>
@@ -119,7 +135,7 @@ function AccessLine({ access, target, draft, start }: { access: RenderAccessResp
     case "budget-used":
       return (
         <div className="flex flex-col items-start gap-2">
-          <Line>{BUDGET_USED}</Line>
+          <Line>{budgetUsedLine(hasClip)}</Line>
           {access.byok && <ByokLink target={target} />}
         </div>
       );
@@ -156,7 +172,7 @@ export function VideoLine({ video, target, tone }: { video: VideoView; target: R
           )}
         </div>
       )}
-      <AccessLine access={access} target={target} draft={draft} start={start} />
+      <AccessLine access={access} target={target} draft={draft} start={start} hasClip={video.clip !== null} />
     </div>
   );
 }

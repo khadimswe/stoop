@@ -9,11 +9,12 @@ import {
   parseAccess,
   parseJob,
   pollDraft,
+  retryAfterMs,
   startDraft,
 } from "../../../hooks/use-render-access";
 import { EXAMPLES } from "../../demo/examples";
 import type { DemoClip, DemoMedia, DemoStoryboard } from "../../demo/manifest";
-import { FRAMES_PER_WORLD, frameScenes } from "../../prompts/frames";
+import { FRAMES_PER_WORLD } from "../../prompts/frames";
 import { getModel } from "../../prompts/models.config";
 import type { ProductionPack } from "../../prompts/pack";
 import { distinctiveStems } from "../../stages/concepts";
@@ -64,8 +65,10 @@ describe.each(EXAMPLES.map((e) => e.slug))("the Output section for %s", (slug) =
       if (output.storyboard.kind !== "shots") return;
       const { shots } = output.storyboard;
       expect(shots).toEqual(shotList(concept, briefs[i], uses[i]));
-      expect(shots.map((s) => s.scene)).toEqual(frameScenes(concept.scenes));
-      expect(shots.length).toBe(Math.min(FRAMES_PER_WORLD, concept.scenes.length));
+      // Every scene, numbered without gaps: only frames are capped (at FRAMES_PER_WORLD, for cost).
+      expect(shots.map((s) => s.scene)).toEqual(concept.scenes.map((_, i) => i));
+      expect(shots.map((s) => s.number)).toEqual(concept.scenes.map((_, i) => i + 1));
+      if (concept.scenes.length > FRAMES_PER_WORLD) expect(shots.length).toBeGreaterThan(FRAMES_PER_WORLD);
       expect(shots[0]).toMatchObject({ scene: 0, number: 1, beat: "hook", start: 0, action: concept.scenes[0].action, overlayText: concept.scenes[0].overlayText });
       expect(shots.at(-1)).toMatchObject({ beat: "payoff", end: 15 });
       for (const shot of shots) {
@@ -428,7 +431,13 @@ describe("a judge draft", () => {
     await expect(startDraft(TARGET, async () => json({ error: { code: "rate_limited", message: "Slow down" } }, 429))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => json({ error: { code: "off", message: "Off" } }, 503))).resolves.toEqual({ kind: "off" });
     await expect(startDraft(TARGET, async () => json({ error: { code: "off", message: "Needs a judge pass" } }, 403))).resolves.toEqual({ kind: "off" });
-    await expect(startDraft(TARGET, async () => json({ error: { code: "busy", message: "Try again in about two hours." } }, 409))).resolves.toEqual({ kind: "error", message: "Try again in about two hours." });
+    // An earlier try may still be rendering: say the server's words, and offer no retry.
+    await expect(startDraft(TARGET, async () => json({ error: { code: "busy", message: "Try again in about two hours." } }, 409))).resolves.toEqual({
+      kind: "error",
+      message: "Try again in about two hours.",
+      retry: false,
+    });
+    await expect(startDraft(TARGET, async () => json({ error: { code: "failed", message: "x" } }, 502))).resolves.toMatchObject({ kind: "error", retry: true });
     await expect(startDraft(TARGET, async () => json({ error: { code: "invalid", message: "No" } }, 400))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => Promise.reject(new TypeError("offline")))).resolves.toMatchObject({ kind: "error" });
     await expect(startDraft(TARGET, async () => json({ job: { id: "nope" } }))).resolves.toMatchObject({ kind: "error" });
@@ -453,6 +462,47 @@ describe("a judge draft", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4);
     expect(fetchImpl).toHaveBeenCalledWith(`/api/render/${JOB}`, expect.objectContaining({ cache: "no-store" }));
     expect(sleep).toHaveBeenCalledTimes(3);
+  });
+
+  it("backs off after failed checks, honors Retry-After, and resets once a check succeeds", async () => {
+    const answers = [
+      new Response("busy", { status: 502 }),
+      Promise.reject(new TypeError("offline")),
+      new Response("slow down", { status: 429, headers: { "retry-after": "30" } }),
+      json(job("rendering")),
+      json(job("done", { videoUrl: "https://blob.example/d.mp4" })),
+    ];
+    const waits: number[] = [];
+    const result = await pollDraft(JOB, {
+      fetchImpl: async () => answers.shift()!,
+      sleep: async (ms) => void waits.push(ms),
+      intervalMs: 1000,
+      maxIntervalMs: 60_000,
+      visible: async () => {},
+    });
+    expect(result).toMatchObject({ kind: "settled", job: { status: "done" } });
+    // 2 s, then 4 s (doubling per failure in a row), then the server's 30 s, then back to 1 s.
+    expect(waits).toEqual([2000, 4000, 30_000, 1000]);
+  });
+
+  it("reads Retry-After as seconds or as a date", () => {
+    expect(retryAfterMs("12")).toBe(12_000);
+    expect(retryAfterMs(new Date(Date.UTC(2026, 9, 19, 12, 0, 30)).toUTCString(), Date.UTC(2026, 9, 19, 12, 0, 0))).toBe(30_000);
+    expect(retryAfterMs("soon")).toBeNull();
+    expect(retryAfterMs(null)).toBeNull();
+  });
+
+  it("waits for the page to be visible before each check", async () => {
+    const order: string[] = [];
+    await pollDraft(JOB, {
+      fetchImpl: async () => {
+        order.push("fetch");
+        return json(job("done", { videoUrl: "https://blob.example/d.mp4" }));
+      },
+      sleep: async () => {},
+      visible: async () => void order.push("visible"),
+    });
+    expect(order).toEqual(["visible", "fetch"]);
   });
 
   it("stops on a failed job, on the timeout and on abort", async () => {

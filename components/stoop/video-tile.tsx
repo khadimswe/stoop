@@ -162,7 +162,7 @@ export function VideoTile({
             ref.current?.pause();
           }}
           aria-label={`Pause ${label}`}
-          className="absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper"
+          className="absolute bottom-2 left-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper after:absolute after:-inset-1 after:content-['']"
         >
           <Pause aria-hidden="true" className="size-4" />
         </button>
@@ -174,7 +174,7 @@ export function VideoTile({
           onClick={onToggleSound}
           aria-label={muted ? `Turn sound on for ${label}` : `Mute ${label}`}
           aria-pressed={!muted}
-          className="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper"
+          className="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-screen/85 text-paper after:absolute after:-inset-1 after:content-['']"
         >
           {muted ? <VolumeX aria-hidden="true" className="size-4" /> : <Volume2 aria-hidden="true" className="size-4" />}
         </button>

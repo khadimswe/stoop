@@ -1,12 +1,11 @@
 import { Maximize2 } from "lucide-react";
-import { ReceiptDrawer } from "@/components/stoop/receipt-drawer";
 import { Screen } from "@/components/stoop/screen";
 import { VideoTile } from "@/components/stoop/video-tile";
 import { Button } from "@/components/ui/button";
 import type { ScreeningView, ScreeningWorldView, TheaterView } from "@/lib/report/view/screening";
-import type { ReceiptView } from "@/lib/report/view/types";
 import { REPORT_SECTIONS, ReportSection } from "../report-section";
 import { CueChips } from "../screening/cue-chip";
+import { Fact } from "../screening/fact";
 import { ConceptPoster } from "../storyboard";
 import { Theater } from "../theater";
 
@@ -15,18 +14,6 @@ import { Theater } from "../theater";
 // cues its ad stands on. One clip plays at a time (VideoTile pauses the others). Until clips are
 // approved, each screen shows the concept preview, never a "clip coming" tile. "Open" shows the
 // theater: why this ad, shot by shot, and the prompt that made it.
-
-function Fact({ text, receipt }: { text: string; receipt: ReceiptView | null }) {
-  if (!receipt) return <span>{text}</span>;
-  return (
-    <ReceiptDrawer receipt={receipt}>
-      <button type="button" className="relative rounded-sm underline decoration-paper-dim decoration-1 underline-offset-4 after:absolute after:-inset-y-3 after:inset-x-0 after:content-[''] hover:text-paper hover:decoration-paper">
-        {text}
-        <span className="sr-only"> (open receipt)</span>
-      </button>
-    </ReceiptDrawer>
-  );
-}
 
 function Tile({ theater, label, tone, clip }: { theater: TheaterView | null; label: string; tone: "culture" | "control"; clip: ScreeningWorldView["clip"] }) {
   return (

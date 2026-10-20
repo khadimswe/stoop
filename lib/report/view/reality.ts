@@ -71,15 +71,18 @@ function sourceOf(line: GapLine): RealitySource | null {
  * strength, cities a rank by lift, taste a stated tag's place against the reference tag panel.
  * Only for a stated dimension (an unstated one has no margin).
  */
-export function marginText(d: Pick<DimensionCheck, "dimension" | "margin" | "position" | "outcome">): string | null {
+export function marginText(d: Pick<DimensionCheck, "dimension" | "margin" | "position" | "outcome" | "measured">): string | null {
   if (d.outcome === "not_stated") return null;
   if (d.dimension === "taste") return d.position ? `${d.position.tag} beats ${d.position.beats} of ${d.position.of} reference tags` : null;
   if (d.margin === null) return null;
   switch (d.dimension) {
     case "age":
       return `${d.margin.toFixed(2)} apart on the skew index`;
-    case "gender":
-      return `skews ${d.margin.toFixed(2)}`;
+    case "gender": {
+      // A strength, never signed; a balanced reading has none to show.
+      const strength = Math.abs(d.margin);
+      return /^balanced/.test(d.measured) || strength < 0.005 ? null : `strongest skew ${strength.toFixed(2)}`;
+    }
     case "cities":
       return `#${Math.round(d.margin)} by lift`;
   }
@@ -92,7 +95,9 @@ export function realityView(report: Report, ledger: Ledger): RealityView | null 
     outcome: gap.outcome,
     lines: gap.lines.map((line) => {
       const source = sourceOf(line);
-      return { kind: line.kind, text: line.text, source, receipt: source === "qloo" ? receiptView(ledger, line.evidenceIds, "Reality Check", line.text) : null };
+      const receipt = source === "qloo" ? receiptView(ledger, line.evidenceIds, "Reality Check", line.text) : null;
+      // The Qloo tag shows only when the line's evidence is in the ledger: no evidence, no Qloo label.
+      return { kind: line.kind, text: line.text, source: source === "qloo" && !receipt ? null : source, receipt };
     }),
     dimensions: gap.dimensions.map((d) => ({
       dimension: d.dimension,

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { BriefCueView, ShotView, StoryboardFrameView, StoryboardView } from "@/lib/report/view/output";
 import { cn } from "cn";
+import { ScrollRegion } from "./output/scroll-region";
 import { CueChips } from "./screening/cue-chip";
 
 // The concept preview, shared by "Your ad", Output, the Screening Room and the theater: storyboard
@@ -39,16 +40,16 @@ function ShotCard({ shot, cues }: { shot: ShotView; cues: readonly BriefCueView[
   );
 }
 
-/** The shot list as the concept preview: a sideways shelf on phones, four columns from lg up. */
+/** The shot list as the concept preview: a sideways shelf on phones, every shot in one row from lg up. */
 export function ShotList({ shots, cues, label }: { shots: ShotView[]; cues: readonly BriefCueView[]; label: string }) {
   return (
-    <div role="region" aria-label={label} tabIndex={0} className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5 lg:mx-0 lg:overflow-visible lg:px-0">
-      <ol className="flex snap-x gap-2 lg:grid lg:grid-cols-4">
+    <ScrollRegion label={label} className="-mx-4 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5 lg:mx-0 lg:overflow-visible lg:px-0">
+      <ol className="flex snap-x gap-2 lg:grid lg:auto-cols-fr lg:grid-flow-col">
         {shots.map((shot) => (
           <ShotCard key={shot.scene} shot={shot} cues={cues} />
         ))}
       </ol>
-    </div>
+    </ScrollRegion>
   );
 }
 

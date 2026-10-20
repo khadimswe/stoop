@@ -57,12 +57,24 @@ describe("the Reality Check view", () => {
   });
 
   it("words every margin by its dimension and never shows one for an unstated dimension", () => {
-    expect(marginText({ dimension: "age", margin: 0.295, position: null, outcome: "gap" })).toBe("0.29 apart on the skew index");
-    expect(marginText({ dimension: "gender", margin: 0.63, position: null, outcome: "confirmed" })).toBe("skews 0.63");
-    expect(marginText({ dimension: "cities", margin: 7, position: null, outcome: "near_tie" })).toBe("#7 by lift");
-    expect(marginText({ dimension: "taste", margin: null, position: { tag: "Soul - Funk", beats: 0, of: 19 }, outcome: "gap" })).toBe("Soul - Funk beats 0 of 19 reference tags");
-    expect(marginText({ dimension: "age", margin: 0.2, position: null, outcome: "not_stated" })).toBeNull();
-    expect(marginText({ dimension: "taste", margin: null, position: null, outcome: "unverifiable" })).toBeNull();
+    const d = { position: null, measured: "x" };
+    expect(marginText({ ...d, dimension: "age", margin: 0.295, outcome: "gap" })).toBe("0.29 apart on the skew index");
+    expect(marginText({ ...d, dimension: "gender", margin: 0.63, outcome: "confirmed", measured: "skews female (0.63)" })).toBe("strongest skew 0.63");
+    // Never negative, and none for a balanced reading.
+    expect(marginText({ ...d, dimension: "gender", margin: -0.15, outcome: "gap", measured: "skews male (0.15)" })).toBe("strongest skew 0.15");
+    expect(marginText({ ...d, dimension: "gender", margin: 0.02, outcome: "gap", measured: "balanced" })).toBeNull();
+    expect(marginText({ ...d, dimension: "cities", margin: 7, outcome: "near_tie" })).toBe("#7 by lift");
+    expect(marginText({ ...d, dimension: "taste", margin: null, position: { tag: "Soul - Funk", beats: 0, of: 19 }, outcome: "gap" })).toBe("Soul - Funk beats 0 of 19 reference tags");
+    expect(marginText({ ...d, dimension: "age", margin: 0.2, outcome: "not_stated" })).toBeNull();
+    expect(marginText({ ...d, dimension: "taste", margin: null, outcome: "unverifiable" })).toBeNull();
+  });
+
+  it("drops the Qloo tag from a line whose evidence is not in the ledger", () => {
+    const report = read("food-hot-sauce");
+    const gap = structuredClone(report.audience.gap!);
+    gap.lines = gap.lines.map((l) => (l.kind === "measured" ? { ...l, evidenceIds: ["ev_000000000000"] } : l));
+    const view = realityView({ ...report, audience: { ...report.audience, gap } }, ledgerOf(report))!;
+    expect(view.lines.find((l) => l.kind === "measured")).toMatchObject({ source: null, receipt: null });
   });
 
   it("is null before the gap stage", () => {

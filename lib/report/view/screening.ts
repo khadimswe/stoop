@@ -36,13 +36,19 @@ export interface TheaterShotView {
   carries: BriefSlot[];
 }
 
+/** One measured fact about a world, with the receipt behind it ("55 and older skews +0.21"). */
+export interface FactView {
+  text: string;
+  receipt: ReceiptView;
+}
+
 /** "Why this ad": what the theater shows next to the player. */
 export interface TheaterView {
   key: string;
   isControl: boolean;
   label: string;
-  /** "skews +0.21 · set in Slidell, LA"; the Control has none. */
-  meta: string | null;
+  /** The world's skew (naming its band), top cities and setting city, each with its receipt; none for the Control. */
+  facts: FactView[];
   conceptTitle: string | null;
   hookLine: string | null;
   clip: ClipView | null;
@@ -103,7 +109,7 @@ function theaterView(args: {
   key: string;
   isControl: boolean;
   label: string;
-  meta: string | null;
+  facts: FactView[];
   parts: CurrentParts;
   brief: BriefSlots | null;
   clip: ClipView | null;
@@ -130,30 +136,38 @@ function worldRow(world: World, report: Report, ledger: Ledger, media: DemoMedia
   const clip = approvedClip(media, world.segmentId, world.label);
   const parts = currentWorld(world);
   const cues = worldCues(world, ledger);
-  const meta = [skew, city && `set in ${city.label}`].filter(Boolean).join(" · ") || null;
   // A city flagged as swinging between reference sets is left out, as everywhere else.
   const top = (segment?.cities ?? []).filter((c) => c.flags.length === 0).slice(0, TOP_CITIES);
   const topReceipt =
     top.length > 0
       ? receiptView(ledger, [...new Set(top.flatMap((c) => c.evidenceIds))], "Top cities", `${segment!.ageBand}: ${top.map((c) => `${c.label} #${c.rank}`).join(", ")} by lift, ranked against ${top[0].comparedWith} reference audiences`)
       : null;
+  const topCities = topReceipt ? listWords(top.map((c) => c.label)) : null;
+  const skewReceipt = segment ? receiptView(ledger, segment.evidenceIds, "Age skew", `${segment.ageBand}, ${skew}`) : null;
+  const settingReceipt = city ? receiptView(ledger, city.evidenceIds, "Setting city", `${city.label}, #${city.audienceRank} of the taste neighborhood's cities by lift`) : null;
+  // No evidence, no display: a fact shows only with its receipt.
+  const facts: FactView[] = [
+    segment && skew && skewReceipt ? { text: `${segment.ageBand} ${skew}`, receipt: skewReceipt } : null,
+    topCities && topReceipt ? { text: `top cities by lift: ${topCities}`, receipt: topReceipt } : null,
+    city && settingReceipt ? { text: `set in ${city.label}`, receipt: settingReceipt } : null,
+  ].filter((fact): fact is FactView => fact !== null);
   return {
     segmentId: world.segmentId,
     label: world.label,
     ageBand: segment?.ageBand ?? null,
     skewText: skew,
-    skewReceipt: segment ? receiptView(ledger, segment.evidenceIds, "Age skew", `${segment.ageBand}, ${skew}`) : null,
-    topCities: topReceipt ? listWords(top.map((c) => c.label)) : null,
+    skewReceipt,
+    topCities,
     topCitiesReceipt: topReceipt,
     settingCity: city?.label ?? null,
-    settingReceipt: city ? receiptView(ledger, city.evidenceIds, "Setting city", `${city.label}, #${city.audienceRank} of this audience's cities by lift`) : null,
+    settingReceipt,
     clip,
     cues: cues.filter((c) => c.used && c.receipt !== null),
     theater: theaterView({
       key: world.segmentId,
       isControl: false,
       label: world.label,
-      meta,
+      facts,
       parts,
       brief: worldBrief(world, parts).brief,
       clip,
@@ -172,7 +186,7 @@ function controlRow(control: Control, ledger: Ledger, media: DemoMedia | null | 
       key: CONTROL_KEY,
       isControl: true,
       label: "Control",
-      meta: null,
+      facts: [],
       parts,
       brief: control.brief,
       clip,

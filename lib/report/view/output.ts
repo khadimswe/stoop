@@ -6,7 +6,6 @@
 import type { RenderTarget } from "../../api/requests";
 import { CONTROL_KEY, type DemoClip, type DemoMedia } from "../../demo/manifest";
 import type { BriefSlot, BriefSlots, Concept, Scene } from "../../prompts/brief";
-import { frameScenes } from "../../prompts/frames";
 import { timecodes } from "../../prompts/lines";
 import { CAMERA_PRESETS, getModel, type ModelId } from "../../prompts/models.config";
 import { STRONG_SHARE } from "../../data-check/score";
@@ -385,12 +384,14 @@ export function shotCarries(concept: Concept, brief: BriefSlots | null, verified
   });
 }
 
-/** The kept concept's shot list: the scenes a storyboard draws (frameScenes, up to 4), in order. */
+/**
+ * The kept concept's shot list: every scene, numbered 1 to n. Only frames are capped (FRAMES_PER_WORLD,
+ * for render cost); the text preview leaves no shot out.
+ */
 export function shotList(concept: Concept, brief: BriefSlots | null = null, verifiedUses: readonly string[] = []): ShotView[] {
   const times = timecodes(concept);
   const carries = shotCarries(concept, brief, verifiedUses);
-  return frameScenes(concept.scenes).map((index) => {
-    const scene = concept.scenes[index];
+  return concept.scenes.map((scene, index) => {
     return {
       scene: index,
       number: index + 1,

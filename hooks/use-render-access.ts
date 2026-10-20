@@ -95,9 +95,10 @@ export type StartResult =
   | { kind: "job"; job: RenderStatus }
   /** The pass, the IP or the day's server budget is spent. */
   | { kind: "budget-used" }
-  /** Server renders are switched off. */
+  /** No server draft for this visitor (an expired pass, or drafts switched off): the access line decides again. */
   | { kind: "off" }
-  | { kind: "error"; message: string };
+  /** `retry`: whether trying again now could help (not while an earlier try may still be rendering). */
+  | { kind: "error"; message: string; retry: boolean };
 
 const START_FAILED = "The draft didn't start. Try again in a minute.";
 
@@ -111,21 +112,49 @@ export async function startDraft(target: RenderTarget, fetchImpl: Fetch = browse
       body: JSON.stringify({ target }),
     });
   } catch {
-    return { kind: "error", message: START_FAILED };
+    return { kind: "error", message: START_FAILED, retry: true };
   }
   const body: unknown = await res.json().catch(() => null);
   if (res.ok) {
     const job = parseJob(body);
-    return job ? { kind: "job", job } : { kind: "error", message: START_FAILED };
+    return job ? { kind: "job", job } : { kind: "error", message: START_FAILED, retry: true };
   }
   const error = isRecord(body) && isRecord(body.error) ? body.error : null;
   // A spent counter (pass, network, day or total) is the budget; a burst of requests is not.
   if (error?.code === "daily_cap") return { kind: "budget-used" };
   if (error?.code === "off") return { kind: "off" };
-  if (error?.code === "rate_limited") return { kind: "error", message: "Too many tries just now. Try again in a minute." };
-  // "busy": an earlier try at this exact draft may still be rendering; the server says when to retry.
-  if (error?.code === "busy" && typeof error.message === "string" && error.message.length <= 300) return { kind: "error", message: error.message };
-  return { kind: "error", message: START_FAILED };
+  if (error?.code === "rate_limited") return { kind: "error", message: "Too many tries just now. Try again in a minute.", retry: true };
+  // "busy": an earlier try at this exact draft may still be rendering, so trying again now cannot help.
+  if (error?.code === "busy") {
+    const message = typeof error.message === "string" && error.message.length <= 300 ? error.message : "An earlier try at this draft may still be rendering. Try again later.";
+    return { kind: "error", message, retry: false };
+  }
+  return { kind: "error", message: START_FAILED, retry: true };
+}
+
+/** Retry-After in milliseconds (seconds, or an HTTP date), or null. */
+export function retryAfterMs(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
+/** Resolves when the page is visible again (at once when it is, or outside a browser), or on abort. */
+function whenVisible(signal?: AbortSignal): Promise<void> {
+  if (typeof document === "undefined" || !document.hidden) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const done = () => {
+      document.removeEventListener("visibilitychange", onChange);
+      resolve();
+    };
+    const onChange = () => {
+      if (!document.hidden) done();
+    };
+    document.addEventListener("visibilitychange", onChange);
+    signal?.addEventListener("abort", done, { once: true });
+  });
 }
 
 export type PollResult =
@@ -138,13 +167,17 @@ export type PollResult =
 export interface PollOptions {
   fetchImpl?: Fetch;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
-  /** Between checks. */
+  /** Between checks while they succeed. */
   intervalMs?: number;
+  /** The longest wait after failed checks (the wait doubles per failure in a row). */
+  maxIntervalMs?: number;
   /** Stop checking after this long; the job keeps going on the server. */
   timeoutMs?: number;
   now?: () => number;
   signal?: AbortSignal;
   onUpdate?: (job: RenderStatus) => void;
+  /** Resolves when checking may go on: the page is visible again. Defaults to the document's visibility. */
+  visible?: (signal?: AbortSignal) => Promise<void>;
 }
 
 /** Resolves after `ms`, or at once when the signal aborts. */
@@ -162,28 +195,50 @@ const wait = (ms: number, signal?: AbortSignal) =>
   });
 
 /**
- * Checks a draft until it is done or failed. A failed check (network, a 5xx, a malformed answer) is
- * retried on the next tick; a 404 (the server does not know the job) ends it, and so do the timeout
- * and the signal.
+ * Checks a draft until it is done or failed, pausing while the page is hidden. A failed check
+ * (network, a 5xx, a 429, a malformed answer) is retried after a wait that doubles per failure in a
+ * row, up to maxIntervalMs, or after the server's Retry-After when it sends one. A 404 (the server
+ * does not know the job) ends it, and so do the timeout and the signal.
  */
 export async function pollDraft(jobId: string, options: PollOptions = {}): Promise<PollResult> {
-  const { fetchImpl = browserFetch, sleep = wait, intervalMs = 5_000, timeoutMs = 10 * 60_000, now = Date.now, signal, onUpdate } = options;
+  const {
+    fetchImpl = browserFetch,
+    sleep = wait,
+    intervalMs = 5_000,
+    maxIntervalMs = 60_000,
+    timeoutMs = 10 * 60_000,
+    now = Date.now,
+    signal,
+    onUpdate,
+    visible = whenVisible,
+  } = options;
   if (!JOB_ID.test(jobId)) return { kind: "missing" };
   const deadline = now() + timeoutMs;
+  let failures = 0;
   while (now() < deadline) {
+    await visible(signal);
     if (signal?.aborted) return { kind: "aborted" };
+    let delay = intervalMs;
     try {
       const res = await fetchImpl(`/api/render/${jobId}`, { cache: "no-store", headers: { accept: "application/json" }, signal });
       if (res.status === 404) return { kind: "missing" };
       const job = res.ok ? parseJob(await res.json()) : null;
       if (job) {
+        failures = 0;
         onUpdate?.(job);
         if (job.status === "done" || job.status === "failed") return { kind: "settled", job };
+      } else {
+        failures += 1;
+        delay = Math.min(maxIntervalMs, intervalMs * 2 ** failures);
+        const asked = res.status === 429 || res.status === 503 ? retryAfterMs(res.headers.get("retry-after"), now()) : null;
+        if (asked !== null) delay = Math.min(maxIntervalMs, Math.max(intervalMs, asked));
       }
     } catch {
       if (signal?.aborted) return { kind: "aborted" };
+      failures += 1;
+      delay = Math.min(maxIntervalMs, intervalMs * 2 ** failures);
     }
-    await sleep(intervalMs, signal);
+    await sleep(delay, signal);
   }
   return { kind: "timeout" };
 }
@@ -266,9 +321,9 @@ export type DraftState =
   | { phase: "done"; videoUrl: string; cached: boolean }
   | { phase: "failed" }
   | { phase: "budget-used" }
-  | { phase: "off" }
   | { phase: "timeout" }
-  | { phase: "error"; message: string };
+  /** `retry`: whether "Try the draft again" can help (not while an earlier try may still be rendering). */
+  | { phase: "error"; message: string; retry: boolean };
 
 /** This tab's note of a world's draft job, so a reload picks it up again. Storage may be unavailable. */
 const draftKey = (reportId: string, segment: string) => `stoop:draft:${reportId}:${segment}`;
@@ -365,9 +420,14 @@ export function useDraftRender(target: RenderTarget, onSettled: () => void): { s
         } else void follow(job.id, null);
         return;
       }
-      if (result.kind === "error") setState({ phase: "error", message: result.message });
-      else {
-        setState({ phase: result.kind });
+      if (result.kind === "error") setState({ phase: "error", message: result.message, retry: result.retry });
+      else if (result.kind === "off") {
+        // No server draft for this visitor after all (an expired pass): the refreshed access line decides,
+        // which offers BYOK when it is on.
+        setState({ phase: "idle" });
+        onSettled();
+      } else {
+        setState({ phase: "budget-used" });
         onSettled();
       }
     });
