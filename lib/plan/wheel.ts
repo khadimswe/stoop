@@ -12,6 +12,7 @@ import { evidenceFor, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
 import type { Plan, PlanInputs, Wheel, WheelSlice } from "./schema";
 import { normalizeName } from "../qloo/match";
+import { outOfScope } from "./taste";
 
 export const GIFT_CARD_MIN_USD = 5;
 export const GIFT_CARD_MAX_USD = 10;
@@ -82,6 +83,8 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     const amount = Math.round(card.amountUsd);
     const cards = Math.max(1, Math.min(10, Math.round(card.cards || 1)));
     if (place.chain && [...aliases.places.values()].some((p) => !p.chain && p.kind === "food")) issues.push(`${at}: the block has local independents; a gift card to one of them beats a chain.`);
+    const odd = outOfScope(place, inputs.date);
+    if (odd) return issues.push(`${at}: ${place.name} is ${odd}; pick another place.`);
     const evidenceIds = evidenceFor(aliases, [id], []);
     slices.push({ label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds });
     purchases.push({ item: `Gift cards for the wheel's ${place.name} slice`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });

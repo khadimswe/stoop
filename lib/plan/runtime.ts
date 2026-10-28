@@ -26,6 +26,7 @@ import { createPlanEmitter, planEventSchema, type PlanEvent, type PlanEventInput
 import { examplePlanId, LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES, type PlanExampleSlug } from "./example-list";
 import { guardFor, runPlan } from "./pipeline";
 import { textIssues } from "./guard";
+import { kmBetween, stateOf } from "./locality";
 import { inputsSchema, type PlanInputs } from "./schema";
 import { appendPlanEvents, getPlanMeta, setPlanMeta, type PlanMeta } from "./store";
 
@@ -59,10 +60,20 @@ export type PlanStartResponse =
   | { mode: "live"; id: string; eventsUrl: string; planUrl: string; joined: boolean }
   | { mode: "example"; slug: PlanExampleSlug; id: string; planUrl: string; reason: PlanReplayReason; message: string };
 
-/** The example closest to what was asked for: the same city when there is one, else the lead. */
+/**
+ * The example closest to what was asked for: the same city, else the same state (a Georgia store gets
+ * Atlanta), else the nearest example store by distance, else the lead.
+ */
 export function exampleFor(inputs: PlanInputs | null): PlanExampleSlug {
-  const city = inputs?.store.city.trim().toLowerCase();
-  return PLAN_EXAMPLES.find((e) => city && PLAN_EXAMPLE_INPUTS[e.slug].store.city.toLowerCase() === city)?.slug ?? LEAD_PLAN_EXAMPLE.slug;
+  if (!inputs) return LEAD_PLAN_EXAMPLE.slug;
+  const city = inputs.store.city.trim().toLowerCase();
+  const sameCity = PLAN_EXAMPLES.find((e) => PLAN_EXAMPLE_INPUTS[e.slug].store.city.toLowerCase() === city);
+  if (sameCity) return sameCity.slug;
+  const state = stateOf(inputs.store.region)?.abbr;
+  const sameState = state ? PLAN_EXAMPLES.find((e) => stateOf(PLAN_EXAMPLE_INPUTS[e.slug].store.region)?.abbr === state) : undefined;
+  if (sameState) return sameState.slug;
+  const nearest = [...PLAN_EXAMPLES].sort((a, b) => kmBetween(inputs.store.point, PLAN_EXAMPLE_INPUTS[a.slug].store.point) - kmBetween(inputs.store.point, PLAN_EXAMPLE_INPUTS[b.slug].store.point))[0];
+  return nearest?.slug ?? LEAD_PLAN_EXAMPLE.slug;
 }
 
 export function exampleReply(reason: PlanReplayReason, inputs: PlanInputs | null = null): PlanStartResponse {

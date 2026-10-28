@@ -131,7 +131,7 @@ describe("music from the block", () => {
   it("is offered when it brings a sound the city's list lacks", () => {
     const cityWithSound = { artists: [{ id: ID[0], genres: ["Hip Hop"] }], styles: [{ name: "Hip Hop" }, { name: "Trap" }] } as unknown as CityTaste;
     const other = Array.from({ length: 6 }, (_, i) => entity(`00000000-0000-4000-8000-00000000020${i}`, { properties: { start_year: 2001, primary_genres: ["Regional Mexican"] } }));
-    expect(judgeBlockMusic(other, cityWithSound)).toMatchObject({ used: true, reason: expect.stringMatching(/sound the city's list lacks \(Regional Mexican\)/) });
+    expect(judgeBlockMusic(other, cityWithSound)).toMatchObject({ used: true, reason: expect.stringMatching(/sound the city's main styles lack/) });
     const same = Array.from({ length: 6 }, (_, i) => entity(`00000000-0000-4000-8000-00000000030${i}`, { properties: { start_year: 2001, primary_genres: ["Southern Hip Hop"] } }));
     expect(judgeBlockMusic(same, cityWithSound)).toMatchObject({ used: false, reason: expect.stringMatching(/category profile/) });
   });

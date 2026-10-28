@@ -15,6 +15,7 @@ import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC
 import { clicheIn } from "./baseline";
 import { dayContext } from "./calendar";
 import { titleGenre } from "./words";
+import { outOfScope } from "./taste";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
 export const CONCEPT_COUNT = 3;
@@ -136,6 +137,10 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
       const cliche = clicheIn(text);
       if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the block instead.`);
+      if (["food", "giveaway", "partner", "venue"].includes(item.kind)) {
+        const odd = refs.map((id) => aliases.places.get(id)).find((p) => p && guard.date && outOfScope(p, guard.date));
+        if (odd && guard.date) problems.push(`[[${aliases.keys.get(odd.id)}]] is ${outOfScope(odd, guard.date)}; use another place.`);
+      }
       if (item.kind === "partner") {
         const chain = refs.map((id) => aliases.places.get(id)).find((p) => p?.chain);
         if (chain) problems.push(`a national chain is not a co-promo partner; use it for a gift card or a snack run (kind giveaway or food), or partner with a local independent.`);
@@ -229,7 +234,7 @@ export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases,
   const items: PlanItem[] = [{ kind: "theme", text: "A free spin, something to eat and the store's own deals, right outside the door.", origin: "creative", refs: [], evidenceIds: [] }];
   const music = defaultMusicLine(local, aliases);
   if (music) items.push(music);
-  const spot = (local.block?.places ?? []).filter((p) => p.kind === "food" && !p.chain).sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9))[0];
+  const spot = (local.block?.places ?? []).filter((p) => p.kind === "food" && !p.chain && !outOfScope(p, inputs.date)).sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9))[0];
   if (spot) {
     const at = spot.distanceM !== null ? `, ${spot.distanceM} m away` : "";
     items.push({ kind: "food", text: `Snacks from [[${spot.id}]]${at}, handed out at the table.`, origin: "interpreted", refs: [spot.id], evidenceIds: evidenceFor(aliases, [spot.id], []) });
