@@ -146,10 +146,10 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
 
   const lat = decimal(values.lat);
   const lon = decimal(values.lon);
-  if (!values.lat.trim() && !values.lon.trim()) errors.point = "Add the store's location: tap Use my location at the store, or type its latitude and longitude.";
+  if (!values.lat.trim() && !values.lon.trim()) errors.point = "Tap Use my location, or type the coordinates.";
   else {
-    if (lat === null || lat < -90 || lat > 90) errors.lat = "Latitude is a number from -90 to 90, like 41.85760.";
-    if (lon === null || lon < -180 || lon > 180) errors.lon = "Longitude is a number from -180 to 180, like -87.65660.";
+    if (lat === null || lat < -90 || lat > 90) errors.lat = "Latitude runs from -90 to 90.";
+    if (lon === null || lon < -180 || lon > 180) errors.lon = "Longitude runs from -180 to 180.";
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date) || Number.isNaN(Date.parse(`${values.date}T12:00:00Z`))) errors.date = "Pick the event day.";

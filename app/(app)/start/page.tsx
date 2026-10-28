@@ -12,18 +12,13 @@ export const metadata: Metadata = {
 export default function StartPage() {
   return (
     <main className="mx-auto flex w-full max-w-[42.5rem] flex-1 flex-col gap-6 px-4 pt-8 pb-20 sm:px-5 sm:pt-10">
-      <div className="flex flex-col gap-2">
-        <p className="type-kicker text-ink-soft">Plan an event</p>
-        <h1 className="font-display text-[1.75rem] leading-tight font-extrabold tracking-tight text-balance [font-stretch:85%] sm:text-[2rem]">
-          Give your block a reason to stop
-        </h1>
-        <p className="text-[0.9375rem] leading-relaxed text-pretty text-ink-soft">
-          Stoop asks Qloo what your city listens to and which food spots, venues and parks sit around the store, then writes the plan, the poster and the
-          posts. Want to look first?{" "}
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-display text-[1.75rem] leading-tight font-extrabold tracking-tight [font-stretch:85%] sm:text-[2rem]">Plan an event</h1>
+        <p className="text-sm text-ink-soft">
+          Your store, the day, your promos.{" "}
           <Link href="/#examples" className="font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick">
-            See an example store
+            See an example
           </Link>
-          .
         </p>
       </div>
       <StoreForm />
