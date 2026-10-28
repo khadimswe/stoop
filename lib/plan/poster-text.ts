@@ -3,8 +3,10 @@
 // any "[[id]]" ref rendered from this run's Qloo results; the date and time come from the inputs; the
 // store name and address are the store's own, and an event away from the store (a fair, a venue) puts
 // its place first and still names the store; offers are the manager's words, verbatim (carrier promos
-// included, never with terms or fine print the manager did not type). Example stores are fictional and
-// say so. No carrier logo is ever drawn: a real store adds its official assets itself.
+// included, never with terms or fine print the manager did not type), each under a short label that is
+// the wheel slice's own label or the offer's first words; the store's public phone when it gave one
+// (never its internal store number). Example stores are fictional and say so. No carrier logo is ever
+// drawn: a real store adds its official assets itself. Artists are never named on a poster.
 // A plain module (no server imports), so the UI can show the same lines as text.
 import { PLAN_EXAMPLES, planExampleSlug } from "./example-list";
 import { renderRefs } from "./refs";
@@ -19,12 +21,20 @@ export interface PosterText {
   time: string;
   store: string;
   address: string;
+  /** The store's public phone, when it gave one. The internal store number never prints. */
+  phone: string | null;
   /** Where the event is when it is not at the store (inputs.location), else null. */
   location: string | null;
   /** The manager's offers, verbatim, in the order typed. */
   offers: string[];
+  /** One card per offer: a short label (the wheel slice's, else the offer's first words) over the offer verbatim. */
+  deals: Deal[];
   /** When the plan has a prize wheel: one line saying so (never what a slice pays out). */
   wheel: string | null;
+  /** What the wheel carries, for the poster's badge ("Store deals and free gift cards"), or null. */
+  wheelWhat: string | null;
+  /** The carrier, for the poster's palette only (colors, never a logo). */
+  carrier: Store["carrier"];
   /** Example stores only: they are fictional and not affiliated with the carrier. */
   disclaimer: string | null;
 }
@@ -34,12 +44,47 @@ export interface PosterText {
  * gift cards when it carries gift-card slices. Spinning is always free and needs no purchase.
  */
 export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
+  const what = wheelWhat(plan);
+  return what ? `Spin the prize wheel: ${what}. Free to spin, no purchase needed.` : null;
+}
+
+/** What the wheel carries, in lower case, or null without a wheel. */
+export function wheelWhat(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
   const slices = plan?.wheel?.slices;
   if (!slices?.length) return null;
   const deals = slices.some((s) => s.kind === "promo");
   const cards = slices.some((s) => s.kind === "gift_card");
-  const what = deals && cards ? "store deals and free gift cards" : deals ? "store deals" : cards ? "free gift cards" : "small treats from the table";
-  return `Spin the prize wheel: ${what}. Free to spin, no purchase needed.`;
+  return deals && cards ? "store deals and free gift cards" : deals ? "store deals" : cards ? "free gift cards" : "small treats from the table";
+}
+
+export interface Deal {
+  /** Short, made only of the offer's own words. */
+  label: string;
+  /** The offer, verbatim. */
+  text: string;
+}
+
+const LABEL_MAX = 22;
+const TRAILING = /^(?:a|an|and|any|at|for|if|in|of|on|or|the|to|when|with|your|you)$/i;
+
+/**
+ * An offer's card label: the wheel slice's own label when a promo slice quotes this offer, else the
+ * offer's first words (up to 4, about 22 characters), never ending on a small joining word. Either way
+ * the label is the manager's words; the full offer always prints under it.
+ */
+export function dealLabel(offer: string, slices: readonly { kind: string; label: string; text: string }[] = []): string {
+  const slice = slices.find((s) => s.kind === "promo" && s.text.trim() === offer.trim());
+  if (slice?.label.trim()) return slice.label.trim();
+  const words = offer.trim().split(/\s+/);
+  const picked: string[] = [];
+  for (const word of words) {
+    const next = [...picked, word].join(" ");
+    if (picked.length === 4 || (picked.length > 0 && next.length > LABEL_MAX)) break;
+    picked.push(word);
+  }
+  const clean = picked.map((w) => w.replace(/[,;:.!(]+$/, ""));
+  while (clean.length > 1 && TRAILING.test(clean[clean.length - 1]!)) clean.pop();
+  return clean.join(" ").slice(0, 40) || offer.slice(0, LABEL_MAX);
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -86,6 +131,14 @@ export function fictionalExample(meta: Pick<PlanReport["meta"], "kind" | "id">):
   return !(entry && "real" in entry && entry.real === true);
 }
 
+/** Plan text with its refs rendered for a poster: places by name, artists as "local music" (a poster never names a person). */
+export function posterRefs(text: string, report: Pick<PlanReport, "local">): string {
+  const names = new Map<string, string>();
+  for (const place of report.local.block?.places ?? []) names.set(place.id, place.name);
+  for (const artist of report.local.city?.artists ?? []) names.set(artist.id, "local music");
+  return renderRefs(text, names);
+}
+
 /** The names of every artist and place this run measured, by id, for rendering refs. */
 export function refNames(report: Pick<PlanReport, "local">): Map<string, string> {
   const names = new Map<string, string>();
@@ -124,15 +177,22 @@ const tidy = (text: string) => text.replace(/\s+/g, " ").trim();
 export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" | "meta">): PosterText {
   const { inputs } = report;
   const concept = keptConcept(report);
+  const offers = inputs.offers.map((o) => o.text);
+  const slices = report.plan?.wheel?.slices ?? [];
+  const what = wheelWhat(report.plan);
   return {
-    title: concept ? tidy(renderRefs(concept.title, refNames(report))) : `Come by ${inputs.store.name}`,
+    title: concept ? tidy(posterRefs(concept.title, report)) : `Come by ${inputs.store.name}`,
     date: eventDate(inputs.date),
     time: eventTime(inputs.startTime, inputs.durationMinutes),
     store: inputs.store.name,
     address: inputs.store.address,
+    phone: inputs.store.phone?.trim() || null,
     location: inputs.location?.name.trim() || null,
-    offers: inputs.offers.map((o) => o.text),
+    offers,
+    deals: offers.map((text) => ({ label: dealLabel(text, slices), text })),
     wheel: wheelLine(report.plan),
+    wheelWhat: what ? what.charAt(0).toUpperCase() + what.slice(1) : null,
+    carrier: inputs.store.carrier,
     disclaimer: fictionalExample(report.meta) ? CARRIER_NOTES[inputs.store.carrier] : null,
   };
 }
@@ -140,6 +200,6 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
 /** The poster's alt text: what it says, in one line. */
 export function posterAlt(text: PosterText): string {
   const offers = text.offers.length ? ` Offers: ${text.offers.join("; ")}.` : "";
-  const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
+  const where = `${text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`}${text.phone ? `, ${text.phone}` : ""}`;
   return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}${text.wheel ? ` ${text.wheel}` : ""}`;
 }

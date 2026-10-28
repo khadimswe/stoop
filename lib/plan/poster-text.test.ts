@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventDate, eventTime, keptConcept, posterAlt, posterText, wheelLine } from "./poster-text";
+import { dealLabel, eventDate, eventTime, keptConcept, posterAlt, posterText, wheelLine } from "./poster-text";
 import { samplePlanReport } from "./posts-fixture";
 import type { PlanReport } from "./schema";
 
@@ -72,6 +72,43 @@ describe("an event away from the store", () => {
     expect(text.store).toBe("Corner Wireless on Fifth");
     expect(posterAlt(text)).toContain("at Testville Fall Fair, hosted by Corner Wireless on Fifth");
     expect(posterText(report).location).toBeNull();
+  });
+});
+
+describe("deal cards, the phone and the carrier", () => {
+  it("labels a deal with its wheel slice's label, else the offer's first words, and keeps the offer verbatim under it", () => {
+    expect(dealLabel("$25/mo unlimited when you switch, taxes and fees included")).toBe("$25/mo unlimited");
+    expect(dealLabel("Free 5G phone when you port in your number (select models)")).toBe("Free 5G phone");
+    expect(dealLabel("2 lines for $50/mo with autopay")).toBe("2 lines for $50/mo");
+    expect(dealLabel("Bring your own phone, first month free")).toBe("Bring your own phone");
+    const slices = [{ kind: "promo", label: "Free 5G phone", text: "Free 5G phone when you port in your number (select models)" }];
+    expect(dealLabel("Free 5G phone when you port in your number (select models)", slices)).toBe("Free 5G phone");
+    // Every label is made of the offer's own words.
+    for (const offer of ["$25/mo unlimited when you switch", "Trade in any working phone, get $100 off a new one", "Ask about Lifeline"]) {
+      const words = new Set(offer.toLowerCase().split(/\s+/).map((w) => w.replace(/[,;:.!(]+$/, "")));
+      for (const w of dealLabel(offer).toLowerCase().split(/\s+/)) expect(words.has(w), `${w} in ${offer}`).toBe(true);
+    }
+    const report = samplePlanReport();
+    const text = posterText(report);
+    expect(text.deals.map((d) => d.text)).toEqual(report.inputs.offers.map((o) => o.text));
+  });
+
+  it("prints the store's public phone and never its internal store number", () => {
+    const report = samplePlanReport();
+    const store = { ...report.inputs.store, phone: "(312) 555-0142", storeNumber: "MP-4471" };
+    const text = posterText({ ...report, inputs: { ...report.inputs, store } });
+    expect(text.phone).toBe("(312) 555-0142");
+    expect(JSON.stringify(text)).not.toContain("MP-4471");
+    expect(posterAlt(text)).toContain("(312) 555-0142");
+    expect(posterText(report).phone).toBeNull();
+  });
+
+  it("carries the carrier for the palette, and never names an artist in the title", () => {
+    const report = samplePlanReport();
+    expect(posterText(report).carrier).toBe("metro");
+    const plan = report.plan!;
+    const withArtist: PlanReport = { ...report, plan: { ...plan, concepts: plan.concepts.map((c) => (c.kept ? { ...c, title: "[[artist-a]] Night at [[place-taqueria]]" } : c)) } };
+    expect(posterText(withArtist).title).toBe("local music Night at Taqueria Fixture Grande");
   });
 });
 

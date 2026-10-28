@@ -31,6 +31,9 @@ regex:^fixtures/recipes/(?!(smoke|probe-search|pool-resolve|pool-refresh-2)\.jso
 data/runs/
 # The stored example store plans: the same, for store events.
 data/plans/
+# The proof lab: plans for real store locations, the Qloo and Claude answers behind them, and the
+# store points (real locations, never published; write-ups name areas only).
+data/proof/
 # The frozen reference panels: Qloo entity and tag ids, names and popularity.
 data/culture/
 # Reference audiences for city ranking: per-cell sums of Qloo heatmap percentiles.
@@ -131,6 +134,7 @@ blob:12e80a019c35c2234c26fc970fc7cee610d0b4a7 lib/stages/culture.ts
 blob:38e39245093fde3501e49d89a9fe1bf0267b6dc0 lib/stages/culture.ts
 blob:d80e066cb0f4c4cc019e022aeb8cc97a397a6112 lib/stages/culture.ts
 blob:3e36a52f6ade873e6751d5aa84ea460958b7bfd2 lib/stages/revise.test.ts
+blob:5e989fece4569913bc9fe06428c795f8b6b06d46 scripts/proof-measure.ts
 # Store events: early versions of the plan tests held recorded Qloo ids and names (now made up).
 blob:086f71de29220b9fa4ffa8f8a1a95cc588ee70ae lib/plan/baseline.test.ts
 blob:9daaa74c83d559be67dab132f75005c1d5c4f65d lib/plan/guard.test.ts
