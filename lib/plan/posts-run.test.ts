@@ -151,6 +151,22 @@ describe("runMarketing", () => {
     expect(r.poster.reason).toMatch(/plain background/);
   });
 
+  it("finishes with the template and the plain background when the writer or the art throws", async () => {
+    const source = await seedRun(samplePlanReport());
+    const broken = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw new Error("invalid x-api-key");
+      },
+    });
+    const throwing: PosterRenderer = { render: async () => Promise.reject(new Error("store down")) };
+    await runMarketing({ store, source, model: broken, art: { storage: storage(), renderer: throwing, framesCap: 10 }, origin: "https://stoop.test" }, RUN, null);
+    const r = (await source.state(RUN))!.report;
+    expect(r.posts?.facebook.text).toMatch(/^Taco Table Saturday/);
+    expect(r.poster.status).toBe("failed");
+    expect(r.stats.stages.marketing).toBeDefined();
+    expect(await store.get(posterKeys.lock(RUN))).toBeNull();
+  });
+
   it("does nothing while another job holds the plan", async () => {
     const source = await seedRun(samplePlanReport());
     await store.set(posterKeys.lock(RUN), { at: "now" });

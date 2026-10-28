@@ -22,7 +22,7 @@ import type { Store } from "../store/types";
 import { visitorId, type CookieVisitorId } from "../store/visitor";
 import type { StoryboardVisitor } from "../media/storyboards";
 import type { PlanEventInput } from "./events";
-import { posterKeys, queuedPoster, renderPosterArt, type PosterArtEnv } from "./poster-art";
+import { POSTER_REASONS, posterKeys, queuedPoster, renderPosterArt, type PosterArtEnv } from "./poster-art";
 import { posterImage, type PosterArt, type PosterSize } from "./poster-image";
 import { posterText, variantBConcept, withFrontConcept } from "./poster-text";
 import { generatePosts, type PostsResult } from "./posts";
@@ -116,11 +116,16 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
     // Variant B, when the plan tests a second concept: the same writers, with that concept in front.
     const bId = variantBConcept(report);
     const bReport = bId ? withFrontConcept(report, bId) : null;
+    // Neither writer may leave the plan half done: an error (the model's key, a store write, the
+    // deadline) still ends in the plain template and the plain background, with the reason in the trace.
+    const writePosts = (r: MarketingReport) => generatePosts(env.model, r, signal).catch(() => generatePosts(null, r));
+    const paint = (r: MarketingReport) =>
+      renderPosterArt(artEnv, r, visitor).catch(() => ({ poster: { ...queuedPoster(r), status: "failed" as const, reason: POSTER_REASONS.failed }, billed: true }));
     const [written, art, bWritten, bArt] = await Promise.all([
-      generatePosts(env.model, report, signal),
-      renderPosterArt(artEnv, report, visitor),
-      bReport ? generatePosts(env.model, bReport, signal) : Promise.resolve(null),
-      bReport ? renderPosterArt(artEnv, bReport, visitor) : Promise.resolve(null),
+      writePosts(report),
+      paint(report),
+      bReport ? writePosts(bReport) : Promise.resolve(null),
+      bReport ? paint(bReport) : Promise.resolve(null),
     ]);
     const posts = { ...written.posts, share: shareLinks(env.origin, runId, written.posts) };
     const events: PlanEventInput[] = [
