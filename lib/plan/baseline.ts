@@ -16,7 +16,8 @@ import { textIssues, type GuardContext } from "./guard";
 import { gapText, recoverable } from "./local";
 import { inputsText, PLAN_RULES, PLANNER_ROLE } from "./prompt";
 import { pickSearchParams, scoreArtistsParams } from "./requests";
-import { ITEM_KINDS, type Baseline, type CityTaste, type Comparison, type Concept, type PlanInputs, type PlanItem } from "./schema";
+import { refsIn } from "./refs";
+import { ITEM_KINDS, type Baseline, type Block, type CityTaste, type Comparison, type Concept, type Plan, type PlanInputs, type PlanItem } from "./schema";
 
 export const BASELINE_TIMEOUT_MS = 90_000;
 /** Named picks resolved per plan (PLAN_BUDGET.planResolve). */
@@ -25,7 +26,7 @@ export const MAX_PICKS = 5;
 export const MIN_MEDIAN_N = 5;
 
 const llmBaseline = z.object({
-  items: z.array(z.object({ kind: z.enum(ITEM_KINDS), text: z.string().describe("One concrete line, at most 240 characters, with no artist or business names") })).describe("6 to 9 lines: a theme, the music, the food, an activity, a giveaway, the setup, the signage, the timing"),
+  items: z.array(z.object({ kind: z.enum(ITEM_KINDS), text: z.string().describe("One concrete line, at most 200 characters, with no artist or business names") })).describe("6 to 9 lines: a theme, the music, the food, an activity, a giveaway, the setup, the signage, the timing"),
   picks: z.object({
     artists: z.array(z.string()).describe("Up to 3 real music artists the playlist leans on. Scoring only, never shown in the plan."),
     foods: z.array(z.string()).describe("Up to 2 real food brands or chains you would buy from. Scoring only, never shown in the plan."),
@@ -35,7 +36,9 @@ type LlmBaseline = z.infer<typeof llmBaseline>;
 
 const TASK = [
   "Task:",
-  "Plan the best event you can for this store's table, using your own knowledge of the city and of what makes people stop.",
+  "Plan the best event you can for this store's table or booth, using your own knowledge of the city and of what makes people stop.",
+  "The store runs events for walk-ins and sign-ups: one line turns a stop into a walk-in with the manager's promo. Fit the day, and do what the manager's notes ask.",
+  "Food: snacks and drinks, not catering. Giveaways: small gift cards in a free drawing work well. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome.",
   "Write 6 to 9 short, concrete lines: a theme, the music, the food, an activity, a giveaway, the setup, the signage, the timing.",
   "Describe music and food by style and kind, never by an artist's or a business's name. Put the real artists and food brands your choices lean on in picks: they are kept for scoring only.",
   "If the manager gave offers, one signage line quotes one of them exactly. If not, no line mentions a price or a deal.",
@@ -45,21 +48,31 @@ export function baselineInstructions(): string {
   return [PLANNER_ROLE, PLAN_RULES, TASK].join("\n\n");
 }
 
-/** Cliches: what every store's table already has. Matched case-insensitively on the generic plan's lines. */
+/**
+ * Cliches: choices with no local signal behind them, matched case-insensitively on the generic plan's
+ * lines. A store's proven tactics (the promo sign, a prize wheel, a free gift-card drawing) are not
+ * cliches: both plans may use them, and the difference Stoop shows is local grounding.
+ */
 export const CLICHES: readonly { pattern: RegExp; text: string; why: string }[] = [
   { pattern: /\bballoons?\b/i, text: "Balloons", why: "Every store's table has balloons; they say nothing about this block." },
   { pattern: /\bDJs?\b/i, text: "A DJ", why: "A hired DJ spends the budget on a set that could play anywhere." },
   { pattern: /\b(top[- ]40|top hits|popular (music|songs|hits)|chart(-topping)? hits|today's hits|upbeat (music|playlist|tunes|songs)|crowd[- ]pleas\w*)\b/i, text: "A playlist of popular hits", why: "Popular hits are the same in every city; nothing ties them to what this city plays." },
-  { pattern: /\bfree phones?\b/i, text: "A \"free phone\" sign", why: "Every prepaid store's window already says it." },
-  { pattern: /\b(prize|spin(ning)?)[- ]wheel\b|\bspin the wheel\b|\bwheel of prizes\b/i, text: "A prize wheel", why: "The standard table prop at every store event." },
-  { pattern: /\braffles?\b|\bdrawings?\b/i, text: "A raffle", why: "The default giveaway at every store event." },
   { pattern: /\bpizzas?\b/i, text: "Pizza", why: "The default snack, not food from this block." },
   { pattern: /\b(grand opening|customer appreciation)\b/i, text: "A stock event name", why: "\"Customer appreciation\" is what every store calls it." },
   { pattern: /\b(inflatable|tube man|air dancer|wacky waving)\b/i, text: "An inflatable tube man", why: "Every phone store's sidewalk has one." },
-  { pattern: /\b(chips|cookies|candy|bottled water|soda)\b/i, text: "Chips, cookies and soda", why: "Store-bought snacks every table already sets out." },
+  { pattern: /\b(chips|cookies|candy|bottled water|soda)\b/i, text: "Generic store-bought snacks", why: "Snacks any table sets out, with nothing from this block's favorite spots." },
   { pattern: /\bphoto (booth|backdrop|op)\b|\bselfie (station|wall)\b/i, text: "A photo backdrop", why: "A generic prop with no tie to this block." },
   { pattern: /\b(swag|branded (merch|giveaways?)|tote bags?|keychains?|pens)\b/i, text: "Branded swag", why: "Giveaways people leave behind; nothing local about them." },
 ];
+
+/** The cliches a Stoop plan itself must avoid: decor and sound with no local signal (snacks are judged by the founder's budget rule instead). */
+const AVOIDED = new Set(["Balloons", "A DJ", "A playlist of popular hits", "An inflatable tube man"]);
+
+/** The no-signal cliche in a line of a Stoop plan, or null. */
+export function clicheIn(text: string): { text: string; why: string } | null {
+  const hit = CLICHES.find((c) => AVOIDED.has(c.text) && c.pattern.test(text));
+  return hit ? { text: hit.text, why: hit.why } : null;
+}
 
 export interface BaselineDraft {
   items: PlanItem[];
@@ -80,15 +93,17 @@ export function checkBaseline(raw: LlmBaseline, guard: GuardContext): { draft: B
   const answer = stripEmDashes(raw);
   const issues: string[] = [];
   const items: PlanItem[] = [];
+  const picks = { artists: names(answer.picks.artists, 3), foods: names(answer.picks.foods, 2) };
+  // The names it leans on are for scoring only: like Stoop's Control brief, they never appear in a line.
+  const banned = [...picks.artists, ...picks.foods];
   answer.items.slice(0, 10).forEach((item, i) => {
     const text = item.text.trim();
-    const problems = textIssues(text, { ...guard, known: new Set() });
+    const problems = textIssues(text, { ...guard, known: new Set(), names: banned });
     if (!text || text.length > 240) problems.push("must be 1 to 240 characters.");
     if (problems.length) issues.push(...problems.map((p) => `items.${i + 1}: ${p}`));
     else items.push({ kind: item.kind, text, origin: "creative", refs: [], evidenceIds: [] });
   });
   if (items.length < 4) issues.push("items: needs at least 4 lines that pass the checks.");
-  const picks = { artists: names(answer.picks.artists, 3), foods: names(answer.picks.foods, 2) };
   return { draft: { items, cliches: flagCliches(items), picks }, issues };
 }
 
@@ -191,21 +206,71 @@ export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTas
   return { check: { checkable: resolved.length, belowMedian: below, unverifiable, evidenceIds: [...new Set(evidenceIds)] }, lines };
 }
 
-/** The side by side: how much of the kept concept has a receipt, the generic plan's cliches, Qloo's read of its picks. */
-export function compare(kept: Concept | null, baseline: Baseline | null, city: string): Comparison {
+/**
+ * Generic choices the fixed list cannot see: a plan with no place from this block, and music with no
+ * local signal behind it (no artist Qloo could check, or most of them below the median of Qloo's own
+ * picks for the city).
+ */
+export function genericCliches(items: readonly Pick<PlanItem, "kind" | "text">[], check: Baseline["check"], blockNames: readonly string[], city: string): Baseline["cliches"] {
+  const out: Baseline["cliches"] = [];
+  const text = items.map((i) => i.text.toLowerCase()).join("\n");
+  if (!blockNames.some((name) => name.trim().length > 2 && text.includes(name.trim().toLowerCase()))) {
+    out.push({ text: "No place on this block", why: "It names no food spot, venue or park near the store, so any store in any city could run it." });
+  }
+  if (items.some((i) => i.kind === "music")) {
+    if (!check || check.checkable === 0) out.push({ text: "Music with no local signal", why: `None of its artists could be checked against what Qloo measured for ${city}.` });
+    else if (check.belowMedian * 2 >= check.checkable) out.push({ text: "Music with no local signal", why: `Qloo put ${check.belowMedian} of its ${check.checkable} checkable artists below the median of its own picks for ${city}.` });
+  }
+  return out;
+}
+
+export interface CompareInput {
+  kept: Concept | null;
+  plan: Pick<Plan, "runOfShow" | "shopping"> | null;
+  baseline: Baseline | null;
+  block: Block | null;
+  city: string;
+  /** Where the block was read: "the store", or the event's location. */
+  where: string;
+}
+
+const meters = (m: number) => (m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`);
+
+/**
+ * The side by side, in plain sentences: the places on this block the plan uses (and the nearest), how
+ * much of the kept concept has a receipt, Qloo's check of the generic playlist, and the generic
+ * plan's cliches. The generic plan is a fair effort from the same model; the difference these lines
+ * measure is local specificity.
+ */
+export function compare(input: CompareInput): Comparison {
+  const { kept, plan, baseline, block, city, where } = input;
   const items = kept?.items ?? [];
   const backed = items.filter((i) => i.evidenceIds.length > 0).length;
   const lines: string[] = [];
-  if (kept) lines.push(`${backed} of ${items.length} lines in this plan cite a Qloo receipt; the generic plan cites none.`);
+  const placeIds = new Set([
+    ...items.flatMap((i) => i.refs),
+    ...(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? []),
+    ...(plan?.runOfShow.flatMap((s) => refsIn(s.step)) ?? []),
+  ]);
+  const used = (block?.places ?? []).filter((p) => placeIds.has(p.id));
+  if (used.length > 0) {
+    const distances = used.map((p) => p.distanceM).filter((d): d is number => d !== null);
+    const nearest = distances.length ? `, ${used.length > 1 ? "the nearest " : ""}${meters(Math.min(...distances))} from ${where}` : "";
+    const bought = new Set(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? []).size;
+    const places = (n: number) => `${n} ${n === 1 ? "place" : "places"}`;
+    const head = bought === used.length ? `Buys from ${places(bought)} on this block${nearest}` : `Uses ${places(used.length)} on this block${nearest}${bought ? `, and buys from ${bought} of them` : ""}`;
+    lines.push(`${head}; the generic plan names no place on this block.`);
+  }
+  if (kept) lines.push(`${backed} of ${items.length} lines in the kept concept cite a Qloo receipt; the generic plan cites none.`);
   if (baseline) {
-    const n = baseline.cliches.length;
-    lines.push(n === 0 ? "The generic plan avoided the usual cliches." : `The generic plan leans on ${n} ${n === 1 ? "cliche" : "cliches"}: ${baseline.cliches.map((c) => c.text.toLowerCase()).join(", ")}.`);
     const check = baseline.check;
     if (check && check.checkable > 0) {
       lines.push(`Qloo checked the generic playlist against ${city}: ${check.belowMedian} of ${check.checkable} checkable ${check.checkable === 1 ? "artist sits" : "artists sit"} below the median of Qloo's own picks${check.unverifiable ? ` (${check.unverifiable} unverifiable)` : ""}.`);
     } else if (check) {
       lines.push(`Qloo could not check the generic plan's picks against ${city} (${check.unverifiable} unverifiable).`);
     }
+    const n = baseline.cliches.length;
+    if (n > 0) lines.push(`The generic plan leans on ${n} generic ${n === 1 ? "choice" : "choices"}: ${baseline.cliches.map((c) => c.text.toLowerCase()).join(", ")}.`);
   }
   return { qlooBacked: { items: backed, of: items.length }, baselineCliches: baseline?.cliches.length ?? 0, lines };
 }

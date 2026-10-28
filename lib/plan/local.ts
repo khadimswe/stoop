@@ -8,7 +8,7 @@ import { insightsEntitiesResponse, insightsTagsResponse, slimEntitiesBody } from
 import { planDecide, planQloo, type PlanEnv } from "./env";
 import { blockParams, cityArtistsParams, cityStylesParams, DEFAULT_RADIUS_M, placesResponse } from "./requests";
 import type { Block, CityTaste, Place, PlanInputs } from "./schema";
-import { BLOCK_CATEGORIES, BLOCK_ORDER, musicStyles, placeLeftOut, toArtists, toPlace, type BlockCategory } from "./taste";
+import { BLOCK_CATEGORIES, BLOCK_ORDER, identityTag, isChain, musicStyles, placeLeftOut, toArtists, toPlace, type BlockCategory } from "./taste";
 
 /** Places kept per category, so one category cannot crowd out the rest of the plan's prompt. */
 export const MAX_PLACES_PER_CATEGORY = { food: 10, treats: 6, venues: 6, parks: 4 } as const satisfies Record<BlockCategory, number>;
@@ -58,12 +58,12 @@ export async function readCity(env: PlanEnv, inputs: PlanInputs): Promise<CityTa
   // A style can cite only calls that answered.
   const answered = new Set([artistsEntities?.evidence.id, tags?.evidence.id].filter((id): id is string => !!id));
   const cited = styles.map((s) => ({ ...s, evidenceIds: s.evidenceIds.filter((id) => answered.has(id)) })).filter((s) => s.evidenceIds.length > 0);
-  if (dropped.length > 0) {
-    const names = dropped.map((d) => `"${d.name}"`);
-    planDecide(env, "city", `Left out ${dropped.length} music ${dropped.length === 1 ? "tag" : "tags"}`, `${names.slice(0, 8).join(", ")}${names.length > 8 ? " and more" : ""}: each describes who people are or is not a style to play. Stoop reads taste, never identity.`);
-  }
+  const identity = dropped.filter((d) => identityTag(d.name));
+  if (identity.length) planDecide(env, "city", `Left out ${identity.length} identity ${identity.length === 1 ? "tag" : "tags"}`, `${identity.map((d) => `"${d.name}"`).slice(0, 6).join(", ")}: each describes who people are, not what they listen to. Stoop reads taste, never identity.`);
+  const noisy = dropped.filter((d) => !identityTag(d.name));
+  if (noisy.length) planDecide(env, "city", `Left out ${noisy.length} noisy music ${noisy.length === 1 ? "tag" : "tags"}`, `${noisy.map((d) => `"${d.name}"`).slice(0, 8).join(", ")}${noisy.length > 8 ? " and more" : ""}: not a style to play, or none of the city's top artists play it.`);
   if (cited.length === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${city}'s music styles at these ages` });
-  else planDecide(env, "city", `Kept ${cited.length} music styles for ${city}`, "Styles the city's own top artists also carry come first, then genres several of them share.");
+  else planDecide(env, "city", `Kept ${cited.length} music styles for ${city}`, "From the genres the city's top artists share; a city tag joins only when it agrees with them.");
   return { city, ageBands: [...inputs.ageBands], artists, styles: cited };
 }
 
@@ -91,11 +91,12 @@ export async function readBlock(env: PlanEnv, inputs: PlanInputs, radiusM: numbe
   const places: Place[] = [];
   let answered = 0;
   const leftOut: string[] = [];
+  const where = inputs.location ? inputs.location.name : "the store";
   for (const category of BLOCK_ORDER) {
     const spec = BLOCK_CATEGORIES[category];
     let result;
     try {
-      result = await planQloo(env, "block", `Finding ${spec.label} within ${km(radiusM)} of the store`, {
+      result = await planQloo(env, "block", `Finding ${spec.label} within ${km(radiusM)} of ${where}`, {
         endpoint: ENDPOINTS.insights,
         params: blockParams(inputs, category, radiusM),
         schema: placesResponse,
@@ -118,10 +119,12 @@ export async function readBlock(env: PlanEnv, inputs: PlanInputs, radiusM: numbe
       places.push(toPlace(entity, { rank: index + 1, evidenceId: result.evidence.id, fallback: spec.kind }));
       kept++;
     });
-    if (kept === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${spec.label} within ${km(radiusM)} of this store` });
+    if (kept === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${spec.label} within ${km(radiusM)} of ${inputs.location ? inputs.location.name : "this store"}` });
   }
   if (leftOut.length > 0) planDecide(env, "block", `Left ${leftOut.length} ${leftOut.length === 1 ? "place" : "places"} off the block`, leftOut.slice(0, 6).join("; "));
+  const chains = places.filter((p) => isChain(p.name));
+  if (chains.length > 0) planDecide(env, "block", `Marked ${chains.length} national ${chains.length === 1 ? "chain" : "chains"}`, `${chains.map((p) => p.name).slice(0, 5).join(", ")}: fine for a gift card or a snack run; co-promo partners are local independents.`);
   if (answered === 0) return null;
-  planDecide(env, "block", `Kept ${places.length} places near the store`, "Local independents only: they make the partners, and every one has a Qloo receipt.");
+  planDecide(env, "block", `Kept ${places.length} places near ${where}`, "Every one has a Qloo receipt: partners, gift cards and snack runs come from this list.");
   return { radiusM, places };
 }

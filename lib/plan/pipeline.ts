@@ -7,8 +7,11 @@
 // generic plan needs no Qloo, so it starts next to the city stage and is awaited at its own stage.
 import { planDecide, type PlanEnv, type PlanSink } from "./env";
 import { textIssues, type GuardContext } from "./guard";
-import { checkPicks, compare, writeBaseline, type BaselineDraft } from "./baseline";
+import { guardFor } from "./guard-context";
+import { checkPicks, compare, genericCliches, writeBaseline, type BaselineDraft } from "./baseline";
 import { buildPlan } from "./builder";
+import { dayContext } from "./calendar";
+import { buildAbTest } from "./test-plan";
 import { writeConcepts } from "./concepts";
 import { readBlock, readCity } from "./local";
 import type { Baseline, PlanInputs, PlanStage } from "./schema";
@@ -45,9 +48,7 @@ export function usableNotes(inputs: PlanInputs, guard: GuardContext): { inputs: 
   return { inputs: rest, problem: problems[0] as string };
 }
 
-export function guardFor(inputs: PlanInputs, known: Iterable<string> = []): GuardContext {
-  return { offers: inputs.offers.map((o) => o.text), budgetUsd: inputs.budgetUsd, known: new Set(known) };
-}
+export { guardFor };
 
 /**
  * Runs every stage up to marketing. It ends without run.done: the caller adds the run's cost (live
@@ -72,10 +73,19 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
 
   // 1. The store: the inputs are already validated; the notes pass the guard or stay out.
   const inputs = await stage(env, "store", now, async () => {
-    const { store } = run.inputs;
-    planDecide(env, "store", `Planning for ${store.name}, ${store.address}`, `Places are searched around the store's own point; taste is read for ${store.city} as a whole.`);
+    const { store, location } = run.inputs;
+    planDecide(
+      env,
+      "store",
+      `Planning for ${store.name}, ${store.address}`,
+      location
+        ? `The event is at ${location.name}, so places are searched around it; taste is read for ${store.city} as a whole.`
+        : `Places are searched around the store's own point; taste is read for ${store.city} as a whole.`,
+    );
     const { inputs: cleaned, problem } = usableNotes(run.inputs, guardFor(run.inputs));
     if (problem) planDecide(env, "store", "Left the manager's notes out", problem);
+    const day = dayContext(run.inputs.date);
+    planDecide(env, "store", `Read the day: ${day.label}`, day.notes.length ? day.notes.join(" ") : "Nothing special about this date.");
     return cleaned;
   });
 
@@ -102,7 +112,8 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   if (known.length === 0 && (city?.styles.length ?? 0) === 0) {
     return stop("block", "Qloo had no signal for this store's city or block, so there is nothing to plan from.");
   }
-  const guard = guardFor(inputs, known);
+  const names = [...(city?.artists.map((a) => a.name) ?? []), ...(block?.places.map((p) => p.name) ?? [])];
+  const guard = guardFor(inputs, known, names);
 
   // 4. Three concepts, scored; the best is kept.
   const written = await stage(env, "concepts", now, async () => {
@@ -116,6 +127,12 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   const plan = await stage(env, "plan", now, async () => {
     const built = await buildPlan(env, inputs, written.concepts, written.aliases, guard);
     sink.emit({ type: "plan.ready", plan: built });
+    // A fair test of the kept concept against the runner-up, written before anything runs.
+    const test = buildAbTest(inputs, built.concepts);
+    if (test) {
+      sink.emit({ type: "test.ready", test });
+      planDecide(env, "plan", `Wrote a test: "${test.variants[0].label}" against "${test.variants[1].label}"`, `${test.decisionRule} ${test.caveat}`);
+    }
     return built;
   });
 
@@ -132,15 +149,17 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     }
     if (!draft) return null;
     planDecide(env, "baseline", "Wrote the generic plan with no Qloo", "The same facts and the same model, with no city or block data: every line is a creative suggestion.");
-    if (draft.cliches.length) planDecide(env, "baseline", `Flagged ${draft.cliches.length} ${draft.cliches.length === 1 ? "cliche" : "cliches"} in the generic plan`, draft.cliches.map((c) => c.text).join(", "));
     const picks = await checkPicks(env, inputs, city, draft.picks);
     for (const line of picks?.lines ?? []) planDecide(env, "baseline", "Checked a generic pick against Qloo", line);
-    const result: Baseline = { items: draft.items, cliches: draft.cliches, check: picks?.check ?? null };
+    const check = picks?.check ?? null;
+    const cliches = [...draft.cliches, ...genericCliches(draft.items, check, block?.places.map((p) => p.name) ?? [], inputs.store.city)];
+    if (cliches.length) planDecide(env, "baseline", `Flagged ${cliches.length} generic ${cliches.length === 1 ? "choice" : "choices"} in the generic plan`, cliches.map((c) => `${c.text}: ${c.why}`).join(" "));
+    const result: Baseline = { items: draft.items, cliches, check };
     sink.emit({ type: "baseline.ready", baseline: result });
     return result;
   });
   const kept = plan.concepts.find((c) => c.id === plan.conceptId) ?? null;
-  sink.emit({ type: "comparison.ready", comparison: compare(kept, baseline, inputs.store.city) });
+  sink.emit({ type: "comparison.ready", comparison: compare({ kept, plan, baseline, block, city: inputs.store.city, where: inputs.location ? inputs.location.name : "the store" }) });
   if (!baseline) return stop("baseline", "The generic plan could not be written, so the side by side has only this plan.");
   return { status: "done", partial: null };
 }
