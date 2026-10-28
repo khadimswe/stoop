@@ -50,7 +50,7 @@ export function Hero({
               <Link href={primary.href}>{primary.label}</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/start">Try your product, free</Link>
+              <Link href="/ads/start">Try your product, free</Link>
             </Button>
           </div>
           <p className="text-sm text-ink-soft">

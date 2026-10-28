@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { MobileMenu } from "./mobile-menu";
-import { NAV_LINKS, TRY_LINK } from "./nav-links";
-import { WaitlistTrigger } from "./waitlist-trigger";
+import { NAV_LINKS, PLAN_LINK } from "./nav-links";
 
 /**
- * The app register's top bar (reports, /start, /run): 56 px, paper, one bottom hairline, no shadow.
- * Same links as the marketing pill. The waitlist pill is outlined here, because the page's one brick
- * primary belongs to the page itself (the sticky "Make this for my product", "Read my page").
+ * The app register's top bar (plans, /start, /stores, reports): 56 px, paper, one bottom hairline, no
+ * shadow. Same links as the marketing pill. "Plan an event" is a quiet outline here, because the
+ * page's one brick primary belongs to the page itself (the sticky bar, the store form's submit).
  * Phones: logo, pill, menu.
  */
 export function AppHeader() {
@@ -28,12 +27,11 @@ export function AppHeader() {
         </ul>
         <div className="ml-auto flex items-center gap-1.5">
           <Link
-            href={TRY_LINK.href}
-            className="hidden rounded-full px-3 py-2 text-sm font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick sm:inline-block"
+            href={PLAN_LINK.href}
+            className="inline-flex h-9 items-center rounded-full border-[1.5px] border-concrete-line bg-surface px-4 text-sm font-semibold whitespace-nowrap text-ink hover:bg-fill pointer-coarse:h-11"
           >
-            {TRY_LINK.label}
+            {PLAN_LINK.label}
           </Link>
-          <WaitlistTrigger variant="quiet" />
           <MobileMenu />
         </div>
       </nav>

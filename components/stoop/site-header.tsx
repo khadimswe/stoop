@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { MobileMenu } from "./mobile-menu";
-import { NAV_LINKS, TRY_LINK } from "./nav-links";
-import { WaitlistTrigger } from "./waitlist-trigger";
+import { NAV_LINKS, PLAN_LINK } from "./nav-links";
 
-/** The marketing header (landing, /judges, /mcp): three links, "Try it free" for the live agent, and one pill: the waitlist. */
+/**
+ * The marketing header (landing, /judges, /mcp): three links and one pill, "Plan an event" (the store
+ * form). The pill is an ink outline: the page's one brick primary belongs to the page itself.
+ */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 px-3 pt-3">
@@ -26,12 +28,11 @@ export function SiteHeader() {
         </ul>
         <div className="ml-auto flex items-center gap-2">
           <Link
-            href={TRY_LINK.href}
-            className="hidden items-center rounded-full px-3 py-2 text-[0.95rem] font-semibold text-ink underline decoration-2 underline-offset-4 hover:decoration-brick sm:inline-flex pointer-coarse:min-h-11"
+            href={PLAN_LINK.href}
+            className="inline-flex h-10 items-center rounded-full border-2 border-ink bg-paper-raised px-4 text-sm font-semibold whitespace-nowrap text-ink hover:bg-sand pointer-coarse:h-11"
           >
-            {TRY_LINK.label}
+            {PLAN_LINK.label}
           </Link>
-          <WaitlistTrigger className="pointer-coarse:h-11" />
           <MobileMenu />
         </div>
       </nav>

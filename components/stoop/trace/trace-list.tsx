@@ -21,11 +21,14 @@ export interface TraceListProps {
   className?: string;
 }
 
+/** A trace row of any pipeline: the ad runs' stages (lib/run/trace.ts) or the store-events stages (lib/plan/view). */
+export type TraceRowLike = Omit<TraceRow, "stage"> & { stage: string };
+
 /**
  * One step. `folded`: an earlier step, shown only while "Show earlier steps" is open. `firstShown`: the
  * first step shown while folded, which names its stage even mid-run (not again once unfolded).
  */
-function Row({ row, folded, firstShown }: { row: TraceRow; folded: boolean; firstShown: boolean }) {
+function Row({ row, folded, firstShown }: { row: TraceRowLike; folded: boolean; firstShown: boolean }) {
   const decision = row.kind === "decision";
   const Icon = decision ? Signpost : Database;
   return (
@@ -79,7 +82,11 @@ function Row({ row, folded, firstShown }: { row: TraceRow; folded: boolean; firs
  * push it into the folded part; folding is CSS only (the toggle's open state shows the folded rows).
  */
 export function TraceList({ steps, worlds = [], show = "all", recent, empty, className }: TraceListProps) {
-  const rows = traceRows(steps, worlds, { show });
+  return <TraceRowList rows={traceRows(steps, worlds, { show })} recent={recent} empty={empty} className={className} />;
+}
+
+/** The same list from rows built elsewhere (the store-events trace, lib/plan/view/plan.ts). */
+export function TraceRowList({ rows, recent, empty, className }: { rows: readonly TraceRowLike[]; recent?: number; empty?: ReactNode; className?: string }) {
   if (rows.length === 0) return empty ? <div className={className}>{empty}</div> : null;
   const cut = recent && rows.length > recent ? rows.length - recent : 0;
   return (

@@ -7,5 +7,5 @@ export const NAV_LINKS = [
   { href: "/judges", label: "For judges" },
 ] as const;
 
-/** The text link to the live agent, next to the waitlist pill. */
-export const TRY_LINK = { href: "/start", label: "Try it free" } as const;
+/** The store form: the header's one pill. */
+export const PLAN_LINK = { href: "/start", label: "Plan an event" } as const;

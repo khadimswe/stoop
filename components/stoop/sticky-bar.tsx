@@ -32,7 +32,7 @@ export function StickyBar({
         {note ? <p className="hidden min-w-0 text-sm text-ink-soft sm:block">{note}</p> : <span aria-hidden="true" className="hidden sm:block" />}
         {action ?? (
           <Button asChild className="w-full shrink-0 sm:w-auto">
-            <Link href="/start">Make this for my product</Link>
+            <Link href="/ads/start">Make this for my product</Link>
           </Button>
         )}
       </div>

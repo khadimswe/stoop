@@ -124,7 +124,7 @@ export function LiveReport({ runId }: { runId: string }) {
             <div className="flex flex-wrap items-center gap-3">
               <ExampleLink primary />
               {phase.reason === "not_found" ? (
-                <Link href="/start" className="text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
+                <Link href="/ads/start" className="text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
                   Start a new run
                 </Link>
               ) : (
@@ -149,7 +149,7 @@ export function LiveReport({ runId }: { runId: string }) {
                 <Button asChild>
                   <Link href={EXAMPLE_HREF}>See an example report</Link>
                 </Button>
-                <Link href="/start" className="text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
+                <Link href="/ads/start" className="text-sm font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
                   Try your product again
                 </Link>
               </div>
