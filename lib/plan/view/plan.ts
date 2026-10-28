@@ -544,7 +544,9 @@ export function planView(source: PlanSource): PlanView {
 
   const { store } = inputs;
   const keptView = kept ? concept(kept) : null;
-  const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing);
+  const partnerId = plan?.shopping.find((x) => x.from && places.has(x.from))?.from;
+  const partnerPlace = partnerId ? places.get(partnerId) : undefined;
+  const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing, partnerPlace ? { name: partnerPlace.name, distanceText: partnerPlace.distanceM === null ? null : distanceText(partnerPlace.distanceM) } : null);
   if (generic) generic.rows = compareRows(keptView?.items ?? [], generic.items);
   return {
     id,
@@ -672,12 +674,13 @@ function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: Rea
 }
 
 /** The first screen's tiles, from the kept concept, the wheel and the marketing state. */
-export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView): TileView[] {
+export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView, partner: { name: string; distanceText: string | null } | null = null): TileView[] {
   const items = concept?.items ?? [];
   const music = items.find((i) => i.kind === "music");
   const musicNames = music?.parts.flatMap((p) => (p.kind === "ref" ? [p.name] : [])) ?? [];
   const snack = items.find((i) => (i.kind === "food" || i.kind === "partner") && i.places.length > 0) ?? items.find((i) => i.kind === "food");
-  const place = snack?.places[0];
+  // A named place in a food line first, else the block partner the shopping list buys from.
+  const place = snack?.places[0] ?? partner ?? undefined;
   const giveaway = items.find((i) => i.kind === "giveaway");
   const posts = marketing.posts;
   return [
@@ -685,7 +688,7 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
     {
       key: "snacks",
       label: "Snacks",
-      value: place ? place.name : (snack?.plain ?? "Your pick"),
+      value: place ? place.name : (snack?.plain ?? "Not in this plan"),
       note: place?.distanceText ? `${place.distanceText} away` : null,
       qloo: Boolean(place) || isQloo(snack),
       href: "#shopping",
