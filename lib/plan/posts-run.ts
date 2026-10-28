@@ -27,6 +27,9 @@ import { posterImage, type PosterArt, type PosterSize } from "./poster-image";
 import { posterText, variantBConcept, withFrontConcept } from "./poster-text";
 import { generatePosts, type PostsResult } from "./posts";
 import { isExampleId, isLivePlanId, reportOf, type MarketingReport, type PlanSource } from "./posts-store";
+import { planExampleSlug } from "./example-list";
+import { loadApprovedArt, readApproval, type PosterApproval } from "./poster-approval";
+import { sniffImage } from "./poster-sniff";
 import type { Cost } from "../report/stages";
 import { posterSchema, postsSchema, type Poster, type Posts } from "./schema";
 import { shareLinks } from "./share";
@@ -241,16 +244,24 @@ export interface PosterRouteDeps {
   /** Origins art may come from besides the Blob store (R2_PUBLIC_URL, the site's own). */
   artOrigins: readonly string[];
   fetch?: typeof fetch;
+  /** An example's approved art, read from its marketing folder (lib/plan/poster-approval.ts). */
+  exampleArt?: (slug: string) => PosterArt | null;
+  /** An example's approval, for its variant B posts. */
+  exampleApproval?: (slug: string) => PosterApproval | null;
 }
 
-/** The image type its first bytes say, or null: art that is not really a PNG, JPEG or WebP is never drawn. */
-export function sniffImage(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
-  const b = (i: number) => bytes[i] ?? -1;
-  if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47) return "image/png";
-  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return "image/jpeg";
-  if (String.fromCharCode(b(0), b(1), b(2), b(3)) === "RIFF" && String.fromCharCode(b(8), b(9), b(10), b(11)) === "WEBP") return "image/webp";
-  return null;
+/** A live poster's art: its rendered background, by its prompt hash in the art cache (poster.url is not used for it). */
+async function cachedArtUrl(store: Store | null, promptHash: string): Promise<string | null> {
+  if (!store || !promptHash) return null;
+  try {
+    const hit = await store.get<{ url?: unknown }>(posterKeys.render(promptHash));
+    return typeof hit?.url === "string" ? hit.url : null;
+  } catch {
+    return null;
+  }
 }
+
+export { sniffImage };
 
 async function fetchArt(url: string, fetchImpl: typeof fetch): Promise<PosterArt | null> {
   try {
@@ -309,7 +320,11 @@ export async function marketingState(deps: PosterRouteDeps, id: string): Promise
   if (!found) return notFound();
   const { report, store } = found;
   const bId = variantBConcept(report);
-  const b = bId ? ((await readVariant(store, id)) ?? { conceptId: bId, poster: { status: "none", prompt: "", promptHash: "", alt: "" } satisfies Poster, posts: null }) : null;
+  const slug = planExampleSlug(id);
+  // An example's variant B is what the founder approved with it; a live plan's is in the store.
+  const approvedB = slug ? (deps.exampleApproval ?? readApproval)(slug)?.variantB : undefined;
+  const stored = slug ? (approvedB ? { conceptId: approvedB.conceptId, poster: approvedB.poster, posts: approvedB.posts } : null) : await readVariant(store, id);
+  const b = bId ? (stored ?? { conceptId: bId, poster: { status: "none", prompt: "", promptHash: "", alt: "" } satisfies Poster, posts: null }) : null;
   const body = marketingStateSchema.parse({ a: { conceptId: report.plan?.conceptId ?? null, poster: report.poster, posts: report.posts }, b: b && b.conceptId === bId ? b : null });
   return Response.json(body, { headers: { "cache-control": "no-store" } });
 }
@@ -327,10 +342,18 @@ export async function posterResponse(deps: PosterRouteDeps, id: string, size: Po
     report = withFrontConcept(report, bId);
     poster = stored?.conceptId === bId ? stored.poster : { status: "none", prompt: "", promptHash: "", alt: "" };
   }
-  const art = poster.status === "ready" && poster.url && trustedArtUrl(poster.url, deps.artOrigins) ? await fetchArt(poster.url, deps.fetch ?? globalThis.fetch) : null;
   const example = report.meta.kind === "example";
+  const slug = planExampleSlug(id);
+  let art: PosterArt | null = null;
+  if (example && slug) {
+    // An example draws only art the founder approved, read from disk and checked by its sha256. Variant B has none.
+    if (variant === "a") art = (deps.exampleArt ?? loadApprovedArt)(slug);
+  } else if (poster.status === "ready") {
+    const url = poster.url ?? (await cachedArtUrl(found.store, poster.promptHash));
+    art = url && trustedArtUrl(url, deps.artOrigins) ? await fetchArt(url, deps.fetch ?? globalThis.fetch) : null;
+  }
   const settled = example || FINAL.has(poster.status);
   // A poster whose art could not be read this time is never cached, so the next request tries again.
-  const cache = !settled || (poster.status === "ready" && !art) ? "no-store" : example ? "public, max-age=3600, s-maxage=86400" : "public, max-age=300, s-maxage=3600";
+  const cache = !settled || (!example && poster.status === "ready" && !art) ? "no-store" : example ? "public, max-age=3600, s-maxage=86400" : "public, max-age=300, s-maxage=3600";
   return posterImage(posterText(report), art, size, { "cache-control": cache });
 }

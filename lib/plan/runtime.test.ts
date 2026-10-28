@@ -4,7 +4,7 @@ import { keys } from "../store/keys";
 import type { RequestContext } from "../runtime/types";
 import type { VisitorId } from "../store/visitor";
 import { describeRecorded } from "../testing/recorded";
-import { createPlanEmitter, type PlanEvent } from "./events";
+import { createPlanEmitter, reducePlan, toPlanReport, type PlanEvent } from "./events";
 import { examplePlanId, PLAN_EXAMPLE_INPUTS } from "./example-list";
 import { loadExampleEvents } from "./examples";
 import { replayClient, replayPlanModel } from "./replay";
@@ -89,7 +89,9 @@ describeRecorded("examples in the store", () => {
     expect(added?.seq).toBe(Math.max(...recorded.map((e) => e.seq)) + 1);
     expect((await loadPlanEvents(store, id)).length).toBe(recorded.length + 1);
     expect((await loadPlanReport(store, id))?.poster).toEqual(poster);
-    expect((await loadPlanReport(null, id))?.poster.status).toBe("none");
+    // Without the store, the example is its recording alone (its approved poster, never the one added here).
+    expect((await loadPlanReport(null, id))?.poster).toEqual(toPlanReport(reducePlan(recorded)).poster);
+    expect((await loadPlanReport(null, id))?.poster).not.toEqual(poster);
   });
 
   it("run a live plan end to end in the background, from the recordings", async () => {

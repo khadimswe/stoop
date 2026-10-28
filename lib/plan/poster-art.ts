@@ -157,7 +157,9 @@ export async function renderPosterArt(env: PosterArtEnv, report: Pick<PlanReport
 
   if (checkPosterPrompt(built.prompt, report).length > 0) return ended("skipped", POSTER_REASONS.blocked);
   const hit = cachedSchema.safeParse(await store.get(posterKeys.render(built.promptHash)));
-  if (hit.success) return { poster: { ...base, status: "ready", url: hit.data.url }, billed: false };
+  // A ready poster carries no url: the art stays in the cache by its prompt hash, and every page shows
+  // the composited poster from the route, so the bare background is never mistaken for the poster.
+  if (hit.success) return { poster: { ...base, status: "ready" }, billed: false };
   if (!env.renderer || !env.storage) return ended("skipped", POSTER_REASONS.noService);
 
   const at = now().getTime();
@@ -181,7 +183,7 @@ export async function renderPosterArt(env: PosterArtEnv, report: Pick<PlanReport
     if (!extension) throw new FrameRenderError(`The art came back as ${image.contentType}.`, { billed: true });
     const stored = await env.storage.put(`posters/${built.promptHash}.${extension}`, image.bytes, image.contentType, env.abortSignal ? { abortSignal: env.abortSignal } : {});
     await store.set(posterKeys.render(built.promptHash), { url: stored.url, modelId: POSTER_MODEL.endpoint }, { ttlSeconds: TTL.frameRender });
-    return { poster: { ...base, status: "ready", url: stored.url }, billed: true };
+    return { poster: { ...base, status: "ready" }, billed: true };
   } catch (error) {
     const billed = wasBilled(error);
     // Only a render fal refused gives its places back; a billed one stays counted.

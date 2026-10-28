@@ -60,7 +60,10 @@ describe("renderPosterArt", () => {
     const outcome = await renderPosterArt(env({ renderer, storage }), report, visitor);
     const { prompt, promptHash, input } = buildPosterPrompt(report);
     expect(outcome.billed).toBe(true);
-    expect(outcome.poster).toMatchObject({ status: "ready", prompt, promptHash, url: `https://abc123.public.blob.vercel-storage.com/posters/${promptHash}.png` });
+    expect(outcome.poster).toMatchObject({ status: "ready", prompt, promptHash });
+    // The bare background never rides on the poster: it stays in the art cache, and pages show the route's composite.
+    expect(outcome.poster.url).toBeUndefined();
+    expect(await store.get(posterKeys.render(promptHash))).toEqual({ url: `https://abc123.public.blob.vercel-storage.com/posters/${promptHash}.png`, modelId: POSTER_MODEL.endpoint });
     expect(posterSchema.safeParse(outcome.poster).success).toBe(true);
     expect(renderer.calls).toEqual([{ endpoint: POSTER_MODEL.endpoint, input }]);
     expect([...storage.objects.keys()]).toEqual([`posters/${promptHash}.png`]);

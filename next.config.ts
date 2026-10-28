@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   outputFileTracingIncludes: {
     "/api/**": [...API_DATA, ...fixtures],
+    // The poster route draws an example over the background the founder approved, read from its
+    // marketing folder (lib/plan/poster-approval.ts); public/ is not in the function bundle.
+    "/api/plan/**": ["./data/plans/*/marketing/poster-bg-*.png"],
   },
   outputFileTracingExcludes: {
     "/api/**": NOT_READ,

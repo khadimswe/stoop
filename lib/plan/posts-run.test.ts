@@ -129,7 +129,8 @@ describe("runMarketing", () => {
     expect(new URL(r.posts!.share.facebook!).searchParams.get("u")).toBe(`https://stoop.test/e/${RUN}`);
     expect(new URL(r.posts!.share.whatsapp!).searchParams.get("text")).toContain(`https://stoop.test/e/${RUN}`);
     expect(r.poster.status).toBe("ready");
-    expect(r.poster.url).toMatch(/^https:\/\/abc123\.public\.blob\.vercel-storage\.com\/posters\//);
+    expect(r.poster.url).toBeUndefined();
+    expect(await store.get(posterKeys.render(r.poster.promptHash))).toMatchObject({ url: expect.stringMatching(/^https:\/\/abc123\.public\.blob\.vercel-storage\.com\/posters\//) });
     expect(art.calls).toBe(1);
     expect(r.cost).toMatchObject({ frames: 1, claude: { calls: 4, inputTokens: 1100, outputTokens: 550 } });
     expect(r.cost!.estimateUsd).toBeGreaterThan(0.1 + 0.08);
@@ -226,25 +227,38 @@ describe("posterResponse", () => {
     const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url: "https://evil.test/art.png" } });
     const fetched: string[] = [];
     const fetchSpy = (async (url: string) => (fetched.push(url), new Response("x"))) as unknown as typeof fetch;
-    const deps = { live: true, store: () => store, source: () => source, artOrigins: ["https://stoop.test"], fetch: fetchSpy };
+    const deps = { live: true, store: () => store, source: () => source, artOrigins: ["https://stoop.test"], fetch: fetchSpy, exampleArt: () => null };
     expect((await posterResponse(deps, "ex-missing", "portrait")).status).toBe(404);
     expect((await posterResponse(deps, "run_unknown1", "portrait")).status).toBe(404);
     expect((await posterResponse(deps, "plan_00000000000000000000beef", "portrait")).status).toBe(404);
+    // An example never fetches a url: it draws only art the founder approved, from disk.
     const plain = await posterResponse(deps, EX, "portrait");
     expect(plain.status).toBe(200);
     expect(fetched).toEqual([]);
-    // Art that should be there but could not be read is never cached.
-    expect(plain.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("uses the art from Stoop's own storage", async () => {
+  it("draws an example over its approved art, and variant B on the plain ground", async () => {
     const report = samplePlanReport({ kind: "example" });
-    const url = "https://abc123.public.blob.vercel-storage.com/posters/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png";
-    const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url } });
+    const source = exampleSource(report);
+    const asked: string[] = [];
+    const tiny = { dataUri: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" };
+    const deps = { live: false, store: () => store, source: () => source, artOrigins: [], exampleArt: (slug: string) => (asked.push(slug), tiny) };
+    const response = await posterResponse(deps, EX, "portrait");
+    expect(asked).toEqual(["chicago-18th-street"]);
+    expect(response.headers.get("cache-control")).toMatch(/^public/);
+    expect((await pngSize(response)).width).toBe(1080);
+  });
+
+  it("draws a live plan over its rendered art, found in the art cache by its prompt hash", async () => {
+    const hash = "a".repeat(64);
+    const url = `https://abc123.public.blob.vercel-storage.com/posters/${hash}.png`;
+    const source = await seedRun(samplePlanReport());
+    await source.append(RUN, [{ type: "poster.updated", poster: { status: "ready", prompt: "p", promptHash: hash, alt: "a" } }]);
+    await store.set(posterKeys.render(hash), { url, modelId: "fal-ai/nano-banana-2" });
     const tiny = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
     const fetched: string[] = [];
     const fetchSpy = (async (target: string) => (fetched.push(target), new Response(tiny, { headers: { "content-type": "image/png" } }))) as unknown as typeof fetch;
-    const response = await posterResponse({ live: false, store: () => store, source: () => source, artOrigins: [], fetch: fetchSpy }, EX, "portrait");
+    const response = await posterResponse({ live: true, store: () => store, source: () => source, artOrigins: [], fetch: fetchSpy }, RUN, "portrait");
     expect(fetched).toEqual([url]);
     expect(response.headers.get("cache-control")).toMatch(/^public/);
     expect((await pngSize(response)).width).toBe(1080);

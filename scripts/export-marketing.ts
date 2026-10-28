@@ -70,6 +70,8 @@ async function main() {
     }
 
     const outDir = path.join(plansDir, slug, "marketing");
+    // The example's events keep the approved poster and posts; a new export is a new draft to approve.
+    if (existsSync(path.join(outDir, "approved.json"))) console.warn(`${slug}: already approved. These are new drafts; the example keeps showing the approved ones until scripts/approve-poster.ts runs again.`);
     await mkdir(outDir, { recursive: true });
     const jsonFile = path.join(outDir, "marketing.json");
     // Drafts already rendered stay listed: they count toward the store's render limit for good.
