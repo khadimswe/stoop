@@ -62,7 +62,7 @@ export function PinMap({ point, onChange, className }: { point: { lat: number; l
 
   return (
     <div className={cn("relative overflow-hidden rounded-[20px] bg-[#e9e7e2]", className)}>
-      <div ref={box} role="application" aria-label="Map: drag the pin onto the store's door" className="absolute inset-0" />
+      <div ref={box} role="application" aria-label="Map: drag the pin onto the store's door" className="h-full w-full" />
       {failed && <p className="absolute inset-x-0 bottom-3 text-center text-xs text-fl-dim">The map didn&apos;t load. The address is enough.</p>}
     </div>
   );

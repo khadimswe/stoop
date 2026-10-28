@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { FacebookGlyph, InstagramGlyph, WhatsAppGlyph } from "@/components/stoop/floor/glyphs";
-import { NumBadge, PRIMARY } from "@/components/stoop/floor/kit";
+import { NumBadge, PRIMARY_INLINE } from "@/components/stoop/floor/kit";
 import { HeroMedia } from "@/components/stoop/home/hero-media";
 import { HomeNav } from "@/components/stoop/home/home-nav";
 import { FOUNDER_STORY, HERO, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL } from "@/lib/marketing/pilot";
@@ -53,7 +53,7 @@ export default function Home() {
             </h1>
             <p className="text-lg leading-[1.5] text-pretty text-fl-muted lg:text-xl">{HERO.sub}</p>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <Link href="/start" className={PRIMARY + " w-auto px-6"}>
+              <Link href="/start" className={PRIMARY_INLINE}>
                 Plan an event
               </Link>
               <Link href={exampleHrefs(lead).event} className="inline-flex min-h-11 items-center gap-1.5 text-base font-medium underline decoration-1 underline-offset-4 hover:decoration-2">

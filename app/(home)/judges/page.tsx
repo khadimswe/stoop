@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PRIMARY } from "@/components/stoop/floor/kit";
+import { PRIMARY_INLINE } from "@/components/stoop/floor/kit";
 import { HomeNav } from "@/components/stoop/home/home-nav";
 import { examplePlanId, LEAD_PLAN_EXAMPLE } from "@/lib/plan/example-list";
 import { exampleHrefs } from "@/lib/plan/view/hrefs";
@@ -67,7 +67,7 @@ export default function JudgesPage() {
           ))}
         </ol>
         <div>
-          <Link href={LEAD} className={PRIMARY + " w-auto px-6"}>
+          <Link href={LEAD} className={PRIMARY_INLINE}>
             Open the example event
           </Link>
         </div>

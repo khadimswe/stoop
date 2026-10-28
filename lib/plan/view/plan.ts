@@ -620,7 +620,9 @@ export function planView(source: PlanSource): PlanView {
     runOfShow: (plan?.runOfShow ?? []).map((s) => {
       const all = parts(s.step);
       const { label, rest } = stepLabel(all);
-      return { time: s.time, timeLabel: timeOfDay(s.time), clock: timeOfDay(s.time).replace(/ (am|pm)$/, ""), label, rest, parts: all };
+      const [h, m] = s.time.split(":").map(Number) as [number, number];
+      const clock = `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")}`;
+      return { time: s.time, timeLabel: timeOfDay(s.time), clock, label, rest, parts: all };
     }),
     shopping,
     costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought on the block where Qloo found a partner.` : null,
@@ -839,6 +841,7 @@ export function stepLabel(stepParts: readonly TextPart[]): { label: string | nul
   if (!first || first.kind !== "text") return { label: null, rest: [...stepParts] };
   const m = /^\s*([^.:]{1,24}?)[.:]\s+([\s\S]*)$/.exec(first.text);
   if (!m || m[1]!.trim().split(/\s+/).length > 3) return { label: null, rest: [...stepParts] };
-  const rest: TextPart[] = [...(m[2] ? [{ kind: "text" as const, text: m[2] }] : []), ...stepParts.slice(1)];
+  const after = m[2] ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "";
+  const rest: TextPart[] = [...(after ? [{ kind: "text" as const, text: after }] : []), ...stepParts.slice(1)];
   return { label: m[1]!.trim(), rest };
 }

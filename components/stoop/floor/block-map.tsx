@@ -232,7 +232,7 @@ export function BlockMap({
 
   return (
     <div className={cn("relative overflow-hidden rounded-[20px] bg-[#e9e7e2]", className)}>
-      <div ref={box} role="img" aria-label={label} className="absolute inset-0" />
+      <div ref={box} role="img" aria-label={label} className="h-full w-full" />
       {state !== "ready" && (
         <p className="absolute inset-x-0 bottom-3 text-center text-xs text-fl-dim">{state === "failed" ? "The map didn't load. The list below has every place." : "Loading the map..."}</p>
       )}

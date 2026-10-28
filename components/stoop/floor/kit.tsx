@@ -12,6 +12,9 @@ export type Step = (typeof STEPS)[number];
 
 export const PRIMARY =
   "inline-flex h-13 w-full items-center justify-center gap-2 rounded-[12px] bg-fl-ink px-5 text-base font-semibold text-white outline-offset-2 hover:bg-[#2a2a2e] disabled:opacity-60 [&_svg]:size-5";
+/** The primary at its own width (the landing hero, the judges' guide). */
+export const PRIMARY_INLINE =
+  "inline-flex h-13 items-center justify-center gap-2 rounded-[12px] bg-fl-ink px-6 text-base font-semibold text-white outline-offset-2 hover:bg-[#2a2a2e]";
 export const BUTTON2 =
   "inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border border-fl-line bg-white px-4 text-[0.9375rem] font-semibold text-fl-ink hover:bg-fl-sunk disabled:opacity-60 [&_svg]:size-4";
 export const BUTTON2_SM =
@@ -69,7 +72,7 @@ export function Stepper({ current, hrefs = {} }: { current: Step; hrefs?: Partia
               className={cn(
                 "block truncate border-t-2 pt-2 text-xs leading-4",
                 state === "done" && "border-fl-ink text-fl-ink",
-                state === "now" && "border-t-[3px] pt-[7px] font-bold text-fl-ink",
+                state === "now" && "border-t-[3px] border-fl-ink pt-[7px] font-bold text-fl-ink",
                 state === "next" && "border-fl-future text-fl-dim",
               )}
             >

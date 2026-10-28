@@ -11,6 +11,32 @@ for (const match of css.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-f]{3,6})\b/gi)
 type Pair = [foreground: string, background: string, kind: keyof typeof AA, use: string];
 
 const PAIRS: Pair[] = [
+  // The floor (store-events app and landing): warm grey page, white surfaces, black ink
+  ["fl-ink", "fl-page", "text", "floor: body text on the page"],
+  ["fl-muted", "fl-page", "text", "floor: body copy on the page"],
+  ["fl-dim", "fl-page", "text", "floor: meta text on the page"],
+  ["fl-ink", "surface", "text", "floor: text on white rows"],
+  ["fl-muted", "surface", "text", "floor: secondary text on rows"],
+  ["fl-dim", "surface", "text", "floor: meta text on rows"],
+  ["fl-ink", "fl-band", "text", "floor: text on the band and the segmented track"],
+  ["fl-muted", "fl-band", "text", "floor: secondary text and draft pills on the band"],
+  ["fl-dim", "fl-band", "text", "floor: meta text on the band"],
+  ["fl-ink", "fl-sunk", "text", "floor: text on a picked row"],
+  ["surface", "fl-ink", "text", "floor: primary button label, filled chips and badges"],
+  ["fl-ok", "fl-ok-bg", "text", "floor: Posted pill"],
+  ["fl-ok", "surface", "text", "floor: Connected"],
+  ["fl-bad", "surface", "text", "floor: errors on white"],
+  ["fl-bad", "fl-page", "text", "floor: errors on the page"],
+  ["fl-line", "surface", "ui", "floor: input, chip and secondary button borders on white"],
+  ["fl-line", "fl-page", "ui", "floor: chip and button borders on the page"],
+  ["fl-chev", "surface", "ui", "floor: chevrons"],
+  ["fl-ink", "surface", "ui", "floor: number badges, checkboxes and focus rings"],
+  ["fl-dark-bright", "fl-dark", "text", "floor: text on dark sections"],
+  ["fl-dark-dim", "fl-dark", "text", "floor: secondary text on dark sections"],
+  ["fl-dark-dim", "fl-dark-2", "text", "floor: the dark segmented control's labels"],
+  ["fl-signal", "fl-dark", "text", "floor: lime captions on dark (never text on light)"],
+  ["fl-ink", "fl-dark-bright", "text", "floor: the picked format and the dark CTA's button"],
+  ["fl-signal", "fl-dark", "ui", "floor: focus rings on dark sections"],
   // Daylight (paper) surfaces
   ["ink", "paper", "text", "body text"],
   ["ink-soft", "paper", "text", "secondary text"],
