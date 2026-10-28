@@ -97,6 +97,27 @@ describe("carrier promos and the event's place", () => {
   });
 });
 
+describe("the prize wheel", () => {
+  const plan = report.plan!;
+  const wheel = {
+    slices: [
+      { label: "$25 unlimited", kind: "promo" as const, text: "$25/mo unlimited with a free phone when you switch", origin: "yours" as const, refs: [], evidenceIds: [] },
+      { label: "Taco card", kind: "gift_card" as const, text: "A $10 card for [[place-taqueria]]", origin: "qloo" as const, refs: ["place-taqueria"], evidenceIds: ["ev_00000000b10c"] },
+      { label: "Hand warmers", kind: "snack" as const, text: "A pair of hand warmers", origin: "creative" as const, refs: [], evidenceIds: [] },
+      { label: "Sticker", kind: "other" as const, text: "A sticker", origin: "creative" as const, refs: [], evidenceIds: [] },
+    ],
+    rules: ["Free to spin, no purchase needed."],
+  };
+  const withWheel = { ...report, plan: { ...plan, wheel } };
+
+  it("lets a post say there is a prize wheel, never what it pays out", () => {
+    expect(checkPostText("Spin the prize wheel at the table, free to spin.", withWheel, "facebook")).toEqual([]);
+    expect(checkPostText("Win prizes all afternoon.", withWheel, "facebook").map((i) => i.match)).toContain("prizes");
+    expect(checkPostText("Spin the prize wheel.", report, "facebook").map((i) => i.match)).toContain("prize");
+    expect(postsPrompt(withWheel)).toContain("never list, describe or promise a prize");
+  });
+});
+
 describe("checkHashtags", () => {
   it("keeps hashtags to letters and digits, without names, carriers or brands", () => {
     expect(checkHashtags(["Testville", "TacoSaturday"], report)).toEqual([]);

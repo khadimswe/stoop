@@ -38,6 +38,8 @@ const AUDIENCE = /\b(?:your|our)\s+(?:customers?|clients?|shoppers?|buyers?)\b/i
 const ALCOHOL_TOBACCO = /\b(?:beers?|wines?|liquor|alcohol(?:ic)?|booze|cocktails?|margaritas?|tequila|vodka|whiske?y|rum|cigarettes?|cigars?|vapes?|vaping|hookah|tobacco|cannabis|weed|edibles?|cbd)\b/i;
 const FREE = /\bfree\b/i;
 const OFFER_WORDS = /\b(?:deals?|discounts?|%\s*off|half off|bogo|buy one|giveaways?|prizes?|raffle|sale)\b/i;
+/** The prize wheel, named as the plan names it: a post may say there is one, never what it pays out. */
+const WHEEL = /\bprize wheel\b|\bspin the wheel\b/gi;
 const CLAIMS = /\b(?:everyone|the whole (?:city|block|neighborhood)) (?:is|will be) (?:coming|there)\b|\bbiggest\b|\bbest in (?:town|the city)\b|\bguaranteed\b/i;
 const HASHTAG = /^[A-Za-z][A-Za-z0-9]{1,29}$/;
 
@@ -49,13 +51,15 @@ export function allowedRefs(report: Report): Set<string> {
   if (!concept) return ids;
   for (const item of concept.items) for (const ref of item.refs) ids.add(ref);
   for (const ref of [...refsIn(concept.title), ...refsIn(concept.hook)]) ids.add(ref);
+  // Not the prize wheel's gift-card places: a post never says what the wheel pays out.
   return new Set([...ids].filter((id) => known.has(id)));
 }
 
 /** The manager's own words and the plan's, for checking that a post invents no facts. */
 function sellerText(report: Report): string {
   const concept = keptConcept(report);
-  return [...report.inputs.offers.map((o) => o.text), ...(concept?.items.map((i) => i.text) ?? [])].join("\n");
+  const wheel = report.plan?.wheel;
+  return [...report.inputs.offers.map((o) => o.text), ...(concept?.items.map((i) => i.text) ?? []), ...(wheel ? [...wheel.slices.map((s) => s.text), ...wheel.rules] : [])].join("\n");
 }
 
 function names(report: Report): string[] {
@@ -84,7 +88,8 @@ export function checkPostText(text: string, report: Report, path: string): Guard
   for (const claim of unsupportedClaims(text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, ""), seller)) add(claim, `"${claim}" is a fact neither the manager nor the plan gave. Code adds the offers, date and address.`);
   const free = text.match(FREE)?.[0];
   if (free && !FREE.test(seller)) add(free, `"${free}" promises something neither the offers nor the plan offer.`);
-  const deal = text.match(OFFER_WORDS)?.[0];
+  // With a prize wheel in the plan, a post may say so ("spin the prize wheel"); any other prize talk is out.
+  const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(OFFER_WORDS)?.[0];
   if (deal) add(deal, `"${deal}" restates an offer. Code adds the manager's offers word for word.`);
   const audience = text.match(AUDIENCE)?.[0];
   if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the block.`);
@@ -225,6 +230,7 @@ export function postsPrompt(report: Report): string {
     `The event: ${f.title}, on ${f.when}, ${SETTING_WORDS[report.inputs.setting]}, ${report.inputs.location ? `at ${report.inputs.location.name}, hosted by ${report.inputs.store.name}` : `at ${report.inputs.store.name}`} in ${report.inputs.store.city}.`,
     concept ? `Why someone stops: ${concept.hook}` : "",
     report.inputs.offers.length ? `The manager has ${report.inputs.offers.length} offer${report.inputs.offers.length === 1 ? "" : "s"} at the table; code adds ${report.inputs.offers.length === 1 ? "it" : "them"} word for word below your lines.` : "There are no offers.",
+    ...(report.plan?.wheel ? ["The table has a prize wheel, free to spin with no purchase needed. You may say \"spin the prize wheel\"; never list, describe or promise a prize."] : []),
     `Tokens you may use (write the token, never the name):\n${tokens.length ? tokens.join("\n") : "(none)"}`,
     `The plan's lines:\n${lines.join("\n")}`,
     ...(report.inputs.notes ? [quoted("manager notes", report.inputs.notes)] : []),
