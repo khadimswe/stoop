@@ -65,6 +65,7 @@ const SETTING_FEEL: Record<PlanReport["inputs"]["setting"], string> = {
   sidewalk_table: "open-air sidewalk energy",
   in_store: "a warm indoor glow",
   nearby_venue: "the buzz of a night out nearby",
+  community_event: "the bustle of an outdoor community fair",
 };
 
 /** Every real name the run knows, plus the store's own words: none may reach the art prompt. */
@@ -77,6 +78,7 @@ export function posterBannedNames(report: Pick<PlanReport, "local" | "inputs">):
     ...(report.local.city?.artists.flatMap((a) => a.genres) ?? []),
     store.name,
     store.city,
+    ...(report.inputs.location ? [report.inputs.location.name] : []),
     ...BRAND_WORDS,
     ...FAMOUS_PLACES,
   ];
@@ -150,7 +152,7 @@ export function checkPosterPrompt(prompt: string, report: Pick<PlanReport, "loca
     const match = body.match(word)?.[0];
     if (match) add(match, `"${match}" asks for text, a logo or people in the art.`);
   }
-  for (const word of [report.inputs.store.address, ...report.inputs.offers.map((o) => o.text)]) {
+  for (const word of [report.inputs.store.address, report.inputs.location?.name, ...report.inputs.offers.map((o) => o.text)]) {
     if (word && prompt.toLowerCase().includes(word.toLowerCase())) add(word, "The store's address and offers are set as text by code, never painted.");
   }
   return issues;

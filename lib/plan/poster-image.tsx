@@ -54,6 +54,11 @@ function titleSize(title: string, size: PosterSize): number {
   return n > 44 ? 96 : n > 28 ? 116 : n > 16 ? 136 : 156;
 }
 
+/** The place lines: the store and its address, or the event's place with the store still named. */
+export function where(text: PosterText): { main: string; sub: string } {
+  return text.location ? { main: text.location, sub: `Hosted by ${text.store}` } : { main: text.store, sub: text.address };
+}
+
 export interface PosterArt {
   /** The background as a data URI (fetched by the caller from Stoop's own storage). */
   dataUri: string;
@@ -114,8 +119,8 @@ function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
           <div style={{ fontFamily: "Bricolage", fontSize: titleSize(text.title, "portrait"), lineHeight: 0.92, letterSpacing: -2, color: fg }}>{text.title}</div>
           <Offers offers={text.offers} art={art !== null} size="portrait" />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-            <div style={{ fontFamily: "Bricolage", fontSize: 50, lineHeight: 1.05, color: fg }}>{text.store}</div>
-            <div style={{ fontSize: 32, lineHeight: 1.25, color: soft }}>{text.address}</div>
+            <div style={{ fontFamily: "Bricolage", fontSize: 50, lineHeight: 1.05, color: fg }}>{where(text).main}</div>
+            <div style={{ fontSize: 32, lineHeight: 1.25, color: soft }}>{where(text).sub}</div>
             {text.disclaimer && <div style={{ marginTop: 14, fontSize: 22, color: soft }}>{text.disclaimer}</div>}
           </div>
         </div>
@@ -149,8 +154,8 @@ function Og({ text, art }: { text: PosterText; art: PosterArt | null }) {
           <Offers offers={text.offers.slice(0, 2)} art={art !== null} size="og" />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontFamily: "Bricolage", fontSize: 34, color: fg }}>{text.store}</div>
-          <div style={{ fontSize: 22, color: soft }}>{text.address}</div>
+          <div style={{ fontFamily: "Bricolage", fontSize: 34, color: fg }}>{where(text).main}</div>
+          <div style={{ fontSize: 22, color: soft }}>{where(text).sub}</div>
           {text.disclaimer && <div style={{ marginTop: 8, fontSize: 17, color: soft }}>{text.disclaimer}</div>}
         </div>
       </div>

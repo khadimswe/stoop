@@ -75,7 +75,7 @@ const issue = (match: string, message: string): GuardIssue => ({ rule: "fake-pro
  * anything aimed at minors.
  */
 export function checkPostText(text: string, report: Report, path: string): GuardIssue[] {
-  const allowedNames = [report.inputs.store.city, report.inputs.store.name, report.inputs.store.region];
+  const allowedNames = [report.inputs.store.city, report.inputs.store.name, report.inputs.store.region, ...(report.inputs.location ? [report.inputs.location.name] : [])];
   const issues = checkText(text, { names: names(report), allowedNames, exactCaseNames: true }).map((i) => ({ ...i, path }));
   const add = (match: string, message: string) => issues.push({ ...issue(match, message), path });
   const allowed = allowedRefs(report);
@@ -95,6 +95,16 @@ export function checkPostText(text: string, report: Report, path: string): Guard
   const claim = text.match(CLAIMS)?.[0];
   if (claim) add(claim, `"${claim}" is a claim about turnout or rank that nobody measured.`);
   if (/https?:\/\/|www\./i.test(text)) add("link", "Links are added by code: the share link carries the event page.");
+  // Carrier names and promos come only from what the manager typed (the store's name, the offers).
+  const typed = [report.inputs.store.name, ...report.inputs.offers.map((o) => o.text)].join("\n");
+  for (const brand of BRAND_WORDS) {
+    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "u");
+    const hit = text.match(pattern)?.[0];
+    if (hit && !pattern.test(typed)) {
+      add(hit, `"${hit}": carrier names and promos come only from the store's name and the manager's offers, never invented.`);
+      break;
+    }
+  }
   return issues;
 }
 
@@ -133,7 +143,8 @@ export function checkLlmPosts(posts: LlmPosts, report: Report): GuardIssue[] {
 /** The facts code adds to every post, from the inputs only. */
 export function postFacts(report: Report) {
   const text = posterText(report);
-  return { title: text.title, when: `${text.date}, ${text.time}`, where: `${text.store}, ${text.address}`, offers: text.offers, weekday: text.date.split(",")[0] ?? "" };
+  const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
+  return { title: text.title, when: `${text.date}, ${text.time}`, where, offers: text.offers, weekday: text.date.split(",")[0] ?? "" };
 }
 
 /** Openings plus the facts, refs rendered: the posts as shared. `share` is filled by the caller. */
@@ -158,12 +169,20 @@ export function fallbackOpenings(report: Report): LlmPosts {
   const hook = concept && checkPostText(concept.hook, report, "hook").length === 0 ? ` ${concept.hook.trim().replace(/([^.!?])$/, "$1.")}` : "";
   // The raw title, so a ref in it stays a token until composePosts renders it.
   const title = concept && checkPostText(concept.title, report, "title").length === 0 ? concept.title.trim() : "Come by the table";
-  const store = report.inputs.store.name;
+  const { store, location } = { store: report.inputs.store.name, location: report.inputs.location?.name.trim() };
   const tag = cityTag(report.inputs.store.city);
+  // Where, in the store's own words: a table outside, inside the store, or a booth at the event's place.
+  const setup = {
+    sidewalk_table: `we're setting up a table outside ${store}`,
+    in_store: `we're hosting it inside ${store}`,
+    nearby_venue: location ? `${store} will be at ${location}` : `we'll be near ${store}`,
+    community_event: location ? `${store} will have a booth at ${location}` : `${store} will have a booth at the community event`,
+  }[report.inputs.setting];
+  const at = location && report.inputs.setting !== "sidewalk_table" && report.inputs.setting !== "in_store" ? `${location} with ${store}` : store;
   return {
-    facebook: `${title}: we're setting up a table outside ${store} this ${weekday}.${hook} Stop by and say hi.`,
-    instagram: `${title} at ${store} this ${weekday}.${hook}`,
-    whatsapp: `${title} at ${store} this ${weekday}.${hook} Stop by and say hi.`,
+    facebook: `${title}: ${setup} this ${weekday}.${hook} Stop by and say hi.`,
+    instagram: `${title} at ${at} this ${weekday}.${hook}`,
+    whatsapp: `${title} at ${at} this ${weekday}.${hook} Stop by and say hi.`,
     hashtags: [...(HASHTAG.test(tag) ? [tag] : []), "ShopLocal", "WeekendPlans"],
   };
 }
@@ -176,12 +195,19 @@ export function postsInstructions(): string {
     "The store manager reviews every post and shares it themselves. Write as the store (we), friendly, short, plain and local, like a neighbor talking.",
     "Write only the opening lines of each post. Code adds the date, the time, the store's address and the manager's offers word for word, so never write dates, times, addresses, prices, deals or offers yourself, and never add links.",
     "Name an artist or a place only by writing its token exactly as given, like [[place-id]]. Never write a name out. Use only the tokens listed in the plan. Mention a food spot or venue only if the plan lists it.",
-    "Never claim turnout, popularity, sales or anything nobody measured. Never say \"your customers\" or \"our customers\": speak to the city and the block. Never mention alcohol or tobacco. The event is for adults passing by: nothing aimed at children.",
+    "Never name a carrier, a carrier promo or a promo day yourself: the manager's offers carry them, word for word. Never claim turnout, popularity, sales or anything nobody measured. Never say \"your customers\" or \"our customers\": speak to the city and the block. Never mention alcohol or tobacco. The event is for adults passing by: nothing aimed at children.",
     "Facebook: 2 to 4 short sentences. Instagram: 1 to 3 short sentences. WhatsApp: 1 or 2 sentences, like a text to a neighbor who asked to hear about events. At most one emoji per post.",
     "Hashtags: 3 to 6, letters and digits only, no # sign. The city's name is fine; never an artist, a place, a carrier or a brand.",
     GUARDRAIL_INSTRUCTIONS,
   ].join("\n");
 }
+
+const SETTING_WORDS: Record<PlanReport["inputs"]["setting"], string> = {
+  sidewalk_table: "a table on the sidewalk outside the store",
+  in_store: "inside the store",
+  nearby_venue: "at a venue near the store",
+  community_event: "a booth at a fair or community event",
+};
 
 export function postsPrompt(report: Report): string {
   const concept = keptConcept(report);
@@ -196,7 +222,7 @@ export function postsPrompt(report: Report): string {
   });
   const lines = (concept?.items ?? []).map((i) => `- ${i.kind}: ${i.text}`);
   return [
-    `The event: ${f.title}, on ${f.when}, at ${report.inputs.store.name} in ${report.inputs.store.city}.`,
+    `The event: ${f.title}, on ${f.when}, ${SETTING_WORDS[report.inputs.setting]}, ${report.inputs.location ? `at ${report.inputs.location.name}, hosted by ${report.inputs.store.name}` : `at ${report.inputs.store.name}`} in ${report.inputs.store.city}.`,
     concept ? `Why someone stops: ${concept.hook}` : "",
     report.inputs.offers.length ? `The manager has ${report.inputs.offers.length} offer${report.inputs.offers.length === 1 ? "" : "s"} at the table; code adds ${report.inputs.offers.length === 1 ? "it" : "them"} word for word below your lines.` : "There are no offers.",
     `Tokens you may use (write the token, never the name):\n${tokens.length ? tokens.join("\n") : "(none)"}`,

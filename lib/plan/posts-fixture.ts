@@ -93,6 +93,7 @@ export function samplePlanReport(patch: { kind?: "live" | "example"; id?: string
     comparison: null,
     poster: { status: "none", prompt: "", promptHash: "", alt: "" },
     posts: null,
+    test: null,
     results: [],
     trace: [],
     stats: { stages: {} },

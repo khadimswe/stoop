@@ -1,8 +1,10 @@
 // The poster's text layer: every word on the poster, composited by code (lib/plan/poster-image.tsx) over
 // the background art, so the text is always exact. The event title is the kept concept's title, with
 // any "[[id]]" ref rendered from this run's Qloo results; the date and time come from the inputs; the
-// store name and address are the store's own; offers are the manager's words, verbatim. Example stores
-// are fictional and say so. No carrier logo is ever drawn: a real store adds its official assets itself.
+// store name and address are the store's own, and an event away from the store (a fair, a venue) puts
+// its place first and still names the store; offers are the manager's words, verbatim (carrier promos
+// included, never with terms or fine print the manager did not type). Example stores are fictional and
+// say so. No carrier logo is ever drawn: a real store adds its official assets itself.
 // A plain module (no server imports), so the UI can show the same lines as text.
 import { renderRefs } from "./refs";
 import type { PlanReport, Store } from "./schema";
@@ -16,6 +18,8 @@ export interface PosterText {
   time: string;
   store: string;
   address: string;
+  /** Where the event is when it is not at the store (inputs.location), else null. */
+  location: string | null;
   /** The manager's offers, verbatim, in the order typed. */
   offers: string[];
   /** Example stores only: they are fictional and not affiliated with the carrier. */
@@ -68,6 +72,25 @@ export function keptConcept(report: Pick<PlanReport, "plan">) {
   return plan ? (plan.concepts.find((c) => c.id === plan.conceptId) ?? plan.concepts.find((c) => c.kept) ?? null) : null;
 }
 
+/**
+ * The concept an A/B test's variant B runs, when it is one of this plan's concepts (a generic or usual
+ * variant B has no concept of its own to market).
+ */
+export function variantBConcept(report: Pick<PlanReport, "plan" | "test">): string | null {
+  const b = report.test?.variants.find((v) => v.id === "b");
+  return b?.source === "concept" && b.conceptId && report.plan?.concepts.some((c) => c.id === b.conceptId) ? b.conceptId : null;
+}
+
+/**
+ * The same report with another of its concepts in front, so the poster and posts builders (which read
+ * the kept concept) write variant B's. Unknown ids leave the report as it is.
+ */
+export function withFrontConcept<T extends Pick<PlanReport, "plan">>(report: T, conceptId: string): T {
+  const plan = report.plan;
+  if (!plan?.concepts.some((c) => c.id === conceptId)) return report;
+  return { ...report, plan: { ...plan, conceptId } };
+}
+
 const tidy = (text: string) => text.replace(/\s+/g, " ").trim();
 
 export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" | "meta">): PosterText {
@@ -79,6 +102,7 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
     time: eventTime(inputs.startTime, inputs.durationMinutes),
     store: inputs.store.name,
     address: inputs.store.address,
+    location: inputs.location?.name.trim() || null,
     offers: inputs.offers.map((o) => o.text),
     disclaimer: report.meta.kind === "example" ? CARRIER_NOTES[inputs.store.carrier] : null,
   };
@@ -87,5 +111,6 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
 /** The poster's alt text: what it says, in one line. */
 export function posterAlt(text: PosterText): string {
   const offers = text.offers.length ? ` Offers: ${text.offers.join("; ")}.` : "";
-  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${text.store}, ${text.address}.${offers}`;
+  const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
+  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}`;
 }
