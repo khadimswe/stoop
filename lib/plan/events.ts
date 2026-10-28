@@ -8,6 +8,7 @@ import {
   PLAN_VERSION,
   abTestSchema,
   baselineSchema,
+  blockMusicSchema,
   blockSchema,
   cityTasteSchema,
   comparisonSchema,
@@ -38,6 +39,8 @@ export const planEventSchema = z.discriminatedUnion("type", [
   z.strictObject({ ...base, type: z.literal("evidence.added"), evidence: evidenceSchema }),
   z.strictObject({ ...base, type: z.literal("local.city"), city: cityTasteSchema }),
   z.strictObject({ ...base, type: z.literal("local.block"), block: blockSchema }),
+  /** Music the block's places point to, tested next to the city's (used or not, with why). */
+  z.strictObject({ ...base, type: z.literal("local.blockMusic"), blockMusic: blockMusicSchema }),
   z.strictObject({ ...base, type: z.literal("local.gap"), text: z.string().min(1) }),
   /** The concepts as soon as they are scored, before the full plan (the live view shows them). */
   z.strictObject({ ...base, type: z.literal("plan.concepts"), concepts: z.array(conceptSchema).min(1).max(3) }),
@@ -115,6 +118,8 @@ export function applyPlan(state: PlanState, event: PlanEvent): PlanState {
       return with_({ local: { ...r.local, city: event.city } });
     case "local.block":
       return with_({ local: { ...r.local, block: event.block } });
+    case "local.blockMusic":
+      return with_({ local: { ...r.local, blockMusic: event.blockMusic } });
     case "local.gap":
       return r.local.gaps.includes(event.text) ? state : with_({ local: { ...r.local, gaps: [...r.local.gaps, event.text] } });
     case "plan.concepts":

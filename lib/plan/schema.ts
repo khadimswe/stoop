@@ -126,9 +126,28 @@ export const blockSchema = z.strictObject({
 });
 export type Block = z.infer<typeof blockSchema>;
 
+/** An artist the block's own places point to, with the places Qloo's explainability links it to. */
+export const blockArtistSchema = artistRefSchema.extend({ via: z.array(z.string().min(1)) });
+
+/**
+ * Music from the block: one Qloo call with the block's top independent places as the signal. An option
+ * next to the city's music, never instead of it ("People who love [[place]] also play [[artist]]"),
+ * used only when its results are current and differ from the city's list (place signals can return
+ * dated category profiles). `reason` says why it is used or not.
+ */
+export const blockMusicSchema = z.strictObject({
+  placeIds: z.array(z.string().min(1)).min(1).max(3),
+  artists: z.array(blockArtistSchema),
+  used: z.boolean(),
+  reason: z.string().min(1),
+});
+export type BlockMusic = z.infer<typeof blockMusicSchema>;
+
 export const localSchema = z.strictObject({
   city: cityTasteSchema.nullable(),
   block: blockSchema.nullable(),
+  /** Music the block's places point to, when the plan tested it. */
+  blockMusic: blockMusicSchema.nullable().optional(),
   /** What Qloo had no signal for, said plainly ("No Qloo signal for parks near this store"). */
   gaps: z.array(z.string().min(1)),
 });
@@ -399,7 +418,7 @@ export const planReportSchema = planReportShape.superRefine((report, ctx) => {
   for (const id of new Set(cited({ local: report.local, plan: report.plan, baseline: report.baseline, trace: report.trace }))) {
     if (!ledger.has(id)) issue(`cites ${id}, which is not in the ledger`, ["ledger"]);
   }
-  const known = new Set<string>([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
+  const known = new Set<string>([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.blockMusic?.artists.map((a) => a.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
   const places = new Set(report.local.block?.places.map((p) => p.id) ?? []);
   if (report.plan) {
     const ids = report.plan.concepts.map((c) => c.id);
