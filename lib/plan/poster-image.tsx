@@ -60,19 +60,60 @@ export interface PosterArt {
   dataUri: string;
 }
 
-/** Offers drawn on the poster: all of them on the portrait (up to 8, smaller past 3), 2 on a link preview. */
+/** Offers drawn on a link preview; the portrait draws every offer that fits (portraitLayout). */
 export const OG_OFFERS = 2;
 
-function Offers({ offers, art, size }: { offers: string[]; art: boolean; size: PosterSize }) {
+/** How the portrait's middle is set: title size, offer size, padding and gap, and how many offers fit. */
+export interface OffersLayout {
+  title: number;
+  offer: number;
+  /** Vertical padding of one offer, top and bottom together. */
+  pad: number;
+  gap: number;
+  shown: number;
+}
+
+const CONTENT_WIDTH = 920;
+/** Rough wrapped line count: the text's width at an average glyph width (a share of the size), plus slack for word breaks. */
+const linesOf = (text: string, font: number, em: number, width: number) => Math.max(1, Math.ceil((text.length * font * em * 1.12) / width));
+
+/**
+ * The largest portrait layout whose estimated height fits 1350 px: every word keeps its place, the
+ * address and the fictional line never fall off the bottom, and when even the smallest set cannot hold
+ * every offer, whole offers drop from the end behind one line that says how many more there are.
+ */
+export function portraitLayout(text: PosterText): OffersLayout {
+  const n = text.offers.length;
+  const base = titleSize(text.title, "portrait");
+  const top = 84 + 40 * 1.2 + 10 + 56 * 1.2;
+  const bottom = 92 + 6 + 50 * 1.05 + 6 + linesOf(where(text).sub, 32, 0.53, CONTENT_WIDTH) * 32 * 1.25 + (text.disclaimer ? 14 + 22 * 1.3 : 0);
+  const wheel = text.wheel ? linesOf(text.wheel, 30, 0.53, CONTENT_WIDTH) * 30 * 1.25 : 0;
+  const blocks = 1 + (n > 0 ? 1 : 0) + (text.wheel ? 1 : 0);
+  const sets: Omit<OffersLayout, "shown">[] = [
+    n > 3 ? { title: base, offer: 26, pad: 14, gap: 8 } : { title: base, offer: 36, pad: 28, gap: 14 },
+    { title: Math.min(base, 96), offer: 24, pad: 14, gap: 8 },
+    { title: Math.min(base, 84), offer: 21, pad: 12, gap: 6 },
+    { title: Math.min(base, 72), offer: 18, pad: 10, gap: 5 },
+  ];
+  for (let shown = n; shown >= 0; shown--) {
+    for (const set of sets) {
+      const title = linesOf(text.title, set.title, 0.45, CONTENT_WIDTH) * set.title * 0.92;
+      const offers = text.offers.slice(0, shown).reduce((sum, o) => sum + linesOf(o, set.offer, 0.53, CONTENT_WIDTH - 48) * set.offer * 1.2 + set.pad + 6 + set.gap, 0) + (shown < n ? 30 : 0);
+      if (top + 40 + title + offers + wheel + 34 * blocks + bottom <= 1350) return { ...set, shown };
+    }
+  }
+  return { ...sets[3]!, shown: 0 };
+}
+
+function Offers({ offers, art, size, layout }: { offers: string[]; art: boolean; size: PosterSize; layout?: OffersLayout }) {
   if (offers.length === 0) return null;
   const big = size === "portrait";
-  const shown = big ? offers : offers.slice(0, OG_OFFERS);
+  const shown = offers.slice(0, big ? (layout?.shown ?? offers.length) : OG_OFFERS);
   const more = offers.length - shown.length;
-  // Past 3 offers the portrait packs them tighter, so 8 still fit with the title and the store.
-  const many = big && offers.length > 3;
-  const font = (offer: string) => (big ? (many ? (offer.length > 70 ? 22 : 26) : offer.length > 70 ? 30 : 36) : offer.length > 70 ? 20 : 24);
+  const font = (offer: string) => (big ? (layout?.offer ?? 36) : offer.length > 70 ? 20 : 24);
+  const padY = big ? (layout?.pad ?? 28) / 2 : 8;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: big ? (many ? 8 : 14) : 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: big ? (layout?.gap ?? 14) : 10 }}>
       {shown.map((offer, i) => (
         <div
           key={i}
@@ -80,9 +121,9 @@ function Offers({ offers, art, size }: { offers: string[]; art: boolean; size: P
             display: "flex",
             alignSelf: "flex-start",
             maxWidth: "100%",
-            padding: big ? (many ? "7px 18px" : "14px 24px") : "8px 16px",
-            borderRadius: big ? (many ? 16 : 22) : 14,
-            border: `${big && !many ? 4 : 3}px solid ${C.ink}`,
+            padding: `${padY}px ${big ? (padY > 10 ? 24 : 18) : 16}px`,
+            borderRadius: big ? (padY > 10 ? 22 : 16) : 14,
+            border: `${big && padY > 10 ? 4 : 3}px solid ${C.ink}`,
             background: art ? C.sun : C.brickSoft,
             color: C.ink,
             fontSize: font(offer),
@@ -92,7 +133,7 @@ function Offers({ offers, art, size }: { offers: string[]; art: boolean; size: P
           {offer}
         </div>
       ))}
-      {more > 0 && <div style={{ fontSize: 20, color: art ? C.paper : C.inkSoft }}>{`${more} more ${more === 1 ? "offer" : "offers"} at the table`}</div>}
+      {more > 0 && <div style={{ fontSize: big ? 22 : 20, color: art ? C.paper : C.inkSoft }}>{`${more} more ${more === 1 ? "offer" : "offers"} at the table`}</div>}
     </div>
   );
 }
@@ -104,6 +145,7 @@ function WheelLine({ line, art, size }: { line: string | null; art: boolean; siz
 }
 
 function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
+  const layout = portraitLayout(text);
   const fg = art ? C.paper : C.ink;
   const soft = art ? C.paper : C.inkSoft;
   return (
@@ -127,8 +169,8 @@ function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
           <div style={{ fontSize: 56, color: fg }}>{text.time}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 34 }}>
-          <div style={{ fontFamily: "Bricolage", fontSize: Math.min(titleSize(text.title, "portrait"), text.offers.length > 3 ? 96 : 999), lineHeight: 0.92, letterSpacing: -2, color: fg, ...(art ? { textShadow: "0 4px 28px rgba(20,18,31,0.7)" } : {}) }}>{text.title}</div>
-          <Offers offers={text.offers} art={art !== null} size="portrait" />
+          <div style={{ fontFamily: "Bricolage", fontSize: layout.title, lineHeight: 0.92, letterSpacing: -2, color: fg, ...(art ? { textShadow: "0 4px 28px rgba(20,18,31,0.7)" } : {}) }}>{text.title}</div>
+          <Offers offers={text.offers} art={art !== null} size="portrait" layout={layout} />
           <WheelLine line={text.wheel} art={art !== null} size="portrait" />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
             <div style={{ fontFamily: "Bricolage", fontSize: 50, lineHeight: 1.05, color: fg }}>{where(text).main}</div>
