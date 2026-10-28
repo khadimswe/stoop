@@ -17,7 +17,7 @@ if (process.argv.slice(2).find((arg) => !arg.startsWith("-")) === "build") {
 // frozen reference panels (scoring) and the stored example runs (replays and reports). Recorded Qloo
 // fixtures only ship when the build replays them (QLOO_MODE=fixtures); at about 240 MB they are past a
 // serverless function's size limit, so that mode is for local builds.
-const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.json", "./data/runs/**/*.json"];
+const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.json", "./data/runs/**/*.json", "./data/plans/**/*.json"];
 
 const fixtureMode = process.env.QLOO_MODE?.trim() === "fixtures";
 const fixtures = fixtureMode ? ["./fixtures/**/*.json"] : [];
