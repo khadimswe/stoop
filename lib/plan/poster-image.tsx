@@ -101,7 +101,7 @@ function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
         <>
           {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
           <img src={art.dataUri} width={1080} height={1350} style={{ position: "absolute", top: 0, left: 0, width: 1080, height: 1350, objectFit: "cover" }} />
-          <div style={{ position: "absolute", top: 0, left: 0, width: 1080, height: 1350, display: "flex", backgroundImage: "linear-gradient(180deg, rgba(20,18,31,0.88) 0%, rgba(20,18,31,0.35) 26%, rgba(20,18,31,0.2) 45%, rgba(20,18,31,0.82) 66%, rgba(20,18,31,0.95) 100%)" }} />
+          <div style={{ position: "absolute", top: 0, left: 0, width: 1080, height: 1350, display: "flex", backgroundImage: "linear-gradient(180deg, rgba(20,18,31,0.88) 0%, rgba(20,18,31,0.35) 24%, rgba(20,18,31,0.3) 38%, rgba(20,18,31,0.72) 52%, rgba(20,18,31,0.92) 68%, rgba(20,18,31,0.96) 100%)" }} />
         </>
       ) : (
         <>
@@ -116,7 +116,7 @@ function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
           <div style={{ fontSize: 56, color: fg }}>{text.time}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 34 }}>
-          <div style={{ fontFamily: "Bricolage", fontSize: titleSize(text.title, "portrait"), lineHeight: 0.92, letterSpacing: -2, color: fg }}>{text.title}</div>
+          <div style={{ fontFamily: "Bricolage", fontSize: titleSize(text.title, "portrait"), lineHeight: 0.92, letterSpacing: -2, color: fg, ...(art ? { textShadow: "0 4px 28px rgba(20,18,31,0.7)" } : {}) }}>{text.title}</div>
           <Offers offers={text.offers} art={art !== null} size="portrait" />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
             <div style={{ fontFamily: "Bricolage", fontSize: 50, lineHeight: 1.05, color: fg }}>{where(text).main}</div>
