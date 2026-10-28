@@ -60,7 +60,7 @@ describe("refs and names", () => {
 });
 
 describe("origins and giveaways", () => {
-  const item = (over: Partial<Parameters<typeof itemIssues>[0]>) => itemIssues({ kind: "music", text: "Play the city's trap.", origin: "interpreted", refs: [], evidenceIds: ["ev_000000000001"], ...over }, ctx);
+  const item = (over: Partial<Parameters<typeof itemIssues>[0]>) => itemIssues({ kind: "music", text: "Play the city's most-played artists.", origin: "interpreted", refs: [], evidenceIds: ["ev_000000000001"], ...over }, ctx);
   it("needs a receipt for qloo and interpreted lines", () => {
     expect(item({ evidenceIds: [] }).join(" ")).toMatch(/must cite a Qloo/);
     expect(item({})).toEqual([]);

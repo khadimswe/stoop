@@ -16,7 +16,11 @@ export const PLAN_CRITERION_IDS = PLAN_CRITERIA.map((c) => c.id) as readonly Pla
 /** The highest total a concept can score. */
 export const PLAN_MAX_TOTAL = PLAN_CRITERIA.reduce((sum, c) => sum + 5 * c.weight, 0);
 
-export const PLAN_GATE = { id: "no_stereotype", label: "No stereotype", question: "Does any part rely on a stereotype about a group of people? Fail means discard." } as const;
+export const PLAN_GATE = {
+  id: "no_stereotype",
+  label: "No stereotype",
+  question: "Does any part rely on a stereotype about a group of people, or turn a music genre into the theme or a label for the people walking by? Fail means discard.",
+} as const;
 
 export interface PlanScore {
   scores: Record<PlanCriterionId, number>;

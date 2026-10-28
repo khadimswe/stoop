@@ -13,6 +13,8 @@ import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_R
 import { refsIn } from "./refs";
 import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
 import { clicheIn } from "./baseline";
+import { dayContext } from "./calendar";
+import { titleGenre } from "./words";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
 export const CONCEPT_COUNT = 3;
@@ -52,7 +54,8 @@ const TASK = [
   "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
   "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
   "Skip what every table already has with nothing local behind it: balloons, a hired DJ, a playlist of popular hits, an inflatable tube man.",
-  "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm. When the block's own music is listed, one concept may add it as an option next to the city's: \"People who love [[pN]] also play [[bN]]\".",
+  "Titles and hooks come from the occasion (a holiday near the date), the activity (the wheel), the food or the place. They never name a music genre or use slang tied to a community, for example \"Halloween Friday Wheel Spin\".",
+  "Music is an ingredient, never the theme. Write the music line neutrally, as the city's most-played artists by key, mixed across genres (use the most-played mix given), for example \"A playlist of the city's most-played artists on Qloo: [[a1]], [[a3]], [[a2]]\". Never name a genre and never say how far it carries. When the block's own music is listed, one concept may add it as an option next to the city's: \"People who love [[pN]] also play [[bN]]\".",
   "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
   "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
@@ -115,6 +118,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     for (const problem of [...itemIssues({ kind: "theme", text: title, origin: "creative", refs: [], evidenceIds: [] }, guard), ...itemIssues({ kind: "theme", text: hook, origin: "creative", refs: [], evidenceIds: [] }, guard)]) {
       issues.push(`${at}.title or hook: ${problem}`);
     }
+    const genre = titleGenre(`${title} ${hook}`);
+    if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (the wheel), the food or the place, never the music.`);
     const items: PlanItem[] = [];
     const used = new Set<string>();
     concept.items.forEach((item, i) => {
@@ -204,6 +209,23 @@ function repairPrompt(prompt: string, previous: unknown, issues: readonly string
   ].join("\n\n");
 }
 
+const ANCHORS = ["Wheel Spin", "Snack Stop", "Block Table"] as const;
+
+/**
+ * A safe title and hook when Claude's still name a genre or break a rule after the repair: the day's
+ * occasion (a holiday, else the weekday) and an anchor (the wheel, the snacks, the table).
+ */
+export function safeTitle(inputs: PlanInputs, index: number): { title: string; hook: string } {
+  const day = dayContext(inputs.date);
+  const holiday = /^It is (.+)\.$/.exec(day.notes.find((n) => /^It is [A-Z]/.test(n) && !/season|winter|summer/.test(n)) ?? "")?.[1]?.replace(/^the /, "") ?? null;
+  const weekday = day.label.split(",")[0] as string;
+  const anchor = ANCHORS[index % ANCHORS.length] as string;
+  return {
+    title: `${holiday ? `${holiday} ` : ""}${weekday} ${anchor}`.replace(/^(\w)/, (c) => c.toUpperCase()).slice(0, 60),
+    hook: "A free spin, something to eat and the store's own deals, right outside the door.",
+  };
+}
+
 export interface ConceptsOutcome {
   concepts: Concept[];
   aliases: Aliases;
@@ -235,6 +257,14 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
     }
   }
   if (!best) return null;
+  // A title or hook that still names a genre, or still breaks a rule, gets the safe template.
+  best.concepts.forEach((concept, i) => {
+    const bad = titleGenre(`${concept.title} ${concept.hook}`) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
+    if (!bad) return;
+    const safe = safeTitle(inputs, i);
+    planDecide(env, "concepts", `Gave concept ${i + 1} a plain title`, `"${concept.title}" named a music genre or broke a rule; titles come from the occasion, the activity, the food or the place.`);
+    best!.concepts[i] = { ...concept, title: safe.title, hook: safe.hook };
+  });
   const concepts = toConcepts(best.concepts);
   if (concepts.length === 0) return null;
   const kept = concepts.find((c) => c.kept);

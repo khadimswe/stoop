@@ -87,7 +87,7 @@ describe("concept checks", () => {
   it("swaps keys for Qloo ids and takes receipts from what the refs and styles point at", () => {
     const check = checkConcepts(concept([
       { kind: "food", text: "Sliders from [[p1]], 30 m away.", origin: "qloo" },
-      { kind: "music", text: "Hip hop led by [[a1]].", origin: "interpreted", styles: ["s1"] },
+      { kind: "music", text: "A playlist led by [[a1]].", origin: "interpreted", styles: ["s1"] },
       { kind: "giveaway", text: "A free drawing for a $10 gift card to [[p1]].", origin: "qloo" },
       { kind: "signage", text: 'Sign: "Free tablet with a new line"', origin: "yours" },
     ]), aliases, guard);

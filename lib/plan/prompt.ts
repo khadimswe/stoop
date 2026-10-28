@@ -44,6 +44,24 @@ export const REF_RULES = [
   "- yours: the manager's own facts: an offer quoted exactly, or something from the manager's notes. No keys.",
 ].join("\n");
 
+/**
+ * The city's most-played artists for the playlist, in Qloo's order, with no main genre more than twice,
+ * so the mix reflects the whole top list rather than one sound.
+ */
+export function mostPlayedMix(artists: readonly { id: string; genres: string[] }[], size = 6): { id: string; genres: string[] }[] {
+  const mix: { id: string; genres: string[] }[] = [];
+  const counts = new Map<string, number>();
+  for (const artist of artists) {
+    const main = (artist.genres[0] ?? "").toLowerCase();
+    if (main && (counts.get(main) ?? 0) >= 2) continue;
+    mix.push(artist);
+    counts.set(main, (counts.get(main) ?? 0) + 1);
+    if (mix.length >= size) break;
+  }
+  for (const artist of artists) if (mix.length < size && !mix.includes(artist)) mix.push(artist);
+  return mix;
+}
+
 /** Short keys for this run's artists, places and styles, and the evidence behind each. */
 export interface Aliases {
   /** "a1" or "p3" to the real Qloo id. */
@@ -160,7 +178,9 @@ export function localText(local: Local, aliases: Aliases, inputs?: PlanInputs): 
     for (const artist of local.city.artists) {
       lines.push(`- [[${aliases.keys.get(artist.id)}]] ${artist.name}${artist.genres.length ? ` (${artist.genres.slice(0, 4).join(", ")})` : ""}`);
     }
-    lines.push("Music styles Qloo measured for the city:");
+    const mix = mostPlayedMix(local.city.artists).map((a) => `[[${aliases.keys.get(a.id)}]]`);
+    if (mix.length) lines.push(`Most-played mix across genres (use it for the music line, as is): ${mix.join(", ")}`);
+    lines.push("Music styles Qloo measured for the city (cite them by s-key; never write them in a title, a hook or a line):");
     for (const [key, style] of aliases.styles) lines.push(`- ${key}: ${style.name}`);
   } else {
     lines.push("City: Qloo had no music signal for this city.");

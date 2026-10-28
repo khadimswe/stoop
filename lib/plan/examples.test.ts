@@ -12,6 +12,7 @@ import { refsIn } from "./refs";
 import { replayClient, replayPlanModel } from "./replay";
 import { planReportSchema, type PlanReport } from "./schema";
 import { isChain } from "./taste";
+import { genreOrSlang, titleGenre, VOLUME_FRAMING } from "./words";
 
 describe("the example list", () => {
   it("has one lead, three fictional stores in three cities, and ids accepted as plan ids", () => {
@@ -54,6 +55,19 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
     }
     for (const step of report.plan?.runOfShow ?? []) for (const ref of refsIn(step.step)) expect(known.has(ref)).toBe(true);
     for (const line of report.baseline?.items ?? []) expect(line.origin).toBe("creative");
+  });
+
+  it("never names a music genre or community slang in a title, a hook or a line, and never frames music by volume", async () => {
+    const { report } = await loadPlanExample(slug);
+    for (const concept of report.plan?.concepts ?? []) {
+      expect(titleGenre(`${concept.title} ${concept.hook}`)).toBeNull();
+      for (const item of concept.items) {
+        expect(genreOrSlang(item.text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "))).toBeNull();
+        expect(VOLUME_FRAMING.test(item.text)).toBe(false);
+      }
+    }
+    for (const step of report.plan?.runOfShow ?? []) expect(genreOrSlang(step.step.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "))).toBeNull();
+    for (const line of report.baseline?.items ?? []) expect(genreOrSlang(line.text)).toBeNull();
   });
 
   it("keeps the plan inside its budget, with a free wheel whose promos are quoted exactly", async () => {
