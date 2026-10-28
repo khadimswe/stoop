@@ -7,7 +7,7 @@ test("the judge's guide follows the three beats and links to the lead example", 
   });
   page.on("pageerror", (e) => errors.push(e.message));
 
-  await page.goto("/judges");
+  await page.goto("/ads/judges");
   await expect(page.getByRole("heading", { level: 1, name: "For judges" })).toBeVisible();
   await expect(page.getByText("Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.").first()).toBeVisible();
 
@@ -16,7 +16,7 @@ test("the judge's guide follows the three beats and links to the lead example", 
   await expect(path.getByRole("link", { name: "Open the report" })).toHaveAttribute("href", "/examples/food-hot-sauce");
   await expect(path.getByRole("link", { name: "Go to the Screening Room" })).toHaveAttribute("href", "/examples/food-hot-sauce#screening");
   await expect(path.getByRole("link", { name: "Open a receipt" })).toHaveAttribute("href", "/examples/food-hot-sauce#receipt-music");
-  await expect(path.getByRole("link", { name: "Try it free" })).toHaveAttribute("href", "/start");
+  await expect(path.getByRole("link", { name: "Try it free" })).toHaveAttribute("href", "/ads/start");
 
   // What Qloo decides, with a code link per call.
   const decides = page.getByRole("region", { name: "What Qloo decides" });
@@ -43,7 +43,7 @@ test("the judge's guide follows the three beats and links to the lead example", 
 });
 
 test("the guide never shows a judge code, a performance claim or banned wording", async ({ page }) => {
-  await page.goto("/judges");
+  await page.goto("/ads/judges");
   const text = await page.locator("body").innerText();
   const html = await page.content();
   expect(html).not.toMatch(/judge=/i);

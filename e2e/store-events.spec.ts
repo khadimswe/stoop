@@ -112,6 +112,16 @@ test("the public event page shows the event and no internals", async ({ page }) 
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
+test("the judges' guide walks one store and says what Qloo decides", async ({ page }) => {
+  await page.goto("/judges");
+  await expect(page.getByRole("heading", { level: 1, name: "For judges" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the example store" })).toHaveAttribute("href", EXAMPLE);
+  await expect(page.getByRole("region", { name: "What Qloo decides" }).getByRole("table")).toBeVisible();
+  const text = await page.locator("body").innerText();
+  expect(text).not.toMatch(/judge=|your customers|\d+% (lift|more|better|higher)/i);
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+});
+
 test("My stores switches the view, not the data", async ({ page }) => {
   await page.goto("/stores");
   await expect(page.getByRole("heading", { level: 1, name: "My stores" })).toBeVisible();
