@@ -60,7 +60,8 @@ export const inputsSchema = z.strictObject({
    */
   location: z.strictObject({ name: z.string().min(1).max(120), point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }) }).optional(),
   budgetUsd: z.number().int().min(0).max(5000),
-  offers: z.array(offerSchema).max(3),
+  /** Up to 8 promos, enough to fill a tabletop prize wheel with the store's real deals. */
+  offers: z.array(offerSchema).max(8),
   /** Adult bands only; the youngest bucket always shows as "18 to 24". */
   ageBands: z.array(z.enum(AGE_BUCKETS)).min(1).max(3),
   /** The manager's own vision (280 characters), passed to Claude as quoted data, never as instructions. */
@@ -182,7 +183,8 @@ export const shoppingItemSchema = z.strictObject({
 });
 
 /**
- * The prize wheel at the table, the tactic stores that do well already use. Promo slices quote the
+ * The prize wheel at the table: a physical tabletop wheel the store already owns, so the plan says
+ * what goes on each slice, and the UI prints the labels. Promo slices quote the
  * manager's promo exactly, terms included (origin "yours"), so a slice never promises more than the
  * store offers. Gift-card slices come from places on the block Qloo ranks (with receipts). Spinning
  * is free and needs no purchase.
