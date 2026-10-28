@@ -10,7 +10,10 @@ import { planDecide, planQloo, type PlanEnv } from "./env";
 import { gapText, recoverable } from "./local";
 import type { Block, BlockMusic, CityTaste, PlanInputs } from "./schema";
 import { tagSimilarity } from "../qloo/match";
-import { artistGenres, toArtists } from "./taste";
+import { artistGenres, identityTag, toArtists } from "./taste";
+
+/** Genres built on crime or violence, left out of the block's option. */
+export const EXPLICIT_GENRE = /\b(narco\s?corridos?|corridos? tumbados?|gangsta|horrorcore|drill)\b/i;
 
 /** Independent places used as the signal. */
 export const SIGNAL_PLACES = 3;
@@ -71,6 +74,9 @@ export function judgeBlockMusic(entities: readonly QlooEntity[], city: CityTaste
   const years = top.map(startYear).filter((y): y is number => y !== null);
   const mid = years.length >= 3 ? Math.round(median(years)) : null;
   if (mid !== null && mid < OLDEST) return { used: false, reason: `Its artists are dated (median start year ${mid}): place signals can return old category profiles.` };
+  // A category profile can lean on identity-type labels (religion, gender): Stoop reads taste, never identity.
+  const labeled = top.filter((e) => [...e.tags.map((t) => t.name), ...artistGenres(e)].some((name) => identityTag(name))).length;
+  if (labeled * 10 >= top.length * 4) return { used: false, reason: `${labeled} of its top ${top.length} artists carry identity-type labels: a category profile, and Stoop reads taste, never identity.` };
   const cityIds = new Set(city?.artists.map((a) => a.id) ?? []);
   const repeats = top.filter((e) => cityIds.has(e.id)).length;
   if (repeats / top.length >= REPEATS_AT) return { used: false, reason: `It mostly repeats the city's own list (${repeats} of ${top.length}).` };
@@ -104,13 +110,15 @@ export async function readBlockMusic(env: PlanEnv, inputs: PlanInputs, block: Bl
     env.sink.emit({ type: "local.gap", text: gapText(error, "music from the block's places") });
     return null;
   }
-  const verdict = judgeBlockMusic(result.data, city);
+  // Songs about crime or violence are not for a sidewalk table: their artists are left out of the option.
+  const fit = result.data.filter((e) => !artistGenres(e).some((g) => EXPLICIT_GENRE.test(g)));
+  const verdict = judgeBlockMusic(fit, city);
   const cityIds = new Set(city?.artists.map((a) => a.id) ?? []);
   // Each artist with the signal places Qloo's explainability links it to most.
   // Only artists the city's list lacks: the option adds something, and every artist keeps one key.
-  const ordered = result.data.filter((e) => !cityIds.has(e.id));
+  const ordered = fit.filter((e) => !cityIds.has(e.id));
   const artists = toArtists(ordered, result.evidence.id).slice(0, MAX_BLOCK_ARTISTS).map((artist) => {
-    const entity = result.data.find((e) => e.id === artist.id);
+    const entity = fit.find((e) => e.id === artist.id);
     const scores = Object.values(entity?.explainability ?? {}).flat().filter((x) => placeIds.includes(x.entityId));
     const best = Math.max(0, ...scores.map((x) => x.score));
     const via = scores.length ? [...new Set(scores.filter((x) => x.score >= best * 0.9).map((x) => x.entityId))] : placeIds;

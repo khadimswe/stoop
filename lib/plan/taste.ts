@@ -109,6 +109,8 @@ export function droppedTag(name: string, city?: string): string | null {
 const MUSIC_GENRE = "urn:tag:genre:music";
 /** Styles shown per city. */
 export const MAX_STYLES = 6;
+/** Slots kept for broad styles the city's own list carries beyond its top artists' sound. */
+export const MAX_BROAD = 2;
 /** A style needs at least this many of the city's top artists behind it. */
 export const STYLE_MIN_ARTISTS = 2;
 /** A city tag counts as agreeing with the artists' genres at this name similarity (lib/qloo/match.ts). */
@@ -217,14 +219,14 @@ export function musicStyles(input: StyleInput): StyleResult {
 
   const genres = [...votes.values()].filter((v) => v.count >= STYLE_MIN_ARTISTS && v.tagId).sort((a, b) => b.count - a.count);
   const kept = genres.filter((v) => keep(v.name));
-  for (const v of kept) add({ tagId: v.tagId as string, name: v.name.trim(), evidenceIds: [input.artistsEvidenceId] });
-
   // Broad styles on the city's own list stay even when its top artists do not play them: the top 20
   // lean toward the most popular sound, and a city's second sound (country, Latin) shows up only here.
-  for (const tag of input.cityTags) {
-    if ((tag.type !== null && tag.type !== MUSIC_GENRE) || !BROAD_STYLE.test(tag.name) || !keep(tag.name)) continue;
-    add({ tagId: tag.id, name: tag.name.trim(), evidenceIds: [input.cityTagsEvidenceId] });
-  }
+  // They get up to MAX_BROAD of the slots, so the artists' genres cannot crowd them out.
+  // A broad style that is really a branch of the artists' own sound ("country rap" next to Rap) is not a second sound.
+  const branch = (name: string) => kept.some((v) => tagSimilarity(v.name, name) >= AGREES_AT);
+  const broad = input.cityTags.filter((tag) => (tag.type === null || tag.type === MUSIC_GENRE) && BROAD_STYLE.test(tag.name) && !branch(tag.name) && keep(tag.name)).slice(0, MAX_BROAD);
+  for (const v of kept.slice(0, MAX_STYLES - broad.length)) add({ tagId: v.tagId as string, name: v.name.trim(), evidenceIds: [input.artistsEvidenceId] });
+  for (const tag of broad) add({ tagId: tag.id, name: tag.name.trim(), evidenceIds: [input.cityTagsEvidenceId] });
 
   // City tags that agree with the artists' genres ("trap rap" with Trap), after the filters.
   for (const tag of input.cityTags) {

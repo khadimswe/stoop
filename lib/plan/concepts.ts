@@ -9,7 +9,7 @@ import { stripEmDashes } from "../guardrails";
 import { CUE_ORIGINS } from "../types";
 import { planDecide, type PlanEnv } from "./env";
 import { itemIssues, type GuardContext } from "./guard";
-import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
+import { buildAliases, evidenceFor, inputsText, localText, mostPlayedMix, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
 import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
 import { clicheIn } from "./baseline";
@@ -150,6 +150,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     });
     const qlooItems = used.size;
     if (!concept.noStereotype) issues.push(`${at}: it fails the no-stereotype gate; rewrite it without relying on a stereotype.`);
+    const artistIds = new Set([...aliases.ids.values()].filter((id) => !aliases.places.has(id)));
+    if (!items.some((i) => i.kind === "music" && i.refs.some((r) => artistIds.has(r)))) issues.push(`${at}: add the music line: the city's most-played artists by key, as given in the most-played mix.`);
     if (/\bpay ?days?\b/i.test(`${title} ${hook}`)) issues.push(`${at}: a payday is a small hint for timing, never the theme or the title; build the title on the block or the city.`);
     // The block leads: a concept that buys, gives or partners only with chains, while the block has a food independent, is sent back.
     const independents = [...aliases.places.values()].filter((p) => !p.chain && p.kind === "food");
@@ -209,6 +211,15 @@ function repairPrompt(prompt: string, previous: unknown, issues: readonly string
   ].join("\n\n");
 }
 
+/** The plain music line: the city's most-played artists on Qloo, mixed across genres, by ref. */
+export function defaultMusicLine(local: Local, aliases: Aliases): PlanItem | null {
+  const city = local.city;
+  if (!city || city.artists.length === 0) return null;
+  const mix = mostPlayedMix(city.artists).slice(0, 3);
+  const refs = mix.map((a) => a.id);
+  return { kind: "music", text: `A playlist of ${city.city}'s most-played artists on Qloo: ${refs.map((id) => `[[${id}]]`).join(", ")}.`, origin: "qloo", refs, evidenceIds: evidenceFor(aliases, refs, []) };
+}
+
 const ANCHORS = ["Wheel Spin", "Snack Stop", "Block Table"] as const;
 
 /**
@@ -257,6 +268,17 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
     }
   }
   if (!best) return null;
+  // A concept still without its music line gets the plain one, written by code from Qloo's own list.
+  const music = defaultMusicLine(local, aliases);
+  if (music) {
+    best.concepts.forEach((concept, i) => {
+      const artistIds = new Set(local.city?.artists.map((a) => a.id) ?? []);
+      if (concept.items.some((item) => item.kind === "music" && item.refs.some((r) => artistIds.has(r)))) return;
+      concept.items.push(music);
+      concept.qlooItems += music.refs.length;
+      planDecide(env, "concepts", `Added the playlist to concept ${i + 1}`, "Every concept plays the city's most-played artists on Qloo, written plainly.");
+    });
+  }
   // A title or hook that still names a genre, or still breaks a rule, gets the safe template.
   best.concepts.forEach((concept, i) => {
     const bad = titleGenre(`${concept.title} ${concept.hook}`) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);

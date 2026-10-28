@@ -90,6 +90,12 @@ const tag = (id: string, name: string): QlooTag => ({ id, name, type: "urn:tag:g
 const entity = (id: string, over: Partial<QlooEntity> = {}): QlooEntity => ({ id, name: `Artist ${id.slice(-1)}`, type: "urn:entity:artist", popularity: null, affinity: null, disambiguation: null, location: null, tags: [], explainability: null, properties: null, ...over });
 
 describe("styles and chains", () => {
+  it("saves room for a broad style even when the artists' genres would fill the list", () => {
+    const artists = Array.from({ length: 6 }, (_, i) => entity(`00000000-0000-4000-8000-00000000050${i}`, { properties: { primary_genres: ["Hip Hop", "Rap", "Trap", "Soul", "R&B", "Pop", "Funk"] }, tags: ["Hip Hop", "Rap", "Trap", "Soul", "R&B", "Pop", "Funk"].map((g) => ({ id: `urn:tag:genre:qloo:${g.toLowerCase().replace(/\W+/g, "_")}`, name: g, type: "urn:tag:genre:qloo", popularity: null, affinity: null })) }));
+    const { styles } = musicStyles({ city: "Kennesaw", cityTags: [tag("urn:tag:genre:music:contemporary_country", "contemporary country")], cityTagsEvidenceId: "ev_00000000000c", artistEntities: artists, artistsEvidenceId: "ev_00000000000a" });
+    expect(styles).toHaveLength(6);
+    expect(styles.map((s) => s.name)).toContain("contemporary country");
+  });
   it("keeps a broad style the city's list carries even when its top artists do not play it", () => {
     const { styles } = musicStyles({ city: "Kennesaw", cityTags: [tag("urn:tag:genre:music:country_pop", "country pop"), tag("urn:tag:genre:music:kawaii", "kawaii")], cityTagsEvidenceId: "ev_00000000000c", artistEntities: [], artistsEvidenceId: "ev_00000000000a" });
     expect(styles.map((s) => s.name)).toEqual(["country pop"]);
@@ -113,6 +119,10 @@ describe("music from the block", () => {
     expect(judgeBlockMusic(other, cityWithSound)).toMatchObject({ used: true, reason: expect.stringMatching(/sound the city's list lacks \(Regional Mexican\)/) });
     const same = Array.from({ length: 6 }, (_, i) => entity(`00000000-0000-4000-8000-00000000030${i}`, { properties: { start_year: 2001, primary_genres: ["Southern Hip Hop"] } }));
     expect(judgeBlockMusic(same, cityWithSound)).toMatchObject({ used: false, reason: expect.stringMatching(/category profile/) });
+  });
+  it("is left out when it leans on identity-type labels", () => {
+    const labeled = Array.from({ length: 6 }, (_, i) => entity(`00000000-0000-4000-8000-00000000040${i}`, { properties: { start_year: 2012 }, tags: [{ id: "urn:tag:style:qloo:christian_hip_hop", name: "Christian Hip Hop", type: "urn:tag:style:qloo", popularity: null, affinity: null }] }));
+    expect(judgeBlockMusic(labeled, city)).toMatchObject({ used: false, reason: expect.stringMatching(/identity-type labels/) });
   });
   it("is left out when dated, repeated or thin", () => {
     expect(judgeBlockMusic(fresh(8, 1990), city)).toMatchObject({ used: false, reason: expect.stringMatching(/dated/) });
