@@ -42,6 +42,7 @@ export const CARRIER_ENDORSEMENT =
 export const OFFER_LANGUAGE =
   /\$\s?\d|\b\d+\s?%\s?off\b|\bdiscounts?\b|\bbogo\b|\bbuy one\b|\bfree (phones?|lines?|months?|activation|sim|smartphones?|devices?|tablets?|upgrades?)\b|\bwaived?\b|\brebates?\b|\bper month\b|\/mo\b|\bunlimited\b|\bport[- ]?ins?\b|\bfirst month\b|\bswitch and (get|save)\b|\btrade[- ]?ins?\b|\b(?:t-mobile|metro|cricket|boost)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)days?\b/i;
 
+const PROMO_DAY = /\b(?:t-mobile|metro|cricket|boost)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)days?\b/g;
 const squash = (text: string) => text.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
 
 /** The text with every exactly quoted offer (and the budget) taken out, for the offer check. */
@@ -51,6 +52,8 @@ function withoutOffers(text: string, ctx: GuardContext): string {
     const quoted = squash(offer);
     if (quoted) rest = rest.split(quoted).join(" ");
   }
+  // A promo day the manager named in any offer ("T-Mobile Tuesdays") may set the event's timing.
+  rest = rest.replace(PROMO_DAY, (day) => (ctx.offers.some((o) => squash(o).includes(day)) ? " " : day));
   // A gift card paid from the event budget is a giveaway, not an offer: "$10 gift card".
   rest = rest.replace(/\$\s?\d+(?:\.\d{2})?\s+(?:e-?)?gift\s?cards?/g, " gift card");
   return rest.replace(new RegExp(`\\$\\s?${ctx.budgetUsd}(?![\\d.])`, "g"), " ");
