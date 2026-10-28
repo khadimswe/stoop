@@ -374,6 +374,7 @@ export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: s
     tags: placeTags(entity),
     address: text(entity.properties?.address) ?? entity.disambiguation,
     distanceM: typeof distance === "number" && Number.isFinite(distance) ? Math.round(distance) : null,
+    point: entity.location ? { lat: entity.location.lat, lon: entity.location.lon } : null,
     why: placeWhy(entity),
     rank: input.rank,
     affinity: entity.affinity,

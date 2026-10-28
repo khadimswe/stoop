@@ -6,7 +6,7 @@ import path from "node:path";
 import { LlmStore, replayModel } from "../agent/llm-replay";
 import { stoopModel, stoopModelId } from "../agent/model";
 import { createQlooClient, type QlooClient } from "../qloo/client";
-import { FixtureCache, readFixtureFile } from "../qloo/fixtures";
+import { FixtureCache, loadFixtures } from "../qloo/fixtures";
 import type { LanguageModel } from "ai";
 import type { PlanExampleSlug } from "./example-list";
 
@@ -16,8 +16,12 @@ export function planFixtureFiles(slug: PlanExampleSlug, dir = "fixtures"): strin
   return readdirSync(dir).filter((f) => pattern.test(f)).map((f) => path.join(dir, f));
 }
 
-export function replayClient(slug: PlanExampleSlug, dir = "fixtures"): QlooClient {
-  return createQlooClient({ cache: new FixtureCache(planFixtureFiles(slug, dir).map(readFixtureFile), { strict: true }) });
+/**
+ * A client that answers only from recordings. Every fixture is loaded, not only the plan's own: a
+ * search the recorder found already recorded elsewhere (a famous artist's name) was never re-recorded.
+ */
+export function replayClient(_slug: PlanExampleSlug, dir = "fixtures"): QlooClient {
+  return createQlooClient({ cache: new FixtureCache(loadFixtures(dir), { strict: true }) });
 }
 
 export function replayPlanModel(slug: PlanExampleSlug, dir = path.join("fixtures", "llm")): LanguageModel {

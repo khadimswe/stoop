@@ -106,7 +106,7 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
   const rules = [
     ...WHEEL_RULES,
     giftSlices.length
-      ? `Gift cards are bought ahead (${purchases.map((p) => p.qty).join(", ")}) and handed over at the table; when a slice's cards run out, it pays a free snack instead.`
+      ? "Gift cards are bought ahead (see the shopping list) and handed over at the table; when a slice's cards run out, it pays a free snack instead."
       : "Gift-card slices pay a free snack when there are no cards left.",
   ];
   return { wheel: slices.length >= MIN_SLICES ? { slices: slices.slice(0, 12), rules } : null, purchases, issues };
