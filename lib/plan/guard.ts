@@ -22,6 +22,8 @@ export interface GuardContext {
   names?: readonly string[];
   /** The manager's notes (already guarded), for the checks of what they ask for. */
   notes?: string;
+  /** The event's day, for places out of season. */
+  date?: string;
 }
 
 const CHECKED_RULES = new Set<GuardRule>(["minor", "ethnicity", "likeness", "health-claim", "fake-proof", "em-dash", "named-reference"]);

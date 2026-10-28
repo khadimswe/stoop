@@ -10,7 +10,7 @@ import { planDecide, planQloo, type PlanEnv } from "./env";
 import { gapText, recoverable } from "./local";
 import type { Block, BlockMusic, CityTaste, PlanInputs } from "./schema";
 import { tagSimilarity } from "../qloo/match";
-import { artistGenres, identityTag, toArtists } from "./taste";
+import { artistGenres, identityTag, outOfScope, toArtists } from "./taste";
 
 /** Genres built on crime or violence, left out of the block's option. */
 export const EXPLICIT_GENRE = /\b(narco\s?corridos?|corridos? tumbados?|gangsta|horrorcore|drill)\b/i;
@@ -37,8 +37,8 @@ export function blockMusicParams(inputs: PlanInputs, placeIds: readonly string[]
 }
 
 /** The block's top independents: food, treats and venues in Qloo's order, no chains and no parks. */
-export function signalPlaces(block: Block): string[] {
-  return block.places.filter((p) => !p.chain && p.kind !== "park").slice(0, SIGNAL_PLACES).map((p) => p.id);
+export function signalPlaces(block: Block, date?: string): string[] {
+  return block.places.filter((p) => !p.chain && p.kind !== "park" && !(date && outOfScope(p, date))).slice(0, SIGNAL_PLACES).map((p) => p.id);
 }
 
 const median = (values: readonly number[]) => {
@@ -83,8 +83,7 @@ export function judgeBlockMusic(entities: readonly QlooEntity[], city: CityTaste
   const sound = citySound(city);
   const fresh = top.filter((e) => newSound(e, sound));
   if (sound.length && fresh.length * 2 >= top.length) {
-    const genres = [...new Set(fresh.flatMap((e) => artistGenres(e).slice(0, 1)))].slice(0, 2);
-    return { used: true, reason: `It brings a sound the city's list lacks${genres.length ? ` (${genres.join(", ")})` : ""}: ${fresh.length} of ${top.length} of its artists${mid !== null ? `, median start year ${mid}` : ""}.` };
+    return { used: true, reason: `It brings a sound the city's main styles lack: ${fresh.length} of ${top.length} of its artists${mid !== null ? `, median start year ${mid}` : ""}.` };
   }
   if (mid !== null && mid < DATED_BEFORE) return { used: false, reason: `Its artists are mostly dated (median start year ${mid}) and sound like the city's list: a category profile, not this block.` };
   return { used: true, reason: `Current artists${mid !== null ? ` (median start year ${mid})` : ""}, ${top.length - repeats} of ${top.length} not on the city's list.` };
@@ -93,7 +92,7 @@ export function judgeBlockMusic(entities: readonly QlooEntity[], city: CityTaste
 /** One call. Null when the block has no independents to signal with, or Qloo did not answer. */
 export async function readBlockMusic(env: PlanEnv, inputs: PlanInputs, block: Block | null, city: CityTaste | null): Promise<BlockMusic | null> {
   if (!block) return null;
-  const placeIds = signalPlaces(block);
+  const placeIds = signalPlaces(block, inputs.date);
   if (placeIds.length === 0) return null;
   const names = new Map(block.places.map((p) => [p.id, p.name]));
   let result;

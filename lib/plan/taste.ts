@@ -436,6 +436,24 @@ export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: s
   };
 }
 
+const POOL = /\b(swimming pool|public pool|outdoor pool|pool \(outdoor\)|splash pad|water park|waterpark|beach)\b/i;
+const TOURS = /\b(tour agency|sightseeing|helicopter|boat tours?|bus tours?|segway)\b/i;
+const NIGHT = /\b(night ?club|nightlife|dance club|after[- ]hours)\b/i;
+
+/**
+ * Why a place on the block is no use for the event's partners, snacks or gift cards in its month, or
+ * null: an outdoor pool from October to April, a tour agency (a helicopter tour is not a snack run),
+ * a nightclub. It can stay on the block list; the plan never buys from it or sends people there.
+ */
+export function outOfScope(place: { name: string; tags: readonly string[] }, date: string): string | null {
+  const text = [place.name, ...place.tags].join(" ");
+  const month = Number(date.slice(5, 7));
+  if (POOL.test(text) && (month >= 10 || month <= 4)) return "an outdoor pool or beach, closed for the season";
+  if (TOURS.test(text)) return "a tour company, not a partner for a store's table";
+  if (NIGHT.test(text)) return "a nightclub, not a partner for a sidewalk table";
+  return null;
+}
+
 /** Why a place is left off the block, or null when it can be a partner, a gift card or a spot. Chains stay (marked). */
 const WIRELESS = /^(t-mobile|metro by t-mobile|metropcs|cricket|boost|at&t|verizon|sprint|us cellular|straight talk|simple mobile)\b/i;
 
