@@ -11,6 +11,7 @@ import { guardFor } from "./guard-context";
 import { checkPicks, compare, genericCliches, writeBaseline, type BaselineDraft } from "./baseline";
 import { buildPlan } from "./builder";
 import { dayContext } from "./calendar";
+import { buildAbTest } from "./test-plan";
 import { writeConcepts } from "./concepts";
 import { readBlock, readCity } from "./local";
 import type { Baseline, PlanInputs, PlanStage } from "./schema";
@@ -126,6 +127,12 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   const plan = await stage(env, "plan", now, async () => {
     const built = await buildPlan(env, inputs, written.concepts, written.aliases, guard);
     sink.emit({ type: "plan.ready", plan: built });
+    // A fair test of the kept concept against the runner-up, written before anything runs.
+    const test = buildAbTest(inputs, built.concepts);
+    if (test) {
+      sink.emit({ type: "test.ready", test });
+      planDecide(env, "plan", `Wrote a test: "${test.variants[0].label}" against "${test.variants[1].label}"`, `${test.decisionRule} ${test.caveat}`);
+    }
     return built;
   });
 

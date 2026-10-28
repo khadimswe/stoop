@@ -12,6 +12,8 @@ import { execute, liveModel } from "../runtime/server";
 import { startRun } from "../runtime/start";
 import { getStore } from "../store";
 import { buildMcpServer, MCP_SERVER_INFO } from "./server";
+import { execute as executePlan } from "../plan/server";
+import { startPlan } from "../plan/runtime";
 
 const handler = createMcpHandler(
   buildMcpServer({
@@ -23,6 +25,7 @@ const handler = createMcpHandler(
     // The same intake and start as the web flow: the same caps, admission and guardrails.
     runIntake: (input, ctx) => runIntake({ client: getQlooClient(), model: liveModel() }, input, ctx),
     startRun: (input, ctx) => startRun({ execute }, input, ctx),
+    startPlan: (input, ctx) => startPlan({ execute: executePlan }, input, ctx),
   }),
   // Stoop has no subscriptions, so no request may hold a function open with a listen stream.
   { serverInfo: MCP_SERVER_INFO, maxSubscriptions: 0 },
