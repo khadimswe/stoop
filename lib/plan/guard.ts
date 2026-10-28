@@ -17,9 +17,13 @@ export interface GuardContext {
   budgetUsd: number;
   /** Ids of the artists and places this run measured. */
   known: ReadonlySet<string>;
+  /** Real names text must not spell out: the run's artists and places (they go in as [[key]] refs), or the generic plan's own picks. */
+  names?: readonly string[];
+  /** The manager's notes (already guarded), for the checks of what they ask for. */
+  notes?: string;
 }
 
-const CHECKED_RULES = new Set<GuardRule>(["minor", "ethnicity", "likeness", "health-claim", "fake-proof", "em-dash"]);
+const CHECKED_RULES = new Set<GuardRule>(["minor", "ethnicity", "likeness", "health-claim", "fake-proof", "em-dash", "named-reference"]);
 
 export const ALCOHOL_TOBACCO =
   /\b(alcohol|alcoholic|beers?|wines?|liquor|booze|cocktails?|margaritas?|mimosas?|tequila|vodka|whiske?y|rum|bourbon|champagne|seltzers?|brewery|breweries|taproom|happy hour|shots? of|tobacco|cigars?|cigarettes?|vapes?|vaping|e-cig|hookah|cannabis|weed|marijuana|thc|cbd|kratom)\b/i;
@@ -30,9 +34,13 @@ export const IDENTITY_THEME =
 /** The plan never says or implies the carrier sponsors, presents or endorses the event. */
 export const CARRIER_ENDORSEMENT =
   /\b(sponsored by|presented by|in partnership with|endorsed by|official)\b[^.]{0,40}\b(metro|t-mobile|cricket|boost|at&t|verizon)\b|\b(metro|t-mobile|cricket|boost)(?: by t-mobile)?\s+(presents|sponsors|hosts|endorses)\b|\b(metro|t-mobile|cricket|boost)\s+logos?\b/i;
-/** Price and deal words that only a quoted offer may carry. Free food at the table is fine; a free phone is an offer. */
+/**
+ * Price and deal words that only a quoted offer may carry. Free food at the table is fine; a free
+ * phone is an offer. A carrier promo day ("T-Mobile Tuesdays") counts too: the plan may build its
+ * timing around one only when the manager typed it.
+ */
 export const OFFER_LANGUAGE =
-  /\$\s?\d|\b\d+\s?%\s?off\b|\bdiscounts?\b|\bbogo\b|\bbuy one\b|\bfree (phones?|lines?|months?|activation|sim|smartphones?|devices?|tablets?|upgrades?)\b|\bwaived?\b|\brebates?\b|\bper month\b|\/mo\b|\bunlimited\b|\bport[- ]?ins?\b|\bfirst month\b|\bswitch and (get|save)\b|\btrade[- ]?ins?\b/i;
+  /\$\s?\d|\b\d+\s?%\s?off\b|\bdiscounts?\b|\bbogo\b|\bbuy one\b|\bfree (phones?|lines?|months?|activation|sim|smartphones?|devices?|tablets?|upgrades?)\b|\bwaived?\b|\brebates?\b|\bper month\b|\/mo\b|\bunlimited\b|\bport[- ]?ins?\b|\bfirst month\b|\bswitch and (get|save)\b|\btrade[- ]?ins?\b|\b(?:t-mobile|metro|cricket|boost)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)days?\b/i;
 
 const squash = (text: string) => text.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
 
@@ -43,13 +51,18 @@ function withoutOffers(text: string, ctx: GuardContext): string {
     const quoted = squash(offer);
     if (quoted) rest = rest.split(quoted).join(" ");
   }
+  // A gift card paid from the event budget is a giveaway, not an offer: "$10 gift card".
+  rest = rest.replace(/\$\s?\d+(?:\.\d{2})?\s+(?:e-?)?gift\s?cards?/g, " gift card");
   return rest.replace(new RegExp(`\\$\\s?${ctx.budgetUsd}(?![\\d.])`, "g"), " ");
 }
 
 /** Every problem with one piece of plan text. Empty means it passes. */
 export function textIssues(text: string, ctx: GuardContext): string[] {
   const issues: string[] = [];
-  for (const issue of checkText(text)) if (CHECKED_RULES.has(issue.rule)) issues.push(issue.message);
+  for (const issue of checkText(text, { names: ctx.names ?? [], exactCaseNames: true })) {
+    if (!CHECKED_RULES.has(issue.rule)) continue;
+    issues.push(issue.rule === "named-reference" ? `"${issue.match}" is written out: name artists and places only with their [[key]], never in words.` : issue.message);
+  }
   const child = childSetting(text);
   if (child) issues.push(`"${child}" invites kids; the table is for adults on a public sidewalk.`);
   const alcohol = text.match(ALCOHOL_TOBACCO);
@@ -77,9 +90,14 @@ export interface GuardedItem {
   evidenceIds: readonly string[];
 }
 
+/** A giveaway that asks for something first: giveaways are free to enter, no purchase needed. */
+export const PURCHASE_TO_ENTER = /\b(with (any |a |every |your )?(purchase|activation|new line|switch|upgrade)|purchase (required|necessary)|must (buy|sign up|switch|activate|port)|(buy|switch|activate|sign up|port in)\w* (to|and) (win|enter|get a (chance|ticket|entry)))\b/i;
+
 /** Problems with one plan line: its text, plus its origin against its receipts. */
 export function itemIssues(item: GuardedItem, ctx: GuardContext): string[] {
   const issues = textIssues(item.text, ctx);
+  const purchase = item.kind === "giveaway" || item.kind === "activity" ? item.text.match(PURCHASE_TO_ENTER) : null;
+  if (purchase) issues.push(`"${purchase[0]}": giveaways and drawings are free to enter, no purchase or sign-up needed.`);
   if ((item.origin === "qloo" || item.origin === "interpreted") && item.evidenceIds.length === 0) {
     issues.push(`a ${item.origin} line must cite a Qloo artist, place or style; otherwise mark it creative.`);
   }

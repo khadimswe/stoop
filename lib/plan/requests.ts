@@ -32,12 +32,15 @@ export function cityStylesParams(inputs: PlanInputs) {
   } as const;
 }
 
+/** Where the block is read: the event's own location when it is away from the store, else the store. */
+export const blockPoint = (inputs: PlanInputs) => inputs.location?.point ?? inputs.store.point;
+
 export function blockParams(inputs: PlanInputs, category: BlockCategory, radiusM: number = DEFAULT_RADIUS_M) {
   const { tags, take } = BLOCK_CATEGORIES[category];
   return {
     "filter.type": "urn:entity:place",
     "signal.demographics.age": ages(inputs),
-    "filter.location": toWktPoint(inputs.store.point),
+    "filter.location": toWktPoint(blockPoint(inputs)),
     "filter.location.radius": radiusM,
     "filter.tags": [...tags],
     "operator.filter.tags": "union",
