@@ -32,6 +32,7 @@ export type TextPart = { kind: "text"; text: string } | { kind: "ref"; id: strin
 export interface PlanHeaderView {
   storeName: string;
   carrierLabel: string;
+  /** The full address, with the city and state added when the street address leaves them out. */
   address: string;
   cityLine: string;
   dateText: string;
@@ -430,7 +431,7 @@ export function planView(source: PlanSource): PlanView {
     header: {
       storeName: store.name,
       carrierLabel: CARRIER_LABELS[store.carrier],
-      address: store.address,
+      address: fullAddress(store),
       cityLine: `${store.city}, ${store.region}`,
       dateText: eventDate(inputs.date),
       timeText: timeRange(inputs.startTime, inputs.durationMinutes),
@@ -503,6 +504,11 @@ export function shareLinks(eventUrl: string, whatsappText: string): { facebook: 
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
     whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
   };
+}
+
+/** "1240 W 18th St, Chicago, IL 60608" as typed, or the street with ", Chicago, IL" added when it leaves the city out. */
+export function fullAddress(store: Pick<PlanInputs["store"], "address" | "city" | "region">): string {
+  return store.address.toLowerCase().includes(store.city.toLowerCase()) ? store.address : `${store.address}, ${store.city}, ${store.region}`;
 }
 
 /** The trace as one-line rows, the stage named above each run of steps (the shape TraceList renders). */

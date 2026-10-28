@@ -44,7 +44,7 @@ export function PlanHeader({ view, kind }: { view: PlanHeaderView; kind: "live" 
         <li className="flex items-start gap-2">
           <MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-soft" />
           <span>
-            {view.address}, {view.cityLine}
+            {view.address}
           </span>
         </li>
       </ul>
