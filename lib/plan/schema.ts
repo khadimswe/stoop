@@ -60,7 +60,8 @@ export const inputsSchema = z.strictObject({
    */
   location: z.strictObject({ name: z.string().min(1).max(120), point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }) }).optional(),
   budgetUsd: z.number().int().min(0).max(5000),
-  offers: z.array(offerSchema).max(3),
+  /** Up to 8 promos, enough to fill a tabletop prize wheel with the store's real deals. */
+  offers: z.array(offerSchema).max(8),
   /** Adult bands only; the youngest bucket always shows as "18 to 24". */
   ageBands: z.array(z.enum(AGE_BUCKETS)).min(1).max(3),
   /** The manager's own vision (280 characters), passed to Claude as quoted data, never as instructions. */
@@ -181,6 +182,37 @@ export const shoppingItemSchema = z.strictObject({
   evidenceIds,
 });
 
+/**
+ * The prize wheel at the table: a physical tabletop wheel the store already owns, so the plan says
+ * what goes on each slice, and the UI prints the labels. Promo slices quote the
+ * manager's promo exactly, terms included (origin "yours"), so a slice never promises more than the
+ * store offers. Gift-card slices come from places on the block Qloo ranks (with receipts). Spinning
+ * is free and needs no purchase.
+ */
+export const wheelSliceSchema = z
+  .strictObject({
+    /** What's printed on the slice, short. */
+    label: z.string().min(1).max(40),
+    kind: z.enum(["promo", "gift_card", "snack", "other"]),
+    /** The full line: for a promo, the manager's text verbatim. */
+    text: z.string().min(1).max(160),
+    origin: z.enum(CUE_ORIGINS),
+    refs: z.array(z.string().min(1)),
+    evidenceIds,
+  })
+  .superRefine((slice, ctx) => {
+    if (slice.kind === "promo" && slice.origin !== "yours") ctx.addIssue({ code: "custom", message: "a promo slice quotes the manager's promo (origin yours)", path: ["origin"] });
+    if ((slice.origin === "qloo" || slice.origin === "interpreted") && slice.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: `a ${slice.origin} slice needs a Qloo receipt`, path: ["evidenceIds"] });
+  });
+export type WheelSlice = z.infer<typeof wheelSliceSchema>;
+
+export const wheelSchema = z.strictObject({
+  slices: z.array(wheelSliceSchema).min(4).max(12),
+  /** "Free to spin, no purchase needed", "Promo slices show their terms", how gift cards are handed out. */
+  rules: z.array(z.string().min(1).max(200)).min(1),
+});
+export type Wheel = z.infer<typeof wheelSchema>;
+
 export const planSchema = z.strictObject({
   /** The kept concept; the others stay collapsed with their scores. */
   conceptId: slug,
@@ -190,6 +222,8 @@ export const planSchema = z.strictObject({
   /** Permits and sidewalk rules, carrier brand rules, staffing, cleanup. */
   checklist: z.array(z.string().min(1).max(200)),
   estimatedCostUsd: z.number().nonnegative(),
+  /** The prize wheel, when the plan uses one. */
+  wheel: wheelSchema.optional(),
 });
 export type Plan = z.infer<typeof planSchema>;
 
