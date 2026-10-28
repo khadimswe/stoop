@@ -187,7 +187,8 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
     store: inputs.store.name,
     address: inputs.store.address,
     phone: inputs.store.phone?.trim() || null,
-    location: inputs.location?.name.trim() || null,
+    // A place typed in lower case ("a fall community fair on ...") still reads as a heading.
+    location: inputs.location?.name.trim().replace(/^\p{Ll}/u, (c) => c.toUpperCase()) || null,
     offers,
     deals: offers.map((text) => ({ label: dealLabel(text, slices), text })),
     wheel: wheelLine(report.plan),
