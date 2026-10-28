@@ -4,11 +4,13 @@
 // said plainly as a gap, never filled in.
 import { ENDPOINTS } from "../qloo/constants";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooShapeError } from "../qloo/errors";
-import { insightsEntitiesResponse, insightsTagsResponse, slimEntitiesBody } from "../qloo/types";
+import type { QlooResult } from "../qloo/client";
+import { insightsTagsResponse, slimEntitiesBody, type QlooEntity } from "../qloo/types";
+import { artistsWithLocality, cityQueries, inState, nearestMajorCity, stateOf, type Locality } from "./locality";
 import { planDecide, planQloo, type PlanEnv } from "./env";
 import { blockParams, cityArtistsParams, cityStylesParams, DEFAULT_RADIUS_M, placesResponse } from "./requests";
 import type { Block, CityTaste, Place, PlanInputs } from "./schema";
-import { BLOCK_CATEGORIES, BLOCK_ORDER, identityTag, isChain, musicStyles, placeLeftOut, toArtists, toPlace, type BlockCategory } from "./taste";
+import { BLOCK_CATEGORIES, BLOCK_ORDER, identityTag, musicStyles, placeLeftOut, toArtists, toPlace, type BlockCategory } from "./taste";
 
 /** Places kept per category, so one category cannot crowd out the rest of the plan's prompt. */
 export const MAX_PLACES_PER_CATEGORY = { food: 10, treats: 6, venues: 6, parks: 4 } as const satisfies Record<BlockCategory, number>;
@@ -27,59 +29,108 @@ export function gapText(error: unknown, what: string): string {
   return `No Qloo signal for ${what}: Qloo did not answer`;
 }
 
-/** The city's artists and music styles, by city name and the store's age bands. Two calls. */
-export async function readCity(env: PlanEnv, inputs: PlanInputs): Promise<CityTaste | null> {
-  const city = inputs.store.city;
-  let artistsEntities: Awaited<ReturnType<typeof fetchArtists>> | null = null;
-  try {
-    artistsEntities = await fetchArtists(env, inputs);
-  } catch (error) {
-    if (!recoverable(error)) throw error;
-    env.sink.emit({ type: "local.gap", text: gapText(error, `${city}'s artists`) });
+export interface CityRead {
+  taste: CityTaste | null;
+  /** The name Qloo read the city's taste by ("Jonesboro, GA"), for every later city-signal call. */
+  query: string;
+}
+
+type ArtistsResult = QlooResult<{ entities: QlooEntity[]; locality: Locality | null }>;
+
+/**
+ * Finds the name Qloo reads in the store's own state. Each try is the city-artists call itself, so a
+ * name that resolves right costs nothing extra: the bare city, "<city>, <region>", "<city>, <state>",
+ * then the nearest major city in the state (said plainly as a gap). When Qloo sends no locality, the
+ * answer is used as is. Up to four calls; usually one.
+ */
+async function resolveCity(env: PlanEnv, inputs: PlanInputs): Promise<{ query: string; result: ArtistsResult } | null> {
+  const { city, region, point } = inputs.store;
+  const state = stateOf(region);
+  const tries = cityQueries(city, region);
+  let first: { query: string; result: ArtistsResult } | null = null;
+  const missed: string[] = [];
+  for (const [i, query] of tries.entries()) {
+    let result: ArtistsResult;
+    try {
+      result = await fetchArtists(env, inputs, query, i === 0 ? "planCity" : "planLocate");
+    } catch (error) {
+      if (!recoverable(error)) throw error;
+      if (i === 0) env.sink.emit({ type: "local.gap", text: gapText(error, `${city}'s artists`) });
+      break;
+    }
+    first ??= { query, result };
+    const locality = result.data.locality;
+    if (!state || !locality) return { query, result };
+    if (inState(locality, state.name)) {
+      if (i > 0) planDecide(env, "city", `Read the city as "${query}"`, `Qloo placed ${missed.join(" and ")} outside ${state.name}; "${query}" is ${locality.disambiguation ?? locality.name}.`);
+      return { query, result };
+    }
+    missed.push(`"${query}" in ${locality.disambiguation ?? locality.name}`);
   }
+  if (!first || !state) return first;
+  const major = nearestMajorCity(state.abbr, point);
+  if (major) {
+    const query = `${major.name}, ${state.abbr}`;
+    try {
+      const result = await fetchArtists(env, inputs, query, "planLocate");
+      const locality = result.data.locality;
+      if (!locality || inState(locality, state.name)) {
+        env.sink.emit({ type: "local.gap", text: `Qloo could not place ${city} in ${state.name}, so the city's taste is read from ${major.name}, the nearest major city in ${state.name} (${major.km} km)` });
+        return { query, result };
+      }
+    } catch (error) {
+      if (!recoverable(error)) throw error;
+    }
+  }
+  env.sink.emit({ type: "local.gap", text: `Qloo could not place ${city} in ${state.name}; its taste below is for ${first.result.data.locality?.disambiguation ?? first.query}` });
+  return first;
+}
+
+/** The city's artists and music styles, by city name (checked against the store's state) and the store's age bands. */
+export async function readCity(env: PlanEnv, inputs: PlanInputs): Promise<CityRead> {
+  const resolved = await resolveCity(env, inputs);
+  const query = resolved?.query ?? inputs.store.city;
+  const city = resolved?.result.data.locality?.name ?? inputs.store.city;
   let tags: Awaited<ReturnType<typeof fetchStyles>> | null = null;
   try {
-    tags = await fetchStyles(env, inputs);
+    tags = await fetchStyles(env, inputs, query);
   } catch (error) {
     if (!recoverable(error)) throw error;
     env.sink.emit({ type: "local.gap", text: gapText(error, `${city}'s music styles`) });
   }
-  if (!artistsEntities && !tags) return null;
+  if (!resolved && !tags) return { taste: null, query };
 
-  const artists = artistsEntities ? toArtists(artistsEntities.data, artistsEntities.evidence.id) : [];
+  const artistsEvidence = resolved?.result.evidence.id ?? "";
+  const artistEntities = resolved?.result.data.entities ?? [];
+  const artists = resolved ? toArtists(artistEntities, artistsEvidence) : [];
   if (artists.length === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${city}'s artists at these ages` });
-  const { styles, dropped } = musicStyles({
-    city,
-    cityTags: tags?.data ?? [],
-    cityTagsEvidenceId: tags?.evidence.id ?? "",
-    artistEntities: artistsEntities?.data ?? [],
-    artistsEvidenceId: artistsEntities?.evidence.id ?? "",
-  });
+  const { styles, dropped } = musicStyles({ city, cityTags: tags?.data ?? [], cityTagsEvidenceId: tags?.evidence.id ?? "", artistEntities, artistsEvidenceId: artistsEvidence });
   // A style can cite only calls that answered.
-  const answered = new Set([artistsEntities?.evidence.id, tags?.evidence.id].filter((id): id is string => !!id));
+  const answered = new Set([resolved?.result.evidence.id, tags?.evidence.id].filter((id): id is string => !!id));
   const cited = styles.map((s) => ({ ...s, evidenceIds: s.evidenceIds.filter((id) => answered.has(id)) })).filter((s) => s.evidenceIds.length > 0);
   const identity = dropped.filter((d) => identityTag(d.name));
   if (identity.length) planDecide(env, "city", `Left out ${identity.length} identity ${identity.length === 1 ? "tag" : "tags"}`, `${identity.map((d) => `"${d.name}"`).slice(0, 6).join(", ")}: each describes who people are, not what they listen to. Stoop reads taste, never identity.`);
   const noisy = dropped.filter((d) => !identityTag(d.name));
   if (noisy.length) planDecide(env, "city", `Left out ${noisy.length} noisy music ${noisy.length === 1 ? "tag" : "tags"}`, `${noisy.map((d) => `"${d.name}"`).slice(0, 8).join(", ")}${noisy.length > 8 ? " and more" : ""}: not a style to play, or none of the city's top artists play it.`);
   if (cited.length === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${city}'s music styles at these ages` });
-  else planDecide(env, "city", `Kept ${cited.length} music styles for ${city}`, "From the genres the city's top artists share; a city tag joins only when it agrees with them.");
-  return { city, ageBands: [...inputs.ageBands], artists, styles: cited };
+  else planDecide(env, "city", `Kept ${cited.length} music styles for ${city}`, "From the genres the city's top artists share, plus any broad style the city's own list carries; other city tags join only when the artists agree.");
+  return { taste: { city, ageBands: [...inputs.ageBands], artists, styles: cited }, query };
 }
 
-function fetchArtists(env: PlanEnv, inputs: PlanInputs) {
-  return planQloo(env, "city", `Asking Qloo which artists adults ${agesText(inputs)} in ${inputs.store.city} love`, {
+function fetchArtists(env: PlanEnv, inputs: PlanInputs, query: string, budgetRow: "planCity" | "planLocate"): Promise<ArtistsResult> {
+  return planQloo(env, "city", `Asking Qloo which artists adults ${agesText(inputs)} in ${query} love`, {
     endpoint: ENDPOINTS.insights,
-    params: cityArtistsParams(inputs),
-    schema: insightsEntitiesResponse,
+    params: cityArtistsParams(inputs, query),
+    schema: artistsWithLocality,
     slim: slimEntitiesBody,
-  }, "By city name: a map point barely changes taste, so the city is the signal.");
+    budgetRow,
+  }, "By city name: a map point barely changes taste, so the city is the signal. The place Qloo reads is checked against the store's state.");
 }
 
-function fetchStyles(env: PlanEnv, inputs: PlanInputs) {
-  return planQloo(env, "city", `Reading the music styles adults ${agesText(inputs)} in ${inputs.store.city} lean toward`, {
+function fetchStyles(env: PlanEnv, inputs: PlanInputs, query: string) {
+  return planQloo(env, "city", `Reading the music styles adults ${agesText(inputs)} in ${query} lean toward`, {
     endpoint: ENDPOINTS.insights,
-    params: cityStylesParams(inputs),
+    params: cityStylesParams(inputs, query),
     schema: insightsTagsResponse,
   });
 }
@@ -116,13 +167,13 @@ export async function readBlock(env: PlanEnv, inputs: PlanInputs, radiusM: numbe
         if (!leftOut.some((line) => line.startsWith(entity.name))) leftOut.push(`${entity.name} (${why})`);
         return;
       }
-      places.push(toPlace(entity, { rank: index + 1, evidenceId: result.evidence.id, fallback: spec.kind }));
+      places.push(toPlace(entity, { rank: index + 1, evidenceId: result.evidence.id, fallback: spec.kind, ...(env.knownChains ? { knownChains: env.knownChains } : {}) }));
       kept++;
     });
     if (kept === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${spec.label} within ${km(radiusM)} of ${inputs.location ? inputs.location.name : "this store"}` });
   }
   if (leftOut.length > 0) planDecide(env, "block", `Left ${leftOut.length} ${leftOut.length === 1 ? "place" : "places"} off the block`, leftOut.slice(0, 6).join("; "));
-  const chains = places.filter((p) => isChain(p.name));
+  const chains = places.filter((p) => p.chain);
   if (chains.length > 0) planDecide(env, "block", `Marked ${chains.length} national ${chains.length === 1 ? "chain" : "chains"}`, `${chains.map((p) => p.name).slice(0, 5).join(", ")}: fine for a gift card or a snack run; co-promo partners are local independents.`);
   if (answered === 0) return null;
   planDecide(env, "block", `Kept ${places.length} places near ${where}`, "Every one has a Qloo receipt: partners, gift cards and snack runs come from this list.");

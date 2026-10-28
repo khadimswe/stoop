@@ -50,7 +50,7 @@ export function planMonth(report: Pick<PlanReport, "inputs" | "local" | "plan" |
     return {
       date,
       label: day.label,
-      notes: day.notes,
+      notes: [...day.notes, ...day.hints],
       conceptId: concept?.id ?? null,
       title: concept?.title ?? "A table for the block",
       artistIds: rotate(artists, week * 3, 3),

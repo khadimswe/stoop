@@ -43,23 +43,23 @@ describe("Qloo's check of the generic plan's picks", () => {
     const high = id(900 + "High Pick".length);
     const low = id(900 + "Low".length);
     const { env, ctx } = fakeEnv({ ...own, [high]: 0.99, [low]: 0.5 });
-    const result = await checkPicks(env, inputs, city(6), { artists: ["High Pick", "Low", "Nobody Known"], foods: ["Some Chain"] });
-    expect(result?.check).toMatchObject({ checkable: 2, belowMedian: 1, unverifiable: 2 });
-    // Three searches and one scoring call; the food brand needs no call.
+    const result = await checkPicks(env, inputs, city(6), { artists: ["High Pick", "Low", "Nobody Known"] });
+    expect(result?.check).toMatchObject({ checkable: 2, belowMedian: 1, unverifiable: 1 });
+    // Three searches and one scoring call.
     expect(ctx.rowCalls).toEqual({ planResolve: 3, planScoring: 1 });
   });
 
   it("counts a pick with no score in the call as below the median (no measurable affinity)", async () => {
     const own = Object.fromEntries(Array.from({ length: 5 }, (_, i) => [id(i + 1), 0.9]));
     const { env } = fakeEnv(own);
-    const result = await checkPicks(env, inputs, city(5), { artists: ["Missing Artist"], foods: [] });
+    const result = await checkPicks(env, inputs, city(5), { artists: ["Missing Artist"] });
     expect(result?.check).toMatchObject({ checkable: 1, belowMedian: 1 });
     expect(result?.lines[0]).toMatch(/no measurable affinity/);
   });
 
   it(`has no median with fewer than ${MIN_MEDIAN_N} of Qloo's own artists: the picks are unverifiable`, async () => {
     const { env, ctx } = fakeEnv({});
-    const result = await checkPicks(env, inputs, city(MIN_MEDIAN_N - 1), { artists: ["Someone"], foods: [] });
+    const result = await checkPicks(env, inputs, city(MIN_MEDIAN_N - 1), { artists: ["Someone"] });
     expect(result?.check).toMatchObject({ checkable: 0, belowMedian: 0, unverifiable: 1 });
     expect(ctx.rowCalls.planScoring ?? 0).toBe(0);
   });
@@ -67,7 +67,7 @@ describe("Qloo's check of the generic plan's picks", () => {
 
 describe("the plan budget", () => {
   it("plans fewer calls than its hard cap, with room for retries", () => {
-    expect(PLAN_PLANNED_CALLS).toBe(12);
+    expect(PLAN_PLANNED_CALLS).toBe(14);
     expect(PLAN_PLANNED_CALLS).toBeLessThan(PLAN_CAP);
   });
   it("refuses a call once its row is spent", async () => {
@@ -102,7 +102,10 @@ describe("cliches and the side by side", () => {
     const block = { radiusM: 1500, places: [{ id: place, name: "Quillon Smokehouse", kind: "food" as const, tags: [], address: null, distanceM: 26, why: null, rank: 1, affinity: null, popularity: null, evidenceIds: ["ev_00000000000b"] }] };
     const comparison = compare({ kept, plan: { runOfShow: [], shopping: [{ item: "Sliders", estUsd: 60, from: place, origin: "interpreted", evidenceIds: [] }] }, baseline, block, city: "Chicago", where: "the store" });
     expect(comparison.qlooBacked).toEqual({ items: 1, of: 2 });
-    expect(comparison.lines[0]).toBe("Buys from 1 place on this block, 30 m from the store; the generic plan names no place on this block.");
+    expect(comparison.lines[0]).toBe("Qloo decided: the snack spot.");
+    expect(comparison.lines[1]).toBe("Without Qloo, this plan has no block spots.");
+    expect(comparison.lines).toContain("Buys from 1 place on this block, 30 m from the store; the generic plan names no place on this block.");
+    expect(comparison.lines).toContain("The generic plan names no place.");
     expect(comparison.lines.join(" ")).toMatch(/3 of 3 checkable artists sit below the median/);
     expect(comparison.baselineCliches).toBe(1);
   });

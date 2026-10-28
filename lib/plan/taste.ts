@@ -113,6 +113,9 @@ export const MAX_STYLES = 6;
 export const STYLE_MIN_ARTISTS = 2;
 /** A city tag counts as agreeing with the artists' genres at this name similarity (lib/qloo/match.ts). */
 export const AGREES_AT = 0.5;
+/** Broad style families a city list may carry beyond its top artists' sound. */
+export const BROAD_STYLE = /\b(country|bluegrass|americana|latin|reggaeton|regional mexican|mexican regional|corridos|cumbia|banda|norte(n|ñ)o|tejano|salsa|bachata|merengue|reggae|dancehall|soca|afrobeats?|amapiano|k-?pop|blues|jazz|zydeco|rock|metal|punk|folk|house|techno|edm)\b/i;
+
 /** Tag types whose ids can stand for an artist genre ("Hip Hop" is urn:tag:genre:qloo:hip_hop). */
 const GENRE_TAG_TYPES = new Set(["urn:tag:genre:qloo", "urn:tag:subgenre:qloo", "urn:tag:genre:music", "urn:tag:style:qloo"]);
 
@@ -216,6 +219,13 @@ export function musicStyles(input: StyleInput): StyleResult {
   const kept = genres.filter((v) => keep(v.name));
   for (const v of kept) add({ tagId: v.tagId as string, name: v.name.trim(), evidenceIds: [input.artistsEvidenceId] });
 
+  // Broad styles on the city's own list stay even when its top artists do not play them: the top 20
+  // lean toward the most popular sound, and a city's second sound (country, Latin) shows up only here.
+  for (const tag of input.cityTags) {
+    if ((tag.type !== null && tag.type !== MUSIC_GENRE) || !BROAD_STYLE.test(tag.name) || !keep(tag.name)) continue;
+    add({ tagId: tag.id, name: tag.name.trim(), evidenceIds: [input.cityTagsEvidenceId] });
+  }
+
   // City tags that agree with the artists' genres ("trap rap" with Trap), after the filters.
   for (const tag of input.cityTags) {
     if (tag.type !== null && tag.type !== MUSIC_GENRE) continue;
@@ -287,13 +297,30 @@ export const NATIONAL_CHAINS = [
   "rally's", "krystal", "hardee's", "carl's jr", "el pollo loco", "del taco", "firehouse subs", "marco's pizza", "hungry howie's",
   "papa murphy's", "cinnabon", "jollibee", "wingstop", "pollo campero", "tropical smoothie cafe", "smoothie king", "freddy's",
   "steak 'n shake", "steak n shake", "long john silver's", "american deli", "hooters", "twin peaks",
+  // Regional chains (the Oct 28 proof lab picked several the list missed).
+  "sonny's bbq", "sonny's bar-b-q", "cook out", "cracker barrel", "corner bakery", "corner bakery cafe", "huddle house", "bruster's",
+  "rita's italian ice", "marble slab", "willy's mexicana grill", "moe's southwest grill", "chuy's", "torchy's tacos", "taco cabana",
+  "pappadeaux", "pappasito's", "shipley do-nuts", "mellow mushroom", "taco mac", "j. christopher's", "mcalister's deli",
+  "jason's deli", "newk's", "zoes kitchen", "schlotzsky's", "which wich", "longhorn steakhouse", "texas roadhouse", "outback steakhouse",
+  "red lobster", "cheddar's", "ruby tuesday", "tgi fridays", "first watch", "another broken egg", "tropical smoothie", "dave & buster's",
+  "portillo's", "lou malnati's", "giordano's", "harold's chicken", "jim 'n nick's", "dickey's barbecue", "golden krust",
 ] as const;
 const CHAIN_KEYS = NATIONAL_CHAINS.map(plainName);
 
-/** True for a national chain (or a wireless store), by the start of its name. */
-export function isChain(name: string): boolean {
+/**
+ * True for a national or regional chain (or a wireless store), by the start of its name, or for a name
+ * the recorded runs found on more than one store's block (`known`, from repeatedPlaceNames).
+ */
+export function isChain(name: string, known: ReadonlySet<string> = new Set()): boolean {
   const plain = plainName(name);
-  return CHAIN_KEYS.some((chain) => plain === chain || plain.startsWith(`${chain} `));
+  return known.has(plain) || CHAIN_KEYS.some((chain) => plain === chain || plain.startsWith(`${chain} `));
+}
+
+/** The normalized names found on more than one store's block: a business with several branches is a chain. */
+export function repeatedPlaceNames(blocks: readonly { places: readonly { name: string }[] }[]): Set<string> {
+  const seen = new Map<string, number>();
+  for (const block of blocks) for (const name of new Set(block.places.map((p) => plainName(p.name)))) seen.set(name, (seen.get(name) ?? 0) + 1);
+  return new Set([...seen].filter(([, count]) => count > 1).map(([name]) => name));
 }
 
 /** Place genres built around alcohol or tobacco: never a partner for a public sidewalk table. */
@@ -365,7 +392,7 @@ export function placeWhy(entity: QlooEntity, artistNames: ReadonlyMap<string, st
   return text(entity.properties?.short_description);
 }
 
-export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: string; fallback: Place["kind"] }): Place {
+export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: string; fallback: Place["kind"]; knownChains?: ReadonlySet<string> }): Place {
   const distance = (entity as QlooEntity & { distance?: unknown }).distance;
   return {
     id: entity.id,
@@ -379,6 +406,7 @@ export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: s
     rank: input.rank,
     affinity: entity.affinity,
     popularity: entity.popularity,
+    chain: isChain(entity.name, input.knownChains),
     evidenceIds: [input.evidenceId],
   };
 }

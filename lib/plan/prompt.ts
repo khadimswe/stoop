@@ -6,7 +6,6 @@ import { quoted } from "../agent/instructions";
 import type { Evidence } from "../evidence";
 import { dayContext } from "./calendar";
 import { ageLabel } from "./local";
-import { isChain } from "./taste";
 import type { Local, MusicStyle, Place, PlanInputs } from "./schema";
 
 export const PLANNER_ROLE = [
@@ -34,7 +33,8 @@ export const PLAN_RULES = [
 
 export const REF_RULES = [
   "How to name what Qloo measured:",
-  "- Never write the name of an artist or a place. Refer to them only with their keys in double square brackets, exactly as given: [[a1]] for an artist, [[p2]] for a place.",
+  "- Never write the name of an artist or a place. Refer to them only with their keys in double square brackets, exactly as given: [[a1]] for a city artist, [[b1]] for a block artist, [[p2]] for a place.",
+  "- Use the places as places: their dishes, their tags, how far they are. Never infer anything about the people of the block from a place's cuisine or style.",
   "- Each key becomes a long id in the saved plan, so use at most 2 keys in a line and keep lines short.",
   "- Music styles may be written in words; list the s-keys of the styles a line uses in its styles field.",
   "Origins, one per line:",
@@ -76,6 +76,13 @@ export function buildAliases(local: Local): Aliases {
     evidence.set(place.id, place.evidenceIds);
     places.set(place.id, place);
     names.set(place.id, place.name);
+  });
+  (local.blockMusic?.used ? local.blockMusic.artists : []).forEach((artist, i) => {
+    if (keys.has(artist.id)) return;
+    names.set(artist.id, artist.name);
+    ids.set(`b${i + 1}`, artist.id);
+    keys.set(artist.id, `b${i + 1}`);
+    evidence.set(artist.id, artist.evidenceIds);
   });
   const styles = new Map<string, MusicStyle>((local.city?.styles ?? []).map((style, i) => [`s${i + 1}`, style]));
   return { ids, keys, styles, evidence, places, names };
@@ -139,7 +146,7 @@ export function inputsText(inputs: PlanInputs, options: { notes: boolean } = { n
     quoted("store", facts),
     quoted("offers", offers),
     ...(options.notes && inputs.notes ? [quoted("manager notes", inputs.notes)] : []),
-    `About the day (${day.label}):\n${day.notes.length ? day.notes.map((n) => `- ${n}`).join("\n") : "- Nothing special about this date."}`,
+    `About the day (${day.label}):\n${day.notes.length ? day.notes.map((n) => `- ${n}`).join("\n") : "- Nothing special about this date."}${day.hints.length ? `\nSmall hints (useful for timing, never a theme or a title by themselves):\n${day.hints.map((n) => `- ${n}`).join("\n")}` : ""}`,
   ].join("\n\n");
 }
 
@@ -159,14 +166,23 @@ export function localText(local: Local, aliases: Aliases, inputs?: PlanInputs): 
     lines.push("City: Qloo had no music signal for this city.");
   }
   if (local.block) {
-    lines.push("", `Places Qloo found within ${local.block.radiusM} m of ${inputs?.location ? inputs.location.name : "the store"}:`);
-    for (const place of local.block.places) {
+    const where = inputs?.location ? inputs.location.name : "the store";
+    const independents = local.block.places.filter((p) => !p.chain);
+    const chains = local.block.places.filter((p) => p.chain);
+    const line = (place: Place) => {
       const tags = place.tags.length ? `; ${place.tags.join(", ")}` : "";
-      const chain = isChain(place.name) ? ", national chain: fine for a gift card or a snack run, not a co-promo partner" : "";
-      lines.push(`- [[${aliases.keys.get(place.id)}]] ${place.name} (${place.kind}, ${distance(place.distanceM)}${chain}${tags})${place.why ? `. Qloo says: ${place.why}` : ""}`);
-    }
+      return `- [[${aliases.keys.get(place.id)}]] ${place.name} (${place.kind}, ${distance(place.distanceM)}${tags})${place.why ? `. Qloo says: ${place.why}` : ""}`;
+    };
+    lines.push("", `What makes this block different: the local independents Qloo found within ${local.block.radiusM} m of ${where}, in Qloo's order. They lead the snacks, partners, gift cards and theme; a local independent beats a closer chain.`);
+    lines.push(...(independents.length ? independents.map(line) : ["- None: Qloo found only chains here."]));
+    if (chains.length) lines.push("", "National and regional chains nearby (fine for a gift card or a snack run when no independent fits, never a co-promo partner):", ...chains.map(line));
   } else {
     lines.push("", "Block: Qloo had no places for this store's block.");
+  }
+  if (local.blockMusic?.used && local.blockMusic.artists.length) {
+    const via = (ids: readonly string[]) => ids.map((id) => `[[${aliases.keys.get(id)}]]`).join(" and ");
+    lines.push("", "Music the block's own places point to (an option next to the city's music, never instead of it; write it as \"People who love [[pN]] also play [[bN]]\"):");
+    for (const artist of local.blockMusic.artists) lines.push(`- [[${aliases.keys.get(artist.id)}]] ${artist.name}${artist.genres.length ? ` (${artist.genres.slice(0, 3).join(", ")})` : ""}: people who love ${via(artist.via)} play it`);
   }
   if (local.gaps.length) lines.push("", "No Qloo signal for:", ...local.gaps.map((g) => `- ${g}`));
   return quoted("what Qloo measured", lines.join("\n"));

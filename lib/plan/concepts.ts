@@ -12,7 +12,6 @@ import { itemIssues, type GuardContext } from "./guard";
 import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
 import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
-import { isChain } from "./taste";
 import { clicheIn } from "./baseline";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
@@ -47,12 +46,13 @@ const TASK = [
   `Write ${CONCEPT_COUNT} clearly different event concepts for this store's table or booth, grounded only in the store's facts and what Qloo measured.`,
   "The store runs events for walk-ins and sign-ups. Every concept has one line that turns a stop into a walk-in: the moment and the reason to step inside, with the manager's promo doing the work. Never build the event around sending people to other businesses.",
   "Each concept has a title, a hook and 5 to 8 lines. Lines are short and concrete: what plays, what is served and from where, what people do, what they take home, how the table looks, what the sign says, when the peak is.",
-  "Fit the day: use what the data says about the date (a holiday, a payday weekend, the season) where it helps.",
+  "Let the block lead: snacks, partners, gift cards and the theme come first from the block's local independents (listed under what makes this block different), with their own dishes and tags. A chain only when no independent fits.",
+  "Fit the day where it matters: a holiday near the date, the season, the weather. A payday or a game day is a small hint for timing, never the theme or the title.",
   "The manager's notes are requirements: every concept does what they ask.",
   "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
   "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
   "Skip what every table already has with nothing local behind it: balloons, a hired DJ, a playlist of popular hits, an inflatable tube man.",
-  "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm.",
+  "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm. When the block's own music is listed, one concept may add it as an option next to the city's: \"People who love [[pN]] also play [[bN]]\".",
   "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
   "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
@@ -132,7 +132,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       const cliche = clicheIn(text);
       if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the block instead.`);
       if (item.kind === "partner") {
-        const chain = refs.map((id) => aliases.places.get(id)).find((p) => p && isChain(p.name));
+        const chain = refs.map((id) => aliases.places.get(id)).find((p) => p?.chain);
         if (chain) problems.push(`a national chain is not a co-promo partner; use it for a gift card or a snack run (kind giveaway or food), or partner with a local independent.`);
       }
       if (problems.length) {
@@ -145,6 +145,13 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     });
     const qlooItems = used.size;
     if (!concept.noStereotype) issues.push(`${at}: it fails the no-stereotype gate; rewrite it without relying on a stereotype.`);
+    if (/\bpay ?days?\b/i.test(`${title} ${hook}`)) issues.push(`${at}: a payday is a small hint for timing, never the theme or the title; build the title on the block or the city.`);
+    // The block leads: a concept that buys, gives or partners only with chains, while the block has a food independent, is sent back.
+    const independents = [...aliases.places.values()].filter((p) => !p.chain && p.kind === "food");
+    const sourced = items.filter((i) => i.kind === "food" || i.kind === "giveaway" || i.kind === "partner").flatMap((i) => i.refs).map((id) => aliases.places.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+    if (independents.length && sourced.length && sourced.every((p) => p.chain)) {
+      issues.push(`${at}: its food, gift card and partner lines use only chains; use one of the block's local independents (${independents.slice(0, 3).map((p) => `[[${aliases.keys.get(p.id)}]]`).join(", ")}) first.`);
+    }
     if (items.length < MIN_CONCEPT_ITEMS) issues.push(`${at}: needs at least ${MIN_CONCEPT_ITEMS} lines that pass the checks.`);
     for (const missing of notesMissing(guard.notes ?? "", items)) issues.push(`${at}: the manager's notes ask for ${missing}; add a line for it.`);
     const scores = Object.fromEntries(PLAN_CRITERION_IDS.map((id) => [id, concept.scores[id]])) as PlanScore["scores"];

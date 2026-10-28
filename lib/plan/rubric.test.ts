@@ -44,7 +44,9 @@ describe("the day", () => {
     const halloween = dayContext("2026-10-31");
     expect(halloween.label).toBe("Saturday, October 31, 2026");
     expect(halloween.notes.join(" ")).toMatch(/It is Halloween/);
-    expect(dayContext("2026-11-14").notes.join(" ")).toMatch(/mid-month/);
+    expect(dayContext("2026-11-14").hints.join(" ")).toMatch(/mid-month/);
+    expect(dayContext("2026-11-06").hints.join(" ")).toMatch(/Friday, a common payday/);
+    expect(dayContext("2026-11-06").notes.join(" ")).not.toMatch(/payday/);
     expect(dayContext("2026-11-07").notes.join(" ")).toMatch(/Veterans Day is in 4 days/);
     expect(dayContext("2027-03-06").notes.join(" ")).toMatch(/tax refund season/);
   });
@@ -59,7 +61,7 @@ const local: Local = {
     radiusM: 1500,
     places: [
       { id: PLACE, name: "Quillon Smokehouse", kind: "food", tags: [], address: null, distanceM: 26, why: null, rank: 1, affinity: null, popularity: null, evidenceIds: ["ev_00000000000b"] },
-      { id: CHAIN, name: "costco", kind: "shop", tags: [], address: null, distanceM: 1054, why: null, rank: 2, affinity: null, popularity: null, evidenceIds: ["ev_00000000000b"] },
+      { id: CHAIN, name: "costco", kind: "shop", tags: [], address: null, distanceM: 1054, why: null, rank: 2, affinity: null, popularity: null, chain: true, evidenceIds: ["ev_00000000000b"] },
     ],
   },
   gaps: [],
