@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic @jsxImportSource react */
 // The poster as one PNG, drawn with next/og, in the look of the posters stores already put up, a bit
 // cleaner: a dark ground in the carrier's color set (colors only, never a logo), a neon date pill, one
 // huge glowing headline, the deals as up to 4 cards (a short label over the offer verbatim), a prize

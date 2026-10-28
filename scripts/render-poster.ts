@@ -9,7 +9,7 @@
 // never draws or generates one. --plain writes the previews on the plain neon ground and renders nothing.
 // Reads FAL_KEY from the environment (run it from the checkout that holds the keys). Logs no response.
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CliError, parseCliArgs } from "../lib/cli-args";
@@ -18,7 +18,7 @@ import { createPosterRenderer } from "../lib/plan/poster-art";
 import { posterImage, type PosterLogo } from "../lib/plan/poster-image";
 import { checkPosterPrompt, posterFalInput, posterPromptHash } from "../lib/plan/poster-prompt";
 import { posterText } from "../lib/plan/poster-text";
-import { MAX_DRAFT_RENDERS, marketingExportSchema, marketingMarkdown, type Draft } from "../lib/plan/posts-export";
+import { MAX_DRAFT_RENDERS, marketingExportSchema, marketingMarkdown, type Draft, type MarketingExport } from "../lib/plan/posts-export";
 import { POSTER_MODEL } from "../lib/prompts/models.config";
 import { loadLocalEnv } from "./env";
 
@@ -76,6 +76,18 @@ async function main() {
     return;
   }
   const attempts = Math.max(exported.renderAttempts ?? 0, exported.drafts.length);
+
+  // A render that was paid for but never recorded (the run stopped after saving the art) is adopted,
+  // never rendered again: its file is on disk and its attempt is already counted.
+  const listed = new Set(exported.drafts.map((d) => d.file));
+  const orphan = attempts > exported.drafts.length ? readdirSync(dir).find((name) => /^poster-bg-[0-9a-f]{12}\.(?:png|jpg|webp)$/.test(name) && !listed.has(name)) : undefined;
+  if (orphan) {
+    const bytes = new Uint8Array(await readFile(path.join(dir, orphan)));
+    const contentType = Object.entries(EXTENSIONS).find(([, ext]) => orphan.endsWith(`.${ext}`))![0];
+    await recordDraft({ dir, jsonFile, exported, report, text, logo, bytes, contentType, file: orphan, promptHash: poster.promptHash });
+    console.log(`${slug}: adopted ${orphan}, rendered earlier and not yet recorded. 0 renders.`);
+    return;
+  }
   if (attempts >= MAX_DRAFT_RENDERS) fail(`${slug}: already ${attempts} renders started, the most a store gets. Review those drafts.`);
 
   loadLocalEnv();
@@ -89,24 +101,40 @@ async function main() {
   const image = await renderer.render({ endpoint: POSTER_MODEL.endpoint, input });
   const extension = EXTENSIONS[image.contentType];
   if (!extension) fail(`The art came back as ${image.contentType}.`);
-  const sha256 = createHash("sha256").update(image.bytes).digest("hex");
-  const tag = sha256.slice(0, 12);
-  const file = `poster-bg-${tag}.${extension}`;
+  const file = `poster-bg-${createHash("sha256").update(image.bytes).digest("hex").slice(0, 12)}.${extension}`;
+  // The art is saved first, so a failure after this point leaves it to adopt, never to pay for again.
   await writeFile(path.join(dir, file), image.bytes);
+  const previews = await recordDraft({ dir, jsonFile, exported: started, report, text, logo, bytes: image.bytes, contentType: image.contentType, file, promptHash: poster.promptHash });
+  console.log(`${slug}: wrote ${file} and ${previews.join(", ")}. 1 render.`);
+}
 
-  // The previews: the poster exactly as the route draws it, over this art.
-  const art = { dataUri: `data:${image.contentType};base64,${Buffer.from(image.bytes).toString("base64")}` };
+/** Writes the two previews (the poster exactly as the route draws it, over this art) and records the draft. */
+async function recordDraft(input: {
+  dir: string;
+  jsonFile: string;
+  exported: MarketingExport;
+  report: Parameters<typeof marketingMarkdown>[0];
+  text: ReturnType<typeof posterText>;
+  logo: PosterLogo | null;
+  bytes: Uint8Array;
+  contentType: string;
+  file: string;
+  promptHash: string;
+}): Promise<string[]> {
+  const sha256 = createHash("sha256").update(input.bytes).digest("hex");
+  const tag = sha256.slice(0, 12);
+  const art = { dataUri: `data:${input.contentType};base64,${Buffer.from(input.bytes).toString("base64")}` };
   const previews: string[] = [];
   for (const size of ["portrait", "og"] as const) {
     const name = `poster-preview-${tag}-${size}.png`;
-    await writeFile(path.join(dir, name), Buffer.from(await posterImage(text, art, size, {}, logo).arrayBuffer()));
+    await writeFile(path.join(input.dir, name), Buffer.from(await posterImage(input.text, art, size, {}, input.logo).arrayBuffer()));
     previews.push(name);
   }
-  const draft: Draft = { file, previews, promptHash: poster.promptHash, sha256, modelId: POSTER_MODEL.endpoint, renderedAt: new Date().toISOString() };
-  const updated = marketingExportSchema.parse({ ...started, drafts: [...started.drafts, draft] });
-  await writeFile(jsonFile, `${JSON.stringify(updated, null, 2)}\n`);
-  await writeFile(path.join(dir, "marketing.md"), marketingMarkdown(report, updated));
-  console.log(`${slug}: wrote ${file} and ${previews.join(", ")}. 1 render.`);
+  const draft: Draft = { file: input.file, previews, promptHash: input.promptHash, sha256, modelId: POSTER_MODEL.endpoint, renderedAt: new Date().toISOString() };
+  const updated = marketingExportSchema.parse({ ...input.exported, drafts: [...input.exported.drafts, draft] });
+  await writeFile(input.jsonFile, `${JSON.stringify(updated, null, 2)}\n`);
+  await writeFile(path.join(input.dir, "marketing.md"), marketingMarkdown(input.report, updated));
+  return previews;
 }
 
 main().catch((error: unknown) => fail(error instanceof Error ? `${error.name}: ${error.message}` : String(error)));

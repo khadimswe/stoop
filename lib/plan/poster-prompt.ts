@@ -14,7 +14,7 @@ import type { PlanReport, Store } from "./schema";
 import { keptConcept } from "./poster-text";
 
 /** Bumped when the template changes, so the render cache never serves art from an older template. */
-export const POSTER_PROMPT_VERSION = 3;
+export const POSTER_PROMPT_VERSION = 4;
 
 /** Music style keywords to energy and texture (the carrier's set gives the colors). Matched against Qloo's style names, first match wins. */
 export const STYLE_ENERGY: readonly { match: RegExp; energy: string }[] = [
@@ -156,7 +156,7 @@ export function buildPosterPrompt(report: Pick<PlanReport, "plan" | "local" | "i
     ...(feeling ? [`Theme to show: ${feeling}.`] : []),
     `Palette: ${CARRIER_ART_PALETTE[report.inputs.store.carrier]}.`,
     `Energy and texture: ${visualEnergy(report).join("; ")}.`,
-    "Style: bold glowing digital illustration with neon rim light on a rich dark ground, clean and uncluttered, one clear focal scene.",
+    "Style: bold glowing digital illustration with neon rim light on a rich dark ground, clean and uncluttered, one clear focal scene, full-bleed to every edge with no border, frame, blank panels or empty boxes.",
     "Composition: the illustration frames the edges and corners; the top fifth, a wide band across the middle and the bottom third stay dark and quiet so type and cards can sit on them.",
     POSTER_EXCLUSIONS,
   ].join(" ");
