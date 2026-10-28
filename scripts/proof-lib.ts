@@ -25,6 +25,27 @@ export const PROOF_FIXTURES = path.join(PROOF, "fixtures");
 export const PROOF_LLM = path.join(PROOF, "llm");
 export const PROOF_RUNS = path.join(PROOF, "runs");
 
+/**
+ * Rounds: round 1 ran Oct 28 on pipeline 0a7c3fb (data/proof/runs/, answers "proof-<id>"); round 2
+ * reran the same stores and inputs on the fixed pipeline (data/proof/runs-2/, answers "proof2-<id>").
+ * Recorded rounds are never rewritten.
+ */
+export const roundRuns = (round: number) => (round === 1 ? PROOF_RUNS : path.join(PROOF, `runs-${round}`));
+export const roundPrefix = (round: number) => (round === 1 ? "proof" : `proof${round}`);
+export const roundArg = (args: readonly string[]) => (args.includes("--round") ? Number(args[args.indexOf("--round") + 1]) : 1);
+
+/**
+ * The chain names the live runtime passes the pipeline (lib/plan/server.ts knownChains): a name on
+ * more than one recorded example store's block. Proof runs from round 2 on pass the same set, so they
+ * plan exactly as a live run would.
+ */
+export async function liveKnownChains(): Promise<ReadonlySet<string>> {
+  const { loadExampleReport, PLAN_EXAMPLES } = await import("../lib/plan/examples");
+  const { repeatedPlaceNames } = await import("../lib/plan/taste");
+  const reports = await Promise.all(PLAN_EXAMPLES.map((e) => loadExampleReport(e.slug, ROOT).catch(() => null)));
+  return repeatedPlaceNames(reports.flatMap((r) => (r?.local.block ? [r.local.block] : [])));
+}
+
 /** JSON for committed files: U+2014 inside Qloo's names is written as an escape so the em dash scan stays clean. */
 export const json = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\u2014/g, "\\u2014")}\n`;
 
