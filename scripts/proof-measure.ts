@@ -19,7 +19,7 @@ import { refsIn } from "../lib/plan/refs";
 import type { PlanReport } from "../lib/plan/schema";
 import { isChain } from "../lib/plan/taste";
 import type { Extracted } from "./proof-extract";
-import { exists, json, loadStores, PROOF, readJson, roundRuns, type ProofStore } from "./proof-lib";
+import { exists, json, loadStores, PROOF, readJson, roundRuns, roundSet, type ProofStore } from "./proof-lib";
 
 const RADIUS_M = 1500;
 const NEAR_FILE = path.join(PROOF, "osm", "generic-picks-near.json");
@@ -129,7 +129,7 @@ async function fetchNear(store: ProofStore, name: string): Promise<Near[string]>
 /** The parts of a store's own address and area: naming them is not naming a place on the block. */
 function isOwn(s: ProofStore, name: string): boolean {
   const n = norm(name);
-  const own = new Set([norm(s.address), ...s.address.split(",").map(norm), norm(s.qlooCity), norm(s.qlooCity.replace(/, GA$/, "")), "georgia", "ga", "atlanta", "gwinnett", "cobb", "dekalb", "clayton", "fulton"]);
+  const own = new Set([norm(s.address), ...s.address.split(",").map(norm), norm(s.qlooCity), norm(s.qlooCity.replace(/, GA$/, "")), "georgia", "ga", "atlanta", "gwinnett", "cobb", "dekalb", "clayton", "fulton", "texas", "tx", "dallas", "fort worth", "dfw", "metroplex", "north texas", "tarrant", "collin"]);
   if (own.has(n)) return true;
   // A county, or a part of town ("Downtown Atlanta", "East Atlanta"): an area, not a place to go.
   if (/\bcounty\b/.test(n) || /^(downtown|midtown|uptown|east|west|north|south)\s/.test(n)) return true;
@@ -193,7 +193,8 @@ async function compute(round: number, near: Near, fetchMissing: boolean) {
     const usedPlaces = [...new Set(lines.flatMap((l) => l.refs).filter((id) => places.has(id)))];
     const usedArtists = [...new Set(lines.flatMap((l) => l.refs).filter((id) => artistNames.has(id)))];
     const foodPlaces = usedPlaces.filter((id) => places.get(id)?.kind === "food" || places.get(id)?.kind === "shop");
-    stoopPlaces.set(s.id, new Set(usedPlaces));
+    // By name, so two branches of the same chain (different Qloo ids) count as the same pick.
+    stoopPlaces.set(s.id, new Set(usedPlaces.map((id) => norm(places.get(id)?.name ?? id))));
     stoopArtists.set(s.id, new Set(usedArtists.map((id) => norm(artistNames.get(id) ?? id))));
 
     // Generic: lines (as shown), the places it says it names, and the named things the extraction found.
@@ -277,7 +278,7 @@ async function compute(round: number, near: Near, fetchMissing: boolean) {
     };
   }
 
-  const task2 = stores.filter((s) => s.sets.includes("task2")).map((s) => s.id);
+  const task2 = stores.filter((s) => s.sets.includes(roundSet(round))).map((s) => s.id);
   // Task 2 counters only: recount over the Task 2 stores.
   const t2 = { ...counters };
   for (const k of Object.keys(t2) as (keyof typeof t2)[]) t2[k] = 0;
@@ -451,14 +452,15 @@ async function main(): Promise<void> {
   const previous = exists(RESULTS) ? readJson<Record<string, unknown>>(RESULTS) : null;
   const run1 = previous ? ((previous.run1 as Record<string, unknown> | undefined) ?? previous) : null;
   const run2 = await compute(2, near, fetchMissing);
+  const run3 = exists(roundRuns(3)) ? await compute(3, near, fetchMissing) : null;
   // Round 1 recomputed with today's counters and chain list, for the measures run 1 did not have.
   const run1Now = await compute(1, near, false);
   const comparison = {
     note: "Both rounds computed with the same code and the current chain list (round 1's frozen numbers used the chain list of Oct 28).",
-    chainShare: { run1: run1Now.chainShare, run2: run2.chainShare },
-    themes: { run1: run1Now.themes, run2: run2.themes },
-    titleWords: { run1: { stoop: run1Now.sameness.stoopTitleWords, generic: run1Now.sameness.genericThemeWords }, run2: { stoop: run2.sameness.stoopTitleWords, generic: run2.sameness.genericThemeWords } },
-    locality: { run1: run1Now.locality, run2: run2.locality },
+    chainShare: { run1: run1Now.chainShare, run2: run2.chainShare, run3: run3?.chainShare ?? null },
+    themes: { run1: run1Now.themes, run2: run2.themes, run3: run3?.themes ?? null },
+    titleWords: { run1: { stoop: run1Now.sameness.stoopTitleWords, generic: run1Now.sameness.genericThemeWords }, run2: { stoop: run2.sameness.stoopTitleWords, generic: run2.sameness.genericThemeWords }, run3: run3 ? { stoop: run3.sameness.stoopTitleWords, generic: run3.sameness.genericThemeWords } : null },
+    locality: { run1: run1Now.locality, run2: run2.locality, run3: run3?.locality ?? null },
   };
   if (fetchMissing) await writeFile(NEAR_FILE, json(near));
   await writeFile(
@@ -467,6 +469,7 @@ async function main(): Promise<void> {
       note: "Proof lab results. Raw counts; method and limits in data/proof/README.md. Private (Qloo names); publish areas and counts only. run1: Oct 28 on pipeline 0a7c3fb, frozen as first written. run2: the same stores and inputs on the fixed pipeline (pivot-store-events 6d0f5cb).",
       run1,
       run2,
+      run3,
       comparison,
     }),
   );

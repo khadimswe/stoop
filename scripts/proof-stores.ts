@@ -7,17 +7,43 @@
 // identifying User-Agent: every request here waits 1.1 s and sends the generic "stoop-proof" agent.
 // No personal data goes anywhere.
 //
-// Output (private, excluded from the public mirror): data/proof/osm/stores-raw.json.
+// Output (private, excluded from the public mirror): data/proof/osm/stores-raw.json (metro Atlanta),
+// or stores-raw-<metro>.json with --metro dallas (round 3's holdout metro).
 //   npx tsx scripts/proof-stores.ts
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "data", "proof", "osm", "stores-raw.json");
+const METRO = process.argv.includes("--metro") ? (process.argv[process.argv.indexOf("--metro") + 1] ?? "atlanta") : "atlanta";
+const OUT = path.join(ROOT, "data", "proof", "osm", METRO === "atlanta" ? "stores-raw.json" : `stores-raw-${METRO}.json`);
 const UA = "stoop-proof";
 const BRAND_WIKIDATA = "Q1925685"; // Metro by T-Mobile
-const BBOX = { south: 33.3, west: -84.95, north: 34.25, east: -83.85 };
+const METROS: Record<string, { bbox: { south: number; west: number; north: number; east: number }; state: string; cities: string[] }> = {
+  // Cities and towns across metro Atlanta, chosen to spread the search over clearly different areas
+  // (north, south, east, west, in town and suburbs). The search finds whatever OSM has in each.
+  atlanta: {
+    bbox: { south: 33.3, west: -84.95, north: 34.25, east: -83.85 },
+    state: "Georgia",
+    cities: [
+      "Atlanta", "Jonesboro", "Riverdale", "Forest Park", "Morrow", "College Park", "East Point", "Union City", "Kennesaw", "Marietta", "Smyrna",
+      "Austell", "Douglasville", "Decatur", "Stone Mountain", "Lithonia", "Norcross", "Doraville", "Chamblee", "Duluth", "Lawrenceville",
+      "Snellville", "Alpharetta", "Roswell", "Sandy Springs", "Tucker", "Conyers", "Stockbridge", "McDonough", "Lilburn", "Buford",
+    ],
+  },
+  // Round 3's holdout: Dallas and Fort Worth, a metro no example store and no pipeline fix ever used.
+  dallas: {
+    bbox: { south: 32.55, west: -97.55, north: 33.25, east: -96.45 },
+    state: "Texas",
+    cities: [
+      "Dallas", "Fort Worth", "Arlington", "Irving", "Garland", "Mesquite", "Grand Prairie", "Plano", "Richardson", "Carrollton", "Denton",
+      "McKinney", "Frisco", "Lewisville", "DeSoto", "Duncanville", "Lancaster", "Cedar Hill", "Rowlett", "Haltom City", "North Richland Hills",
+    ],
+  },
+};
+const CONFIG = METROS[METRO];
+if (!CONFIG) throw new Error(`Unknown metro "${METRO}". Metros: ${Object.keys(METROS).join(", ")}`);
+const BBOX = CONFIG.bbox;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -91,13 +117,6 @@ async function nodeTags(osm: string): Promise<Record<string, string>> {
   return body.elements[0]?.tags ?? {};
 }
 
-// Cities and towns across metro Atlanta, chosen to spread the search over clearly different areas
-// (north, south, east, west, in town and suburbs). The search finds whatever OSM has in each.
-const CITIES = [
-  "Atlanta", "Jonesboro", "Riverdale", "Forest Park", "Morrow", "College Park", "East Point", "Union City", "Kennesaw", "Marietta", "Smyrna",
-  "Austell", "Douglasville", "Decatur", "Stone Mountain", "Lithonia", "Norcross", "Doraville", "Chamblee", "Duluth", "Lawrenceville",
-  "Snellville", "Alpharetta", "Roswell", "Sandy Springs", "Tucker", "Conyers", "Stockbridge", "McDonough", "Lilburn", "Buford",
-];
 
 /** `--reverse lat,lon ...` names the street at each point; `--search "address" ...` geocodes addresses. */
 async function lookups(args: string[]): Promise<boolean> {
@@ -127,8 +146,8 @@ async function main(): Promise<void> {
   const fromOverpass = await overpass();
   if (fromOverpass) for (const f of fromOverpass) found.set(f.osm, f);
   console.log(`overpass: ${fromOverpass ? fromOverpass.length : "unavailable"}`);
-  for (const city of CITIES) {
-    for (const q of [`Metro by T-Mobile, ${city}, Georgia`]) {
+  for (const city of CONFIG.cities) {
+    for (const q of [`Metro by T-Mobile, ${city}, ${CONFIG.state}`]) {
       let hits: NominatimHit[] = [];
       try {
         hits = await nominatim(q);
