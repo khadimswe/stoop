@@ -27,12 +27,15 @@ export const PROOF_RUNS = path.join(PROOF, "runs");
 
 /**
  * Rounds: round 1 ran Oct 28 on pipeline 0a7c3fb (data/proof/runs/, answers "proof-<id>"); round 2
- * reran the same stores and inputs on the fixed pipeline (data/proof/runs-2/, answers "proof2-<id>").
+ * reran the same stores and inputs on the fixed pipeline (data/proof/runs-2/, answers "proof2-<id>");
+ * round 3 is the holdout, 12 stores in a metro the pipeline was never tuned on (runs-3/, "proof3-<id>").
  * Recorded rounds are never rewritten.
  */
 export const roundRuns = (round: number) => (round === 1 ? PROOF_RUNS : path.join(PROOF, `runs-${round}`));
 export const roundPrefix = (round: number) => (round === 1 ? "proof" : `proof${round}`);
 export const roundArg = (args: readonly string[]) => (args.includes("--round") ? Number(args[args.indexOf("--round") + 1]) : 1);
+/** The store set a round's store-to-store measures run on. */
+export const roundSet = (round: number) => (round >= 3 ? "holdout" : "task2");
 
 /**
  * The chain names the live runtime passes the pipeline (lib/plan/server.ts knownChains): a name on
@@ -75,11 +78,13 @@ export interface ProofStore {
   address: string;
   /** The city name sent to Qloo (signal.location.query), as resolved by scripts/proof-cities.ts. */
   qlooCity: string;
+  /** The store's state, as a manager types it. Rounds 1 and 2: GA. The holdout (round 3): TX. */
+  region?: string;
   point: { lat: number; lon: number };
   /** Where the point came from (OSM node, founder). */
   source: string;
   /** "task1" (the Tara Boulevard vs Kennesaw test), "task2" (store to store), or both. */
-  sets: ("task1" | "task1-robustness" | "task2")[];
+  sets: ("task1" | "task1-robustness" | "task2" | "holdout")[];
 }
 
 export function templateInputs(store: ProofStore): PlanInputs {
@@ -89,7 +94,7 @@ export function templateInputs(store: ProofStore): PlanInputs {
     carrier: "metro",
     address: store.address,
     city: store.qlooCity,
-    region: "GA",
+    region: store.region ?? "GA",
     point: store.point,
   };
   return {
