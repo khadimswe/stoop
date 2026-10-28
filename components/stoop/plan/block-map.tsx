@@ -74,7 +74,7 @@ export function BlockMap({ block, uses, compact = false }: { block: Block; uses:
           })}
         </svg>
       ) : (
-        <Strip block={block} uses={uses} selected={selected} onPress={press} />
+        <Strip block={block} uses={uses} selected={selected} onPress={press} compact={compact} />
       )}
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-soft">
         {LEGEND.filter((l) => block.places.some((p) => p.kind === l.kind)).map((l) => (
@@ -121,13 +121,13 @@ const ROWS: { kind: PlaceView["kind"]; label: string }[] = [
 ];
 
 /** Distance only: one row per kind, the store at the left, the search radius at the right. */
-function Strip({ block, uses, selected, onPress }: { block: Block; uses: Readonly<Record<string, readonly string[]>>; selected: string | null; onPress: (id: string) => void }) {
+function Strip({ block, uses, selected, onPress, compact }: { block: Block; uses: Readonly<Record<string, readonly string[]>>; selected: string | null; onPress: (id: string) => void; compact?: boolean }) {
   const W = 300;
   const L = 44;
   const rows = ROWS.filter((r) => block.places.some((p) => p.kind === r.kind && p.distanceM !== null));
   const H = rows.length * 28 + 26;
   return (
-    <svg viewBox={`0 0 ${L + W + 12} ${H}`} role="group" aria-label={`Places by distance from the ${block.center.label.toLowerCase()}`} className="w-full max-w-xl">
+    <svg viewBox={`0 0 ${L + W + 12} ${H}`} role="group" aria-label={`Places by distance from the ${block.center.label.toLowerCase()}`} className={cn("w-full", compact ? "max-w-md" : "max-w-xl")}>
       {WALK_RINGS.filter((ring) => ring.meters < block.radiusM).map((ring) => (
         <g key={ring.meters}>
           <line x1={L + stripX(ring.meters, block.radiusM, W)} x2={L + stripX(ring.meters, block.radiusM, W)} y1={4} y2={H - 16} stroke="var(--color-concrete-line)" strokeDasharray="3 4" />
