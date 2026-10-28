@@ -18,15 +18,16 @@ export const CITY_STYLES_TAKE = 30;
 
 const ages = (inputs: PlanInputs) => [...inputs.ageBands];
 
-export function cityArtistsParams(inputs: PlanInputs) {
-  return { "filter.type": "urn:entity:artist", "signal.location.query": inputs.store.city, "signal.demographics.age": ages(inputs), take: CITY_ARTISTS_TAKE } as const;
+/** `query` is the city name Qloo reads in the store's state (lib/plan/locality.ts); the store's city by default. */
+export function cityArtistsParams(inputs: PlanInputs, query: string = inputs.store.city) {
+  return { "filter.type": "urn:entity:artist", "signal.location.query": query, "signal.demographics.age": ages(inputs), take: CITY_ARTISTS_TAKE } as const;
 }
 
-export function cityStylesParams(inputs: PlanInputs) {
+export function cityStylesParams(inputs: PlanInputs, query: string = inputs.store.city) {
   return {
     "filter.type": "urn:tag",
     "filter.tag.types": ["urn:tag:genre:music"],
-    "signal.location.query": inputs.store.city,
+    "signal.location.query": query,
     "signal.demographics.age": ages(inputs),
     take: CITY_STYLES_TAKE,
   } as const;
@@ -58,10 +59,10 @@ export function pickSearchParams(name: string, type: "artist" | "brand") {
  * Qloo's own city artists and the generic plan's artists in ONE call with the same city signal, so
  * their affinities compare (never across calls). `take` covers every id, or Qloo cuts the list.
  */
-export function scoreArtistsParams(inputs: PlanInputs, ids: readonly string[]) {
+export function scoreArtistsParams(inputs: PlanInputs, ids: readonly string[], query: string = inputs.store.city) {
   return {
     "filter.type": "urn:entity:artist",
-    "signal.location.query": inputs.store.city,
+    "signal.location.query": query,
     "signal.demographics.age": ages(inputs),
     "filter.results.entities": [...ids],
     take: Math.max(ids.length, 1),

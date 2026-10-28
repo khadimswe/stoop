@@ -9,7 +9,7 @@ import { z } from "zod";
 import { askOnce, cachedInstructions } from "../agent/ask";
 import { stripEmDashes } from "../guardrails";
 import { ENDPOINTS } from "../qloo/constants";
-import { matchResult } from "../qloo/match";
+import { matchResult, normalizeName } from "../qloo/match";
 import { insightsEntitiesResponse, searchResponse, slimEntitiesBody } from "../qloo/types";
 import { planQloo, type PlanEnv } from "./env";
 import { textIssues, type GuardContext } from "./guard";
@@ -17,11 +17,12 @@ import { gapText, recoverable } from "./local";
 import { inputsText, PLAN_RULES, PLANNER_ROLE } from "./prompt";
 import { pickSearchParams, scoreArtistsParams } from "./requests";
 import { refsIn } from "./refs";
-import { ITEM_KINDS, type Baseline, type Block, type CityTaste, type Comparison, type Concept, type Plan, type PlanInputs, type PlanItem } from "./schema";
+import { ITEM_KINDS, type Baseline, type Block, type BlockMusic, type CityTaste, type Comparison, type Concept, type Plan, type PlanInputs, type PlanItem } from "./schema";
+import { isChain } from "./taste";
 
 export const BASELINE_TIMEOUT_MS = 90_000;
 /** Named picks resolved per plan (PLAN_BUDGET.planResolve). */
-export const MAX_PICKS = 5;
+export const MAX_PICKS = 3;
 /** No median below this many of Qloo's own picks (Stoop's rule). */
 export const MIN_MEDIAN_N = 5;
 
@@ -29,7 +30,7 @@ const llmBaseline = z.object({
   items: z.array(z.object({ kind: z.enum(ITEM_KINDS), text: z.string().describe("One concrete line, at most 200 characters, with no artist or business names") })).describe("6 to 9 lines: a theme, the music, the food, an activity, a giveaway, the setup, the signage, the timing"),
   picks: z.object({
     artists: z.array(z.string()).describe("Up to 3 real music artists the playlist leans on. Scoring only, never shown in the plan."),
-    foods: z.array(z.string()).describe("Up to 2 real food brands or chains you would buy from. Scoring only, never shown in the plan."),
+    places: z.array(z.string()).describe("Every real business, venue or park your lines name, by its name. Empty if none."),
   }),
 });
 type LlmBaseline = z.infer<typeof llmBaseline>;
@@ -40,7 +41,8 @@ const TASK = [
   "The store runs events for walk-ins and sign-ups: one line turns a stop into a walk-in with the manager's promo. Fit the day, and do what the manager's notes ask.",
   "Food: snacks and drinks, not catering. Giveaways: small gift cards in a free drawing work well. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome.",
   "Write 6 to 9 short, concrete lines: a theme, the music, the food, an activity, a giveaway, the setup, the signage, the timing.",
-  "Describe music and food by style and kind, never by an artist's or a business's name. Put the real artists and food brands your choices lean on in picks: they are kept for scoring only.",
+  "Describe music by style, never by an artist's name; put the real artists the playlist leans on in picks (kept for scoring only).",
+  "You may name real places near the store (a food spot, a venue, a park) if you know them; list every place you name in picks.places.",
   "If the manager gave offers, one signage line quotes one of them exactly. If not, no line mentions a price or a deal.",
 ].join("\n");
 
@@ -77,7 +79,7 @@ export function clicheIn(text: string): { text: string; why: string } | null {
 export interface BaselineDraft {
   items: PlanItem[];
   cliches: Baseline["cliches"];
-  picks: { artists: string[]; foods: string[] };
+  picks: { artists: string[]; places: string[] };
 }
 
 /** Flags each cliche once, with the first line it appears in. */
@@ -93,9 +95,9 @@ export function checkBaseline(raw: LlmBaseline, guard: GuardContext): { draft: B
   const answer = stripEmDashes(raw);
   const issues: string[] = [];
   const items: PlanItem[] = [];
-  const picks = { artists: names(answer.picks.artists, 3), foods: names(answer.picks.foods, 2) };
-  // The names it leans on are for scoring only: like Stoop's Control brief, they never appear in a line.
-  const banned = [...picks.artists, ...picks.foods];
+  const picks = { artists: names(answer.picks.artists, 3), places: names(answer.picks.places, 6) };
+  // The artists it leans on are for scoring only, like Stoop's Control brief; places it may name.
+  const banned = [...picks.artists];
   answer.items.slice(0, 10).forEach((item, i) => {
     const text = item.text.trim();
     const problems = textIssues(text, { ...guard, known: new Set(), names: banned });
@@ -147,18 +149,13 @@ const median = (values: readonly number[]) => {
  * city in one call with Qloo's own city artists; food brands have no city reference in this run, so
  * they count as unverifiable, as does any pick that does not resolve.
  */
-export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTaste | null, picks: BaselineDraft["picks"]): Promise<PickCheck | null> {
-  const named = [...picks.artists.map((name) => ({ name, type: "artist" as const })), ...picks.foods.map((name) => ({ name, type: "brand" as const }))].slice(0, MAX_PICKS);
+export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTaste | null, picks: Pick<BaselineDraft["picks"], "artists">, cityQuery: string = inputs.store.city): Promise<PickCheck | null> {
+  const named = picks.artists.map((name) => ({ name, type: "artist" as const })).slice(0, MAX_PICKS);
   if (named.length === 0) return null;
   const evidenceIds: string[] = [];
   const resolved: { name: string; id: string; qlooName: string }[] = [];
   let unverifiable = 0;
   for (const pick of named) {
-    if (pick.type === "brand") {
-      // A food brand has no city reference in this run: nothing to score it against.
-      unverifiable++;
-      continue;
-    }
     try {
       const result = await planQloo(env, "baseline", `Resolving the generic plan's "${pick.name}" to a Qloo artist`, { endpoint: ENDPOINTS.search, params: pickSearchParams(pick.name, pick.type), schema: searchResponse, slim: slimEntitiesBody, onNotFound: [], budgetRow: "planResolve" });
       evidenceIds.push(result.evidence.id);
@@ -178,7 +175,7 @@ export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTas
   }
   let scored;
   try {
-    scored = await planQloo(env, "baseline", `Scoring the generic plan's artists against ${inputs.store.city} with Qloo's own`, { endpoint: ENDPOINTS.insights, params: scoreArtistsParams(inputs, [...own, ...resolved.map((r) => r.id)]), schema: insightsEntitiesResponse, slim: slimEntitiesBody, budgetRow: "planScoring" }, "One call, one signal: the only fair way to compare affinities.");
+    scored = await planQloo(env, "baseline", `Scoring the generic plan's artists against ${inputs.store.city} with Qloo's own`, { endpoint: ENDPOINTS.insights, params: scoreArtistsParams(inputs, [...own, ...resolved.map((r) => r.id)], cityQuery), schema: insightsEntitiesResponse, slim: slimEntitiesBody, budgetRow: "planScoring" }, "One call, one signal: the only fair way to compare affinities.");
   } catch (error) {
     if (!recoverable(error)) throw error;
     env.sink.emit({ type: "local.gap", text: gapText(error, "the generic plan's artists") });
@@ -211,12 +208,13 @@ export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTas
  * local signal behind it (no artist Qloo could check, or most of them below the median of Qloo's own
  * picks for the city).
  */
-export function genericCliches(items: readonly Pick<PlanItem, "kind" | "text">[], check: Baseline["check"], blockNames: readonly string[], city: string): Baseline["cliches"] {
+export function genericCliches(items: readonly Pick<PlanItem, "kind" | "text">[], check: Baseline["check"], blockNames: readonly string[], city: string, named?: { named: number; chains: number; onBlock: number }): Baseline["cliches"] {
   const out: Baseline["cliches"] = [];
   const text = items.map((i) => i.text.toLowerCase()).join("\n");
-  if (!blockNames.some((name) => name.trim().length > 2 && text.includes(name.trim().toLowerCase()))) {
-    out.push({ text: "No place on this block", why: "It names no food spot, venue or park near the store, so any store in any city could run it." });
+  if (!(named && named.onBlock > 0) && !blockNames.some((name) => name.trim().length > 2 && text.includes(name.trim().toLowerCase()))) {
+    out.push({ text: "No place on this block", why: "It names no food spot, venue or park Qloo found near the store, so any store in any city could run it." });
   }
+  if (named && named.named > 0 && named.chains === named.named) out.push({ text: "Chains instead of the block", why: "Every place it names is a chain, the same at any store." });
   if (items.some((i) => i.kind === "music")) {
     if (!check || check.checkable === 0) out.push({ text: "Music with no local signal", why: `None of its artists could be checked against what Qloo measured for ${city}.` });
     else if (check.belowMedian * 2 >= check.checkable) out.push({ text: "Music with no local signal", why: `Qloo put ${check.belowMedian} of its ${check.checkable} checkable artists below the median of its own picks for ${city}.` });
@@ -224,9 +222,67 @@ export function genericCliches(items: readonly Pick<PlanItem, "kind" | "text">[]
   return out;
 }
 
+const WORDS = ["no", "one", "two", "three", "four", "five", "six"];
+const count = (n: number, one: string, many: string) => `the ${n === 1 ? one : `${WORDS[n] ?? n} ${many}`}`;
+const listed = (parts: readonly string[]) => (parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`);
+
+/**
+ * What Qloo decided in a plan, read from its lines' origins and refs, so the sentence is always true:
+ * the playlist, the gift cards, the snack spot, the partner, the theme. Each part says what the plan
+ * would lack without Qloo.
+ */
+export function qlooDecided(kept: Concept | null, plan: Pick<Plan, "shopping" | "wheel"> | null, block: Block | null, blockMusic?: BlockMusic | null): { decided: string[]; without: string[] } {
+  const items = kept?.items ?? [];
+  const backed = (kinds: readonly string[]) => items.filter((i) => kinds.includes(i.kind) && i.evidenceIds.length > 0);
+  const places = new Map((block?.places ?? []).map((p) => [p.id, p]));
+  const blockArtists = new Set(blockMusic?.used ? blockMusic.artists.map((a) => a.id) : []);
+  const decided: string[] = [];
+  const without = new Set<string>();
+  const music = backed(["music"]);
+  if (music.length) {
+    decided.push("the playlist");
+    without.add("no local music");
+    if (music.some((i) => i.refs.some((r) => blockArtists.has(r)))) decided.push("the block's music option");
+  }
+  const giftPlaces = new Set([
+    ...(plan?.wheel?.slices ?? []).filter((s) => s.kind === "gift_card").flatMap((s) => s.refs),
+    ...items.filter((i) => /gift ?cards?/i.test(i.text)).flatMap((i) => i.refs.filter((r) => places.has(r))),
+  ]);
+  if (giftPlaces.size) decided.push(count(giftPlaces.size, "gift card", "gift cards"));
+  const snackPlaces = new Set((plan?.shopping ?? []).filter((s) => s.from && !/gift ?cards?/i.test(s.item) && places.get(s.from)?.kind === "food").map((s) => s.from as string));
+  for (const item of backed(["food"])) for (const ref of item.refs) if (places.get(ref)?.kind === "food" && !giftPlaces.has(ref)) snackPlaces.add(ref);
+  if (snackPlaces.size) decided.push(count(snackPlaces.size, "snack spot", "snack spots"));
+  if (backed(["partner"]).some((i) => i.refs.some((r) => places.has(r)))) decided.push("the partner");
+  const pointers = backed(["venue"]).flatMap((i) => i.refs).map((r) => places.get(r)).filter((p) => !!p);
+  if (pointers.some((p) => p?.kind === "venue")) decided.push("the nearby venue");
+  if (pointers.some((p) => p?.kind === "park")) decided.push("the park");
+  if (giftPlaces.size || snackPlaces.size || pointers.length || backed(["partner"]).length) without.add("no block spots");
+  if (backed(["theme"]).length) {
+    decided.push("the theme");
+    without.add("no local theme");
+  }
+  if (backed(["activity"]).length) decided.push("the activity");
+  if (backed(["timing"]).length) decided.push("the timing");
+  return { decided, without: [...without] };
+}
+
+/** How the generic plan's named places stand: chains, and which ones Qloo's list for this block knows. */
+export function namedPlaces(names: readonly string[], block: Block | null, knownChains?: ReadonlySet<string>): { named: number; chains: number; onBlock: number } {
+  const blockNames = (block?.places ?? []).map((p) => normalizeName(p.name));
+  const onBlock = names.filter((n) => {
+    const name = normalizeName(n);
+    return name.length > 2 && blockNames.some((b) => b === name || b.startsWith(`${name} `) || name.startsWith(`${b} `));
+  }).length;
+  return { named: names.length, chains: names.filter((n) => isChain(n, knownChains)).length, onBlock };
+}
+
 export interface CompareInput {
   kept: Concept | null;
-  plan: Pick<Plan, "runOfShow" | "shopping"> | null;
+  plan: Pick<Plan, "runOfShow" | "shopping" | "wheel"> | null;
+  /** The real places the generic plan named. */
+  baselinePlaces?: readonly string[];
+  blockMusic?: BlockMusic | null;
+  knownChains?: ReadonlySet<string>;
   baseline: Baseline | null;
   block: Block | null;
   city: string;
@@ -247,6 +303,9 @@ export function compare(input: CompareInput): Comparison {
   const items = kept?.items ?? [];
   const backed = items.filter((i) => i.evidenceIds.length > 0).length;
   const lines: string[] = [];
+  const { decided, without } = qlooDecided(kept, plan, block, input.blockMusic);
+  if (decided.length) lines.push(`Qloo decided: ${listed(decided)}.`);
+  if (without.length) lines.push(`Without Qloo, this plan has ${listed(without)}.`);
   const placeIds = new Set([
     ...items.flatMap((i) => i.refs),
     ...(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? []),
@@ -269,6 +328,9 @@ export function compare(input: CompareInput): Comparison {
     } else if (check) {
       lines.push(`Qloo could not check the generic plan's picks against ${city} (${check.unverifiable} unverifiable).`);
     }
+    const named = namedPlaces(input.baselinePlaces ?? [], block, input.knownChains);
+    if (named.named === 0) lines.push("The generic plan names no place.");
+    else lines.push(`The generic plan names ${named.named} ${named.named === 1 ? "place" : "places"}: ${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}, and ${named.onBlock === 0 ? "none is" : `${named.onBlock} ${named.onBlock === 1 ? "is" : "are"}`} on Qloo's list for this block.`);
     const n = baseline.cliches.length;
     if (n > 0) lines.push(`The generic plan leans on ${n} generic ${n === 1 ? "choice" : "choices"}: ${baseline.cliches.map((c) => c.text.toLowerCase()).join(", ")}.`);
   }

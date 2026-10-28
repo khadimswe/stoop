@@ -79,13 +79,29 @@ const WHEEL_TASK = [
   "The run of show turns a promo win into a walk-in: winners of a promo slice walk in with a staffer to see it.",
 ].join("\n");
 
+/** Words that mark a place as a snack or dessert spot: one tray or dozen there beats grocery chips. */
+export const SNACK_SPOT = /\b(bakery|bakeries|dessert|ice cream|donuts?|doughnuts?|cookies?|pastr(y|ies)|panader[ií]a|paleter[ií]a|cupcakes?|churros?|cafe|coffee|juice|smoothies?|tea|snacks?)\b/i;
+
+/** The block's snack and dessert spots within a short walk, independents first, then the nearest. */
+export function snackSpots(aliases: Aliases, withinM = 1200) {
+  return [...aliases.places.values()]
+    .filter((p) => p.kind === "food" && (p.distanceM ?? Infinity) <= withinM && SNACK_SPOT.test([p.name, ...p.tags].join(" ")))
+    .sort((a, b) => Number(!!a.chain) - Number(!!b.chain) || (a.distanceM ?? 0) - (b.distanceM ?? 0))
+    .slice(0, 4);
+}
+
 export function planPrompt(inputs: PlanInputs, concept: Concept, aliases: Aliases): string {
-  const places = [...aliases.places.values()].map((p) => `- [[${aliases.keys.get(p.id)}]] ${p.name} (${p.kind}${p.tags.length ? `; ${p.tags.slice(0, 4).join(", ")}` : ""})`);
+  const label = (p: { name: string; kind: string; tags: string[]; chain?: boolean | undefined; distanceM: number | null }) => `${p.name} (${p.kind}${p.chain ? ", chain" : ", local independent"}${p.distanceM !== null ? `, ${p.distanceM} m` : ""}${p.tags.length ? `; ${p.tags.slice(0, 4).join(", ")}` : ""})`;
+  const places = [...aliases.places.values()].sort((a, b) => Number(!!a.chain) - Number(!!b.chain)).map((p) => `- [[${aliases.keys.get(p.id)}]] ${label(p)}`);
+  const snacks = snackSpots(aliases).map((p) => `- [[${aliases.keys.get(p.id)}]] ${label(p)}`);
   const lines = concept.items.map((i) => `- ${i.kind}: ${toKeyRefs(i.text, aliases)}`);
   return [
     inputsText(inputs),
     `The kept concept: ${concept.title}. ${concept.hook}\n${lines.join("\n")}`,
-    places.length ? `Block places you may buy from:\n${places.join("\n")}` : "There are no block places to buy from.",
+    places.length ? `Block places you may buy from (local independents first):\n${places.join("\n")}` : "There are no block places to buy from.",
+    snacks.length
+      ? `Snack spots on the block Qloo ranks:\n${snacks.join("\n")}\nIf one tray or dozen from one of them fits the budget with everything else, buy the snacks there (set from, show the math in qty) instead of grocery chips. If it does not fit, chips are fine.`
+      : "No snack spot on the block is close enough: store-bought snacks are fine.",
     wheelWanted(inputs) ? WHEEL_TASK : "There is no prize wheel at this event: set wheel to null.",
     "Write the plan.",
   ].join("\n\n");

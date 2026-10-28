@@ -7,6 +7,7 @@
 // partner is mentioned only when Qloo returned it. Every answer passes checkPostText (the shared
 // guardrails, the plan's own guard in lib/plan/guard.ts and the rules below); a failing answer gets one
 // repair, then the deterministic template.
+import { GENRE_AND_SLANG } from "./words";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
@@ -153,6 +154,14 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
 }
 
 /**
+ * Music genres and slang that would label the people walking by. A playlist is an ingredient of the
+ * event, never its identity, so posts and hashtags never name a genre ("Trap Friday", "Southern trap you
+ * can hear from down the block" read as a stereotype of the crowd).
+ */
+export { GENRE_AND_SLANG };
+const wordRe = (word: string) => new RegExp(`(?<![\\p{L}\\p{N}])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu");
+
+/**
  * Every rule a post opening breaks, before its refs are rendered: the shared guardrails, any measured
  * name written out (in any case) instead of a ref, refs outside the kept concept, names nobody gave,
  * and everything in contentIssues.
@@ -171,6 +180,7 @@ export function checkPostText(text: string, report: Report, path: string): Guard
   const allowed = allowedRefs(report);
   for (const id of refsIn(text)) if (!allowed.has(id)) add(`[[${id}]]`, `[[${id}]] is not an artist or place in the kept plan.`);
   for (const name of unknownNames(text, report)) add(name, `"${name}" looks like a name nobody gave. Name a measured artist or place only by its [[id]] token, and no other names.`);
+  for (const word of GENRE_AND_SLANG) if (wordRe(word).test(text)) add(word, `Posts never name a music genre or use slang tied to a community ("${word}"). Say "music" instead.`);
   issues.push(...contentIssues(text, report, path));
   const seen = new Set<string>();
   return issues.filter((i) => (seen.has(`${i.path}:${i.message}`) ? false : (seen.add(`${i.path}:${i.message}`), true)));
@@ -186,6 +196,8 @@ export function checkHashtags(tags: readonly string[], report: Report): GuardIss
     const path = `instagram.hashtags.${i}`;
     if (!HASHTAG.test(tag)) issues.push({ ...issue(tag, `#${tag}: hashtags are letters and digits only, 2 to 30 characters.`), path });
     const folded = tag.toLowerCase();
+    const genre = GENRE_AND_SLANG.map((g) => g.replace(/[^a-z]+/g, "")).find((g) => g.length >= 4 && folded.includes(g));
+    if (genre) issues.push({ ...issue(tag, `#${tag} names a music genre or slang. Hashtags name the city and the occasion only.`), path });
     for (const name of banned) {
       const compact = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
       if (compact.length >= 4 && compact !== city && folded.includes(compact)) {
@@ -215,7 +227,8 @@ export function checkLlmPosts(posts: LlmPosts, report: Report): GuardIssue[] {
 export function postFacts(report: Report) {
   const text = posterText(report);
   const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
-  return { title: text.title, when: `${text.date}, ${text.time}`, where, offers: text.offers, wheel: text.wheel, weekday: text.date.split(",")[0] ?? "" };
+  // The store's public phone, when it gave one; the internal store number never reaches a post.
+  return { title: text.title, when: `${text.date}, ${text.time}`, where, phone: text.phone, offers: text.offers, wheel: text.wheel, weekday: text.date.split(",")[0] ?? "" };
 }
 
 /**
@@ -240,9 +253,10 @@ export function composePosts(openings: LlmPosts, report: Report): Posts {
   // The prize wheel's line, the same words as on the poster, and an example store's fictional line.
   const disclaimer = posterText(report).disclaimer;
   const wheel = [...(f.wheel ? [f.wheel] : []), ...(disclaimer ? [disclaimer] : [])];
-  const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`], f.offers, wheel, 2000);
+  const call = f.phone ? [`Call or text: ${f.phone}`] : [];
+  const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`, ...call], f.offers, wheel, 2000);
   const instagram = fitPost([r(openings.instagram), "", `${f.when}`, `${f.where}`], f.offers, wheel, 2200);
-  const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`], f.offers, wheel, 1000);
+  const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`, ...call], f.offers, wheel, 1000);
   const hashtags = [...new Set(openings.hashtags.map((t) => t.replace(/^#/, "")))].slice(0, 8);
   return { facebook: { text: facebook }, instagram: { caption: instagram, hashtags }, whatsapp: { text: whatsapp }, share: {} };
 }
@@ -282,10 +296,10 @@ export function postsInstructions(): string {
     "The store manager reviews every post and shares it themselves. Write as the store (we), friendly, short, plain and local, like a neighbor talking.",
     "Write only the opening lines of each post. Code adds the date, the time, the store's address and the manager's offers word for word, so never write dates, times, addresses, prices, deals or offers yourself, and never add links.",
     "Name a place only by writing its token exactly as given, like [[place-id]]. Never write a name out. Use only the tokens listed in the plan. Mention a food spot or venue only if the plan lists it.",
-    "Never name an artist, a band or any person. Describe the music by its style instead (for example \"Chicago hip hop\").",
+    "Never name an artist, a band or any person, and never name a music genre or style. If you mention music at all, just say \"music\". The event is for everyone walking by: never describe the crowd, the neighborhood or the event by a genre, and never use slang tied to any community.",
     "Never name a carrier, a carrier promo or a promo day yourself: the manager's offers carry them, word for word. Never claim turnout, popularity, sales or anything nobody measured. Never say \"your customers\" or \"our customers\": speak to the city and the block. Never mention alcohol or tobacco. The event is for adults passing by: nothing aimed at children.",
     "Facebook: 2 to 4 short sentences. Instagram: 1 to 3 short sentences. WhatsApp: 1 or 2 sentences, like a text to a neighbor who asked to hear about events. At most one emoji per post.",
-    "Hashtags: 3 to 6, letters and digits only, no # sign. The city's name is fine; never an artist, a place, a carrier or a brand.",
+    "Hashtags: 3 to 6, letters and digits only, no # sign. The city's name and the occasion are fine; never an artist, a music genre, a place, a carrier or a brand.",
     GUARDRAIL_INSTRUCTIONS,
   ].join("\n");
 }
@@ -306,9 +320,7 @@ export function postsPrompt(report: Report): string {
     const place = places.get(id);
     return `[[${id}]]: ${nameOf.get(id)} (${place?.kind === "food" ? "food spot" : (place?.kind ?? "place")}${place && place.distanceM !== null ? `, about ${Math.round(place.distanceM / 10) * 10} m from the store` : ""})`;
   });
-  const styles = report.local.city?.styles.map((s) => s.name) ?? [];
   const lines = (concept?.items ?? []).map((i) => `- ${i.kind}: ${withoutArtists(i.text, report)}`);
-  if (styles.length) lines.push(`- music styles the city leans toward: ${styles.join(", ")}`);
   return [
     `The event: ${f.title}, on ${f.when}, ${SETTING_WORDS[report.inputs.setting]}, ${report.inputs.location ? `at ${report.inputs.location.name}, hosted by ${report.inputs.store.name}` : `at ${report.inputs.store.name}`} in ${report.inputs.store.city}.`,
     concept ? `Why someone stops: ${concept.hook}` : "",

@@ -20,6 +20,8 @@ export interface PlanEnv {
   abortSignal?: AbortSignal;
   /** Per Claude call; the plan's calls are short, so the default is under the run's deadline. */
   timeoutMs?: number;
+  /** Normalized names the recorded runs found on more than one store's block: marked as chains (lib/plan/taste.ts). */
+  knownChains?: ReadonlySet<string>;
 }
 
 /** The budget row each stage spends from (lib/qloo/budget.ts PLAN_BUDGET). */

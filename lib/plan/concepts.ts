@@ -9,11 +9,12 @@ import { stripEmDashes } from "../guardrails";
 import { CUE_ORIGINS } from "../types";
 import { planDecide, type PlanEnv } from "./env";
 import { itemIssues, type GuardContext } from "./guard";
-import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
+import { buildAliases, evidenceFor, inputsText, localText, mostPlayedMix, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
 import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
-import { isChain } from "./taste";
 import { clicheIn } from "./baseline";
+import { dayContext } from "./calendar";
+import { titleGenre } from "./words";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
 export const CONCEPT_COUNT = 3;
@@ -47,12 +48,14 @@ const TASK = [
   `Write ${CONCEPT_COUNT} clearly different event concepts for this store's table or booth, grounded only in the store's facts and what Qloo measured.`,
   "The store runs events for walk-ins and sign-ups. Every concept has one line that turns a stop into a walk-in: the moment and the reason to step inside, with the manager's promo doing the work. Never build the event around sending people to other businesses.",
   "Each concept has a title, a hook and 5 to 8 lines. Lines are short and concrete: what plays, what is served and from where, what people do, what they take home, how the table looks, what the sign says, when the peak is.",
-  "Fit the day: use what the data says about the date (a holiday, a payday weekend, the season) where it helps.",
+  "Let the block lead: snacks, partners, gift cards and the theme come first from the block's local independents (listed under what makes this block different), with their own dishes and tags. A chain only when no independent fits.",
+  "Fit the day where it matters: a holiday near the date, the season, the weather. A payday or a game day is a small hint for timing, never the theme or the title.",
   "The manager's notes are requirements: every concept does what they ask.",
   "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
   "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
   "Skip what every table already has with nothing local behind it: balloons, a hired DJ, a playlist of popular hits, an inflatable tube man.",
-  "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm.",
+  "Titles and hooks come from the occasion (a holiday near the date), the activity (the wheel), the food or the place. They never name a music genre or use slang tied to a community, for example \"Halloween Friday Wheel Spin\".",
+  "Music is an ingredient, never the theme. Write the music line neutrally, as the city's most-played artists by key, mixed across genres (use the most-played mix given), for example \"A playlist of the city's most-played artists on Qloo: [[a1]], [[a3]], [[a2]]\". Never name a genre and never say how far it carries. When the block's own music is listed, one concept may add it as an option next to the city's: \"People who love [[pN]] also play [[bN]]\".",
   "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
   "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
@@ -115,6 +118,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     for (const problem of [...itemIssues({ kind: "theme", text: title, origin: "creative", refs: [], evidenceIds: [] }, guard), ...itemIssues({ kind: "theme", text: hook, origin: "creative", refs: [], evidenceIds: [] }, guard)]) {
       issues.push(`${at}.title or hook: ${problem}`);
     }
+    const genre = titleGenre(`${title} ${hook}`);
+    if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (the wheel), the food or the place, never the music.`);
     const items: PlanItem[] = [];
     const used = new Set<string>();
     concept.items.forEach((item, i) => {
@@ -132,7 +137,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       const cliche = clicheIn(text);
       if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the block instead.`);
       if (item.kind === "partner") {
-        const chain = refs.map((id) => aliases.places.get(id)).find((p) => p && isChain(p.name));
+        const chain = refs.map((id) => aliases.places.get(id)).find((p) => p?.chain);
         if (chain) problems.push(`a national chain is not a co-promo partner; use it for a gift card or a snack run (kind giveaway or food), or partner with a local independent.`);
       }
       if (problems.length) {
@@ -145,6 +150,15 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     });
     const qlooItems = used.size;
     if (!concept.noStereotype) issues.push(`${at}: it fails the no-stereotype gate; rewrite it without relying on a stereotype.`);
+    const artistIds = new Set([...aliases.ids.values()].filter((id) => !aliases.places.has(id)));
+    if (!items.some((i) => i.kind === "music" && i.refs.some((r) => artistIds.has(r)))) issues.push(`${at}: add the music line: the city's most-played artists by key, as given in the most-played mix.`);
+    if (/\bpay ?days?\b/i.test(`${title} ${hook}`)) issues.push(`${at}: a payday is a small hint for timing, never the theme or the title; build the title on the block or the city.`);
+    // The block leads: a concept that buys, gives or partners only with chains, while the block has a food independent, is sent back.
+    const independents = [...aliases.places.values()].filter((p) => !p.chain && p.kind === "food");
+    const sourced = items.filter((i) => i.kind === "food" || i.kind === "giveaway" || i.kind === "partner").flatMap((i) => i.refs).map((id) => aliases.places.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+    if (independents.length && sourced.length && sourced.every((p) => p.chain)) {
+      issues.push(`${at}: its food, gift card and partner lines use only chains; use one of the block's local independents (${independents.slice(0, 3).map((p) => `[[${aliases.keys.get(p.id)}]]`).join(", ")}) first.`);
+    }
     if (items.length < MIN_CONCEPT_ITEMS) issues.push(`${at}: needs at least ${MIN_CONCEPT_ITEMS} lines that pass the checks.`);
     for (const missing of notesMissing(guard.notes ?? "", items)) issues.push(`${at}: the manager's notes ask for ${missing}; add a line for it.`);
     const scores = Object.fromEntries(PLAN_CRITERION_IDS.map((id) => [id, concept.scores[id]])) as PlanScore["scores"];
@@ -197,6 +211,32 @@ function repairPrompt(prompt: string, previous: unknown, issues: readonly string
   ].join("\n\n");
 }
 
+/** The plain music line: the city's most-played artists on Qloo, mixed across genres, by ref. */
+export function defaultMusicLine(local: Local, aliases: Aliases): PlanItem | null {
+  const city = local.city;
+  if (!city || city.artists.length === 0) return null;
+  const mix = mostPlayedMix(city.artists).slice(0, 3);
+  const refs = mix.map((a) => a.id);
+  return { kind: "music", text: `A playlist of ${city.city}'s most-played artists on Qloo: ${refs.map((id) => `[[${id}]]`).join(", ")}.`, origin: "qloo", refs, evidenceIds: evidenceFor(aliases, refs, []) };
+}
+
+const ANCHORS = ["Wheel Spin", "Snack Stop", "Block Table"] as const;
+
+/**
+ * A safe title and hook when Claude's still name a genre or break a rule after the repair: the day's
+ * occasion (a holiday, else the weekday) and an anchor (the wheel, the snacks, the table).
+ */
+export function safeTitle(inputs: PlanInputs, index: number): { title: string; hook: string } {
+  const day = dayContext(inputs.date);
+  const holiday = /^It is (.+)\.$/.exec(day.notes.find((n) => /^It is [A-Z]/.test(n) && !/season|winter|summer/.test(n)) ?? "")?.[1]?.replace(/^the /, "") ?? null;
+  const weekday = day.label.split(",")[0] as string;
+  const anchor = ANCHORS[index % ANCHORS.length] as string;
+  return {
+    title: `${holiday ? `${holiday} ` : ""}${weekday} ${anchor}`.replace(/^(\w)/, (c) => c.toUpperCase()).slice(0, 60),
+    hook: "A free spin, something to eat and the store's own deals, right outside the door.",
+  };
+}
+
 export interface ConceptsOutcome {
   concepts: Concept[];
   aliases: Aliases;
@@ -228,6 +268,25 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
     }
   }
   if (!best) return null;
+  // A concept still without its music line gets the plain one, written by code from Qloo's own list.
+  const music = defaultMusicLine(local, aliases);
+  if (music) {
+    best.concepts.forEach((concept, i) => {
+      const artistIds = new Set(local.city?.artists.map((a) => a.id) ?? []);
+      if (concept.items.some((item) => item.kind === "music" && item.refs.some((r) => artistIds.has(r)))) return;
+      concept.items.push(music);
+      concept.qlooItems += music.refs.length;
+      planDecide(env, "concepts", `Added the playlist to concept ${i + 1}`, "Every concept plays the city's most-played artists on Qloo, written plainly.");
+    });
+  }
+  // A title or hook that still names a genre, or still breaks a rule, gets the safe template.
+  best.concepts.forEach((concept, i) => {
+    const bad = titleGenre(`${concept.title} ${concept.hook}`) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
+    if (!bad) return;
+    const safe = safeTitle(inputs, i);
+    planDecide(env, "concepts", `Gave concept ${i + 1} a plain title`, `"${concept.title}" named a music genre or broke a rule; titles come from the occasion, the activity, the food or the place.`);
+    best!.concepts[i] = { ...concept, title: safe.title, hook: safe.hook };
+  });
   const concepts = toConcepts(best.concepts);
   if (concepts.length === 0) return null;
   const kept = concepts.find((c) => c.kept);

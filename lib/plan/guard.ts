@@ -8,6 +8,7 @@
 //   endorsement, and never "your customers" (Stoop measures a city and a block, not a store's buyers).
 import { checkText, childSetting, type GuardRule } from "../guardrails";
 import { refsIn } from "./refs";
+import { genreOrSlang, VOLUME_FRAMING } from "./words";
 import type { ItemKind } from "./schema";
 
 export interface GuardContext {
@@ -76,6 +77,10 @@ export function textIssues(text: string, ctx: GuardContext): string[] {
   if (identity) issues.push(`"${identity[0]}": no theme built on who people are. Build it on the city's music and the block's places.`);
   const carrier = text.match(CARRIER_ENDORSEMENT);
   if (carrier) issues.push(`"${carrier[0]}": nothing may imply the carrier sponsors or endorses the event, and no logos: the store adds its official signage.`);
+  const genre = genreOrSlang(text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "));
+  if (genre) issues.push(`"${genre}": plan copy never names a music genre or uses slang tied to a community. The music is the city's most-played artists, by key.`);
+  const volume = text.match(VOLUME_FRAMING);
+  if (volume) issues.push(`"${volume[0]}": the playlist is an ingredient, not a volume pitch. Say what plays, never how far it carries.`);
   const offer = withoutOffers(text, ctx).match(OFFER_LANGUAGE);
   if (offer) {
     const list = ctx.offers.length ? ctx.offers.map((o) => `"${o}"`).join(", ") : "none were given";
