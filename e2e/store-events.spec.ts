@@ -21,10 +21,13 @@ test("landing to an example plan to one receipt", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Give your block a reason to stop." })).toBeVisible();
+  await expect(page.getByText("The marketing team your store never had. Event, poster and posts, planned from your city and your block.")).toBeVisible();
+  await expect(page.getByText("Same table, different block. Stoop plans for the block you're on.")).toBeVisible();
+  await expect(page.getByText("Khadim, sales floor, Metro by T-Mobile")).toBeVisible();
   await expect(page.getByRole("link", { name: "Plan an event" }).first()).toHaveAttribute("href", "/start");
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 
-  await page.getByRole("link", { name: /See this plan.*18th Street Wireless/ }).click();
+  await page.getByRole("link", { name: /18th Street Wireless, Chicago/ }).first().click();
   await expect(page).toHaveURL(new RegExp(`${EXAMPLE}$`));
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText("Fictional store. Not affiliated with or endorsed by T-Mobile.").first()).toBeVisible();

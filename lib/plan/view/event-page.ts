@@ -2,7 +2,7 @@
 // nothing else. The poster, the event's name, when, where, the store and its promos word for word.
 // No receipts, no plan internals, no Qloo names beyond the place the event is at.
 import type { PlanSource } from "./plan";
-import { eventDate, fictionalNotice, timeRange } from "./format";
+import { capitalizeFirst, eventDate, fictionalNotice, timeRange } from "./format";
 import { fullAddress, posterRoute } from "./plan";
 
 export interface EventPageView {
@@ -32,7 +32,7 @@ export function eventPageView(source: PlanSource): EventPageView {
   const kept = report.plan?.concepts.find((c) => c.id === report.plan?.conceptId) ?? report.plan?.concepts.find((c) => c.kept) ?? null;
   const address = fullAddress(inputs.store);
   const place = inputs.location?.name ?? inputs.store.name;
-  const where = place.charAt(0).toUpperCase() + place.slice(1);
+  const where = capitalizeFirst(place);
   return {
     id,
     title: kept?.title ?? `Saturday at ${inputs.store.name}`,

@@ -137,3 +137,8 @@ export function ageBandsText(bands: readonly AgeBucket[]): string {
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/** "A fall community fair on Navigation Blvd": a place typed in lower case, shown with a capital, as the poster does. */
+export function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
