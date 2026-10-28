@@ -27,7 +27,8 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 /** Text only: the plan names the carrier in words and never draws its logo. */
 export const CARRIERS = ["metro", "cricket", "boost", "other"] as const;
-export const SETTINGS = ["sidewalk_table", "in_store", "nearby_venue"] as const;
+/** Where the event happens. Stores that do well go outside: a table on the sidewalk, or a booth at a fair or community event. */
+export const SETTINGS = ["sidewalk_table", "in_store", "nearby_venue", "community_event"] as const;
 
 export const storeSchema = z.strictObject({
   id: slug,
@@ -53,6 +54,11 @@ export const inputsSchema = z.strictObject({
   startTime: hhmm,
   durationMinutes: z.number().int().min(30).max(480),
   setting: z.enum(SETTINGS),
+  /**
+   * Where the event happens when it isn't at the store (a fair, a festival, a nearby venue). Places
+   * near the event are searched around this point instead of the store's.
+   */
+  location: z.strictObject({ name: z.string().min(1).max(120), point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }) }).optional(),
   budgetUsd: z.number().int().min(0).max(5000),
   offers: z.array(offerSchema).max(3),
   /** Adult bands only; the youngest bucket always shows as "18 to 24". */
@@ -237,10 +243,42 @@ export const postsSchema = z.strictObject({
 });
 export type Posts = z.infer<typeof postsSchema>;
 
+// --- A/B test: two strategies, compared fairly --------------------------------------------------
+
+export const TEST_METRICS = ["walk_ins", "sales", "activations"] as const;
+export const VARIANTS = ["a", "b"] as const;
+
+/**
+ * A fair test of two strategies: two stores on the same day, or one store on two days. The rule is
+ * written before the test runs, and each result is read against that store's usual day. One weekend
+ * is a first look, not proof, and the report always says so.
+ */
+export const abTestSchema = z.strictObject({
+  variants: z
+    .array(
+      z.strictObject({
+        id: z.enum(VARIANTS),
+        label: z.string().min(1).max(60),
+        /** A concept from this plan, the generic AI plan, or the store's usual event. */
+        source: z.enum(["concept", "generic", "usual"]),
+        conceptId: slug.optional(),
+      }),
+    )
+    .length(2),
+  assignments: z.array(z.strictObject({ storeId: slug, date: z.iso.date(), variant: z.enum(VARIANTS) })).min(2),
+  metric: z.enum(TEST_METRICS),
+  decisionRule: z.string().min(1).max(240),
+  caveat: z.string().min(1).max(240),
+});
+export type AbTest = z.infer<typeof abTestSchema>;
+
 // --- After the event ---------------------------------------------------------------------------
 
 export const resultsSchema = z.strictObject({
   loggedAt: z.iso.datetime(),
+  /** Which side of the A/B test this result belongs to, when the plan has one. */
+  variant: z.enum(VARIANTS).optional(),
+  storeId: slug.optional(),
   walkIns: z.number().int().nonnegative().nullable(),
   sales: z.number().int().nonnegative().nullable(),
   posted: z.strictObject({ facebook: z.boolean(), instagram: z.boolean(), whatsapp: z.boolean() }),
@@ -284,6 +322,8 @@ const planReportShape = z.strictObject({
   comparison: comparisonSchema.nullable(),
   poster: posterSchema,
   posts: postsSchema.nullable(),
+  /** The A/B test plan, when the manager asks for one. */
+  test: abTestSchema.nullable(),
   /** Every logged result, oldest first; the next plan reads them. */
   results: z.array(resultsSchema),
   trace: z.array(traceStepSchema),
@@ -327,6 +367,9 @@ export const planReportSchema = planReportShape.superRefine((report, ctx) => {
     );
     report.plan.shopping.forEach((s, i) => s.from && !places.has(s.from) && issue(`shopping item buys from ${s.from}, which is not a block place`, ["plan", "shopping", i, "from"]));
   }
+  report.test?.variants.forEach((v, i) => {
+    if (v.source === "concept" && !(v.conceptId && report.plan?.concepts.some((c) => c.id === v.conceptId))) issue(`test variant ${v.id} runs a concept that is not in the plan`, ["test", "variants", i]);
+  });
   report.baseline?.items.forEach((item, i) => {
     if (item.origin !== "creative") issue("the generic plan has no Qloo and no manager choices: every item is creative", ["baseline", "items", i, "origin"]);
   });
