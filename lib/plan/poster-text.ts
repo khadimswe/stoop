@@ -6,6 +6,7 @@
 // included, never with terms or fine print the manager did not type). Example stores are fictional and
 // say so. No carrier logo is ever drawn: a real store adds its official assets itself.
 // A plain module (no server imports), so the UI can show the same lines as text.
+import { PLAN_EXAMPLES, planExampleSlug } from "./example-list";
 import { renderRefs } from "./refs";
 import type { PlanReport, Store } from "./schema";
 
@@ -73,6 +74,18 @@ const CARRIER_NOTES: Record<Store["carrier"], string> = {
   other: "Fictional store. Not affiliated with any carrier.",
 };
 
+/**
+ * Whether a plan is one of the fictional example stores. An example list entry marked `real: true` (a
+ * real dealer who agreed to be shown) is not fictional and gets no such line: a real store adds its
+ * own official assets.
+ */
+export function fictionalExample(meta: Pick<PlanReport["meta"], "kind" | "id">): boolean {
+  if (meta.kind !== "example") return false;
+  const slug = planExampleSlug(meta.id);
+  const entry = PLAN_EXAMPLES.find((e) => e.slug === slug);
+  return !(entry && "real" in entry && entry.real === true);
+}
+
 /** The names of every artist and place this run measured, by id, for rendering refs. */
 export function refNames(report: Pick<PlanReport, "local">): Map<string, string> {
   const names = new Map<string, string>();
@@ -120,7 +133,7 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
     location: inputs.location?.name.trim() || null,
     offers: inputs.offers.map((o) => o.text),
     wheel: wheelLine(report.plan),
-    disclaimer: report.meta.kind === "example" ? CARRIER_NOTES[inputs.store.carrier] : null,
+    disclaimer: fictionalExample(report.meta) ? CARRIER_NOTES[inputs.store.carrier] : null,
   };
 }
 
