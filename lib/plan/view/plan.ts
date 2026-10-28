@@ -7,7 +7,7 @@ import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
 import { splitRefs } from "../refs";
-import type { ArtistRef, Concept, ItemKind, Place, PlanInputs, PlanItem, PlanReport, PlanTraceStep } from "../schema";
+import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, type PlanInputs, type PlanItem, type PlanReport, type PlanTraceStep } from "../schema";
 import {
   CARRIER_LABELS,
   ITEM_KIND_LABELS,
@@ -38,6 +38,8 @@ export interface PlanHeaderView {
   dateText: string;
   timeText: string;
   settingLabel: string;
+  /** Where the event happens when it is away from the store ("Pilsen Fall Fest"). */
+  venue: string | null;
   budgetText: string;
   /** The manager's own offers, word for word. */
   offers: string[];
@@ -59,6 +61,8 @@ export interface ItemView {
   origin: CueOrigin;
   /** The line's own receipt (qloo and interpreted lines). */
   receipt: string | null;
+  /** The block places the line names, with Qloo's own "why" and the distance from the store. */
+  places: { id: string; name: string; distanceText: string | null; why: string | null; receipt: string | null }[];
 }
 
 export interface ConceptView {
@@ -91,14 +95,27 @@ export interface ShoppingView {
 }
 
 export interface GenericItemView {
+  kind: ItemKind;
   kindLabel: string;
   text: string;
-  /** The cliche this line matches, if any, with why it was flagged. */
+  /** The cliche this line matches, if any, with why it was flagged (struck through on screen). */
   flagged: string | null;
+  /** For the generic music and food lines: Qloo's check of their picks against this city. */
+  checked: string | null;
+}
+
+/** One kind of line (music, food...) with the Stoop plan's lines beside the generic plan's. */
+export interface CompareRow {
+  kind: ItemKind;
+  kindLabel: string;
+  stoop: ItemView[];
+  generic: GenericItemView[];
 }
 
 export interface GenericView {
   items: GenericItemView[];
+  /** The kept concept and the generic plan, kind by kind, in ITEM_KINDS order. */
+  rows: CompareRow[];
   cliches: { text: string; why: string }[];
   /** "4 of 7 checkable picks sit below this city's reference median (2 unverifiable)", with its receipt. */
   check: { line: string; receipt: string | null } | null;
@@ -183,10 +200,14 @@ export interface PlanView {
   shopping: ShoppingView[];
   /** "About $120 of a $150 budget". */
   costLine: string | null;
+  /** "$198": the estimated total of the shopping list. */
+  shoppingTotal: string | null;
   checklist: TextPart[][];
   generic: GenericView | null;
   comparison: ComparisonView | null;
   local: LocalView;
+  /** Block places the plan uses (named in a line or bought from), Qloo ids. */
+  partnerIds: string[];
   marketing: MarketingView;
   results: ResultView[];
   trace: PlanTraceRow[];
@@ -320,6 +341,10 @@ export function planView(source: PlanSource): PlanView {
       return p ? placeRows(p) : [];
     });
     const backed = it.origin === "qloo" || it.origin === "interpreted";
+    const named = it.refs.flatMap((ref) => {
+      const p = places.get(ref);
+      return p ? [{ id: p.id, name: p.name, distanceText: p.distanceM === null ? null : distanceText(p.distanceM), why: p.why, receipt: placeReceipt(p) }] : [];
+    });
     return {
       kind: it.kind,
       kindLabel: ITEM_KIND_LABELS[it.kind],
@@ -327,6 +352,7 @@ export function planView(source: PlanSource): PlanView {
       plain: text,
       origin: it.origin,
       receipt: backed ? receipt(`item:${conceptId}:${i}`, it.evidenceIds, ITEM_KIND_LABELS[it.kind], text, lead) : null,
+      places: named,
     };
   };
   const concept = (c: Concept): ConceptView => ({
@@ -358,25 +384,34 @@ export function planView(source: PlanSource): PlanView {
   });
 
   const baseline = report.baseline;
+  const checkLine = baseline?.check
+    ? baseline.check.checkable === 0
+      ? "Qloo could not check any of the generic plan's music or food picks against this city."
+      : `${baseline.check.belowMedian} of ${baseline.check.checkable} checkable picks sit below ${inputs.store.city}'s median${
+          baseline.check.unverifiable > 0 ? ` (${baseline.check.unverifiable} unverifiable)` : ""
+        }.`
+    : null;
+  const genericItems: GenericItemView[] = (baseline?.items ?? []).map((it) => {
+    const text = plain(parts(it.text));
+    const hit = baseline!.cliches.find((c) => matchesCliche(text, c.text));
+    const checked = checkLine && baseline!.check!.belowMedian > 0 && (it.kind === "music" || it.kind === "food") ? `Qloo check: ${checkLine}` : null;
+    return { kind: it.kind, kindLabel: ITEM_KIND_LABELS[it.kind], text, flagged: hit ? hit.why : null, checked };
+  });
+  // The check scores the generic picks as a whole: it is said once, on the first line it covers.
+  let said = false;
+  for (const g of genericItems) {
+    if (g.checked && said) g.checked = null;
+    else if (g.checked) said = true;
+  }
   const generic: GenericView | null = baseline
     ? {
-        items: baseline.items.map((it) => {
-          const text = plain(parts(it.text));
-          const hit = baseline.cliches.find((c) => matchesCliche(text, c.text));
-          return { kindLabel: ITEM_KIND_LABELS[it.kind], text, flagged: hit ? hit.why : null };
-        }),
+        items: genericItems,
+        rows: [],
         cliches: baseline.cliches.map((c) => ({ text: c.text, why: c.why })),
-        check: baseline.check
-          ? {
-              line:
-                baseline.check.checkable === 0
-                  ? "Qloo could not check any of the generic plan's music or food picks against this city."
-                  : `${baseline.check.belowMedian} of ${baseline.check.checkable} checkable music and food picks sit below this city's reference median${
-                      baseline.check.unverifiable > 0 ? ` (${baseline.check.unverifiable} unverifiable)` : ""
-                    }.`,
-              receipt: receipt("generic-check", baseline.check.evidenceIds, "Generic AI plan, checked with Qloo", "The generic plan's picks, scored against this city"),
-            }
-          : null,
+        check:
+          baseline.check && checkLine
+            ? { line: checkLine, receipt: receipt("generic-check", baseline.check.evidenceIds, "Generic AI plan, checked with Qloo", "The generic plan's picks, scored against this city") }
+            : null,
       }
     : null;
   if (generic?.check?.receipt) receipts[generic.check.receipt] = { ...receipts[generic.check.receipt]!, subject: "generic" };
@@ -425,6 +460,8 @@ export function planView(source: PlanSource): PlanView {
   for (const step of report.trace) if (step.kind === "tool") calls[step.cached ? "cached" : "live"]++;
 
   const { store } = inputs;
+  const keptView = kept ? concept(kept) : null;
+  if (generic) generic.rows = compareRows(keptView?.items ?? [], generic.items);
   return {
     id,
     kind: source.kind,
@@ -436,6 +473,7 @@ export function planView(source: PlanSource): PlanView {
       dateText: eventDate(inputs.date),
       timeText: timeRange(inputs.startTime, inputs.durationMinutes),
       settingLabel: SETTING_LABELS[inputs.setting],
+      venue: inputs.location?.name ?? null,
       budgetText: `${usd(inputs.budgetUsd)} budget`,
       offers: inputs.offers.map((o) => o.text),
       ageText: ageBandsText(inputs.ageBands),
@@ -444,15 +482,17 @@ export function planView(source: PlanSource): PlanView {
       madeOn: source.createdAt ? stampDate(source.createdAt) : null,
       fictional: source.kind === "example" ? fictionalNotice(store.carrier) : null,
     },
-    concept: kept ? concept(kept) : null,
+    concept: keptView,
     alternatives: plan && kept ? plan.concepts.filter((c) => c.id !== kept.id).map(concept) : [],
     runOfShow: (plan?.runOfShow ?? []).map((s) => ({ time: s.time, timeLabel: timeOfDay(s.time), parts: parts(s.step) })),
     shopping,
-    costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget` : null,
+    costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought on the block where Qloo found a partner.` : null,
+    shoppingTotal: plan && plan.shopping.length > 0 ? usd(plan.estimatedCostUsd) : null,
     checklist: (plan?.checklist ?? []).map(parts),
     generic,
     comparison,
     local,
+    partnerIds: [...new Set([...(kept?.items.flatMap((i) => i.refs.filter((r) => places.has(r))) ?? []), ...(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? [])])],
     marketing,
     results: report.results.map((r) => ({
       loggedOn: stampDate(r.loggedAt),
@@ -525,4 +565,16 @@ export function traceRows(steps: readonly PlanTraceStep[]): PlanTraceRow[] {
     world: null,
     evidenceId: step.evidenceId ?? null,
   }));
+}
+
+/**
+ * The two plans side by side, one row per kind of line (theme, music, food...), in ITEM_KINDS order.
+ * A kind only one plan has still gets its row, with the other side empty.
+ */
+export function compareRows(stoop: readonly ItemView[], generic: readonly GenericItemView[]): CompareRow[] {
+  return ITEM_KINDS.flatMap((kind) => {
+    const s = stoop.filter((i) => i.kind === kind);
+    const g = generic.filter((i) => i.kind === kind);
+    return s.length || g.length ? [{ kind, kindLabel: ITEM_KIND_LABELS[kind], stoop: s, generic: g }] : [];
+  });
 }

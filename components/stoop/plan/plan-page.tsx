@@ -41,24 +41,27 @@ export function PlanPage({
   return (
     <PlanReceipts receipts={view.receipts}>
       <Root className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 pt-6 pb-16 sm:px-5 sm:pt-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-4 pt-6 pb-16 sm:px-5 sm:pt-8">
           {top}
-          <PlanHeader view={view.header} kind={view.kind} />
+          <PlanHeader view={view.header} kind={view.kind} concept={view.concept} aside={<RunOfShowSection steps={view.runOfShow} pending={running} />} />
           {view.partial && (
             <p className="rounded-xl border border-dashed border-concrete-line bg-surface px-4 py-3 text-sm">
               <span className="font-semibold">Partial plan:</span> {view.partial.stageLabel} stopped early. {view.partial.reason}
             </p>
           )}
           <PlanNav />
-          <ConceptSection concept={view.concept} alternatives={view.alternatives} pending={running} />
-          <RunOfShowSection steps={view.runOfShow} pending={running} />
-          <ShoppingSection items={view.shopping} costLine={view.costLine} pending={running} />
+          <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+            <ConceptSection concept={view.concept} alternatives={view.alternatives} pending={running} />
+            <ShoppingSection items={view.shopping} costLine={view.costLine} budgetText={view.header.budgetText.replace(" budget", "")} totalText={view.shoppingTotal} pending={running} />
+          </div>
           <ChecklistSection items={view.checklist} pending={running} />
-          <GenericSection concept={view.concept} generic={view.generic} comparison={view.comparison} pending={running} />
-          <LocalSection view={view.local} pending={running} />
+          <GenericSection generic={view.generic} comparison={view.comparison} city={view.local.city?.name ?? "this city"} theme={view.concept?.title ?? null} pending={running} />
+          <LocalSection view={view.local} partnerIds={view.partnerIds} pending={running} />
           <MarketingSection view={view.marketing} planId={view.id} storeName={view.header.storeName} allowGenerate={!running && view.concept !== null} />
-          <ResultsSection planId={view.id} results={view.results} saveable={view.kind === "live"} />
-          <TraceSection rows={view.trace} calls={view.calls} live={running} />
+          <div className="grid gap-x-10 gap-y-10 lg:grid-cols-2">
+            <ResultsSection planId={view.id} results={view.results} saveable={view.kind === "live"} />
+            <TraceSection rows={view.trace} calls={view.calls} live={running} />
+          </div>
           <footer className="flex flex-col gap-1 border-t border-hairline pt-6 text-xs text-ink-soft">
             {view.header.fictional && <p className="font-semibold text-ink">{view.header.fictional}</p>}
             <p>No carrier logos: the store adds its own official brand assets. No alcohol or tobacco giveaways, and nothing aimed at minors.</p>
