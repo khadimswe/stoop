@@ -12,20 +12,20 @@ import type { PlanReport } from "./schema";
 import { keptConcept } from "./poster-text";
 
 /** Bumped when the template changes, so the render cache never serves art from an older template. */
-export const POSTER_PROMPT_VERSION = 1;
+export const POSTER_PROMPT_VERSION = 2;
 
 /** Music style keywords to visual energy. Matched against Qloo's style names, first match wins. */
 export const STYLE_ENERGY: readonly { match: RegExp; energy: string }[] = [
   { match: /\bdrill\b/i, energy: "a cold blue and steel grey grade, grainy concrete texture, sharp angular shapes and hard contrast" },
-  { match: /jersey club|footwork|juke|\bclub\b|house|techno|electronic|\bedm\b|dance/i, energy: "bright strobing geometry, stacked repeating shapes, saturated neon accents on a dark ground, a fast rhythmic pattern" },
-  { match: /\btrap\b|hip ?hop|\brap\b|crunk|bounce/i, energy: "a late-night grade of deep violet and warm amber, chrome highlights, heavy rounded shapes that feel like low bass, crisp hard edges" },
+  { match: /jersey club|footwork|juke|\bclub\b|house|techno|electronic|\bedm\b|dance|future bass|french.?touch|chillwave|synth|garage|dubstep|\bbass\b/i, energy: "bright strobing geometry, stacked repeating shapes, saturated neon accents on a dark ground, a fast rhythmic pattern" },
+  { match: /\btrap\b|hip ?hop|\brap\b|crunk|bounce/i, energy: "a deep violet and warm amber grade, chrome highlights, heavy rounded shapes that feel like low bass, crisp hard edges" },
   { match: /r&b|rnb|rhythm and blues|soul|motown/i, energy: "a warm dusk grade, soft gradients of rose, plum and gold, gentle film grain, smooth flowing curves" },
   { match: /gospel|choir/i, energy: "radiant warm gold light, rays fanning out from the center, clean uplifting shapes" },
-  { match: /jazz|blues|swing/i, energy: "smoky midnight blue and brass tones, loose confident brush strokes, a 1960s print texture" },
+  { match: /jazz|blues|swing/i, energy: "smoky midnight blue and brass tones, loose confident brush strokes, a sixties print texture" },
   { match: /reggaeton|dembow|latin trap|dancehall|afrobeat|afro ?pop|amapiano/i, energy: "hot coral, lime and bright teal, bouncing rounded shapes, glossy sunlit highlights" },
   { match: /cumbia|salsa|bachata|merengue|regional|corrido|banda|norte|tejano|mariachi|tropical/i, energy: "a warm sunlit palette of tangerine, turquoise and marigold, swinging rhythmic curves, a hand-cut paper texture" },
   { match: /reggae|ska|dub\b/i, energy: "a sun-warmed palette, rolling wave shapes, soft offset print texture" },
-  { match: /country|americana|bluegrass|folk/i, energy: "sun-faded denim blue and rust, woodgrain and letterpress texture, a 1970s print feel" },
+  { match: /country|americana|bluegrass|folk/i, energy: "sun-faded denim blue and rust, woodgrain and letterpress texture, a seventies print feel" },
   { match: /punk|rock|grunge|metal|emo|alternative|indie/i, energy: "a photocopied zine texture, torn paper edges, high-contrast black with one loud accent color" },
   { match: /k-?pop|j-?pop|\bpop\b/i, energy: "a clean candy-bright palette, glossy bubbles of color, playful bold shapes" },
 ];
@@ -39,10 +39,16 @@ export const POSTER_EXCLUSIONS =
 /** Carrier and brand words that never appear in art prompts (the poster names the store in text only). */
 export const BRAND_WORDS = ["Metro", "Metro by T-Mobile", "T-Mobile", "Cricket", "Cricket Wireless", "Boost", "Boost Mobile", "AT&T", "Verizon"] as const;
 
-/** Up to two visual energies from the city's music styles (Qloo's style names, else the artists' genres). */
-export function visualEnergy(report: Pick<PlanReport, "local">): string[] {
+/**
+ * Up to two visual energies from the music, in this order: the genres of the artists the kept plan's
+ * music lines name (what will really play at the table), then the city's music styles, then every
+ * measured artist's genres. All of it is what Qloo returned for this run.
+ */
+export function visualEnergy(report: Pick<PlanReport, "local"> & Partial<Pick<PlanReport, "plan">>): string[] {
   const city = report.local.city;
-  const styles = city ? (city.styles.length > 0 ? city.styles.map((s) => s.name) : city.artists.flatMap((a) => a.genres)) : [];
+  const artists = new Map((city?.artists ?? []).map((a) => [a.id, a]));
+  const playing = (report.plan ? (keptConcept({ plan: report.plan })?.items ?? []) : []).filter((i) => i.kind === "music").flatMap((i) => i.refs.flatMap((ref) => artists.get(ref)?.genres ?? []));
+  const styles = [...playing, ...(city?.styles.map((s) => s.name) ?? []), ...(city?.artists.flatMap((a) => a.genres) ?? [])];
   const energies: string[] = [];
   for (const style of styles) {
     const hit = STYLE_ENERGY.find((row) => row.match.test(style));

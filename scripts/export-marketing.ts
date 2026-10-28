@@ -2,7 +2,7 @@
 // text layer, and the Facebook, Instagram and WhatsApp posts, as data/plans/<slug>/marketing/
 // marketing.md (to read) and marketing.json (the poster.updated and posts.ready payloads).
 //   npx tsx scripts/export-marketing.ts <slug>|--all [--no-llm] [--plans <dir>]
-// --plans is the folder holding <slug>/plan.report.json (default data/plans under the current folder),
+// --plans is the folder holding <slug>/plan.events.json (default data/plans under the current folder),
 // so the script can run from a checkout with the API keys while writing into another.
 // Claude writes the posts (at most 2 calls per store: one answer and one repair); --no-llm writes the
 // deterministic template instead. Zero Qloo calls, zero renders (scripts/render-poster.ts renders).
@@ -16,7 +16,7 @@ import { POSTER_REASONS, queuedPoster } from "../lib/plan/poster-art";
 import { checkPosterPrompt } from "../lib/plan/poster-prompt";
 import { generatePosts } from "../lib/plan/posts";
 import { exportOf, marketingExportSchema, marketingMarkdown, pendingPoster, type MarketingExport } from "../lib/plan/posts-export";
-import { planReportSchema } from "../lib/plan/schema";
+import { planEventSchema, reducePlan, toPlanReport } from "../lib/plan/events";
 import { loadLocalEnv } from "./env";
 
 function fail(message: string): never {
@@ -34,7 +34,7 @@ async function main() {
   const plansDir = path.resolve(args.options.get("--plans") ?? path.join(process.cwd(), "data", "plans"));
   if (!existsSync(plansDir)) fail(`No plans folder at ${plansDir}.`);
   const all = readdirSync(plansDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(path.join(plansDir, d.name, "plan.report.json")))
+    .filter((d) => d.isDirectory() && existsSync(path.join(plansDir, d.name, "plan.events.json")))
     .map((d) => d.name)
     .sort();
   const slugs = args.flags.has("--all") ? all : args.positional;
@@ -46,9 +46,11 @@ async function main() {
 
   for (const slug of slugs) {
     if (!/^[a-z0-9-]+$/.test(slug)) fail(`"${slug}" is not a slug.`);
-    const file = path.join(plansDir, slug, "plan.report.json");
-    if (!existsSync(file)) fail(`No plan report at ${file}.`);
-    const report = planReportSchema.parse(JSON.parse(await readFile(file, "utf8")));
+    // The recorded events, folded the way every page reads them (a report written before a contract
+    // change still reduces to the current shape).
+    const file = path.join(plansDir, slug, "plan.events.json");
+    if (!existsSync(file)) fail(`No recorded events at ${file}.`);
+    const report = toPlanReport(reducePlan(planEventSchema.array().parse(JSON.parse(await readFile(file, "utf8")))));
     if (!report.plan) fail(`${slug}: the plan report has no plan.`);
     const queued = queuedPoster(report);
     const problems = checkPosterPrompt(queued.prompt, report);
