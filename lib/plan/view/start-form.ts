@@ -7,6 +7,9 @@ import { CARRIERS, inputsSchema, SETTINGS, type PlanInputs } from "../schema";
 export type Carrier = (typeof CARRIERS)[number];
 export type Setting = (typeof SETTINGS)[number];
 
+/** Settings away from the store: the form asks where (lib/plan/view/format.ts AWAY_SETTINGS). */
+const AWAY: readonly Setting[] = ["nearby_venue", "community_event"];
+
 export interface StoreFormValues {
   storeName: string;
   carrier: Carrier;
@@ -19,6 +22,10 @@ export interface StoreFormValues {
   startTime: string;
   durationMinutes: string;
   setting: Setting;
+  /** Where the event happens when it is away from the store (a fair, a nearby venue). */
+  venueName: string;
+  venueLat: string;
+  venueLon: string;
   budgetUsd: string;
   offers: [string, string, string];
   ageBands: AgeBucket[];
@@ -41,6 +48,9 @@ export const FIELD_ORDER: readonly StoreField[] = [
   "startTime",
   "durationMinutes",
   "setting",
+  "venueName",
+  "venueLat",
+  "venueLon",
   "budgetUsd",
   "offer0",
   "offer1",
@@ -52,7 +62,7 @@ export const FIELD_ORDER: readonly StoreField[] = [
 /** Where /start leaves an example's message (live plans paused) for the example page to show once. */
 export const PLAN_NOTICE_KEY = "stoop:plan-notice";
 
-export const LIMITS = { storeName: 80, address: 200, city: 80, region: 40, offer: 140, notes: 280, budget: 5000, maxBands: 3 } as const;
+export const LIMITS = { storeName: 80, venueName: 120, address: 200, city: 80, region: 40, offer: 140, notes: 280, budget: 5000, maxBands: 3 } as const;
 
 /** Event lengths the form offers, in minutes. */
 export const DURATIONS = [60, 90, 120, 180, 240, 300, 360, 480] as const;
@@ -70,6 +80,9 @@ export function emptyStoreForm(): StoreFormValues {
     startTime: "12:00",
     durationMinutes: "240",
     setting: "sidewalk_table",
+    venueName: "",
+    venueLat: "",
+    venueLon: "",
     budgetUsd: "150",
     offers: ["", "", ""],
     ageBands: ["25_to_29", "30_to_34"],
@@ -144,6 +157,21 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   if (!Number.isInteger(duration) || duration < 30 || duration > 480) errors.durationMinutes = "Pick how long the event runs.";
   if (!(SETTINGS as readonly string[]).includes(values.setting)) errors.setting = "Pick where the event happens.";
 
+  // Away from the store (a fair, a nearby venue): optional, but all three parts or none.
+  let location: PlanInputs["location"];
+  if (AWAY.includes(values.setting)) {
+    const venue = values.venueName.trim();
+    const vLat = decimal(values.venueLat);
+    const vLon = decimal(values.venueLon);
+    if (venue || values.venueLat.trim() || values.venueLon.trim()) {
+      if (!venue) errors.venueName = "Name the place, like Pilsen Fall Fest.";
+      else if (venue.length > LIMITS.venueName) errors.venueName = `Keep the place name to ${LIMITS.venueName} characters.`;
+      if (vLat === null || vLat < -90 || vLat > 90) errors.venueLat = "Latitude is a number from -90 to 90.";
+      if (vLon === null || vLon < -180 || vLon > 180) errors.venueLon = "Longitude is a number from -180 to 180.";
+      if (venue && vLat !== null && vLon !== null) location = { name: venue, point: { lat: vLat, lon: vLon } };
+    }
+  }
+
   const budgetText = values.budgetUsd.trim().replace(/^\$/, "");
   const budget = Number(budgetText);
   if (!/^\d+$/.test(budgetText)) errors.budgetUsd = "Enter the budget in whole dollars, like 150.";
@@ -169,6 +197,7 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
     startTime: values.startTime,
     durationMinutes: duration,
     setting: values.setting,
+    ...(location ? { location } : {}),
     budgetUsd: budget,
     offers: offers.filter(Boolean).map((text) => ({ text })),
     ageBands: bands,

@@ -35,6 +35,7 @@ const SETTING_HINTS: Record<Setting, string> = {
   sidewalk_table: "A table outside the store",
   in_store: "Inside, on the floor",
   nearby_venue: "A park, theater or spot nearby",
+  community_event: "A booth at a fair, festival or block party",
 };
 
 function durationLabel(minutes: number): string {

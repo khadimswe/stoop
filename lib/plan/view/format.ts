@@ -35,7 +35,11 @@ export const SETTING_LABELS: Readonly<Record<Setting, string>> = {
   sidewalk_table: "Sidewalk table",
   in_store: "In the store",
   nearby_venue: "At a nearby venue",
+  community_event: "A fair or community event",
 };
+
+/** Settings that happen away from the store, so the form asks where. */
+export const AWAY_SETTINGS: readonly Setting[] = ["nearby_venue", "community_event"];
 
 export const ITEM_KIND_LABELS: Readonly<Record<ItemKind, string>> = {
   theme: "Theme",
