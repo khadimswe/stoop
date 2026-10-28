@@ -122,6 +122,8 @@ export const keys = {
   planSeq: (planId: string) => `plan:${planId}:seq`,
   /** A live plan's status, input hash and starter. */
   planMeta: (planId: string) => `plan:${planId}:meta`,
+  /** What a live plan was started with, read by its background run. */
+  planInput: (planId: string) => `plan:${planId}:input`,
   /** Idempotent starts: the input hash points at the plan already started for it. */
   planClaim: (inputHash: string) => `plan:claim:${inputHash}`,
   /** Live plan admission leases. */
