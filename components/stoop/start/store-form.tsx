@@ -36,7 +36,7 @@ type LocateState = { kind: "idle" } | { kind: "locating" } | { kind: "error"; me
 const MORE_FIELDS: readonly StoreField[] = ["startTime", "durationMinutes", "setting", "venueName", "venueLat", "venueLon", "carrier", "storeNumber", "ageBands", "notes"];
 
 /** Placeholders that read like a store's promo list, not marketing copy. */
-const PROMO_EXAMPLES = ["Free phone when you switch", "Free tablet with a new line", "$25/mo unlimited, taxes included"];
+const PROMO_EXAMPLES = ["Like: Free phone when you switch", "Like: Free tablet with a new line", "Like: $25/mo unlimited, taxes included"];
 
 function durationLabel(minutes: number): string {
   const h = Math.floor(minutes / 60);
