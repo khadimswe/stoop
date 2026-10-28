@@ -2,10 +2,13 @@ import { expect, test } from "@playwright/test";
 
 // Every page renders exactly one header: the marketing pill or the app bar.
 const PAGES = [
-  { path: "/", h1: "Stop making ads for nobody." },
+  { path: "/", h1: "Give your block a reason to stop." },
   { path: "/judges", h1: "For judges" },
   { path: "/mcp", h1: "Use Stoop inside your Claude" },
-  { path: "/start", h1: "What are you selling?" },
+  { path: "/start", h1: "Plan an event" },
+  { path: "/stores", h1: "My stores" },
+  { path: "/ads", h1: "Stop making ads for nobody." },
+  { path: "/ads/start", h1: "What are you selling?" },
   // No such run on the server: the live trace says so instead of a blank page.
   { path: "/run/run_0123456789abcdef01234567", h1: "That run has expired" },
   { path: "/report/run_0123456789abcdef01234567", h1: "Your report" },
@@ -16,7 +19,7 @@ for (const { path, h1 } of PAGES) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1, name: h1 })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Get a free brief" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Plan an event" }).first()).toBeVisible();
   });
 }
 

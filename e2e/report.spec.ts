@@ -18,7 +18,7 @@ test("the lead example report opens on the Reality Check, with its sections in o
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
-  await expect(page.getByRole("link", { name: "Make this for my product" })).toHaveAttribute("href", "/start");
+  await expect(page.getByRole("link", { name: "Make this for my product" })).toHaveAttribute("href", "/ads/start");
 });
 
 test("a Reality Check receipt opens in a drawer, traps focus and closes with Esc", async ({ page }) => {
