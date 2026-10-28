@@ -110,6 +110,8 @@ export const placeSchema = z.strictObject({
   rank: z.number().int().min(1),
   affinity: z.number().nullable(),
   popularity: z.number().nullable(),
+  /** A national chain: fine for gift cards and snack runs, never a co-promo partner. */
+  chain: z.boolean().optional(),
   evidenceIds,
 });
 export type Place = z.infer<typeof placeSchema>;
@@ -142,7 +144,8 @@ export type ItemKind = (typeof ITEM_KINDS)[number];
 export const planItemSchema = z
   .strictObject({
     kind: z.enum(ITEM_KINDS),
-    text: z.string().min(1).max(240),
+    /** Room for two or three ref tokens (about 40 characters each) plus a full sentence. */
+    text: z.string().min(1).max(320),
     origin: z.enum(CUE_ORIGINS),
     refs: z.array(z.string().min(1)),
     evidenceIds,
@@ -172,7 +175,7 @@ export const conceptSchema = z.strictObject({
 });
 export type Concept = z.infer<typeof conceptSchema>;
 
-export const runOfShowStepSchema = z.strictObject({ time: hhmm, step: z.string().min(1).max(160) });
+export const runOfShowStepSchema = z.strictObject({ time: hhmm, step: z.string().min(1).max(220) });
 
 export const shoppingItemSchema = z.strictObject({
   item: z.string().min(1).max(120),
