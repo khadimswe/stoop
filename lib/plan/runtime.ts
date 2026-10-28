@@ -34,8 +34,10 @@ export const MAX_LIVE_PLANS = 3;
 /** A lease outlives the longest plan (maxDuration 300 s) a little, so a crashed plan frees its slot. */
 export const PLAN_LEASE_MS = 320_000;
 export const PLANS_PER_HOUR = 6;
-/** The plan stops here, leaving the function time to write what it has. */
+/** Every Claude call fits before this, and a stage with no time left uses its plain fallback. */
 export const PLAN_DEADLINE_MS = 240_000;
+/** The last resort: the run is stopped here, leaving the function (maxDuration 300 s) time to write what it has. */
+export const PLAN_HARD_STOP_MS = 265_000;
 /** A claim with no meta this old belongs to a start that crashed midway; it is replaced. */
 export const STALE_CLAIM_MS = 30_000;
 
@@ -235,10 +237,12 @@ export async function executePlan(deps: PlanExecuteDeps, runId: string): Promise
     const model = memoizedModel(deps.model, store, runId, tally);
     const monthRemaining = await lastMonthRemaining(store, now());
     const ctx = createRunContext({ runId, cap: PLAN_CAP, rowCaps: PLAN_BUDGET, monthlyFloor: MONTHLY_FLOOR, ...(monthRemaining === undefined ? {} : { monthRemaining }) });
-    const timer = setTimeout(() => stop.abort(new PlanDeadlineError()), deps.deadlineMs ?? PLAN_DEADLINE_MS);
     const started = now();
+    const deadlineMs = deps.deadlineMs ?? PLAN_DEADLINE_MS;
+    const timer = setTimeout(() => stop.abort(new PlanDeadlineError()), deadlineMs + (PLAN_HARD_STOP_MS - PLAN_DEADLINE_MS));
     try {
-      const outcome = await runPlan({ client: deps.client, ctx, sink, model, abortSignal: stop.signal, ...(deps.knownChains ? { knownChains: deps.knownChains } : {}) }, { runId, kind: "live", inputs }, { now });
+      const env = { client: deps.client, ctx, sink, model, abortSignal: stop.signal, deadlineAt: started + deadlineMs, now, ...(deps.knownChains ? { knownChains: deps.knownChains } : {}) };
+      const outcome = await runPlan(env, { runId, kind: "live", inputs }, { now });
       status = outcome.status;
       sink.emit({
         type: "run.cost",

@@ -11,7 +11,7 @@ import { stripEmDashes } from "../guardrails";
 import { ENDPOINTS } from "../qloo/constants";
 import { matchResult, normalizeName } from "../qloo/match";
 import { insightsEntitiesResponse, searchResponse, slimEntitiesBody } from "../qloo/types";
-import { planQloo, type PlanEnv } from "./env";
+import { claudeTimeout, planQloo, type PlanEnv } from "./env";
 import { textIssues, type GuardContext } from "./guard";
 import { gapText, recoverable } from "./local";
 import { inputsText, PLAN_RULES, PLANNER_ROLE } from "./prompt";
@@ -110,14 +110,19 @@ export function checkBaseline(raw: LlmBaseline, guard: GuardContext): { draft: B
 }
 
 /** The generic plan's Claude call, with one repair. Started next to the city stage; it needs no Qloo. Null when nothing usable came back. */
-export async function writeBaseline(env: Pick<PlanEnv, "model" | "abortSignal" | "timeoutMs">, inputs: PlanInputs, guard: GuardContext): Promise<{ draft: BaselineDraft | null; notes: string[] }> {
+export async function writeBaseline(env: Pick<PlanEnv, "model" | "abortSignal" | "timeoutMs" | "deadlineAt" | "now">, inputs: PlanInputs, guard: GuardContext): Promise<{ draft: BaselineDraft | null; notes: string[] }> {
   const instructions = cachedInstructions(baselineInstructions());
   const prompt = [inputsText(inputs), "Plan the event."].join("\n\n");
   let ask = prompt;
   const notes: string[] = [];
   let best: BaselineDraft | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: llmBaseline, name: "generic_event_plan", description: "An event plan with no Qloo data.", timeoutMs: env.timeoutMs ?? BASELINE_TIMEOUT_MS, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
+    const timeoutMs = claudeTimeout(env, BASELINE_TIMEOUT_MS);
+    if (timeoutMs === null) {
+      notes.push("not enough time was left in the run for another try");
+      break;
+    }
+    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: llmBaseline, name: "generic_event_plan", description: "An event plan with no Qloo data.", timeoutMs, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
     const parsed = reply.failure ? null : llmBaseline.safeParse(reply.output);
     if (!parsed?.success) {
       notes.push(reply.failure ?? "the answer did not match the plan format");

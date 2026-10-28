@@ -22,6 +22,25 @@ export interface PlanEnv {
   timeoutMs?: number;
   /** Normalized names the recorded runs found on more than one store's block: marked as chains (lib/plan/taste.ts). */
   knownChains?: ReadonlySet<string>;
+  /** When the run must be done (epoch ms). Each Claude call fits inside it, and a stage with no time left uses its plain fallback. */
+  deadlineAt?: number;
+  now?: () => number;
+}
+
+/** Time kept after the last Claude call for the Qloo checks and the writes. */
+export const DEADLINE_RESERVE_MS = 20_000;
+/** A Claude call gets at least this long, or it is skipped for the stage's fallback. */
+export const MIN_CLAUDE_MS = 15_000;
+
+/**
+ * How long the next Claude call may take: its stage's own limit, cut to what the run's deadline leaves.
+ * Null when there is not enough time left, so the stage uses its plain fallback instead of failing.
+ */
+export function claudeTimeout(env: Pick<PlanEnv, "deadlineAt" | "now" | "timeoutMs">, stageMs: number): number | null {
+  const limit = env.timeoutMs ?? stageMs;
+  if (env.deadlineAt === undefined) return limit;
+  const left = env.deadlineAt - (env.now ?? Date.now)() - DEADLINE_RESERVE_MS;
+  return left < MIN_CLAUDE_MS ? null : Math.min(limit, left);
 }
 
 /** The budget row each stage spends from (lib/qloo/budget.ts PLAN_BUDGET). */

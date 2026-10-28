@@ -6,7 +6,7 @@ import { ENDPOINTS } from "../qloo/constants";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooShapeError } from "../qloo/errors";
 import type { QlooResult } from "../qloo/client";
 import { insightsTagsResponse, slimEntitiesBody, type QlooEntity } from "../qloo/types";
-import { artistsWithLocality, cityQueries, inState, nearestMajorCity, stateOf, type Locality } from "./locality";
+import { artistsWithLocality, cityQueries, localityMiss, nearestMajorCity, stateOf, type Locality } from "./locality";
 import { planDecide, planQloo, type PlanEnv } from "./env";
 import { blockParams, cityArtistsParams, cityStylesParams, DEFAULT_RADIUS_M, placesResponse } from "./requests";
 import type { Block, CityTaste, Place, PlanInputs } from "./schema";
@@ -44,7 +44,7 @@ type ArtistsResult = QlooResult<{ entities: QlooEntity[]; locality: Locality | n
  * answer is used as is. Up to four calls; usually one.
  */
 async function resolveCity(env: PlanEnv, inputs: PlanInputs): Promise<{ query: string; result: ArtistsResult } | null> {
-  const { city, region, point } = inputs.store;
+  const { city, region } = inputs.store;
   const state = stateOf(region);
   const tries = cityQueries(city, region);
   let first: { query: string; result: ArtistsResult } | null = null;
@@ -60,29 +60,29 @@ async function resolveCity(env: PlanEnv, inputs: PlanInputs): Promise<{ query: s
     }
     first ??= { query, result };
     const locality = result.data.locality;
-    if (!state || !locality) return { query, result };
-    if (inState(locality, state.name)) {
-      if (i > 0) planDecide(env, "city", `Read the city as "${query}"`, `Qloo placed ${missed.join(" and ")} outside ${state.name}; "${query}" is ${locality.disambiguation ?? locality.name}.`);
+    const miss = localityMiss(locality, result.data.entities.length, inputs.store, state?.name ?? null);
+    if (!miss) {
+      if (i > 0) planDecide(env, "city", `Read the city as "${query}"`, `Qloo read ${missed.join(" and ")}; "${query}" is ${locality?.disambiguation ?? locality?.name ?? query}.`);
       return { query, result };
     }
-    missed.push(`"${query}" in ${locality.disambiguation ?? locality.name}`);
+    missed.push(`"${query}" as ${miss}`);
   }
-  if (!first || !state) return first;
-  const major = nearestMajorCity(state.abbr, point);
-  if (major) {
+  if (!first) return null;
+  const major = state ? nearestMajorCity(state.abbr, inputs.store.point) : null;
+  if (state && major) {
     const query = `${major.name}, ${state.abbr}`;
     try {
       const result = await fetchArtists(env, inputs, query, "planLocate");
-      const locality = result.data.locality;
-      if (!locality || inState(locality, state.name)) {
-        env.sink.emit({ type: "local.gap", text: `Qloo could not place ${city} in ${state.name}, so the city's taste is read from ${major.name}, the nearest major city in ${state.name} (${major.km} km)` });
+      // The nearest major city may itself sit farther than the limit from a rural store, so only its state and its artists are checked.
+      if (!localityMiss(result.data.locality ? { ...result.data.locality, point: null } : null, result.data.entities.length, inputs.store, state.name)) {
+        env.sink.emit({ type: "local.gap", text: `Qloo did not read ${city} as this store's city (it read ${missed.join("; ")}), so the city's taste is read from ${major.name}, the nearest major city in ${state.name} (${major.km} km)` });
         return { query, result };
       }
     } catch (error) {
       if (!recoverable(error)) throw error;
     }
   }
-  env.sink.emit({ type: "local.gap", text: `Qloo could not place ${city} in ${state.name}; its taste below is for ${first.result.data.locality?.disambiguation ?? first.query}` });
+  env.sink.emit({ type: "local.gap", text: `Qloo could not place ${city} near this store; its taste below is for ${first.result.data.locality?.disambiguation ?? first.query}` });
   return first;
 }
 

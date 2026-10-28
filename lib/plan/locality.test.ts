@@ -11,7 +11,7 @@ import { judgeBlockMusic, signalPlaces } from "./block-music";
 import type { PlanEnv } from "./env";
 import type { PlanEvent } from "./events";
 import { readCity } from "./local";
-import { cityQueries, inState, nearestMajorCity, signalLocality, stateOf } from "./locality";
+import { cityQueries, inState, localityMiss, nearestMajorCity, signalLocality, stateOf } from "./locality";
 import type { Block, CityTaste, Concept, PlanInputs } from "./schema";
 import { musicStyles, repeatedPlaceNames } from "./taste";
 
@@ -28,8 +28,9 @@ describe("which place Qloo reads as the city", () => {
     expect(cityQueries("Springfield", "Atlantis")).toEqual(["Springfield"]);
   });
   it("reads Qloo's echo and checks it against the state", () => {
-    const body = { query: { localities: { signal: { name: "Jonesboro", disambiguation: "Jonesboro, Craighead County, Arkansas, United States" } } } };
+    const body = { query: { localities: { signal: { name: "Jonesboro", disambiguation: "Jonesboro, Craighead County, Arkansas, United States", location: { lat: 35.82, lon: -90.68 } } } } };
     const locality = signalLocality(body)!;
+    expect(locality.point).toEqual({ lat: 35.82, lon: -90.68 });
     expect(inState(locality, "Georgia")).toBe(false);
     expect(inState(locality, "Arkansas")).toBe(true);
     expect(signalLocality({ results: {} })).toBeNull();
@@ -41,7 +42,7 @@ describe("which place Qloo reads as the city", () => {
   });
 
   /** A client whose artists answer says it read each query in the state this map gives. */
-  function envFor(states: Record<string, string>) {
+  function envFor(states: Record<string, string>, extra: { points?: Record<string, { lat: number; lon: number }>; empty?: string[] } = {}) {
     const asked: string[] = [];
     const fetch = async (url: string | URL | Request) => {
       const u = new URL(String(url));
@@ -51,7 +52,10 @@ describe("which place Qloo reads as the city", () => {
       const body =
         u.searchParams.get("filter.type") === "urn:tag"
           ? { results: { tags: [] } }
-          : { results: { entities: [{ entity_id: ID[0], name: "Zevrin", subtype: "urn:entity:artist" }] }, ...(state ? { query: { localities: { signal: { name: query.split(",")[0], disambiguation: `${query.split(",")[0]}, Some County, ${state}, United States` } } } } : {}) };
+          : {
+              results: { entities: extra.empty?.includes(query) ? [] : [{ entity_id: ID[0], name: "Zevrin", subtype: "urn:entity:artist" }] },
+              ...(state ? { query: { localities: { signal: { name: query.split(",")[0], disambiguation: `${query.split(",")[0]}, Some County, ${state}, United States`, ...(extra.points?.[query] ? { location: extra.points[query] } : {}) } } } } : {}),
+            };
       return new Response(JSON.stringify(body), { status: 200 });
     };
     const client = createQlooClient({ apiKey: "test-key", fetch: fetch as typeof globalThis.fetch, sleep: async () => {} });
@@ -77,12 +81,23 @@ describe("which place Qloo reads as the city", () => {
     expect(ctx.rowCalls).toMatchObject({ planCity: 2, planLocate: 1 });
   });
 
+  it("treats a same-name place far from the store, or an empty answer, as the wrong city", async () => {
+    const far = { lat: 26.4, lon: -98.98 };
+    const { env, events } = envFor({ Jonesboro: "Georgia", "Jonesboro, GA": "Georgia", "Jonesboro, Georgia": "Georgia", "Atlanta, GA": "Georgia" }, { points: { Jonesboro: far }, empty: ["Jonesboro, GA", "Jonesboro, Georgia"] });
+    const read = await readCity(env, inputs);
+    expect(read.query).toBe("Atlanta, GA");
+    const gaps = events.flatMap((e) => (e.type === "local.gap" ? [e.text] : [])).join(" ");
+    expect(gaps).toMatch(/km from the store/);
+    expect(gaps).toMatch(/with no artists/);
+    expect(localityMiss({ name: "Near", disambiguation: "Near, Georgia, United States", point: { lat: 33.6, lon: -84.4 } }, 20, inputs.store, "Georgia")).toBeNull();
+  });
+
   it("falls back to the nearest major city in the state, and says so", async () => {
     const { env, events } = envFor({ Jonesboro: "Arkansas", "Jonesboro, GA": "Maryland", "Jonesboro, Georgia": "Maryland", "Atlanta, GA": "Georgia" });
     const read = await readCity(env, inputs);
     expect(read.query).toBe("Atlanta, GA");
     const gaps = events.filter((e) => e.type === "local.gap").map((e) => (e.type === "local.gap" ? e.text : ""));
-    expect(gaps.join(" ")).toMatch(/could not place Jonesboro in Georgia, so the city's taste is read from Atlanta/);
+    expect(gaps.join(" ")).toMatch(/did not read Jonesboro as this store's city .*so the city's taste is read from Atlanta/);
   });
 });
 
