@@ -29,11 +29,25 @@ export function RefChip({ name, receiptKey, surface = "paper", className }: { na
   );
 }
 
-/** Plan text with its "[[id]]" refs rendered as named chips (lib/plan/view/plan.ts splits them). */
-export function RichText({ parts, className }: { parts: readonly TextPart[]; className?: string }) {
+/**
+ * Plan text with its "[[id]]" refs rendered by name (lib/plan/view/plan.ts splits them): as chips that
+ * open their receipts, or with `quiet`, as dusk names only (the line's own "Why Qloo picked this"
+ * opens the receipt that lists them).
+ */
+export function RichText({ parts, quiet = false, className }: { parts: readonly TextPart[]; quiet?: boolean; className?: string }) {
   return (
     <span className={className}>
-      {parts.map((part, i) => (part.kind === "text" ? <span key={i}>{part.text}</span> : <RefChip key={i} name={part.name} receiptKey={part.receipt} />))}
+      {parts.map((part, i) =>
+        part.kind === "text" ? (
+          <span key={i}>{part.text}</span>
+        ) : quiet ? (
+          <span key={i} className="font-semibold text-dusk">
+            {part.name}
+          </span>
+        ) : (
+          <RefChip key={i} name={part.name} receiptKey={part.receipt} />
+        ),
+      )}
     </span>
   );
 }

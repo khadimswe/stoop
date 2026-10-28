@@ -19,7 +19,7 @@ export function MobileMenu() {
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <nav aria-label="Mobile">
           <ul className="mt-8 flex flex-col gap-1">
-            {[...NAV_LINKS, PLAN_LINK].map((link) => (
+            {[PLAN_LINK, ...NAV_LINKS].map((link) => (
               <li key={link.href}>
                 <SheetClose asChild>
                   <Link href={link.href} className="block rounded-xl px-3 py-3 text-lg font-semibold text-ink hover:bg-ink/5">

@@ -2,18 +2,13 @@ import type { ReactNode } from "react";
 import { cn } from "cn";
 import { SectionHeading } from "../section-heading";
 
-/** The plan page's section ids, in screen order. The section nav and in-page links point at these. */
+/** The plan page's sections, in screen order. The tabs under the header point at these. */
 export const PLAN_SECTIONS = {
-  plan: "plan",
-  runOfShow: "run-of-show",
-  shopping: "shopping",
+  event: "event",
   wheel: "wheel",
-  checklist: "checklist",
-  generic: "generic",
-  local: "local",
-  marketing: "marketing",
+  shopping: "shopping",
+  posts: "posts",
   results: "results",
-  trace: "trace",
 } as const;
 export type PlanSectionId = (typeof PLAN_SECTIONS)[keyof typeof PLAN_SECTIONS];
 

@@ -42,7 +42,7 @@ async function ExamplePlan({ params }: { params: PageProps<"/examples/stores/[sl
       stickyNote="Want one for your store?"
       stickyAction={
         <Button asChild className="w-full shrink-0 sm:w-auto">
-          <Link href="/start">Plan this Saturday for my store</Link>
+          <Link href="/start">Plan my event</Link>
         </Button>
       }
     />

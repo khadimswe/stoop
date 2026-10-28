@@ -63,12 +63,12 @@ export function LivePlan({ planId }: { planId: string }) {
       top={
         running && rail ? (
           <div className="flex flex-col gap-2" aria-live="polite">
-            <p className="text-sm font-semibold">Planning your event. Sections fill in as Qloo answers.</p>
+            <p className="text-sm font-semibold">Planning your event...</p>
             <ProgressRail rows={rail} className="max-w-xl" />
           </div>
         ) : null
       }
-      stickyNote={running ? "Still planning. Nothing posts on its own." : "Share it from the event page."}
+      stickyNote={running ? "Still planning" : "Share the event page"}
       stickyAction={
         <Button asChild className="w-full shrink-0 sm:w-auto">
           <Link href={view.marketing.eventPath}>Open the event page</Link>

@@ -36,6 +36,8 @@ export interface PlanHeaderView {
   address: string;
   cityLine: string;
   dateText: string;
+  /** "Sat, Nov 7". */
+  dateShort: string;
   timeText: string;
   settingLabel: string;
   /** Where the event happens when it is away from the store ("Pilsen Fall Fest"). */
@@ -221,6 +223,18 @@ export interface PlanTraceRow {
   evidenceId: string | null;
 }
 
+/** One of the four tiles on the first screen: what to do, in a word or two. */
+export interface TileView {
+  key: "music" | "snacks" | "wheel" | "post";
+  label: string;
+  value: string;
+  note: string | null;
+  /** Qloo picked it (the tile says so in text). */
+  qloo: boolean;
+  /** Where the tile goes on the page. */
+  href: string;
+}
+
 export interface PlanView {
   /** A live run id, or "ex-<slug>" for an example. */
   id: string;
@@ -247,6 +261,8 @@ export interface PlanView {
   trace: PlanTraceRow[];
   /** Qloo calls the trace made: live and from cache. */
   calls: { live: number; cached: number };
+  /** The first screen's four tiles: music, snacks, the wheel, posting. */
+  tiles: TileView[];
   /** Every receipt on the page, sent once and looked up by key. */
   receipts: Record<string, ReceiptView>;
   partial: { stageLabel: string; reason: string } | null;
@@ -509,6 +525,7 @@ export function planView(source: PlanSource): PlanView {
 
   const { store } = inputs;
   const keptView = kept ? concept(kept) : null;
+  const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing);
   if (generic) generic.rows = compareRows(keptView?.items ?? [], generic.items);
   return {
     id,
@@ -519,6 +536,7 @@ export function planView(source: PlanSource): PlanView {
       address: fullAddress(store),
       cityLine: `${store.city}, ${store.region}`,
       dateText: eventDate(inputs.date),
+      dateShort: eventDate(inputs.date, "short"),
       timeText: timeRange(inputs.startTime, inputs.durationMinutes),
       settingLabel: SETTING_LABELS[inputs.setting],
       venue: inputs.location?.name ?? null,
@@ -571,6 +589,7 @@ export function planView(source: PlanSource): PlanView {
     })),
     trace,
     calls,
+    tiles,
     receipts,
     partial: report.partial ? { stageLabel: PLAN_STAGE_LABELS[report.partial.stage], reason: report.partial.reason } : null,
   };
@@ -612,6 +631,41 @@ export function shareLinks(eventUrl: string, whatsappText: string): { facebook: 
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(eventUrl)}`,
     whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
   };
+}
+
+const isQloo = (item: ItemView | undefined) => item?.origin === "qloo" || item?.origin === "interpreted";
+
+/** The first screen's tiles, from the kept concept, the wheel and the marketing state. */
+export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView): TileView[] {
+  const items = concept?.items ?? [];
+  const music = items.find((i) => i.kind === "music");
+  const musicNames = music?.parts.flatMap((p) => (p.kind === "ref" ? [p.name] : [])) ?? [];
+  const snack = items.find((i) => (i.kind === "food" || i.kind === "partner") && i.places.length > 0) ?? items.find((i) => i.kind === "food");
+  const place = snack?.places[0];
+  const giveaway = items.find((i) => i.kind === "giveaway");
+  const posts = marketing.posts;
+  return [
+    { key: "music", label: "Music", value: musicNames.length ? musicNames.slice(0, 3).join(", ") : (music?.plain ?? "Your playlist"), note: null, qloo: isQloo(music), href: "#event" },
+    {
+      key: "snacks",
+      label: "Snacks",
+      value: place ? place.name : (snack?.plain ?? "Your pick"),
+      note: place?.distanceText ? `${place.distanceText} away` : null,
+      qloo: Boolean(place) || isQloo(snack),
+      href: "#shopping",
+    },
+    wheelSlices > 0
+      ? { key: "wheel", label: "Prize wheel", value: `${wheelSlices} slices`, note: "Print the labels", qloo: false, href: "#wheel" }
+      : { key: "wheel", label: "Giveaway", value: giveaway?.plain ?? "Your pick", note: null, qloo: isQloo(giveaway), href: "#event" },
+    {
+      key: "post",
+      label: "Post it",
+      value: posts ? "Poster and 3 posts" : marketing.poster.status === "ready" ? "Poster ready" : "Make the poster",
+      note: posts ? "Facebook, Instagram, WhatsApp" : null,
+      qloo: false,
+      href: "#posts",
+    },
+  ];
 }
 
 /** "1240 W 18th St, Chicago, IL 60608" as typed, or the street with ", Chicago, IL" added when it leaves the city out. */

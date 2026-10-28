@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import type { PlanView } from "@/lib/plan/view/plan";
 import { StickyBar } from "../sticky-bar";
 import { ConceptSection } from "./concept-section";
-import { GenericSection } from "./generic-section";
-import { LocalSection } from "./local-section";
-import { ChecklistSection, RunOfShowSection, ShoppingSection } from "./logistics";
+import { Disclosure } from "./disclosure";
+import { GenericCompare } from "./generic-section";
+import { YourBlock } from "./local-section";
+import { Checklist, RunOfShow, ShoppingSection } from "./logistics";
 import { MarketingSection } from "./marketing-section";
 import { PlanHeader } from "./plan-header";
 import { PlanNav } from "./plan-nav";
@@ -14,12 +15,13 @@ import { TraceSection } from "./trace-section";
 import { WheelSection } from "./wheel-section";
 
 /**
- * One store's event plan, one scrolling page, for example stores and live runs alike: the header, the
- * kept concept, the run of show, the shopping list and the checklist, the generic AI plan beside it,
- * the city and the block Qloo measured, the poster and posts, "Log results", then the agent's steps.
- * Every receipt on the page is sent once (`view.receipts`) and opened by key.
+ * One store's event plan, for example stores and live runs alike. The first screen is the event:
+ * its name, when and where, and four tiles (music, snacks, wheel, posting). Then tabs to Event,
+ * Wheel, Shopping, Posts and Results. The run of show, the checklist, the generic comparison, the
+ * block and the agent's steps sit in closed rows, one tap deeper. Receipts are sent once
+ * (`view.receipts`) and opened by "Why Qloo picked this".
  *
- * - `running`: a live run still streaming; empty sections say what is on the way.
+ * - `running`: a live run still streaming; empty parts say what is on the way.
  * - `top`: a slot above the header (the live progress rail, the example notice).
  * - `stickyAction`: the page's one brick primary.
  */
@@ -39,36 +41,55 @@ export function PlanPage({
   landmark?: boolean;
 }) {
   const Root = landmark ? "main" : "div";
+  const more = (
+    <>
+      {view.runOfShow.length > 0 && (
+        <Disclosure title="Run of show" meta={`${view.runOfShow.length} steps`}>
+          <RunOfShow steps={view.runOfShow} />
+        </Disclosure>
+      )}
+      {view.checklist.length > 0 && (
+        <Disclosure title="Checklist" meta={`${view.checklist.length} items`}>
+          <Checklist items={view.checklist} />
+        </Disclosure>
+      )}
+      {view.generic && (
+        <Disclosure title="Compare with a generic AI plan" meta={view.generic.cliches.length ? `${view.generic.cliches.length} clichés` : undefined}>
+          <GenericCompare generic={view.generic} comparison={view.comparison} theme={view.concept?.title ?? null} />
+        </Disclosure>
+      )}
+      {(view.local.block || view.local.city) && (
+        <Disclosure title="Your block" meta={view.local.block ? `${view.local.block.places.length} places` : undefined}>
+          <YourBlock view={view.local} partnerIds={view.partnerIds} />
+        </Disclosure>
+      )}
+    </>
+  );
   return (
     <PlanReceipts receipts={view.receipts}>
       <Root className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-4 pt-6 pb-16 sm:px-5 sm:pt-8">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-4 pt-5 pb-16 sm:px-5 sm:pt-8">
           {top}
-          <PlanHeader view={view.header} kind={view.kind} concept={view.concept} aside={<RunOfShowSection steps={view.runOfShow} pending={running} />} />
+          <PlanHeader view={view.header} kind={view.kind} concept={view.concept} tiles={view.tiles} />
           {view.partial && (
             <p className="rounded-xl border border-dashed border-concrete-line bg-surface px-4 py-3 text-sm">
-              <span className="font-semibold">Partial plan:</span> {view.partial.stageLabel} stopped early. {view.partial.reason}
+              <span className="font-semibold">Partial plan:</span> {view.partial.reason}
             </p>
           )}
           <PlanNav wheel={view.wheel !== null} />
-          <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-            <ConceptSection concept={view.concept} alternatives={view.alternatives} pending={running} />
-            <ShoppingSection items={view.shopping} costLine={view.costLine} budgetText={view.header.budgetText.replace(" budget", "")} totalText={view.shoppingTotal} pending={running} />
-          </div>
+          <ConceptSection concept={view.concept} pending={running} more={more} />
           {view.wheel && <WheelSection wheel={view.wheel} />}
-          <ChecklistSection items={view.checklist} pending={running} />
-          <GenericSection generic={view.generic} comparison={view.comparison} city={view.local.city?.name ?? "this city"} theme={view.concept?.title ?? null} pending={running} />
-          <LocalSection view={view.local} partnerIds={view.partnerIds} pending={running} />
+          <ShoppingSection items={view.shopping} budgetText={view.header.budgetText.replace(" budget", "")} totalText={view.shoppingTotal} pending={running} />
           <MarketingSection view={view.marketing} planId={view.id} storeName={view.header.storeName} allowGenerate={!running && view.concept !== null} />
-          <div className="grid gap-x-10 gap-y-10 lg:grid-cols-2">
-            <ResultsSection planId={view.id} results={view.results} saveable={view.kind === "live"} />
+          <ResultsSection planId={view.id} results={view.results} saveable={view.kind === "live"} />
+          <div className="flex flex-col gap-3">
             <TraceSection rows={view.trace} calls={view.calls} live={running} />
+            <footer className="flex flex-col gap-1 text-xs text-ink-soft">
+              {view.header.fictional && <p>{view.header.fictional}</p>}
+              <p>No carrier logos. No alcohol, tobacco or minors.</p>
+              <p>No sales claims: a real store pilot measures that.</p>
+            </footer>
           </div>
-          <footer className="flex flex-col gap-1 border-t border-hairline pt-6 text-xs text-ink-soft">
-            {view.header.fictional && <p className="font-semibold text-ink">{view.header.fictional}</p>}
-            <p>No carrier logos: the store adds its own official brand assets. No alcohol or tobacco giveaways, and nothing aimed at minors.</p>
-            <p>Stoop does not claim more traffic or sales. A pilot at a real store measures that after judging.</p>
-          </footer>
         </div>
         <StickyBar note={stickyNote} action={stickyAction} />
       </Root>

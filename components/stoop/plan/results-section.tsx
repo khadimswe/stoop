@@ -45,7 +45,7 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
       });
       if (!response.ok) {
         const body: unknown = await response.json().catch(() => null);
-        const message = body && typeof body === "object" && "message" in body && typeof body.message === "string" ? body.message : "Those results were not saved. Try again.";
+        const message = body && typeof body === "object" && "message" in body && typeof body.message === "string" ? body.message : "Not saved. Try again.";
         return setSend({ kind: "error", message });
       }
       const channels = (["facebook", "instagram", "whatsapp"] as const).filter((c) => parsed.body.posted[c]);
@@ -62,18 +62,13 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
       setValues(EMPTY);
       setSend({ kind: "saved" });
     } catch {
-      setSend({ kind: "error", message: "No connection. Your numbers are still in the form: try again." });
+      setSend({ kind: "error", message: "No connection. Try again." });
     }
   };
 
   const all = [...results, ...logged];
   return (
-    <PlanSection
-      id="results"
-      kicker="After the event"
-      title="Log results"
-      description="Your own counts, so the next plan for this store starts from what worked. Stoop does not claim more walk-ins or sales."
-    >
+    <PlanSection id="results" title="How it went" description="The next plan starts from what worked.">
       {all.length > 0 && (
         <ul aria-label="Logged results" className="flex flex-col gap-2">
           {all.map((r, i) => (
@@ -94,15 +89,15 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
         <form noValidate onSubmit={submit} aria-describedby={saveable ? undefined : `${id}-example`} className="flex flex-col gap-4">
           {!saveable && (
             <p id={`${id}-example`} className="rounded-lg bg-fill px-3 py-2 text-sm">
-              This is an example store, so results are not saved. Plan your own event to log real ones.
+              Example store: results aren&apos;t saved.
             </p>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
-            <NumberField id={`${id}-walkins`} label="Walk-ins" hint="People who came to the table or into the store" value={values.walkIns} error={errors.walkIns} onChange={(v) => set("walkIns", v)} disabled={!saveable} />
-            <NumberField id={`${id}-sales`} label="Sales" hint="Lines, phones or accessories sold during the event" value={values.sales} error={errors.sales} onChange={(v) => set("sales", v)} disabled={!saveable} />
+            <NumberField id={`${id}-walkins`} label="Walk-ins" hint="Stopped at the table" value={values.walkIns} error={errors.walkIns} onChange={(v) => set("walkIns", v)} disabled={!saveable} />
+            <NumberField id={`${id}-sales`} label="Sales" hint="During the event" value={values.sales} error={errors.sales} onChange={(v) => set("sales", v)} disabled={!saveable} />
           </div>
           <fieldset className="flex flex-col gap-2" disabled={!saveable}>
-            <legend className="mb-1 text-sm font-semibold">Where you posted it</legend>
+            <legend className="mb-1 text-sm font-semibold">Posted on</legend>
             <div className="flex flex-wrap gap-x-6 gap-y-1">
               {(["facebook", "instagram", "whatsapp"] as const).map((c) => (
                 <label key={c} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
@@ -114,7 +109,7 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
           </fieldset>
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${id}-notes`} className="text-sm font-semibold">
-              Notes
+              Note
             </label>
             <textarea
               id={`${id}-notes`}
@@ -125,7 +120,7 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
               disabled={!saveable}
               aria-invalid={errors.notes ? true : undefined}
               aria-describedby={`${id}-notes-count${errors.notes ? ` ${id}-notes-error` : ""}`}
-              placeholder="What made people stop? What would you change?"
+              placeholder="What made people stop?"
               className={cn(FIELD, "h-auto py-2")}
             />
             <p id={`${id}-notes-count`} className="text-xs text-ink-soft">
@@ -140,10 +135,10 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" variant="outline" disabled={!saveable || send.kind === "sending"}>
               {send.kind === "sending" && <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />}
-              Save results
+              Save
             </Button>
             <p role="status" aria-live="polite" className={cn("text-sm", send.kind === "error" ? "text-rose-deep" : "text-ink-soft")}>
-              {send.kind === "saved" ? "Saved. The next plan for this store will read them." : send.kind === "error" ? send.message : ""}
+              {send.kind === "saved" ? "Saved." : send.kind === "error" ? send.message : ""}
             </p>
           </div>
         </form>

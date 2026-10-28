@@ -8,7 +8,7 @@ import type { WheelSliceView, WheelView } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { OriginTag } from "./origin-tag";
 import { PlanSection } from "./plan-section";
-import { RichText } from "./rich-text";
+import { Disclosure } from "./disclosure";
 
 // Print: only the label sheet, on letter paper, nine labels a page. Each label is sized for one
 // slice of a common 12 to 18 inch tabletop prize wheel with 8 to 12 slices.
@@ -76,51 +76,34 @@ export function WheelSection({ wheel }: { wheel: WheelView }) {
   return (
     <PlanSection
       id="wheel"
-      kicker="At the table"
-      title="Your wheel"
-      description={`${wheel.slices.length} slices for the prize wheel you already have, clockwise from the top. Print the labels and tape one on each slice.`}
+      title="Prize wheel"
+      description="One label per slice, clockwise from the top."
       actions={
         <Button type="button" variant="outline" size="sm" onClick={() => setPrinting(true)}>
           <Printer aria-hidden="true" />
-          Print slice labels
+          Print labels
         </Button>
       }
     >
       <ol aria-label="Wheel slices" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {wheel.slices.map((s) => (
-          <li key={s.n}>
+          <li key={s.n} className="flex flex-col gap-2">
             <Label slice={s} />
+            <div>
+              <OriginTag origin={s.origin} receiptKey={s.receipt} context={`slice ${s.n}`} />
+            </div>
           </li>
         ))}
       </ol>
-      <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-        <ul aria-label="What each slice says, with where it came from" className="flex flex-col border-b border-hairline">
-          {wheel.slices.map((s) => (
-            <li key={s.n} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 border-t border-hairline py-3">
-              <span className="font-mono text-sm text-ink-soft">{s.n}</span>
-              <div className="flex min-w-0 flex-col gap-2 text-sm">
-                <p className="text-pretty">
-                  <span className="font-semibold">{s.label}: </span>
-                  <RichText parts={s.parts} />
-                </p>
-                <div>
-                  <OriginTag origin={s.origin} receiptKey={s.receipt} context={`slice ${s.n}`} />
-                </div>
-              </div>
+      <Disclosure title="Wheel rules" meta={String(wheel.rules.length)}>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          {wheel.rules.map((r) => (
+            <li key={r} className="text-pretty before:mr-2 before:content-['•']">
+              {r}
             </li>
           ))}
         </ul>
-        <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Wheel rules</h3>
-          <ul className="flex flex-col gap-1.5 text-sm">
-            {wheel.rules.map((r) => (
-              <li key={r} className="text-pretty before:mr-2 before:content-['•']">
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      </Disclosure>
       {printing && <PrintSheet wheel={wheel} onDone={done} />}
     </PlanSection>
   );
