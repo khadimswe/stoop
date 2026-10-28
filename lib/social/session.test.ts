@@ -19,7 +19,10 @@ const connection: MetaConnection = {
 describe("the return path", () => {
   it("keeps paths on this site and drops everything else", () => {
     expect(safeReturnPath("/plan/plan_0123?tab=post")).toBe("/plan/plan_0123?tab=post");
-    for (const bad of [null, "", "https://evil.example/", "//evil.example/x", "/\\evil.example", "/a b", "plan/x", "/x\n"]) expect(safeReturnPath(bad)).toBe("/");
+    for (const bad of [null, "", "https://evil.example/", "//evil.example/x", "/\\evil.example", "/a b", "plan/x", "/x\n", "/.//evil.example", "/..//evil.example", "/%2e%2e//evil.example", "/%2E//evil.example/x"]) {
+      expect(safeReturnPath(bad)).toBe("/");
+    }
+    expect(safeReturnPath("/plan/../e/plan_1")).toBe("/e/plan_1");
   });
 });
 

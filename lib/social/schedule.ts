@@ -2,14 +2,17 @@
 // model and no data beyond the plan's inputs (the event's date, start time and the store's state), so
 // the same plan always gets the same suggestions. Three moments: the evening before, the morning of,
 // and an hour before the table opens. Each is offered only when Meta can still schedule it (at least
-// 10 minutes ahead, at most 75 days) and it falls before the event starts. A plain module: the UI
+// 10 minutes ahead, at most 30 days) and it falls before the event starts. A plain module: the UI
 // imports it to offer one-tap "Schedule".
 import type { PlanReport } from "../plan/schema";
 
 /** A scheduled Page post must be at least this far ahead when the request is made (Meta's rule). */
 export const SCHEDULE_MIN_MS = 10 * 60_000;
-/** And at most this far (the Page feed reference; see lib/social/meta.ts). */
-export const SCHEDULE_MAX_MS = 75 * 24 * 60 * 60_000;
+/**
+ * And at most this far. Meta's docs disagree (the Page feed reference says 75 days, the Pages API guide
+ * 30; see lib/social/meta.ts), so Stoop keeps to the stricter 30 and Meta never refuses a time it offered.
+ */
+export const SCHEDULE_MAX_MS = 30 * 24 * 60 * 60_000;
 /** Suggestions keep a margin past Meta's 10 minutes, so a tap a few minutes later still schedules. */
 export const SUGGESTION_MARGIN_MS = 15 * 60_000;
 

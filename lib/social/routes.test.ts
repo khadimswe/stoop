@@ -306,6 +306,31 @@ describe("posting a plan", () => {
     expect((await retry.json()).results[0].status).toBe("posted");
   });
 
+  it("holds the slot when Meta gave no clear answer, so a second tap cannot post twice", async () => {
+    await seedPlan();
+    const cookie = await connect();
+    const unclear = deps({}, { "POST 111/photos": { status: 503, body: { error: { code: 2, message: "Service temporarily unavailable" } } } });
+    const first = (await (await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: "now" }, cookie), RUN, unclear)).json()).results[0];
+    expect(first).toMatchObject({ status: "failed", error: "unavailable" });
+    expect(first.message).toContain("Check the Page first");
+    const again = deps();
+    const second = (await (await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: "now" }, cookie), RUN, again)).json()).results[0];
+    expect(second.status).toBe("skipped");
+    expect(meta.calls).toHaveLength(0);
+  });
+
+  it("limits posts per Page per day, even across new connections", async () => {
+    await seedPlan();
+    const d = deps();
+    const day = Date.parse("2026-11-01T15:00:00Z");
+    for (let i = 0; i < 12; i++) {
+      // A fresh connection every time, as if the manager kept reconnecting.
+      const cookie = await connect();
+      const status = (await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: new Date(day + i * 3_600_000).toISOString() }, cookie), RUN, d)).status;
+      expect(status).toBe(i < 10 ? 200 : 429);
+    }
+  });
+
   it("limits posts per connection per day", async () => {
     await seedPlan();
     const cookie = await connect();

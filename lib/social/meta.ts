@@ -1,7 +1,7 @@
 // The Meta adapter, for posting a plan's poster to the manager's own Facebook Page and Instagram
 // account: Facebook Login (the dialog URL, the code-for-token exchange and a long-lived user token),
 // the Pages the person manages with their Page tokens and any linked Instagram professional account,
-// a photo post to a Page (now, or scheduled 10 minutes to 75 days ahead) and a two-step Instagram
+// a photo post to a Page (now, or scheduled 10 minutes to 30 days ahead) and a two-step Instagram
 // image publish from a public image URL. Plain fetch, passed in, so tests run it against a fake.
 // Server only: every call with a token carries appsecret_proof, and errors carry Stoop's own words and
 // Meta's numeric codes, never a response body (a body may echo what was sent).
@@ -13,7 +13,7 @@
 // - https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived (fb_exchange_token; Page tokens from /accounts)
 // - https://developers.facebook.com/docs/graph-api/reference/page/photos/ (url or source, caption, published, scheduled_publish_time; returns id and post_id)
 // - https://developers.facebook.com/docs/graph-api/reference/v26.0/page/feed (scheduled_publish_time: 10 minutes to 75 days ahead;
-//   the Pages API guide, https://developers.facebook.com/docs/pages-api/posts, says 30 days for feed posts)
+//   the Pages API guide, https://developers.facebook.com/docs/pages-api/posts, says 30 days, so Stoop keeps to 30)
 // - https://developers.facebook.com/docs/instagram-platform/content-publishing/ (container, status_code, media_publish; JPEG only,
 //   fetched by Meta from a public server; 100 API posts per 24 hours; graph.facebook.com for Facebook Login)
 // - https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media (caption up to 2,200
@@ -76,7 +76,7 @@ export const META_ERROR_MESSAGES: Readonly<Record<MetaErrorKind, string>> = {
   invalid: "Facebook did not accept this post.",
   unavailable: "Facebook did not answer. Try again in a moment.",
   not_linked: "This Page has no Instagram professional account linked to it.",
-  schedule: "A scheduled post has to be 10 minutes to 75 days ahead.",
+  schedule: "A scheduled post has to be 10 minutes to 30 days ahead.",
 };
 
 /** A typed failure: `kind` says what the manager can do; `code` and `subcode` are Meta's numbers, for the logs. */
@@ -256,7 +256,7 @@ export interface PhotoPost {
   caption: string;
   /** The poster's bytes, uploaded as the photo (so it works even where the site is not public). */
   image: { bytes: Uint8Array; contentType: "image/png" | "image/jpeg"; filename: string };
-  /** Null posts now; a time 10 minutes to 75 days ahead schedules it. */
+  /** Null posts now; a time 10 minutes to 30 days ahead schedules it. */
   scheduleAt: Date | null;
 }
 

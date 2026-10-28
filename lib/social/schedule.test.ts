@@ -60,7 +60,7 @@ describe("suggestPostTimes", () => {
     expect(suggestPostTimes(report, Date.parse("2026-11-07T14:00:00Z")).map((t) => t.id)).toEqual(["morning_of", "hour_before"]);
   });
 
-  it("leaves out times Meta cannot schedule yet (more than 75 days ahead)", () => {
+  it("leaves out times Meta cannot schedule yet (more than 30 days ahead)", () => {
     expect(suggestPostTimes(withInputs({ date: "2027-02-20" }), NOW)).toEqual([]);
   });
 });

@@ -70,11 +70,12 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
         const response = await fetch(SOCIAL_ROUTES.pages, { headers: { accept: "application/json" }, cache: "no-store" });
         if (stopped) return;
         if (response.status === 404) return setConnection({ kind: "off" });
+        // What the callback said (?meta=...), shown once whatever the Pages check says next.
+        setOutcome(readOutcome());
+        clearOutcome();
         const body: unknown = await response.json().catch(() => null);
         const parsed = socialPagesResponseSchema.safeParse(body);
         if (!response.ok || !parsed.success) return setConnection({ kind: "error", message: apiMessageOf(body) ?? "Facebook connection could not be checked. Reload to try again." });
-        setOutcome(readOutcome());
-        clearOutcome();
         if (!parsed.data.connected) return setConnection({ kind: "disconnected" });
         setConnection({ kind: "connected", pages: parsed.data.pages });
         const first = parsed.data.pages.find((p) => p.canPost) ?? parsed.data.pages[0];
@@ -83,7 +84,10 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
           setChannels({ facebook: true, instagram: first.instagram !== null });
         }
       } catch {
-        if (!stopped) setConnection({ kind: "error", message: "No connection. Check your signal and reload." });
+        if (stopped) return;
+        setOutcome(readOutcome());
+        clearOutcome();
+        setConnection({ kind: "error", message: "No connection. Check your signal and reload." });
       }
     })();
     return () => {
@@ -97,8 +101,18 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
   const chosen = (Object.keys(channels) as SocialChannel[]).filter((c) => channels[c] && (c === "facebook" || page?.instagram));
   const back = returnTo ?? (typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`);
 
+  /** A suggested time, checked again at the tap: a page left open for hours may hold one that has passed. */
+  const stillOpen = (time: PostTime) => suggestPostTimes({ inputs }).find((t) => t.id === time.id && t.at === time.at) ?? null;
+  const PASSED = "That time is too close or has passed. Pick another time, or post now.";
+
+  const ask = (when: When) => {
+    if (when.kind === "scheduled" && !stillOpen(when.time)) return setSending({ kind: "error", message: PASSED });
+    setSending({ kind: "confirm", when });
+  };
+
   const send = async (when: When) => {
     if (!page || chosen.length === 0) return;
+    if (when.kind === "scheduled" && !stillOpen(when.time)) return setSending({ kind: "error", message: PASSED });
     setSending({ kind: "sending" });
     try {
       const response = await fetch(SOCIAL_ROUTES.post(planId), {
@@ -118,11 +132,13 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
 
   const disconnect = async () => {
     try {
-      await fetch(SOCIAL_ROUTES.disconnect, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-    } finally {
+      const response = await fetch(SOCIAL_ROUTES.disconnect, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      if (!response.ok) return setSending({ kind: "error", message: "Facebook could not be disconnected right now. Try again." });
       setConnection({ kind: "disconnected" });
       setSending({ kind: "idle" });
       setPageId(null);
+    } catch {
+      setSending({ kind: "error", message: "No connection. Facebook is still connected. Try again." });
     }
   };
 
@@ -210,7 +226,7 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
             </div>
           ) : (
             <div className="meta-connect__actions">
-              <button type="button" className="meta-connect__post" disabled={!ready || !page || chosen.length === 0 || sending.kind === "sending"} onClick={() => setSending({ kind: "confirm", when: { kind: "now" } })}>
+              <button type="button" className="meta-connect__post" disabled={!ready || !page || chosen.length === 0 || sending.kind === "sending"} onClick={() => ask({ kind: "now" })}>
                 {sending.kind === "sending" ? "Posting..." : "Post now"}
               </button>
               {times.length > 0 && (
@@ -219,7 +235,7 @@ export function MetaConnect({ planId, inputs, ready, returnTo, fallback = null }
                   <ul className="meta-connect__times">
                     {times.map((t) => (
                       <li key={t.id}>
-                        <button type="button" className="meta-connect__time" disabled={!ready || !page || !channels.facebook || sending.kind === "sending"} onClick={() => setSending({ kind: "confirm", when: { kind: "scheduled", time: t } })}>
+                        <button type="button" className="meta-connect__time" disabled={!ready || !page || !channels.facebook || sending.kind === "sending"} onClick={() => ask({ kind: "scheduled", time: t })}>
                           Schedule: {t.name}, {t.label}
                         </button>
                       </li>

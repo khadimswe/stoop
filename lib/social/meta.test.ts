@@ -127,11 +127,11 @@ describe("a Page photo post", () => {
     expect(meta.calls[0]?.body).toMatchObject({ published: "false", scheduled_publish_time: String(Math.floor(at.getTime() / 1000)) });
   });
 
-  it("refuses a time outside 10 minutes to 75 days without calling Meta", async () => {
+  it("refuses a time outside 10 minutes to 30 days without calling Meta", async () => {
     const meta = fakeMeta();
     const post = (ms: number) => postPagePhoto({ fetch: meta.fetch, app }, { id: FAKE_PAGE.id, token: FAKE_TOKENS.page }, { caption: "Hi", image: png, scheduleAt: new Date(NOW + ms) }, NOW);
     await expect(post(5 * 60_000)).rejects.toMatchObject({ kind: "schedule" });
-    await expect(post(76 * 24 * 60 * 60_000)).rejects.toMatchObject({ kind: "schedule" });
+    await expect(post(31 * 24 * 60 * 60_000)).rejects.toMatchObject({ kind: "schedule" });
     expect(meta.calls).toHaveLength(0);
   });
 });

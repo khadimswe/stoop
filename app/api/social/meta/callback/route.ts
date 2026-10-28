@@ -3,9 +3,10 @@
 // The browser goes back to the page it came from with ?meta=connected (or denied, expired, failed).
 import { connection } from "next/server";
 import { connectCallback } from "@/lib/social/routes";
+import { failSafe } from "@/lib/routes/guard";
 import { socialDeps } from "@/lib/social/server";
 
 export async function GET(request: Request) {
   await connection();
-  return connectCallback(request, socialDeps());
+  return failSafe("Meta connect callback", () => connectCallback(request, socialDeps()));
 }

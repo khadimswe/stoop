@@ -14,7 +14,7 @@ export const socialPostRequestSchema = z.strictObject({
     .min(1, { error: "Pick Facebook, Instagram or both." })
     .max(2)
     .refine((list) => new Set(list).size === list.length, { error: "Each channel once." }),
-  /** "now", or the instant to schedule at (ISO with a zone): 10 minutes to 75 days ahead. */
+  /** "now", or the instant to schedule at (ISO with a zone): 10 minutes to 30 days ahead. */
   when: z.union([z.literal("now"), z.iso.datetime({ offset: true })]),
 });
 export type SocialPostRequest = z.infer<typeof socialPostRequestSchema>;

@@ -34,7 +34,9 @@ export function safeReturnPath(raw: string | null | undefined): string {
   if ([...raw].some((c) => c.charCodeAt(0) <= 0x20 || c.charCodeAt(0) === 0x7f)) return "/";
   try {
     const url = new URL(raw, "https://stoop.invalid");
-    return url.origin === "https://stoop.invalid" ? `${url.pathname}${url.search}` : "/";
+    const path = `${url.pathname}${url.search}`;
+    // Checked again after the parser resolves "/.//x" or "/%2e%2e//x" to "//x", which a browser reads as another host.
+    return url.origin === "https://stoop.invalid" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") ? path : "/";
   } catch {
     return "/";
   }

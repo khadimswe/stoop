@@ -49,10 +49,17 @@ if (typeof window !== "undefined") {
 export const META_START_RULE: RateRule = { name: "meta-start", limit: 20, windowSeconds: 60 * 60 };
 /** Channel posts one connection may make in a day. */
 export const META_POSTS_PER_SESSION_DAILY = 10;
+/** Channel posts to one Page in a day, however many times it is connected. */
+export const META_POSTS_PER_PAGE_DAILY = 10;
 /** Channel posts across every connection in a day. */
 export const META_POSTS_DAILY = 100;
 /** A plan posts to one Page channel once a day ("now"), and once per scheduled minute. */
 const POSTED_TTL_SECONDS = 24 * 60 * 60;
+/**
+ * When Meta did not answer clearly (a timeout, a network error, a 5xx), the post may have gone out, so
+ * the hold stays this long and the manager is asked to check the Page before trying again.
+ */
+export const UNCLEAR_HOLD_SECONDS = 30 * 60;
 const FINAL_POSTER = new Set(["ready", "skipped", "failed"]);
 
 export interface SocialDeps {
@@ -86,7 +93,11 @@ function on(deps: SocialDeps): On | null {
 
 const notFound = () => apiError("not_found", "Not found.", 404);
 const nowOf = (deps: SocialDeps) => deps.now?.() ?? Date.now();
-const callOf = (deps: SocialDeps, app: MetaApp, request: Request): MetaCall => ({ fetch: deps.fetch, app, signal: request.signal });
+/**
+ * A Graph call's vendors. Only reads take the request's signal: a call that creates a post is never cut
+ * off by the manager closing the tab, so Stoop always learns whether it went out.
+ */
+const callOf = (deps: SocialDeps, app: MetaApp, signal?: AbortSignal): MetaCall => ({ fetch: deps.fetch, app, ...(signal ? { signal } : {}) });
 
 function storeOrNull(deps: SocialDeps): Store | null {
   try {
@@ -143,7 +154,7 @@ export async function connectCallback(request: Request, deps: SocialDeps): Promi
   const ttl = connectionTtlSeconds(config.until, now);
   if (!store || ttl <= 0) return back(request, verified.returnTo, "failed", [clearState]);
   try {
-    const call = callOf(deps, config.app, request);
+    const call = callOf(deps, config.app, request.signal);
     const short = await exchangeCode(call, code, redirectUri(request), now);
     // A long-lived user token (about 60 days) makes Page tokens that do not expire; the short one still works for now.
     const user = await longLivedUserToken(call, short.token, now).catch((error: unknown) => {
@@ -282,17 +293,23 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
   if (held.length > 0) {
     const day = dayOf(now);
     const by = held.length;
-    const mine = await store.incr(keys.social.metaSessionPosts(sessionId, day), { by, ttlSeconds: TTL.daily });
-    const all = await store.incr(keys.daily("meta-posts", day), { by, ttlSeconds: TTL.daily });
-    if (mine > META_POSTS_PER_SESSION_DAILY || all > META_POSTS_DAILY) {
-      await store.incr(keys.social.metaSessionPosts(sessionId, day), { by: -by });
-      await store.incr(keys.daily("meta-posts", day), { by: -by });
+    const counters = [
+      { key: keys.social.metaSessionPosts(sessionId, day), cap: META_POSTS_PER_SESSION_DAILY },
+      { key: keys.social.metaPagePosts(page.id, day), cap: META_POSTS_PER_PAGE_DAILY },
+      { key: keys.daily("meta-posts", day), cap: META_POSTS_DAILY },
+    ];
+    const counts = [];
+    for (const { key } of counters) counts.push(await store.incr(key, { by, ttlSeconds: TTL.daily }));
+    if (counts.some((count, i) => count > counters[i]!.cap)) {
+      for (const { key } of counters) await store.incr(key, { by: -by });
       await Promise.all(held.map(release));
-      return apiError("rate_limited", mine > META_POSTS_PER_SESSION_DAILY ? "That is a lot of posts for one day. Try again tomorrow." : "Stoop has posted a lot today. Try again tomorrow, or use one-tap share.", 429);
+      const global = counts[2]! > META_POSTS_DAILY;
+      return apiError("rate_limited", global ? "Stoop has posted a lot today. Try again tomorrow, or use one-tap share." : "That is a lot of posts for one day. Try again tomorrow.", 429);
     }
   }
 
-  const call = callOf(deps, config.app, request);
+  // No request signal: a post that started is never cut off half way (see callOf).
+  const call = callOf(deps, config.app);
   const zone = storeTimeZone(report.inputs.store);
   const at = scheduleAt ?? new Date(now);
   const trail: SocialChannel[] = [];
@@ -316,9 +333,17 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
       }
       trail.push(channel);
     } catch (error) {
-      await release(channel);
       metaLog(`Meta ${channel} post failed`, error);
-      results.set(channel, error instanceof MetaError ? result(channel, "failed", error.message, { error: error.kind }) : result(channel, "failed", META_ERROR_MESSAGES.unavailable, { error: "unavailable" }));
+      if (error instanceof MetaError && error.kind !== "unavailable") {
+        // Meta clearly refused (or nothing was sent): the slot is free for a retry.
+        await release(channel);
+        results.set(channel, result(channel, "failed", error.message, { error: error.kind }));
+      } else {
+        // No clear answer: it may have posted. Hold the slot a while, so a second tap cannot post it twice.
+        await store.set(keys.social.metaPosted(planId, page.id, channel, slot), now, { ttlSeconds: UNCLEAR_HOLD_SECONDS }).catch(() => undefined);
+        const where = channel === "facebook" ? "the Page" : "the Instagram account";
+        results.set(channel, result(channel, "failed", `${SOCIAL_CHANNEL_LABELS[channel]} did not confirm the post. Check ${where} first: if it is not there, try again in 30 minutes.`, { error: "unavailable" }));
+      }
     }
   }
 

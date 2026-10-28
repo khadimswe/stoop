@@ -2,10 +2,11 @@
 // (Instagram takes JPEG only, from a public URL). Live plans only; 404 while posting is off.
 import { connection } from "next/server";
 import { posterJpeg } from "@/lib/social/routes";
+import { failSafe } from "@/lib/routes/guard";
 import { socialDeps } from "@/lib/social/server";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/plan/[id]/social/poster.jpg">) {
   await connection();
   const { id } = await ctx.params;
-  return posterJpeg(id, socialDeps());
+  return failSafe("Instagram poster", () => posterJpeg(id, socialDeps()));
 }

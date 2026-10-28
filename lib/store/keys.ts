@@ -134,6 +134,8 @@ export const keys = {
     metaSession: (sessionId: string) => `social:meta:session:${sessionId}`,
     /** Channel posts one connection made on one day. */
     metaSessionPosts: (sessionId: string, day: string = dayOf()) => `social:meta:session:${sessionId}:posts:${day}`,
+    /** Channel posts to one Page on one day, across every connection to it. */
+    metaPagePosts: (pageId: string, day: string = dayOf()) => `social:meta:page:${pageId}:posts:${day}`,
     /** Held once a plan's poster went to one Page channel at one time, so a double tap never posts twice. */
     metaPosted: (planId: string, pageId: string, channel: string, when: string) => `social:meta:posted:${planId}:${pageId}:${channel}:${when}`,
   },

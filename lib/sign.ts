@@ -8,7 +8,9 @@ type Env = Readonly<Record<string, string | undefined>>;
 
 export const SIGNING_SECRET_MIN = 32;
 
-export type SigningPurpose = "judge-pass" | "judge-code" | "visitor" | "meta-state" | "meta-session" | "meta-token";
+export type SigningPurpose = "judge-pass" | "judge-code" | "visitor" | "meta-state" | "meta-session";
+/** Keys that only encrypt, never sign: sign() and verifySignature() do not take them. */
+export type KeyPurpose = "meta-token";
 
 /** The signing secret, or null when it is unset or too short (signed features then stay off). */
 export function signingSecret(env: Env = process.env): string | null {
@@ -17,7 +19,7 @@ export function signingSecret(env: Env = process.env): string | null {
 }
 
 /** The purpose's own 32-byte key. "meta-token" is the AES key for stored Meta tokens (lib/social/session.ts). */
-export function subkey(secret: string, purpose: SigningPurpose): Buffer {
+export function subkey(secret: string, purpose: SigningPurpose | KeyPurpose): Buffer {
   return createHmac("sha256", secret).update(`stoop:${purpose}`).digest();
 }
 
