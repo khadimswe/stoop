@@ -6,7 +6,7 @@ import { z } from "zod";
 import { POSTER_MODEL } from "../prompts/models.config";
 import { posterSchema, postsSchema, type PlanReport, type Poster, type Posts } from "./schema";
 import { checkPosterPrompt } from "./poster-prompt";
-import { posterText } from "./poster-text";
+import { posterText, withFrontConcept } from "./poster-text";
 import { instagramCopy, whatsappMessage } from "./share";
 
 export const MARKETING_EXPORT_VERSION = 1;
@@ -33,6 +33,8 @@ export const marketingExportSchema = z.strictObject({
   /** The two event payloads, in order (an event takes seq and at when it is appended). */
   events: z.tuple([z.strictObject({ type: z.literal("poster.updated"), poster: posterSchema }), z.strictObject({ type: z.literal("posts.ready"), posts: postsSchema })]),
   drafts: z.array(draftSchema).max(MAX_DRAFT_RENDERS),
+  /** An A/B test's variant B, when it runs a second concept: its own poster prompt and posts. */
+  variantB: z.strictObject({ conceptId: z.string().min(1), poster: posterSchema, posts: postsSchema }).optional(),
 });
 export type MarketingExport = z.infer<typeof marketingExportSchema>;
 
@@ -90,6 +92,7 @@ export function marketingMarkdown(report: Pick<PlanReport, "inputs" | "plan" | "
     "",
     fence(whatsappMessage(posts.whatsapp.text, `<site>/e/${exported.id}`)),
     "",
+    ...(exported.variantB ? variantLines(report, exported.variantB) : []),
     "## To approve",
     "",
     "1. Read the posts: names only from the plan's Qloo refs, offers word for word, no invented facts.",
@@ -99,12 +102,37 @@ export function marketingMarkdown(report: Pick<PlanReport, "inputs" | "plan" | "
   ].join("\n");
 }
 
+function variantLines(report: Pick<PlanReport, "inputs" | "plan" | "local" | "meta">, b: NonNullable<MarketingExport["variantB"]>): string[] {
+  const text = posterText(withFrontConcept(report, b.conceptId));
+  return [
+    `## Variant B (concept \`${b.conceptId}\`, for the A/B test)`,
+    "",
+    `- Title on its poster: ${text.title}`,
+    `- promptHash: \`${b.poster.promptHash}\``,
+    "",
+    fence(b.poster.prompt),
+    "",
+    "### Facebook (B)",
+    "",
+    fence(b.posts.facebook.text),
+    "",
+    "### Instagram (B)",
+    "",
+    fence(instagramCopy(b.posts)),
+    "",
+    "### WhatsApp (B)",
+    "",
+    fence(b.posts.whatsapp.text),
+    "",
+  ];
+}
+
 /** The poster payload for an example before approval: prompt frozen, plain background. */
 export function pendingPoster(poster: Pick<Poster, "prompt" | "promptHash" | "alt">, reason: string): Poster {
   return { status: "skipped", prompt: poster.prompt, promptHash: poster.promptHash, alt: poster.alt, reason };
 }
 
-export function exportOf(input: { slug: string; generatedAt: string; writer: MarketingExport["writer"]; poster: Poster; posts: Posts; drafts?: Draft[] }): MarketingExport {
+export function exportOf(input: { slug: string; generatedAt: string; writer: MarketingExport["writer"]; poster: Poster; posts: Posts; drafts?: Draft[]; variantB?: MarketingExport["variantB"] }): MarketingExport {
   return marketingExportSchema.parse({
     version: MARKETING_EXPORT_VERSION,
     slug: input.slug,
@@ -116,5 +144,6 @@ export function exportOf(input: { slug: string; generatedAt: string; writer: Mar
       { type: "posts.ready", posts: input.posts },
     ],
     drafts: input.drafts ?? [],
+    ...(input.variantB ? { variantB: input.variantB } : {}),
   });
 }

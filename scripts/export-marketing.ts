@@ -4,7 +4,8 @@
 //   npx tsx scripts/export-marketing.ts <slug>|--all [--no-llm] [--plans <dir>]
 // --plans is the folder holding <slug>/plan.events.json (default data/plans under the current folder),
 // so the script can run from a checkout with the API keys while writing into another.
-// Claude writes the posts (at most 2 calls per store: one answer and one repair); --no-llm writes the
+// Claude writes the posts (at most 2 calls per store and variant: one answer and one repair; a plan
+// whose A/B test runs a second concept gets variant B's posts and poster prompt too); --no-llm writes the
 // deterministic template instead. Zero Qloo calls, zero renders (scripts/render-poster.ts renders).
 // The poster payload stays "skipped" with the plain background until the founder approves a draft.
 import { existsSync, readdirSync } from "node:fs";
@@ -13,6 +14,7 @@ import path from "node:path";
 import { stoopModel, stoopModelId } from "../lib/agent/model";
 import { parseCliArgs, CliError } from "../lib/cli-args";
 import { POSTER_REASONS, queuedPoster } from "../lib/plan/poster-art";
+import { variantBConcept, withFrontConcept } from "../lib/plan/poster-text";
 import { checkPosterPrompt } from "../lib/plan/poster-prompt";
 import { generatePosts } from "../lib/plan/posts";
 import { exportOf, marketingExportSchema, marketingMarkdown, pendingPoster, type MarketingExport } from "../lib/plan/posts-export";
@@ -57,6 +59,15 @@ async function main() {
     if (problems.length) fail(`${slug}: the poster prompt fails its check: ${problems.map((p) => p.message).join("; ")}`);
     const written = await generatePosts(model, report);
     calls += written.usage.calls;
+    // An A/B test's variant B, when it runs a second concept: its own poster prompt and posts.
+    const bId = variantBConcept(report);
+    let variantB: MarketingExport["variantB"];
+    if (bId) {
+      const bReport = withFrontConcept(report, bId);
+      const bPosts = await generatePosts(model, bReport);
+      calls += bPosts.usage.calls;
+      variantB = { conceptId: bId, poster: pendingPoster(queuedPoster(bReport), POSTER_REASONS.pending), posts: bPosts.posts };
+    }
 
     const outDir = path.join(plansDir, slug, "marketing");
     await mkdir(outDir, { recursive: true });
@@ -72,6 +83,7 @@ async function main() {
       poster: pendingPoster(queued, POSTER_REASONS.pending),
       posts: written.posts,
       drafts,
+      ...(variantB ? { variantB } : {}),
     });
     await writeFile(jsonFile, `${JSON.stringify(exported, null, 2)}\n`);
     await writeFile(path.join(outDir, "marketing.md"), marketingMarkdown(report, exported));
