@@ -7,6 +7,7 @@ import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
 import { splitRefs } from "../refs";
+import { titleGenre } from "../words";
 import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, type PlanInputs, type PlanItem, type PlanReport, type PlanTraceStep } from "../schema";
 import {
   CARRIER_LABELS,
@@ -86,6 +87,12 @@ export interface ConceptView {
 export interface RunOfShowView {
   time: string;
   timeLabel: string;
+  /** "12:00", "1:30": the clock without am or pm, for the timeline's time column. */
+  clock: string;
+  /** A short bold label when the step starts with one ("Open.", "First peak:"), else null. */
+  label: string | null;
+  /** The step after its label. */
+  rest: TextPart[];
   parts: TextPart[];
 }
 
@@ -101,6 +108,8 @@ export interface WheelSliceView {
   text: string;
   origin: CueOrigin;
   receipt: string | null;
+  /** For a gift card: the block place, its pin and distance. */
+  place: { name: string; n: number; distanceText: string | null } | null;
 }
 
 export interface WheelView {
@@ -114,10 +123,14 @@ export interface ShoppingView {
   item: string;
   qty: string | null;
   costText: string | null;
-  /** The block partner to buy it from, with its receipt. */
-  from: { name: string; receipt: string | null } | null;
+  /** The block partner to buy it from, with its pin number, distance and receipt. */
+  from: { name: string; receipt: string | null; n: number; distanceText: string | null } | null;
   origin: CueOrigin;
   receipt: string | null;
+  /** A gift card or prize for the wheel or the drawing (listed under the wheel, not the snacks). */
+  prize: boolean;
+  /** The estimate in dollars, for totals. */
+  usd: number | null;
 }
 
 /** Something rose on a generic line: a cliche (the line is struck through) or Qloo's check of its picks. */
@@ -170,7 +183,6 @@ export interface ArtistView {
   id: string;
   name: string;
   rank: number;
-  genres: string[];
   receipt: string | null;
 }
 
@@ -181,7 +193,11 @@ export interface PlaceView {
   kindLabel: string;
   /** A national chain: fine for gift cards and snack runs, marked quietly. */
   chain: boolean;
-  tags: string[];
+  /** Its pin number: places numbered by distance from the store, nearest first. */
+  n: number;
+  distanceM: number | null;
+  /** Qloo's coordinates, for the block map. */
+  point: { lat: number; lon: number } | null;
   address: string | null;
   distanceText: string | null;
   /** Qloo's own explainability, shown as is. */
@@ -192,14 +208,30 @@ export interface PlaceView {
 export interface LocalView {
   /** The city's artists by rank. Genre tags are never shown: no event or crowd is labeled by genre. */
   city: { name: string; ageText: string; artists: ArtistView[] } | null;
-  block: { radiusText: string; places: PlaceView[] } | null;
+  block: {
+    radiusText: string;
+    radiusM: number;
+    /** The map's center: the event's own place when it is away from the store, else the store. */
+    center: { lat: number; lon: number; label: string };
+    /** Places by distance, nearest first (their pin numbers). */
+    places: PlaceView[];
+  } | null;
   /** Music the block's own places point to, shown only when the plan uses it. */
   blockMusic: { places: { name: string; receipt: string | null }[]; artists: { name: string; receipt: string | null }[] } | null;
   gaps: string[];
 }
 
 export interface MarketingView {
-  poster: { status: PlanReport["poster"]["status"]; src: string | null; alt: string; reason: string | null };
+  poster: {
+    status: PlanReport["poster"]["status"];
+    /** The full portrait poster (the Poster step, downloads). */
+    src: string | null;
+    /** A 360 px WebP for lists, and a 720 px one for the event page. */
+    thumb: string | null;
+    medium: string | null;
+    alt: string;
+    reason: string | null;
+  };
   posts: {
     facebook: string;
     instagram: string;
@@ -344,7 +376,6 @@ function placeRows(place: Place): ReceiptRow[] {
   if (place.why) rows.push({ label: "Why", value: place.why });
   if (place.distanceM !== null) rows.push({ label: "Distance", value: `${distanceText(place.distanceM)} from the store` });
   if (place.address) rows.push({ label: "Address", value: place.address });
-  if (place.tags.length > 0) rows.push({ label: "Tags", value: place.tags.join(", ") });
   return rows;
 }
 
@@ -371,6 +402,10 @@ export function planView(source: PlanSource): PlanView {
   // The city's artists, and the block's when the plan uses them ("People who love a place also play...").
   const artists = new Map<string, ArtistRef>([...(report.local.city?.artists ?? []), ...(report.local.blockMusic?.artists ?? [])].map((a) => [a.id, a]));
   const places = new Map((report.local.block?.places ?? []).map((p) => [p.id, p]));
+
+  // Places numbered by distance from the store, nearest first: the block map's pins and every badge.
+  const byDistance = [...(report.local.block?.places ?? [])].sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity) || a.rank - b.rank);
+  const pinOf = new Map(byDistance.map((p, i) => [p.id, i + 1]));
 
   /** Registers a receipt once under `key`; null when none of its ids is in the ledger. */
   const receipt = (key: string, ids: readonly string[], cue: string, title: string, lead: ReceiptRow[] = []): string | null => {
@@ -445,9 +480,11 @@ export function planView(source: PlanSource): PlanView {
       item: plain(parts(s.item)),
       qty: s.qty ?? null,
       costText: s.estUsd === undefined ? null : usd(s.estUsd),
-      from: partner ? { name: partner.name, receipt: placeReceipt(partner) } : null,
+      from: partner ? { name: partner.name, receipt: placeReceipt(partner), n: pinOf.get(partner.id) ?? 0, distanceText: partner.distanceM === null ? null : distanceText(partner.distanceM) } : null,
       origin: s.origin,
       receipt: backed ? receipt(`shop:${i}`, s.evidenceIds, "Shopping list", plain(parts(s.item)), partner ? placeRows(partner) : []) : null,
+      prize: /\b(gift ?cards?|prizes?|raffle|drawing)\b/i.test(s.item),
+      usd: s.estUsd ?? null,
     };
   });
 
@@ -506,19 +543,23 @@ export function planView(source: PlanSource): PlanView {
       ? {
           name: city.city,
           ageText: ageBandsText(city.ageBands),
-          artists: city.artists.map((a) => ({ id: a.id, name: a.name, rank: a.rank, genres: a.genres, receipt: artistReceipt(a) })),
+          artists: city.artists.map((a) => ({ id: a.id, name: a.name, rank: a.rank, receipt: artistReceipt(a) })),
         }
       : null,
     block: block
       ? {
           radiusText: distanceText(block.radiusM),
-          places: block.places.map((p) => ({
+          radiusM: block.radiusM,
+          center: inputs.location ? { ...inputs.location.point, label: "The event" } : { ...inputs.store.point, label: "Your store" },
+          places: byDistance.map((p) => ({
             id: p.id,
             name: p.name,
             kind: p.kind,
             kindLabel: PLACE_KIND_LABELS[p.kind],
             chain: p.chain === true,
-            tags: p.tags,
+            n: pinOf.get(p.id) ?? 0,
+            distanceM: p.distanceM,
+            point: p.point ?? null,
             address: p.address,
             distanceText: p.distanceM === null ? null : distanceText(p.distanceM),
             why: p.why,
@@ -576,7 +617,11 @@ export function planView(source: PlanSource): PlanView {
     },
     concept: keptView,
     alternatives: plan && kept ? plan.concepts.filter((c) => c.id !== kept.id).map(concept) : [],
-    runOfShow: (plan?.runOfShow ?? []).map((s) => ({ time: s.time, timeLabel: timeOfDay(s.time), parts: parts(s.step) })),
+    runOfShow: (plan?.runOfShow ?? []).map((s) => {
+      const all = parts(s.step);
+      const { label, rest } = stepLabel(all);
+      return { time: s.time, timeLabel: timeOfDay(s.time), clock: timeOfDay(s.time).replace(/ (am|pm)$/, ""), label, rest, parts: all };
+    }),
     shopping,
     costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought on the block where Qloo found a partner.` : null,
     shoppingTotal: plan && plan.shopping.length > 0 ? usd(plan.estimatedCostUsd) : null,
@@ -596,6 +641,7 @@ export function planView(source: PlanSource): PlanView {
               text: plain(textParts),
               origin: slice.origin,
               receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, "Prize wheel", plain(textParts), place ? placeRows(place) : []) : null,
+              place: place ? { name: place.name, n: pinOf.get(place.id) ?? 0, distanceText: place.distanceM === null ? null : distanceText(place.distanceM) } : null,
             };
           }),
           rules: plan.wheel.rules,
@@ -625,7 +671,7 @@ export function planView(source: PlanSource): PlanView {
 export const CHANNEL_LABELS = { facebook: "Facebook", instagram: "Instagram", whatsapp: "WhatsApp" } as const;
 
 /** Lane C's poster route: 1080 by 1350, or 1200 by 630 with `og`. */
-export function posterRoute(id: string, size?: "og"): string {
+export function posterRoute(id: string, size?: "og" | "thumb" | "medium"): string {
   return `/api/plan/${encodeURIComponent(id)}/marketing/poster.png${size ? `?size=${size}` : ""}`;
 }
 
@@ -635,6 +681,8 @@ export function marketingView(id: string, storeName: string, poster: PlanReport[
     poster: {
       status: poster.status,
       src: poster.status === "ready" && poster.url ? poster.url : hasPlan ? posterRoute(id) : null,
+      thumb: poster.status === "ready" && poster.url ? poster.url : hasPlan ? posterRoute(id, "thumb") : null,
+      medium: poster.status === "ready" && poster.url ? poster.url : hasPlan ? posterRoute(id, "medium") : null,
       alt: poster.alt || `Event poster for ${storeName}`,
       reason: poster.reason ?? null,
     },
@@ -712,6 +760,24 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
   ];
 }
 
+/**
+ * A trace step's "why", safe to show: the tags Stoop left out are counted, never listed (their names
+ * include identity terms and genres), and a reason that quotes words or names a genre is left out.
+ */
+export function safeReason(label: string, reason: string | undefined): string | null {
+  const r = reason?.trim();
+  if (!r) return null;
+  if (/^Left out \d+ identity tags?/i.test(label)) return "Each describes who people are, not what they play. Stoop reads taste, never identity.";
+  if (/^Left out \d+ .*tags?/i.test(label)) return "Not a style to play, or not the city's own.";
+  if (r.includes('"') || r.includes("\u201c") || titleGenre(r)) return null;
+  return r;
+}
+
+/** A line safe to show beside the plan: a genre-led generic line is said as what it is. */
+export function noGenre(text: string): string {
+  return titleGenre(text) ? "Names a music genre, no local signal" : text;
+}
+
 /** "1240 W 18th St, Chicago, IL 60608" as typed, or the street with ", Chicago, IL" added when it leaves the city out. */
 export function fullAddress(store: Pick<PlanInputs["store"], "address" | "city" | "region">): string {
   return store.address.toLowerCase().includes(store.city.toLowerCase()) ? store.address : `${store.address}, ${store.city}, ${store.region}`;
@@ -725,8 +791,8 @@ export function traceRows(steps: readonly PlanTraceStep[]): PlanTraceRow[] {
     stageLabel: PLAN_STAGE_LABELS[step.stage],
     startsGroup: i === 0 || steps[i - 1]!.stage !== step.stage,
     kind: step.kind,
-    label: step.label,
-    reason: step.reason?.trim() || null,
+    label: titleGenre(step.label) ? "Checked a step that named a music genre" : step.label,
+    reason: safeReason(step.label, step.reason),
     served: step.kind === "tool" ? (step.cached ? "cached" : "live") : null,
     world: null,
     evidenceId: step.evidenceId ?? null,
@@ -763,3 +829,16 @@ const COMPARE_GROUPS: Readonly<Record<ItemKind, readonly ItemKind[] | null>> = {
   timing: [],
 };
 const COMPARE_LABELS: Partial<Record<ItemKind, string>> = { food: "Food and partners" };
+
+/**
+ * A timeline step's short label: its first clause when that is a few words ending in "." or ":"
+ * ("Open.", "First peak:"). Else no label, and the whole step reads as one line.
+ */
+export function stepLabel(stepParts: readonly TextPart[]): { label: string | null; rest: TextPart[] } {
+  const first = stepParts[0];
+  if (!first || first.kind !== "text") return { label: null, rest: [...stepParts] };
+  const m = /^\s*([^.:]{1,24}?)[.:]\s+([\s\S]*)$/.exec(first.text);
+  if (!m || m[1]!.trim().split(/\s+/).length > 3) return { label: null, rest: [...stepParts] };
+  const rest: TextPart[] = [...(m[2] ? [{ kind: "text" as const, text: m[2] }] : []), ...stepParts.slice(1)];
+  return { label: m[1]!.trim(), rest };
+}

@@ -14,6 +14,13 @@ type Env = Readonly<Record<string, string | undefined>>;
 
 /** fal's queue: submit, status and result for every endpoint (status_url and response_url live here too). */
 export const FAL_QUEUE_ORIGIN = "https://queue.fal.run";
+
+/**
+ * The block map (MapLibre GL with OpenFreeMap, free and keyless): the style, vector tiles, glyphs and
+ * sprites all come from this one origin. MapLibre fetches them (connect-src), decodes sprites and
+ * tiles into images (img-src) and runs its worker from our own origin or a blob URL (worker-src).
+ */
+export const MAP_TILES_ORIGIN = "https://tiles.openfreemap.org";
 /**
  * Where fal serves outputs: fal.media and its subdomains (v3.fal.media, v3b.fal.media), plus the bucket
  * fal's own example outputs live in (lib/media/frames.ts isFalMedia accepts the same hosts).
@@ -102,10 +109,11 @@ export function sitePolicy(env: Env = process.env, options: PolicyOptions = poli
     ["default-src", ["'self'"]],
     ["script-src", ["'self'", "'unsafe-inline'", ...(options.dev ? ["'unsafe-eval'"] : []), ...live("script")]],
     ["style-src", ["'self'", "'unsafe-inline'", ...live("style")]],
-    ["img-src", ["'self'", "data:", "blob:", ...storage, ...live("img")]],
+    ["img-src", ["'self'", "data:", "blob:", ...storage, MAP_TILES_ORIGIN, ...live("img")]],
     ["media-src", ["'self'", "data:", "blob:", ...storage]],
     ["font-src", ["'self'", ...live("font")]],
-    ["connect-src", ["'self'", ...live("connect")]],
+    ["connect-src", ["'self'", MAP_TILES_ORIGIN, ...live("connect")]],
+    ["worker-src", ["'self'", "blob:"]],
     ["frame-src", [...live("frame")]],
     ["object-src", ["'none'"]],
     ["base-uri", ["'self'"]],
@@ -143,7 +151,7 @@ export interface Header {
 
 const COMMON: Header[] = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
   { key: "Strict-Transport-Security", value: "max-age=63072000" },
 ];
 

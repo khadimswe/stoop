@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Figtree, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Figtree, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { metadataOrigin } from "@/lib/marketing/site";
 import "./globals.css";
@@ -14,6 +14,13 @@ const bricolage = Bricolage_Grotesque({
 const figtree = Figtree({
   variable: "--font-figtree",
   subsets: ["latin"],
+});
+
+// The floor's headlines (store-events app and landing): Source Serif 4, regular and medium only.
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 const geistMono = Geist_Mono({
@@ -33,7 +40,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fbf5ec",
+  themeColor: "#f1f0ed",
   colorScheme: "light",
 };
 
@@ -41,7 +48,7 @@ export const viewport: Viewport = {
 // (app) the 56 px top bar, so no page renders two.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${figtree.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" className={`${bricolage.variable} ${figtree.variable} ${geistMono.variable} ${sourceSerif.variable} h-full`}>
       <body className="flex min-h-full flex-col">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
