@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkText, FAMOUS_PLACES } from "../guardrails";
 import { POSTER_MODEL } from "../prompts/models.config";
-import { BRAND_WORDS, buildPosterPrompt, checkPosterPrompt, DEFAULT_ENERGY, POSTER_EXCLUSIONS, posterFeeling, STYLE_ENERGY, visualEnergy } from "./poster-prompt";
+import { BRAND_WORDS, buildPosterPrompt, CARRIER_ART_PALETTE, checkPosterPrompt, DEFAULT_ENERGY, POSTER_EXCLUSIONS, posterFeeling, seasonalScene, STYLE_ENERGY, visualEnergy } from "./poster-prompt";
 import { samplePlanReport } from "./posts-fixture";
 import type { PlanReport } from "./schema";
 
@@ -40,7 +40,8 @@ describe("buildPosterPrompt", () => {
     expect(POSTER_EXCLUSIONS).toMatch(/No text/);
     expect(POSTER_EXCLUSIONS).toMatch(/no logos/);
     expect(POSTER_EXCLUSIONS).toMatch(/no people/);
-    expect(POSTER_EXCLUSIONS).toMatch(/no faces/);
+    expect(POSTER_EXCLUSIONS).toMatch(/no human faces/);
+    expect(POSTER_EXCLUSIONS).toMatch(/no money or trophies/);
   });
 
   it("passes its own check and the shared guardrails", () => {
@@ -70,8 +71,41 @@ describe("buildPosterPrompt", () => {
     expect(promptHash).toMatch(/^[0-9a-f]{64}$/);
     expect(buildPosterPrompt(samplePlanReport()).promptHash).toBe(promptHash);
     expect(input).toEqual({ prompt, num_images: 1, aspect_ratio: POSTER_MODEL.aspectRatio, resolution: POSTER_MODEL.resolution, output_format: "png" });
-    const other = buildPosterPrompt({ ...report, inputs: { ...report.inputs, startTime: "19:00" } });
+    const other = buildPosterPrompt({ ...report, inputs: { ...report.inputs, date: "2026-10-31" } });
     expect(other.promptHash).not.toBe(promptHash);
+  });
+});
+
+describe("the scene and the colors", () => {
+  const report = samplePlanReport();
+
+  it("themes Halloween weekend with pumpkins, bats and friendly ghosts, and other dates with their own scene", () => {
+    expect(seasonalScene("2026-10-31")).toMatch(/pumpkins/);
+    expect(seasonalScene("2026-10-31")).toMatch(/ghosts/);
+    expect(seasonalScene("2026-10-15")).toMatch(/haunted/);
+    expect(seasonalScene("2026-11-07")).toMatch(/autumn/);
+    expect(seasonalScene("2026-12-12")).toMatch(/holiday/);
+    expect(seasonalScene("2026-07-04")).toMatch(/fireworks/);
+    expect(seasonalScene("2026-09-12")).not.toMatch(/school/i);
+    for (const d of ["2026-01-10", "2026-02-10", "2026-04-10", "2026-06-10", "2026-08-10", "2026-09-10"]) expect(seasonalScene(d)).not.toMatch(/\d|school|kid/i);
+    const halloween = buildPosterPrompt({ ...report, inputs: { ...report.inputs, date: "2026-10-31" } });
+    expect(halloween.prompt).toContain(seasonalScene("2026-10-31"));
+    expect(checkPosterPrompt(halloween.prompt, report)).toEqual([]);
+  });
+
+  it("paints in the carrier's colors, named as colors and never as a brand", () => {
+    for (const carrier of ["metro", "cricket", "boost", "other"] as const) {
+      const { prompt } = buildPosterPrompt({ ...report, inputs: { ...report.inputs, store: { ...report.inputs.store, carrier } } });
+      expect(prompt).toContain(CARRIER_ART_PALETTE[carrier]);
+      for (const word of BRAND_WORDS) expect(prompt).not.toContain(word);
+    }
+    expect(CARRIER_ART_PALETTE.metro).toMatch(/purple/);
+    expect(CARRIER_ART_PALETTE.cricket).toMatch(/green/);
+    expect(CARRIER_ART_PALETTE.boost).toMatch(/orange/);
+  });
+
+  it("refuses contest imagery", () => {
+    expect(checkPosterPrompt(`A trophy on a pile of cash for the winner. ${POSTER_EXCLUSIONS}`, report).length).toBeGreaterThanOrEqual(3);
   });
 });
 
