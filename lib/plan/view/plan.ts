@@ -94,14 +94,23 @@ export interface ShoppingView {
   receipt: string | null;
 }
 
+/** Something rose on a generic line: a cliche (the line is struck through) or Qloo's check of its picks. */
+export interface GenericFlag {
+  kind: "cliche" | "check";
+  /** "Music with no local signal", or the check line. */
+  label: string;
+  why: string | null;
+  receipt: string | null;
+}
+
 export interface GenericItemView {
   kind: ItemKind;
   kindLabel: string;
   text: string;
-  /** The cliche this line matches, if any, with why it was flagged (struck through on screen). */
-  flagged: string | null;
-  /** For the generic music and food lines: Qloo's check of their picks against this city. */
-  checked: string | null;
+  /** Struck through on screen: a cliche covers this kind of line. */
+  struck: boolean;
+  /** Said once, on the first line of its kind. */
+  flags: GenericFlag[];
 }
 
 /** One kind of line (music, food...) with the Stoop plan's lines beside the generic plan's. */
@@ -117,6 +126,8 @@ export interface GenericView {
   /** The kept concept and the generic plan, kind by kind, in ITEM_KINDS order. */
   rows: CompareRow[];
   cliches: { text: string; why: string }[];
+  /** Cliches about the plan as a whole ("No place on this block"), not one kind of line. */
+  planCliches: { text: string; why: string }[];
   /** "4 of 7 checkable picks sit below this city's reference median (2 unverifiable)", with its receipt. */
   check: { line: string; receipt: string | null } | null;
 }
@@ -290,11 +301,18 @@ function placeRows(place: Place): ReceiptRow[] {
 
 // --- The builder --------------------------------------------------------------------------------
 
-/** "exact cliche text in the line, or the line in the cliche", case-insensitive. */
-function matchesCliche(line: string, cliche: string): boolean {
-  const a = line.toLowerCase();
-  const b = cliche.toLowerCase().replace(/[."]+$/g, "").trim();
-  return b.length > 0 && (a.includes(b) || b.includes(a));
+/**
+ * The kind of line a cliche is about ("Music with no local signal" is music, "Generic store-bought
+ * snacks" is food), or null for one about the plan as a whole ("No place on this block").
+ */
+export function clicheKind(text: string): ItemKind | null {
+  const t = text.toLowerCase();
+  if (/\b(music|playlist|dj|song|speaker)\b/.test(t)) return "music";
+  if (/\b(snack|snacks|food|drink|drinks|pizza|candy|chips)\b/.test(t)) return "food";
+  if (/\b(balloon|balloons|banner|sign|signs|signage)\b/.test(t)) return "signage";
+  if (/\b(giveaway|giveaways|raffle|drawing|swag|free phone)\b/.test(t)) return "giveaway";
+  if (/\b(game|games|activity|trivia|spin)\b/.test(t)) return "activity";
+  return null;
 }
 
 export function planView(source: PlanSource): PlanView {
@@ -391,30 +409,37 @@ export function planView(source: PlanSource): PlanView {
           baseline.check.unverifiable > 0 ? ` (${baseline.check.unverifiable} unverifiable)` : ""
         }.`
     : null;
+  const checkReceipt = baseline?.check ? receipt("generic-check", baseline.check.evidenceIds, "Generic AI plan, checked with Qloo", "The generic plan's picks, scored against this city") : null;
+  if (checkReceipt) receipts[checkReceipt] = { ...receipts[checkReceipt]!, subject: "generic" };
+  const cliches = baseline?.cliches ?? [];
+  const byKind = new Map<ItemKind, { text: string; why: string }[]>();
+  for (const c of cliches) {
+    const kind = clicheKind(c.text);
+    if (kind) byKind.set(kind, [...(byKind.get(kind) ?? []), c]);
+  }
+  const flaggedKinds = new Set<ItemKind>();
   const genericItems: GenericItemView[] = (baseline?.items ?? []).map((it) => {
     const text = plain(parts(it.text));
-    const hit = baseline!.cliches.find((c) => matchesCliche(text, c.text));
-    const checked = checkLine && baseline!.check!.belowMedian > 0 && (it.kind === "music" || it.kind === "food") ? `Qloo check: ${checkLine}` : null;
-    return { kind: it.kind, kindLabel: ITEM_KIND_LABELS[it.kind], text, flagged: hit ? hit.why : null, checked };
+    const hits = byKind.get(it.kind) ?? [];
+    const first = !flaggedKinds.has(it.kind);
+    if (hits.length > 0) flaggedKinds.add(it.kind);
+    const flags: GenericFlag[] = first ? hits.map((c) => ({ kind: "cliche", label: c.text, why: c.why, receipt: it.kind === "music" ? checkReceipt : null })) : [];
+    return { kind: it.kind, kindLabel: ITEM_KIND_LABELS[it.kind], text, struck: hits.length > 0, flags };
   });
-  // The check scores the generic picks as a whole: it is said once, on the first line it covers.
-  let said = false;
-  for (const g of genericItems) {
-    if (g.checked && said) g.checked = null;
-    else if (g.checked) said = true;
+  // Qloo's check of the generic picks, said once on the first music line when no cliche already says it.
+  if (checkLine && baseline?.check && baseline.check.belowMedian > 0 && !byKind.has("music")) {
+    const music = genericItems.find((g) => g.kind === "music") ?? genericItems.find((g) => g.kind === "food");
+    music?.flags.push({ kind: "check", label: `Qloo check: ${checkLine}`, why: null, receipt: checkReceipt });
   }
   const generic: GenericView | null = baseline
     ? {
         items: genericItems,
         rows: [],
-        cliches: baseline.cliches.map((c) => ({ text: c.text, why: c.why })),
-        check:
-          baseline.check && checkLine
-            ? { line: checkLine, receipt: receipt("generic-check", baseline.check.evidenceIds, "Generic AI plan, checked with Qloo", "The generic plan's picks, scored against this city") }
-            : null,
+        cliches: cliches.map((c) => ({ text: c.text, why: c.why })),
+        planCliches: cliches.filter((c) => clicheKind(c.text) === null || !genericItems.some((g) => g.kind === clicheKind(c.text))).map((c) => ({ text: c.text, why: c.why })),
+        check: baseline.check && checkLine ? { line: checkLine, receipt: checkReceipt } : null,
       }
     : null;
-  if (generic?.check?.receipt) receipts[generic.check.receipt] = { ...receipts[generic.check.receipt]!, subject: "generic" };
 
   const comparison = report.comparison
     ? {
@@ -573,8 +598,27 @@ export function traceRows(steps: readonly PlanTraceStep[]): PlanTraceRow[] {
  */
 export function compareRows(stoop: readonly ItemView[], generic: readonly GenericItemView[]): CompareRow[] {
   return ITEM_KINDS.flatMap((kind) => {
-    const s = stoop.filter((i) => i.kind === kind);
-    const g = generic.filter((i) => i.kind === kind);
-    return s.length || g.length ? [{ kind, kindLabel: ITEM_KIND_LABELS[kind], stoop: s, generic: g }] : [];
+    const group = COMPARE_GROUPS[kind];
+    if (group === null) return [];
+    const kinds = new Set<ItemKind>([kind, ...group]);
+    const s = stoop.filter((i) => kinds.has(i.kind));
+    const g = generic.filter((i) => kinds.has(i.kind));
+    const label = group.length > 0 ? COMPARE_LABELS[kind] ?? ITEM_KIND_LABELS[kind] : ITEM_KIND_LABELS[kind];
+    return s.length || g.length ? [{ kind, kindLabel: label, stoop: s, generic: g }] : [];
   });
 }
+
+/** Kinds compared on one row: food sits with the block partners and venues it comes from. null: shown on another kind's row. */
+const COMPARE_GROUPS: Readonly<Record<ItemKind, readonly ItemKind[] | null>> = {
+  theme: [],
+  music: [],
+  food: ["partner", "venue"],
+  partner: null,
+  venue: null,
+  giveaway: [],
+  activity: [],
+  setup: [],
+  signage: [],
+  timing: [],
+};
+const COMPARE_LABELS: Partial<Record<ItemKind, string>> = { food: "Food and partners" };

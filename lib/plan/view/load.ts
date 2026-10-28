@@ -9,7 +9,7 @@ import "server-only";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
-import { examplePlanId, PLAN_EXAMPLES, type PlanExampleSlug } from "../example-list";
+import { examplePlanId, PLAN_EXAMPLES, REAL_STORE_NOTE, type PlanExampleSlug } from "../example-list";
 import type { PlanReport } from "../schema";
 import { planView, sourceFromReport, type PlanView } from "./plan";
 
@@ -37,7 +37,13 @@ export function loadPlanExampleReport(slug: PlanExampleSlug): PlanReport {
   return report;
 }
 
-/** One example's plan page view, under its plan id ("ex-<slug>"). */
+/**
+ * One example's plan page view, under its plan id ("ex-<slug>"). A fictional store says so; a real
+ * store (published only with the dealer's written permission) carries the permission note instead.
+ */
 export function loadPlanExampleView(slug: PlanExampleSlug): PlanView {
-  return planView(sourceFromReport(loadPlanExampleReport(slug), examplePlanId(slug)));
+  const view = planView(sourceFromReport(loadPlanExampleReport(slug), examplePlanId(slug)));
+  const example = PLAN_EXAMPLES.find((e) => e.slug === slug);
+  if (example && !example.fictional) view.header.fictional = REAL_STORE_NOTE;
+  return view;
 }

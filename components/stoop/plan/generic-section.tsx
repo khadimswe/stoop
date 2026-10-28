@@ -18,7 +18,7 @@ const GENERIC_HEAD = (
   </span>
 );
 
-function Row({ row, checkReceipt, theme }: { row: CompareRow; checkReceipt: string | null; theme: string | null }) {
+function Row({ row, theme }: { row: CompareRow; theme: string | null }) {
   return (
     <tr className="grid gap-x-6 gap-y-2 border-t border-hairline py-4 md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
       <th scope="row" className="text-left font-mono text-[0.6875rem] font-medium tracking-wide text-ink-soft uppercase md:pt-0.5">
@@ -44,26 +44,25 @@ function Row({ row, checkReceipt, theme }: { row: CompareRow; checkReceipt: stri
           <span className="text-ink-soft">Nothing on this line.</span>
         ) : (
           row.generic.map((g, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <p className={cn("text-pretty text-ink-soft", g.flagged && "line-through decoration-rose-deep decoration-2")}>{g.text}</p>
-              {g.flagged && (
-                <p className="flex items-start gap-1.5 text-rose-deep">
-                  <Flag aria-hidden="true" className="mt-1 size-3.5 shrink-0" />
-                  <span>
-                    <span className="font-semibold">Cliché: </span>
-                    {g.flagged}
-                  </span>
-                </p>
-              )}
-              {g.checked && (
-                <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-rose-deep">
-                  <span className="inline-flex items-start gap-1.5">
+            <div key={i} className="flex flex-col gap-1.5">
+              <p className={cn("text-pretty text-ink-soft", g.struck && "line-through decoration-rose-deep decoration-2")}>
+                {g.struck && <span className="sr-only">Flagged as a cliché: </span>}
+                {g.text}
+              </p>
+              {g.flags.map((f) => (
+                <div key={f.label} className="flex flex-col gap-0.5 rounded-md bg-rose-soft px-2.5 py-1.5 text-rose-deep">
+                  <p className="flex items-start gap-1.5 font-semibold">
                     <Flag aria-hidden="true" className="mt-1 size-3.5 shrink-0" />
-                    <span className="font-semibold">{g.checked}</span>
-                  </span>
-                  <ReceiptLink receiptKey={checkReceipt} label="How Qloo checked" />
-                </p>
-              )}
+                    <span>{f.kind === "cliche" ? `Cliché: ${f.label}` : f.label}</span>
+                  </p>
+                  {f.why && <p className="pl-5 text-pretty">{f.why}</p>}
+                  {f.receipt && (
+                    <span className="pl-5">
+                      <ReceiptLink receiptKey={f.receipt} label="How Qloo checked" />
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           ))
         )}
@@ -111,6 +110,19 @@ export function GenericSection({
               ))}
             </ul>
           )}
+          {generic.planCliches.length > 0 && (
+            <ul aria-label="Clichés in the generic plan as a whole" className="flex flex-col gap-2">
+              {generic.planCliches.map((c) => (
+                <li key={c.text} className="flex flex-col gap-1 rounded-lg bg-rose-soft px-3 py-2 text-sm text-rose-deep sm:flex-row sm:items-baseline sm:gap-3">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold">
+                    <Flag aria-hidden="true" className="size-3.5" />
+                    Cliché: {c.text}
+                  </span>
+                  <span className="text-pretty">{c.why}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="rounded-xl border border-hairline bg-surface px-4 sm:px-5">
             <table className="w-full">
               <caption className="sr-only">The Stoop plan and the generic AI plan, line by line</caption>
@@ -129,15 +141,13 @@ export function GenericSection({
               </thead>
               <tbody>
                 {generic.rows.map((row) => (
-                  <Row key={row.kind} row={row} checkReceipt={generic.check?.receipt ?? null} theme={theme} />
+                  <Row key={row.kind} row={row} theme={theme} />
                 ))}
               </tbody>
             </table>
           </div>
-          {generic.cliches.length > 0 && (
-            <p className="text-sm text-ink-soft">
-              Struck through in rose: generic choices with no local signal behind them, flagged by Stoop&apos;s cliché check.
-            </p>
+          {generic.items.some((g) => g.struck) && (
+            <p className="text-sm text-ink-soft">Struck through in rose: generic lines with no local signal behind them, flagged by Stoop&apos;s cliché check.</p>
           )}
         </>
       )}
