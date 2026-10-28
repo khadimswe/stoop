@@ -115,4 +115,15 @@ export const keys = {
     count: (example: string, choice: string) => `votes:${example}:${choice}`,
     visitor: (example: string, visitor: VisitorId) => `votes:${example}:by:${visitor}`,
   },
+  // Store-event plans (lib/plan). A plan id is a live run id ("plan_" plus 24 hex) or an example's
+  // "ex-<slug>"; an example keeps only events added after its recording here (the poster, for one).
+  /** A plan's events, in write order; every writer takes its seqs from planSeq. */
+  planEvents: (planId: string) => `plan:${planId}:events`,
+  planSeq: (planId: string) => `plan:${planId}:seq`,
+  /** A live plan's status, input hash and starter. */
+  planMeta: (planId: string) => `plan:${planId}:meta`,
+  /** Idempotent starts: the input hash points at the plan already started for it. */
+  planClaim: (inputHash: string) => `plan:claim:${inputHash}`,
+  /** Live plan admission leases. */
+  planLeases: "leases:live-plans",
 } as const;

@@ -29,6 +29,8 @@ fixtures/llm/
 regex:^fixtures/recipes/(?!(smoke|probe-search|pool-resolve|pool-refresh-2)\.json$)
 # The stored example runs: reports and event traces built from Qloo answers.
 data/runs/
+# The stored example store plans: the same, for store events.
+data/plans/
 # The frozen reference panels: Qloo entity and tag ids, names and popularity.
 data/culture/
 # Reference audiences for city ranking: per-cell sums of Qloo heatmap percentiles.
