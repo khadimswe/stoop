@@ -97,7 +97,6 @@ const SETTING_TEXT: Record<PlanInputs["setting"], string> = {
   sidewalk_table: "a table on the sidewalk outside the store",
   in_store: "inside the store",
   nearby_venue: "at a venue near the store",
-  community_event: "at a booth at a fair or community event",
 };
 
 const CARRIER_TEXT: Record<PlanInputs["store"]["carrier"], string> = {

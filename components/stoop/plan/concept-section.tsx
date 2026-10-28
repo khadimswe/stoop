@@ -1,7 +1,7 @@
 import type { ConceptView, ItemView } from "@/lib/plan/view/plan";
 import { OriginTag } from "./origin-tag";
 import { EmptyNote, PlanSection } from "./plan-section";
-import { RefChip, RichText } from "./rich-text";
+import { RichText } from "./rich-text";
 
 /** A block place a line names, with Qloo's own "why" quoted under it: the receipt you can read. */
 function PlaceWhy({ place }: { place: ItemView["places"][number] }) {
