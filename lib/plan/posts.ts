@@ -149,7 +149,21 @@ export function checkLlmPosts(posts: LlmPosts, report: Report): GuardIssue[] {
 export function postFacts(report: Report) {
   const text = posterText(report);
   const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
-  return { title: text.title, when: `${text.date}, ${text.time}`, where, offers: text.offers, weekday: text.date.split(",")[0] ?? "" };
+  return { title: text.title, when: `${text.date}, ${text.time}`, where, offers: text.offers, wheel: text.wheel, weekday: text.date.split(",")[0] ?? "" };
+}
+
+/**
+ * Joins a post's lines within the network's limit. Offers are never cut mid-line: when they do not all
+ * fit, whole offers drop from the end and one line says how many more are at the table.
+ */
+export function fitPost(head: readonly string[], offers: readonly string[], tail: readonly string[], max: number): string {
+  for (let shown = offers.length; shown >= 0; shown--) {
+    const more = offers.length - shown;
+    const lines = [...head, ...offers.slice(0, shown).map((o) => `Offer: ${o}`), ...(more ? [`${more} more ${more === 1 ? "offer" : "offers"} at the table.`] : []), ...tail];
+    const text = lines.join("\n");
+    if (text.length <= max) return text;
+  }
+  return [...head, ...tail].join("\n").slice(0, max);
 }
 
 /** Openings plus the facts, refs rendered: the posts as shared. `share` is filled by the caller. */
@@ -157,12 +171,13 @@ export function composePosts(openings: LlmPosts, report: Report): Posts {
   const nameOf = refNames(report);
   const r = (text: string) => renderRefs(text.trim(), nameOf).replace(/[ \t]+/g, " ");
   const f = postFacts(report);
-  const offerLines = f.offers.map((o) => `Offer: ${o}`);
-  const facebook = [r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`, ...offerLines].join("\n");
-  const instagram = [r(openings.instagram), "", `${f.when}`, `${f.where}`, ...offerLines].join("\n");
-  const whatsapp = [r(openings.whatsapp), `${f.when}, ${f.where}.`, ...offerLines].join("\n");
+  // The prize wheel's line, the same words as on the poster.
+  const wheel = f.wheel ? [f.wheel] : [];
+  const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`], f.offers, wheel, 2000);
+  const instagram = fitPost([r(openings.instagram), "", `${f.when}`, `${f.where}`], f.offers, wheel, 2200);
+  const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`], f.offers, wheel, 1000);
   const hashtags = [...new Set(openings.hashtags.map((t) => t.replace(/^#/, "")))].slice(0, 8);
-  return { facebook: { text: facebook.slice(0, 2000) }, instagram: { caption: instagram.slice(0, 2200), hashtags }, whatsapp: { text: whatsapp.slice(0, 1000) }, share: {} };
+  return { facebook: { text: facebook }, instagram: { caption: instagram, hashtags }, whatsapp: { text: whatsapp }, share: {} };
 }
 
 const cityTag = (city: string) => city.replace(/[^A-Za-z0-9]+/g, "");

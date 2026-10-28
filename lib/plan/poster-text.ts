@@ -22,8 +22,23 @@ export interface PosterText {
   location: string | null;
   /** The manager's offers, verbatim, in the order typed. */
   offers: string[];
+  /** When the plan has a prize wheel: one line saying so (never what a slice pays out). */
+  wheel: string | null;
   /** Example stores only: they are fictional and not affiliated with the carrier. */
   disclaimer: string | null;
+}
+
+/**
+ * The prize wheel's one line, from what its slices are: deals when it carries the store's promos, free
+ * gift cards when it carries gift-card slices. Spinning is always free and needs no purchase.
+ */
+export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
+  const slices = plan?.wheel?.slices;
+  if (!slices?.length) return null;
+  const deals = slices.some((s) => s.kind === "promo");
+  const cards = slices.some((s) => s.kind === "gift_card");
+  const what = deals && cards ? "today's deals and free gift cards" : deals ? "today's deals" : cards ? "free gift cards" : "small treats from the table";
+  return `Spin the prize wheel: ${what}. Free to spin, no purchase needed.`;
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -104,6 +119,7 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
     address: inputs.store.address,
     location: inputs.location?.name.trim() || null,
     offers: inputs.offers.map((o) => o.text),
+    wheel: wheelLine(report.plan),
     disclaimer: report.meta.kind === "example" ? CARRIER_NOTES[inputs.store.carrier] : null,
   };
 }
@@ -112,5 +128,5 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
 export function posterAlt(text: PosterText): string {
   const offers = text.offers.length ? ` Offers: ${text.offers.join("; ")}.` : "";
   const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
-  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}`;
+  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}${text.wheel ? ` ${text.wheel}` : ""}`;
 }

@@ -211,6 +211,16 @@ describe("posterResponse", () => {
     expect(await pngSize(og)).toEqual({ signature: "PNG", ...POSTER_SIZES.og });
   });
 
+  it("fits eight long offers and the wheel line on both sizes", async () => {
+    const report = samplePlanReport({ kind: "example" });
+    const offers = Array.from({ length: 8 }, (_, i) => ({ text: `Promo ${i + 1}: free phone when you switch to a new line, select models, taxes and fees extra` }));
+    const wheel = { slices: ["promo", "gift_card", "snack", "other"].map((kind) => ({ label: "x", kind: kind as "promo", text: "x", origin: kind === "promo" ? ("yours" as const) : ("creative" as const), refs: [], evidenceIds: [] })), rules: ["Free to spin."] };
+    const source = exampleSource({ ...report, inputs: { ...report.inputs, offers }, plan: { ...report.plan!, wheel } });
+    const deps = { live: false, store: () => store, source: () => source, artOrigins: [] };
+    expect(await pngSize(await posterResponse(deps, EX, "portrait"))).toEqual({ signature: "PNG", ...POSTER_SIZES.portrait });
+    expect(await pngSize(await posterResponse(deps, EX, "og"))).toEqual({ signature: "PNG", ...POSTER_SIZES.og });
+  });
+
   it("answers 404 for an unknown plan, and never fetches art from an untrusted host", async () => {
     const report = samplePlanReport({ kind: "example" });
     const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url: "https://evil.test/art.png" } });

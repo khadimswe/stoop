@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { checkText } from "../guardrails";
 import { postsSchema } from "./schema";
 import { samplePlanReport } from "./posts-fixture";
-import { allowedRefs, checkHashtags, checkLlmPosts, checkPostText, composePosts, fallbackOpenings, generatePosts, postsPrompt, type LlmPosts } from "./posts";
+import { allowedRefs, checkHashtags, checkLlmPosts, checkPostText, composePosts, fallbackOpenings, fitPost, generatePosts, postsPrompt, type LlmPosts } from "./posts";
 
 const usage = { inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 50, text: 50, reasoning: undefined } };
 const EM_DASH = String.fromCharCode(0x2014);
@@ -110,11 +110,36 @@ describe("the prize wheel", () => {
   };
   const withWheel = { ...report, plan: { ...plan, wheel } };
 
+  it("adds the wheel's one line to every post, the same words as the poster", () => {
+    const posts = composePosts(good, withWheel);
+    const line = "Spin the prize wheel: today's deals and free gift cards. Free to spin, no purchase needed.";
+    for (const text of [posts.facebook.text, posts.instagram.caption, posts.whatsapp.text]) expect(text).toContain(line);
+    expect(composePosts(good, report).facebook.text).not.toContain("prize wheel");
+  });
+
   it("lets a post say there is a prize wheel, never what it pays out", () => {
     expect(checkPostText("Spin the prize wheel at the table, free to spin.", withWheel, "facebook")).toEqual([]);
     expect(checkPostText("Win prizes all afternoon.", withWheel, "facebook").map((i) => i.match)).toContain("prizes");
     expect(checkPostText("Spin the prize wheel.", report, "facebook").map((i) => i.match)).toContain("prize");
     expect(postsPrompt(withWheel)).toContain("never list, describe or promise a prize");
+  });
+});
+
+describe("fitPost", () => {
+  it("keeps every offer whole: past the limit, whole offers drop and one line says how many more", () => {
+    const offers = Array.from({ length: 8 }, (_, i) => `Offer number ${i + 1}: ${"x".repeat(120)}`);
+    const text = fitPost(["Opening."], offers, ["Wheel line."], 1000);
+    expect(text.length).toBeLessThanOrEqual(1000);
+    const kept = offers.filter((o) => text.includes(o));
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.length).toBeLessThan(8);
+    expect(text).toContain(`${8 - kept.length} more offers at the table.`);
+    for (const line of text.split("\n").filter((l) => l.startsWith("Offer: "))) expect(offers).toContain(line.slice("Offer: ".length));
+    expect(text.endsWith("Wheel line.")).toBe(true);
+  });
+
+  it("keeps all of them when they fit", () => {
+    expect(fitPost(["Hi."], ["A", "B"], [], 100)).toBe("Hi.\nOffer: A\nOffer: B");
   });
 });
 

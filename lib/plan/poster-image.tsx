@@ -60,32 +60,47 @@ export interface PosterArt {
   dataUri: string;
 }
 
+/** Offers drawn on the poster: all of them on the portrait (up to 8, smaller past 3), 2 on a link preview. */
+export const OG_OFFERS = 2;
+
 function Offers({ offers, art, size }: { offers: string[]; art: boolean; size: PosterSize }) {
   if (offers.length === 0) return null;
   const big = size === "portrait";
+  const shown = big ? offers : offers.slice(0, OG_OFFERS);
+  const more = offers.length - shown.length;
+  // Past 3 offers the portrait packs them tighter, so 8 still fit with the title and the store.
+  const many = big && offers.length > 3;
+  const font = (offer: string) => (big ? (many ? (offer.length > 70 ? 22 : 26) : offer.length > 70 ? 30 : 36) : offer.length > 70 ? 20 : 24);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: big ? 14 : 10 }}>
-      {offers.map((offer, i) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: big ? (many ? 8 : 14) : 10 }}>
+      {shown.map((offer, i) => (
         <div
           key={i}
           style={{
             display: "flex",
             alignSelf: "flex-start",
             maxWidth: "100%",
-            padding: big ? "14px 24px" : "8px 16px",
-            borderRadius: big ? 22 : 14,
-            border: `${big ? 4 : 3}px solid ${C.ink}`,
+            padding: big ? (many ? "7px 18px" : "14px 24px") : "8px 16px",
+            borderRadius: big ? (many ? 16 : 22) : 14,
+            border: `${big && !many ? 4 : 3}px solid ${C.ink}`,
             background: art ? C.sun : C.brickSoft,
             color: C.ink,
-            fontSize: big ? (offer.length > 70 ? 30 : 36) : offer.length > 70 ? 20 : 24,
+            fontSize: font(offer),
             lineHeight: 1.2,
           }}
         >
           {offer}
         </div>
       ))}
+      {more > 0 && <div style={{ fontSize: 20, color: art ? C.paper : C.inkSoft }}>{`${more} more ${more === 1 ? "offer" : "offers"} at the table`}</div>}
     </div>
   );
+}
+
+function WheelLine({ line, art, size }: { line: string | null; art: boolean; size: PosterSize }) {
+  if (!line) return null;
+  const big = size === "portrait";
+  return <div style={{ display: "flex", fontSize: big ? 30 : 20, lineHeight: 1.25, color: art ? C.sun : C.ink }}>{line}</div>;
 }
 
 function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
@@ -112,8 +127,9 @@ function Portrait({ text, art }: { text: PosterText; art: PosterArt | null }) {
           <div style={{ fontSize: 56, color: fg }}>{text.time}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 34 }}>
-          <div style={{ fontFamily: "Bricolage", fontSize: titleSize(text.title, "portrait"), lineHeight: 0.92, letterSpacing: -2, color: fg, ...(art ? { textShadow: "0 4px 28px rgba(20,18,31,0.7)" } : {}) }}>{text.title}</div>
+          <div style={{ fontFamily: "Bricolage", fontSize: Math.min(titleSize(text.title, "portrait"), text.offers.length > 3 ? 96 : 999), lineHeight: 0.92, letterSpacing: -2, color: fg, ...(art ? { textShadow: "0 4px 28px rgba(20,18,31,0.7)" } : {}) }}>{text.title}</div>
           <Offers offers={text.offers} art={art !== null} size="portrait" />
+          <WheelLine line={text.wheel} art={art !== null} size="portrait" />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
             <div style={{ fontFamily: "Bricolage", fontSize: 50, lineHeight: 1.05, color: fg }}>{where(text).main}</div>
             <div style={{ fontSize: 32, lineHeight: 1.25, color: soft }}>{where(text).sub}</div>
@@ -147,7 +163,8 @@ function Og({ text, art }: { text: PosterText; art: PosterArt | null }) {
         <div style={{ fontSize: 28, letterSpacing: 2.5, textTransform: "uppercase", color: art ? C.sun : C.brick }}>{`${text.date} · ${text.time}`}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ fontFamily: "Bricolage", fontSize: titleSize(text.title, "og"), lineHeight: 0.94, letterSpacing: -1.5, color: fg }}>{text.title}</div>
-          <Offers offers={text.offers.slice(0, 2)} art={art !== null} size="og" />
+          <Offers offers={text.offers} art={art !== null} size="og" />
+          <WheelLine line={text.wheel} art={art !== null} size="og" />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ fontFamily: "Bricolage", fontSize: 34, color: fg }}>{where(text).main}</div>

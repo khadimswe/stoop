@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventDate, eventTime, keptConcept, posterAlt, posterText } from "./poster-text";
+import { eventDate, eventTime, keptConcept, posterAlt, posterText, wheelLine } from "./poster-text";
 import { samplePlanReport } from "./posts-fixture";
 import type { PlanReport } from "./schema";
 
@@ -40,6 +40,27 @@ describe("posterText", () => {
     expect(alt).toContain("Taco Table Saturday");
     expect(alt).toContain("$25/mo unlimited with a free phone when you switch");
     expect(alt).toContain("Corner Wireless on Fifth");
+  });
+});
+
+describe("wheelLine", () => {
+  const slice = (kind: "promo" | "gift_card" | "snack" | "other") => ({ label: "x", kind, text: "x", origin: kind === "promo" ? ("yours" as const) : ("creative" as const), refs: [], evidenceIds: [] });
+  const plan = (kinds: ("promo" | "gift_card" | "snack" | "other")[]) => ({ wheel: { slices: kinds.map(slice), rules: ["Free to spin."] } });
+
+  it("says there is a wheel in one line, from what its slices are", () => {
+    expect(wheelLine(plan(["promo", "gift_card", "snack", "other"]))).toBe("Spin the prize wheel: today's deals and free gift cards. Free to spin, no purchase needed.");
+    expect(wheelLine(plan(["promo", "promo", "snack", "other"]))).toBe("Spin the prize wheel: today's deals. Free to spin, no purchase needed.");
+    expect(wheelLine(plan(["gift_card", "snack", "other", "other"]))).toBe("Spin the prize wheel: free gift cards. Free to spin, no purchase needed.");
+    expect(wheelLine({})).toBeNull();
+    expect(wheelLine(null)).toBeNull();
+  });
+
+  it("sets it on the poster only when the plan has a wheel", () => {
+    const report = samplePlanReport();
+    expect(posterText(report).wheel).toBeNull();
+    const withWheel = { ...report, plan: { ...report.plan!, ...plan(["promo", "gift_card", "snack", "other"]) } };
+    expect(posterText(withWheel).wheel).toMatch(/^Spin the prize wheel/);
+    expect(posterAlt(posterText(withWheel))).toContain("Free to spin, no purchase needed.");
   });
 });
 
