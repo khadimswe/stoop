@@ -92,6 +92,15 @@ export function byokEnabled(env: Env = process.env): boolean {
   return env.ENABLE_BYOK?.trim().toLowerCase() !== "false";
 }
 
+/**
+ * ENABLE_META_POSTING: posting a plan's poster to a manager's Facebook Page and Instagram account
+ * (lib/social). Off unless "true"; the routes also need META_APP_ID and META_APP_SECRET, which the Meta
+ * adapter reads itself. Off, the routes answer 404 and the page keeps its one-tap share links.
+ */
+export function metaPostingEnabled(env: Env = process.env): boolean {
+  return flag(env.ENABLE_META_POSTING);
+}
+
 /** Storyboard world jobs (up to 8 frames each, with the re-renders) per visitor per day, on top of FRAMES_DAILY_CAP. */
 export const STORYBOARD_LIMITS = { perCookieDaily: 6, perIpDaily: 15 } as const;
 
