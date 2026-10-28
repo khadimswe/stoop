@@ -39,6 +39,10 @@ export const storeSchema = z.strictObject({
   /** The city name Qloo resolves (signal.location.query), e.g. "Chicago". */
   city: z.string().min(1).max(80),
   region: z.string().min(1).max(40),
+  /** The store's public phone number, printed on the poster and in the posts so people can call. */
+  phone: z.string().regex(/^[0-9()+.\-\s]{7,24}$/).optional(),
+  /** The store's own number in the dealer's system (for example "Store 1234"), for multi-store views. */
+  storeNumber: z.string().min(1).max(24).optional(),
   /** The store itself: places near it are searched around this point (filter.location). */
   point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }),
 });
