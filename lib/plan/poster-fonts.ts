@@ -3,7 +3,6 @@
 // there. Generated from components/stoop/marketing/og/fonts (Bricolage Grotesque 800 condensed and
 // Figtree 600, static instances, SIL Open Font License 1.1: see OFL.txt in that folder). Regenerate
 // from those files if they change; never edit by hand.
-/* eslint-disable */
 
 export const POSTER_DISPLAY_FONT_BASE64 = [
   "AAEAAAAQAQAABAAAR0RFRjocOWEAAAJQAAAA5EdQT1NaZwWeAAC1CAAAit5HU1VCvzzi/gAAEbQAAAgcT1MvMmcqfmkAAAHwAAAAYFNUQVRkyFRTAAABmAAAAFZjbWFwwBgxaAAAC4gAAAYsZ2FzcAAAABAAAAEUAAAACGdseWZYba+1AAAyeAAAgpBoZWFkHqPwdgAA",
