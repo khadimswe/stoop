@@ -14,6 +14,7 @@
 //
 //   cd /Users/khadim/Stoop && npx tsx <worktree>/scripts/proof-run.ts <id>... | --set task1|task2|all [--replay-only] [--concurrency 3] [--repeat 2]
 // --repeat N runs the same store again with fresh Claude answers (runs/<id>-rN), for model variance.
+// --round 2 writes round 2 (data/proof/runs-2/, answers proof2-<id>) with the live runtime's known chains.
 import { execSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,18 +26,18 @@ import { createPlanEmitter, reducePlan, toPlanReport, type PlanEvent } from "../
 import { runPlan } from "../lib/plan/pipeline";
 import type { PlanReport } from "../lib/plan/schema";
 import { loadLocalEnv } from "./env";
-import { exists, json, loadStores, PROOF_FIXTURES, PROOF_RUNS, proofModel, readJson, recordingClient, replayClient, resolvedLocality, ROOT, templateInputs, type ProofStore } from "./proof-lib";
+import { exists, json, loadStores, PROOF_FIXTURES, liveKnownChains, proofModel, readJson, recordingClient, replayClient, resolvedLocality, ROOT, roundArg, roundPrefix, roundRuns, templateInputs, type ProofStore } from "./proof-lib";
 
 const git = (args: string) => execSync(`git -C "${ROOT}" ${args}`, { encoding: "utf8" }).trim();
 
 /** What a replay must reproduce: everything but timings and receipts' fetch metadata. */
 const essence = (report: PlanReport) => JSON.stringify({ local: report.local, plan: report.plan, baseline: report.baseline, comparison: report.comparison });
 
-async function runStore(store: ProofStore, options: { apiKey: string; limiter: ReturnType<typeof createLimiter>; replayOnly: boolean; repeat?: number }): Promise<void> {
+async function runStore(store: ProofStore, options: { apiKey: string; limiter: ReturnType<typeof createLimiter>; replayOnly: boolean; repeat?: number; round: number; knownChains?: ReadonlySet<string> }): Promise<void> {
   // A repeat is the same store and inputs with fresh Claude answers (its own answer file), for model
   // variance; Qloo's answers replay from the first run's recording.
   const key = options.repeat ? `${store.id}-r${options.repeat}` : store.id;
-  const dir = path.join(PROOF_RUNS, key);
+  const dir = path.join(roundRuns(options.round), key);
   const reportFile = path.join(dir, "plan.report.json");
   if (!options.replayOnly && exists(reportFile)) {
     console.log(`${key}: already run, skipped (delete ${path.relative(ROOT, dir)} to run it again)`);
@@ -44,8 +45,8 @@ async function runStore(store: ProofStore, options: { apiKey: string; limiter: R
   }
   const inputs = templateInputs(store);
   const qloo = options.replayOnly ? { ...replayClient(), recording: null } : recordingClient(options.apiKey, options.limiter);
-  const { model, captured, store: llm, modelId } = proofModel(`proof-${key}`, { replayOnly: options.replayOnly });
-  const runId = `proof-${key}`;
+  const { model, captured, store: llm, modelId } = proofModel(`${roundPrefix(options.round)}-${key}`, { replayOnly: options.replayOnly });
+  const runId = `${roundPrefix(options.round)}-${key}`;
   const ctx = createRunContext({ runId, cap: PLAN_CAP, rowCaps: PLAN_BUDGET });
   const emit = createPlanEmitter();
   const events: PlanEvent[] = [];
@@ -57,7 +58,7 @@ async function runStore(store: ProofStore, options: { apiKey: string; limiter: R
     },
   };
   const started = Date.now();
-  const outcome = await runPlan({ client: qloo.client, ctx, sink, model }, { runId, kind: "live", inputs });
+  const outcome = await runPlan({ client: qloo.client, ctx, sink, model, ...(options.knownChains ? { knownChains: options.knownChains } : {}) }, { runId, kind: "live", inputs });
   sink.emit({ type: "run.done" });
   const report = toPlanReport(reducePlan(events));
   const seconds = (Date.now() - started) / 1000;
@@ -83,7 +84,7 @@ async function runStore(store: ProofStore, options: { apiKey: string; limiter: R
   });
   await mkdir(dir, { recursive: true });
   await mkdir(PROOF_FIXTURES, { recursive: true });
-  const fixture = await qloo.recording?.save(`proof-run-${key}`, `Proof lab: the Qloo calls the ${key} proof plan made live.`, { secret: options.apiKey, dir: PROOF_FIXTURES });
+  const fixture = await qloo.recording?.save(`${roundPrefix(options.round)}-run-${key}`, `Proof lab: the Qloo calls the ${key} proof plan made live.`, { secret: options.apiKey, dir: PROOF_FIXTURES });
   llm.prune();
   llm.save();
   await writeFile(reportFile, json(report));
@@ -93,6 +94,8 @@ async function runStore(store: ProofStore, options: { apiKey: string; limiter: R
     json({
       store: store.id,
       repeat: options.repeat ?? 1,
+      round: options.round,
+      knownChains: options.knownChains ? options.knownChains.size : null,
       area: store.area,
       ranAt: new Date().toISOString(),
       head: git("rev-parse --short HEAD"),
@@ -119,6 +122,8 @@ async function main(): Promise<void> {
   const setArg = args.includes("--set") ? args[args.indexOf("--set") + 1] : null;
   const concurrency = args.includes("--concurrency") ? Number(args[args.indexOf("--concurrency") + 1]) : 3;
   const repeat = args.includes("--repeat") ? Number(args[args.indexOf("--repeat") + 1]) : undefined;
+  const round = roundArg(args);
+  const knownChains = round >= 2 ? await liveKnownChains() : undefined;
   const stores = loadStores();
   const ids = setArg
     ? stores.filter((s) => setArg === "all" || s.sets.includes(setArg as ProofStore["sets"][number])).map((s) => s.id)
@@ -135,7 +140,7 @@ async function main(): Promise<void> {
     ids.map((id) =>
       limit(async () => {
         try {
-          await runStore(stores.find((s) => s.id === id) as ProofStore, { apiKey, limiter, replayOnly, ...(repeat ? { repeat } : {}) });
+          await runStore(stores.find((s) => s.id === id) as ProofStore, { apiKey, limiter, replayOnly, round, ...(knownChains ? { knownChains } : {}), ...(repeat ? { repeat } : {}) });
         } catch (error) {
           failures.push(id);
           console.error(`${id}: failed: ${error instanceof Error ? error.message : String(error)}`);
