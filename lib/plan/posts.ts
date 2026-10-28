@@ -50,16 +50,26 @@ const HASHTAG = /^[A-Za-z][A-Za-z0-9]{1,29}$/;
 const REF_TOKEN = /\[\[[A-Za-z0-9-]+\]\]/g;
 const CALENDAR = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-/** Every id a post may name: the artists and places in the kept concept (its lines, title and hook). */
+/**
+ * Every id a post may name: the places in the kept concept (its lines, title and hook). Never an
+ * artist: a public post that names a real person to promote a store event borrows their name for an
+ * ad, so posts describe the music by its style and the playlist stays in the plan.
+ */
 export function allowedRefs(report: Report): Set<string> {
   const concept = keptConcept(report);
-  const known = refNames(report);
+  const places = new Set((report.local.block?.places ?? []).map((p) => p.id));
   const ids = new Set<string>();
   if (!concept) return ids;
   for (const item of concept.items) for (const ref of item.refs) ids.add(ref);
   for (const ref of [...refsIn(concept.title), ...refsIn(concept.hook)]) ids.add(ref);
   // Not the prize wheel's gift-card places: a post never says what the wheel pays out.
-  return new Set([...ids].filter((id) => known.has(id)));
+  return new Set([...ids].filter((id) => places.has(id)));
+}
+
+/** Plan text for the prompt, with each artist token shown as "a local artist", so no artist id reaches a post. */
+function withoutArtists(text: string, report: Report): string {
+  const artists = new Set((report.local.city?.artists ?? []).map((a) => a.id));
+  return text.replace(/\[\[([A-Za-z0-9-]+)\]\]/g, (token, id: string) => (artists.has(id) ? "a local artist" : token));
 }
 
 /** The manager's own words and the plan's lines (not the wheel's slices), for checking a post invents no facts. */
@@ -271,7 +281,8 @@ export function postsInstructions(): string {
     "You write short social posts for a prepaid phone store's event: a table outside the store with music and food from the block.",
     "The store manager reviews every post and shares it themselves. Write as the store (we), friendly, short, plain and local, like a neighbor talking.",
     "Write only the opening lines of each post. Code adds the date, the time, the store's address and the manager's offers word for word, so never write dates, times, addresses, prices, deals or offers yourself, and never add links.",
-    "Name an artist or a place only by writing its token exactly as given, like [[place-id]]. Never write a name out. Use only the tokens listed in the plan. Mention a food spot or venue only if the plan lists it.",
+    "Name a place only by writing its token exactly as given, like [[place-id]]. Never write a name out. Use only the tokens listed in the plan. Mention a food spot or venue only if the plan lists it.",
+    "Never name an artist, a band or any person. Describe the music by its style instead (for example \"Chicago hip hop\").",
     "Never name a carrier, a carrier promo or a promo day yourself: the manager's offers carry them, word for word. Never claim turnout, popularity, sales or anything nobody measured. Never say \"your customers\" or \"our customers\": speak to the city and the block. Never mention alcohol or tobacco. The event is for adults passing by: nothing aimed at children.",
     "Facebook: 2 to 4 short sentences. Instagram: 1 to 3 short sentences. WhatsApp: 1 or 2 sentences, like a text to a neighbor who asked to hear about events. At most one emoji per post.",
     "Hashtags: 3 to 6, letters and digits only, no # sign. The city's name is fine; never an artist, a place, a carrier or a brand.",
@@ -293,11 +304,11 @@ export function postsPrompt(report: Report): string {
   const places = new Map((report.local.block?.places ?? []).map((p) => [p.id, p]));
   const tokens = [...allowedRefs(report)].map((id) => {
     const place = places.get(id);
-    return place
-      ? `[[${id}]]: ${nameOf.get(id)} (${place.kind === "food" ? "food spot" : place.kind}${place.distanceM !== null ? `, about ${Math.round(place.distanceM / 10) * 10} m from the store` : ""})`
-      : `[[${id}]]: ${nameOf.get(id)} (an artist the city plays)`;
+    return `[[${id}]]: ${nameOf.get(id)} (${place?.kind === "food" ? "food spot" : (place?.kind ?? "place")}${place && place.distanceM !== null ? `, about ${Math.round(place.distanceM / 10) * 10} m from the store` : ""})`;
   });
-  const lines = (concept?.items ?? []).map((i) => `- ${i.kind}: ${i.text}`);
+  const styles = report.local.city?.styles.map((s) => s.name) ?? [];
+  const lines = (concept?.items ?? []).map((i) => `- ${i.kind}: ${withoutArtists(i.text, report)}`);
+  if (styles.length) lines.push(`- music styles the city leans toward: ${styles.join(", ")}`);
   return [
     `The event: ${f.title}, on ${f.when}, ${SETTING_WORDS[report.inputs.setting]}, ${report.inputs.location ? `at ${report.inputs.location.name}, hosted by ${report.inputs.store.name}` : `at ${report.inputs.store.name}`} in ${report.inputs.store.city}.`,
     concept ? `Why someone stops: ${concept.hook}` : "",
