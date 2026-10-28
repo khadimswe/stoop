@@ -33,7 +33,7 @@ type SendState = { kind: "idle" } | { kind: "sending" } | { kind: "error"; messa
 type LocateState = { kind: "idle" } | { kind: "locating" } | { kind: "error"; message: string } | { kind: "done" };
 
 /** Fields under "More options", which opens when one of them has an error. */
-const MORE_FIELDS: readonly StoreField[] = ["startTime", "durationMinutes", "setting", "venueName", "venueLat", "venueLon", "carrier", "ageBands", "notes"];
+const MORE_FIELDS: readonly StoreField[] = ["startTime", "durationMinutes", "setting", "venueName", "venueLat", "venueLon", "carrier", "storeNumber", "ageBands", "notes"];
 
 /** Placeholders that read like a store's promo list, not marketing copy. */
 const PROMO_EXAMPLES = ["Free phone when you switch", "Free tablet with a new line", "$25/mo unlimited, taxes included"];
@@ -156,6 +156,9 @@ export function StoreForm() {
             <input id={fid("region")} value={values.region} maxLength={LIMITS.region} onChange={(e) => set("region", e.target.value)} autoComplete="address-level1" className={FIELD} {...errorProps("region")} />
           </Field>
         </div>
+        <Field id={fid("phone")} label="Store phone" optional error={errors.phone}>
+          <input id={fid("phone")} type="tel" value={values.phone} maxLength={24} onChange={(e) => set("phone", e.target.value)} autoComplete="tel" className={FIELD} {...errorProps("phone")} />
+        </Field>
         <fieldset className="flex flex-col gap-2" aria-describedby={errors.point ? `${fid("point")}-error` : undefined}>
           <legend className="mb-1 text-sm font-semibold">Store location</legend>
           <div className="flex flex-wrap items-center gap-3">
@@ -296,6 +299,9 @@ export function StoreForm() {
                 </option>
               ))}
             </select>
+          </Field>
+          <Field id={fid("storeNumber")} label="Store number (internal)" optional error={errors.storeNumber}>
+            <input id={fid("storeNumber")} value={values.storeNumber} maxLength={24} onChange={(e) => set("storeNumber", e.target.value)} className={FIELD} {...errorProps("storeNumber")} />
           </Field>
           <fieldset className="flex flex-col gap-2" aria-describedby={errors.ageBands ? `${fid("ageBands")}-error` : undefined}>
             <legend className="mb-1 text-sm font-semibold">Ages (adults only, up to 3)</legend>

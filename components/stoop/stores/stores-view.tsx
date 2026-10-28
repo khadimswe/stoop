@@ -32,6 +32,7 @@ function StoreCard({ store, big = false }: { store: StoreRowView; big?: boolean 
       <Thumb store={store} className={big ? "w-28 shrink-0" : "w-16 shrink-0"} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-sm text-ink-soft">
+          {store.storeNumber && <span className="font-mono">{store.storeNumber} · </span>}
           {store.storeName}, {store.city.split(",")[0]}
         </p>
         <h2 className={cn("font-display leading-tight font-extrabold text-balance [font-stretch:85%]", big ? "text-2xl" : "text-lg")}>{store.eventTitle ?? "No plan yet"}</h2>
@@ -84,7 +85,10 @@ function DistrictTable({ stores }: { stores: readonly StoreRowView[] }) {
                 <Link href={s.planHref} className="underline decoration-1 underline-offset-4 hover:decoration-brick">
                   {s.storeName}
                 </Link>
-                <span className="block text-xs font-normal text-ink-soft">{s.city.split(",")[0]}</span>
+                <span className="block text-xs font-normal text-ink-soft">
+                  {s.storeNumber && <span className="font-mono">{s.storeNumber} · </span>}
+                  {s.city.split(",")[0]}
+                </span>
               </th>
               <td className="md:px-4 md:py-3">
                 <span className="block">{s.eventTitle ?? "No plan yet"}</span>

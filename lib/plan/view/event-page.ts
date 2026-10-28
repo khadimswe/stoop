@@ -12,6 +12,8 @@ export interface EventPageView {
   dateText: string;
   timeText: string;
   storeName: string;
+  /** The store's public phone, when the manager gave one. Never the internal store number. */
+  phone: string | null;
   /** Where to go: the event's own place when it is away from the store, else the store. */
   where: string;
   address: string;
@@ -39,6 +41,7 @@ export function eventPageView(source: PlanSource): EventPageView {
     dateText: eventDate(inputs.date),
     timeText: timeRange(inputs.startTime, inputs.durationMinutes),
     storeName: inputs.store.name,
+    phone: inputs.store.phone ?? null,
     where,
     address,
     mapsHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inputs.location ? `${inputs.location.point.lat},${inputs.location.point.lon}` : address)}`,

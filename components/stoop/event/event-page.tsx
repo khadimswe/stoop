@@ -49,6 +49,11 @@ export function EventPage({ view }: { view: EventPageView }) {
             </Row>
             <Row icon={Store}>
               <span className="font-semibold">{view.storeName}</span>
+              {view.phone && (
+                <a href={`tel:${view.phone.replace(/[^0-9+]/g, "")}`} className="inline-flex min-h-11 items-center self-start font-mono text-sm underline decoration-1 underline-offset-4">
+                  {view.phone}
+                </a>
+              )}
             </Row>
           </ul>
           {view.offers.length > 0 && (

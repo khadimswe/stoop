@@ -16,6 +16,10 @@ export interface StoreFormValues {
   address: string;
   city: string;
   region: string;
+  /** Public, printed on the poster and the event page. */
+  phone: string;
+  /** The dealer's internal store number, for My stores; never public. */
+  storeNumber: string;
   lat: string;
   lon: string;
   date: string;
@@ -45,6 +49,7 @@ export const FIELD_ORDER: readonly StoreField[] = [
   "address",
   "city",
   "region",
+  "phone",
   "point",
   "lat",
   "lon",
@@ -57,6 +62,7 @@ export const FIELD_ORDER: readonly StoreField[] = [
   "venueLon",
   "budgetUsd",
   ...Array.from({ length: 8 }, (_, i) => `offer${i}` as const),
+  "storeNumber",
   "ageBands",
   "notes",
 ];
@@ -76,6 +82,8 @@ export function emptyStoreForm(): StoreFormValues {
     address: "",
     city: "",
     region: "",
+    phone: "",
+    storeNumber: "",
     lat: "",
     lon: "",
     date: "",
@@ -143,6 +151,10 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   const city = required("city", values.city, "city", LIMITS.city);
   const region = required("region", values.region, "state", LIMITS.region);
   if (!(CARRIERS as readonly string[]).includes(values.carrier)) errors.carrier = "Pick the store's carrier.";
+  const phone = values.phone.trim();
+  if (phone && !/^[0-9()+.\-\s]{7,24}$/.test(phone)) errors.phone = "Use digits, like (312) 555-0142.";
+  const storeNumber = values.storeNumber.trim();
+  if (storeNumber.length > 24) errors.storeNumber = "Keep it to 24 characters.";
 
   const lat = decimal(values.lat);
   const lon = decimal(values.lon);
@@ -195,7 +207,7 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   const parsed = inputsSchema.safeParse({
-    store: { id: storeSlug(name, city), name, carrier: values.carrier, address, city, region, point: { lat, lon } },
+    store: { id: storeSlug(name, city), name, carrier: values.carrier, address, city, region, point: { lat, lon }, ...(phone ? { phone } : {}), ...(storeNumber ? { storeNumber } : {}) },
     date: values.date,
     startTime: values.startTime,
     durationMinutes: duration,

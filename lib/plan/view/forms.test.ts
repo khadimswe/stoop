@@ -58,6 +58,14 @@ describe("the store form", () => {
     expect(Object.keys(result.errors).sort()).toEqual(["ageBands", "budgetUsd", "date", "lat", "lon"]);
   });
 
+  it("sends the public phone and the internal store number only when typed", () => {
+    const withBoth = parseStoreForm(filled({ phone: "(312) 555-0142", storeNumber: "Store 1234" }));
+    expect(withBoth.ok && withBoth.inputs.store).toMatchObject({ phone: "(312) 555-0142", storeNumber: "Store 1234" });
+    const without = parseStoreForm(filled());
+    expect(without.ok && "phone" in without.inputs.store).toBe(false);
+    expect(parseStoreForm(filled({ phone: "call us" }))).toMatchObject({ ok: false, errors: { phone: expect.any(String) } });
+  });
+
   it("takes up to 8 promos, the store's whole list", () => {
     const eight = Array.from({ length: 8 }, (_, i) => `Promo ${i + 1}`);
     const result = parseStoreForm(filled({ offers: eight }));

@@ -32,6 +32,8 @@ export type TextPart = { kind: "text"; text: string } | { kind: "ref"; id: strin
 export interface PlanHeaderView {
   storeName: string;
   carrierLabel: string;
+  /** The dealer's internal store number: My stores only, never the public page. */
+  storeNumber: string | null;
   /** The full address, with the city and state added when the street address leaves them out. */
   address: string;
   cityLine: string;
@@ -554,6 +556,7 @@ export function planView(source: PlanSource): PlanView {
     header: {
       storeName: store.name,
       carrierLabel: CARRIER_LABELS[store.carrier],
+      storeNumber: store.storeNumber ?? null,
       address: fullAddress(store),
       cityLine: `${store.city}, ${store.region}`,
       dateText: eventDate(inputs.date),

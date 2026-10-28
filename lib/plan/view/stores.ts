@@ -5,6 +5,8 @@ import type { PlanView } from "./plan";
 export interface StoreRowView {
   slug: string;
   storeName: string;
+  /** The dealer's internal number ("Store 1234"), for managers only. */
+  storeNumber: string | null;
   city: string;
   address: string;
   dateShort: string;
@@ -29,6 +31,7 @@ export function storeRow(slug: string, view: PlanView, planHref: string): StoreR
   return {
     slug,
     storeName: view.header.storeName,
+    storeNumber: view.header.storeNumber,
     city: view.header.cityLine,
     address: view.header.address,
     dateShort: view.header.dateShort,
