@@ -109,9 +109,9 @@ export async function readCity(env: PlanEnv, inputs: PlanInputs): Promise<CityRe
   const answered = new Set([resolved?.result.evidence.id, tags?.evidence.id].filter((id): id is string => !!id));
   const cited = styles.map((s) => ({ ...s, evidenceIds: s.evidenceIds.filter((id) => answered.has(id)) })).filter((s) => s.evidenceIds.length > 0);
   const identity = dropped.filter((d) => identityTag(d.name));
-  if (identity.length) planDecide(env, "city", `Left out ${identity.length} identity ${identity.length === 1 ? "tag" : "tags"}`, `${identity.map((d) => `"${d.name}"`).slice(0, 6).join(", ")}: each describes who people are, not what they listen to. Stoop reads taste, never identity.`);
+  if (identity.length) planDecide(env, "city", `Left out ${identity.length} identity ${identity.length === 1 ? "tag" : "tags"}`, "Each describes who people are, not what they listen to. Stoop reads taste, never identity.");
   const noisy = dropped.filter((d) => !identityTag(d.name));
-  if (noisy.length) planDecide(env, "city", `Left out ${noisy.length} noisy music ${noisy.length === 1 ? "tag" : "tags"}`, `${noisy.map((d) => `"${d.name}"`).slice(0, 8).join(", ")}${noisy.length > 8 ? " and more" : ""}: not a style to play, or none of the city's top artists play it.`);
+  if (noisy.length) planDecide(env, "city", `Left out ${noisy.length} noisy music ${noisy.length === 1 ? "tag" : "tags"}`, "Each is not a style to play (a place, an instrument, a novelty word), or none of the city's top artists play it.");
   if (cited.length === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${city}'s music styles at these ages` });
   else planDecide(env, "city", `Kept ${cited.length} music styles for ${city}`, "From the genres the city's top artists share, plus any broad style the city's own list carries; other city tags join only when the artists agree.");
   return { taste: { city, ageBands: [...inputs.ageBands], artists, styles: cited }, query };

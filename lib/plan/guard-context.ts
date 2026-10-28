@@ -4,5 +4,5 @@ import type { GuardContext } from "./guard";
 import type { PlanInputs } from "./schema";
 
 export function guardFor(inputs: PlanInputs, known: Iterable<string> = [], names: readonly string[] = []): GuardContext {
-  return { offers: inputs.offers.map((o) => o.text), budgetUsd: inputs.budgetUsd, known: new Set(known), names, ...(inputs.notes ? { notes: inputs.notes } : {}) };
+  return { offers: inputs.offers.map((o) => o.text), budgetUsd: inputs.budgetUsd, known: new Set(known), names, ...(inputs.notes ? { notes: inputs.notes } : {}), ...(inputs.date ? { date: inputs.date } : {}) };
 }

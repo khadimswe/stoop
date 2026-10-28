@@ -13,6 +13,7 @@ import { replayClient, replayPlanModel } from "./replay";
 import { planReportSchema, type PlanReport } from "./schema";
 import { isChain } from "./taste";
 import { genreOrSlang, titleGenre, VOLUME_FRAMING } from "./words";
+import { scrubTrace } from "./env";
 
 describe("the example list", () => {
   it("has one lead, three fictional stores in three cities, and ids accepted as plan ids", () => {
@@ -69,6 +70,35 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
     }
     for (const step of report.plan?.runOfShow ?? []) expect(genreOrSlang(step.step.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "))).toBeNull();
     for (const line of report.baseline?.items ?? []) expect(genreOrSlang(line.text)).toBeNull();
+  });
+
+  it("buys every gift card the plan gives away, inside the budget", async () => {
+    const { report } = await loadPlanExample(slug);
+    const plan = report.plan!;
+    const kept = plan.concepts.find((c) => c.kept)!;
+    const places = new Set(report.local.block?.places.map((p) => p.id) ?? []);
+    const given = new Set<string>();
+    const gift = /gift ?cards?/i;
+    for (const item of kept.items) if (gift.test(item.text)) for (const ref of item.refs) if (places.has(ref)) given.add(ref);
+    for (const step of plan.runOfShow) if (gift.test(step.step)) for (const ref of refsIn(step.step)) if (places.has(ref)) given.add(ref);
+    for (const slice of plan.wheel?.slices ?? []) if (slice.kind === "gift_card") for (const ref of slice.refs) given.add(ref);
+    const bought = new Set(plan.shopping.filter((s) => s.from && gift.test(s.item)).map((s) => s.from));
+    for (const id of given) expect(bought.has(id), `a gift card to ${id} is given away but not bought`).toBe(true);
+    expect(plan.estimatedCostUsd).toBeLessThanOrEqual(PLAN_EXAMPLE_INPUTS[slug].budgetUsd);
+  });
+
+  it("writes 12-hour times and no traffic claims, and keeps raw tag names out of the trace", async () => {
+    const { report } = await loadPlanExample(slug);
+    const plan = report.plan!;
+    const texts = [...plan.concepts.flatMap((c) => [c.title, c.hook, ...c.items.map((i) => i.text)]), ...plan.runOfShow.map((s) => s.step), ...plan.checklist, ...plan.shopping.map((s) => s.item), ...(report.baseline?.items.map((i) => i.text) ?? [])];
+    for (const text of texts) {
+      expect(text, text).not.toMatch(/\b(1[3-9]|2[0-3]):[0-5]\d\b/);
+      expect(text, text).not.toMatch(/\bpeaks?\b/i);
+    }
+    for (const step of report.trace) {
+      expect(scrubTrace(step.label)).toBe(step.label);
+      if (step.reason) expect(scrubTrace(step.reason), step.reason).toBe(step.reason);
+    }
   });
 
   it("keeps the plan inside its budget, with a free wheel whose promos are quoted exactly", async () => {

@@ -13,6 +13,7 @@ import { readBlockMusic } from "./block-music";
 import { buildPlan } from "./builder";
 import { dayContext } from "./calendar";
 import { buildAbTest } from "./test-plan";
+import { tidyBaseline, tidyConcepts, tidyPlan } from "./tidy";
 import { writeConcepts } from "./concepts";
 import { readBlock, readCity } from "./local";
 import type { Baseline, PlanInputs, PlanStage } from "./schema";
@@ -122,14 +123,14 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   // 4. Three concepts, scored; the best is kept.
   const written = await stage(env, "concepts", now, async () => {
     const outcome = await writeConcepts(env, inputs, local, guard);
-    if (outcome) sink.emit({ type: "plan.concepts", concepts: outcome.concepts });
+    if (outcome) sink.emit({ type: "plan.concepts", concepts: tidyConcepts(outcome.concepts, inputs.notes) });
     return outcome;
   });
   if (!written) return stop("concepts", "Claude's concepts could not be used. The city and the block above are still Qloo's.");
 
   // 5. The plan for the kept concept.
   const plan = await stage(env, "plan", now, async () => {
-    const built = await buildPlan(env, inputs, written.concepts, written.aliases, guard);
+    const built = tidyPlan(await buildPlan(env, inputs, written.concepts, written.aliases, guard), inputs.notes);
     sink.emit({ type: "plan.ready", plan: built });
     // A fair test of the kept concept against the runner-up, written before anything runs.
     const test = buildAbTest(inputs, built.concepts);
@@ -162,7 +163,7 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     baselinePlaces = draft.picks.places;
     const cliches = [...draft.cliches, ...genericCliches(draft.items, check, block?.places.map((p) => p.name) ?? [], city?.city ?? inputs.store.city, named)];
     if (cliches.length) planDecide(env, "baseline", `Flagged ${cliches.length} generic ${cliches.length === 1 ? "choice" : "choices"} in the generic plan`, cliches.map((c) => `${c.text}: ${c.why}`).join(" "));
-    const result: Baseline = { items: draft.items, cliches, check };
+    const result: Baseline = tidyBaseline({ items: draft.items, cliches, check }, inputs.notes);
     sink.emit({ type: "baseline.ready", baseline: result });
     return result;
   });

@@ -7,6 +7,8 @@ import type { QlooClient, QlooRequest, QlooResult } from "../qloo/client";
 import type { RunContext } from "../qloo/context";
 import type { PlanEvent, PlanEventInput } from "./events";
 import type { PlanStage } from "./schema";
+import { IDENTITY_TAG_TERMS } from "./taste";
+import { GENRE_AND_SLANG, TITLE_GENRES } from "./words";
 
 export interface PlanSink {
   emit(input: PlanEventInput): PlanEvent;
@@ -61,7 +63,22 @@ export async function planQloo<T>(
   return result;
 }
 
+/**
+ * Trace text never repeats a genre, slang or identity word (a repair reason can quote one): it says
+ * "a genre word" or "an identity word" instead. The words still reach Claude in the repair prompt.
+ */
+export function scrubTrace(text: string): string {
+  return text
+    .replace(GENRE_OR_IDENTITY, (word) => (IDENTITY_WORD.test(word) ? "an identity word" : "a genre word"))
+    .replace(/"(a genre word|an identity word)"/g, "$1");
+}
+const IDENTITY_WORD = new RegExp(`^(?:${IDENTITY_TAG_TERMS.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`, "i");
+const GENRE_OR_IDENTITY = new RegExp(
+  `(?<![\\p{L}\\p{N}])(?:${[...GENRE_AND_SLANG, ...TITLE_GENRES, ...IDENTITY_TAG_TERMS].sort((a, b) => b.length - a.length).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "[\\s-]+")).join("|")})(?![\\p{L}\\p{N}])`,
+  "giu",
+);
+
 /** An agent decision, shown in the trace with its reason. */
 export function planDecide(env: Pick<PlanEnv, "sink">, stage: PlanStage, label: string, reason?: string): void {
-  env.sink.emit({ type: "trace.step", step: { stage, kind: "decision", label, ...(reason ? { reason } : {}) } });
+  env.sink.emit({ type: "trace.step", step: { stage, kind: "decision", label: scrubTrace(label), ...(reason ? { reason: scrubTrace(reason) } : {}) } });
 }
