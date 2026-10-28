@@ -83,6 +83,7 @@ async function main() {
       poster: pendingPoster(queued, POSTER_REASONS.pending),
       posts: written.posts,
       drafts,
+      ...(previous?.renderAttempts ? { renderAttempts: previous.renderAttempts } : {}),
       ...(variantB ? { variantB } : {}),
     });
     await writeFile(jsonFile, `${JSON.stringify(exported, null, 2)}\n`);

@@ -164,7 +164,13 @@ export async function renderPosterArt(env: PosterArtEnv, report: Pick<PlanReport
   const day = dayOf(at);
   const seat = visitor ? await reserveStoryboard(store, visitor, at, env.storyboardLimits) : null;
   if (visitor && !seat) return ended("skipped", POSTER_REASONS.paused);
-  const granted = await reserveUpTo(store, keys.daily("frames", day), 1, env.framesCap ?? dailyCaps().frames, TTL.daily);
+  let granted: number;
+  try {
+    granted = await reserveUpTo(store, keys.daily("frames", day), 1, env.framesCap ?? dailyCaps().frames, TTL.daily);
+  } catch (error) {
+    await seat?.release().catch(() => undefined);
+    throw error;
+  }
   if (granted < 1) {
     await seat?.release();
     return ended("skipped", POSTER_REASONS.paused);

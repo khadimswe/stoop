@@ -10,7 +10,7 @@ import { reducePlan, createPlanEmitter, type PlanEventInput } from "./events";
 import { posterKeys, type PosterRenderer } from "./poster-art";
 import { POSTER_SIZES } from "./poster-image";
 import { samplePlanReport } from "./posts-fixture";
-import { marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
+import { marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, sniffImage, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
 import type { AbTest } from "./schema";
 import { storePlanSource, type PlanSource } from "./posts-store";
 import type { PlanReport } from "./schema";
@@ -239,7 +239,7 @@ describe("posterResponse", () => {
 
   it("uses the art from Stoop's own storage", async () => {
     const report = samplePlanReport({ kind: "example" });
-    const url = "https://abc123.public.blob.vercel-storage.com/posters/h.png";
+    const url = "https://abc123.public.blob.vercel-storage.com/posters/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png";
     const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url } });
     const tiny = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
     const fetched: string[] = [];
@@ -288,6 +288,22 @@ describe("variant B", () => {
     expect(state.trace.map((s) => s.label)).toContain("Wrote variant B's poster and posts");
   });
 
+  it("renders a B prompt that matches A's once: B reads A's art from the cache", async () => {
+    const base = samplePlanReport();
+    const plan = base.plan!;
+    // Hooks and titles with digits give both concepts no feeling line, so both prompts come out the same.
+    const same = { ...base, plan: { ...plan, concepts: plan.concepts.map((c) => ({ ...c, hook: "Open 12 to 4.", title: `${c.title} 2` })) } };
+    const source = await seedRun(same);
+    await source.append(RUN, [{ type: "test.ready", test }]);
+    const art = renderer();
+    await runMarketing({ store, source, model: null, art: { storage: storage(), renderer: art, framesCap: 10 }, origin: "https://stoop.test" }, RUN, null);
+    expect(art.calls).toBe(1);
+    const b = (await readVariant(store, RUN))!;
+    const a = (await source.state(RUN))!.report.poster;
+    expect(b.poster.promptHash).toBe(a.promptHash);
+    expect(b.poster.url).toBe(a.url);
+  });
+
   it("serves both variants, and B's poster with B's title", async () => {
     const source = await seedTested();
     await runMarketing({ store, source, model: null, art: { storage: null, renderer: null }, origin: "https://stoop.test" }, RUN, null);
@@ -308,9 +324,21 @@ describe("variant B", () => {
   });
 });
 
+describe("sniffImage", () => {
+  it("knows PNG, JPEG and WebP by their first bytes, and nothing else", () => {
+    expect(sniffImage(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]))).toBe("image/png");
+    expect(sniffImage(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
+    expect(sniffImage(Uint8Array.from(Buffer.from("RIFF0000WEBPVP8 ")))).toBe("image/webp");
+    expect(sniffImage(Uint8Array.from(Buffer.from("<html>")))).toBeNull();
+  });
+});
+
 describe("trustedArtUrl", () => {
   it("trusts only https on the Blob store or a listed origin", () => {
-    expect(trustedArtUrl("https://abc123.public.blob.vercel-storage.com/posters/x.png", [])).toBe(true);
+    expect(trustedArtUrl("https://abc123.public.blob.vercel-storage.com/posters/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png", [])).toBe(true);
+    // On the Blob store, only the art job's own objects.
+    expect(trustedArtUrl("https://abc123.public.blob.vercel-storage.com/frames/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png", [])).toBe(false);
+    expect(trustedArtUrl("https://other.public.blob.vercel-storage.com/anything.png", [])).toBe(false);
     expect(trustedArtUrl("https://stoop.test/demo/a/poster-bg.png", ["https://stoop.test"])).toBe(true);
     expect(trustedArtUrl("http://abc123.public.blob.vercel-storage.com/x.png", [])).toBe(false);
     expect(trustedArtUrl("https://evil.test/x.png", ["https://stoop.test"])).toBe(false);

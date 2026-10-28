@@ -53,21 +53,33 @@ describe("checkPostText", () => {
     expect(check("Visit https://example.com")).toContain("link");
   });
 
-  it("allows free only when the offers or the plan say it", () => {
-    expect(check("Free screen protector with any accessory.")).toEqual([]);
-    const plain = { ...report, inputs: { ...report.inputs, offers: [] } };
-    const plan = plain.plan!;
-    const noFree = { ...plain, plan: { ...plan, concepts: plan.concepts.map((c) => ({ ...c, items: c.items.filter((i) => !/free/i.test(i.text)) })) } };
-    expect(checkPostText("Free tacos for everyone.", noFree, "facebook").map((i) => i.match)).toContain("Free");
+  it("never lets Claude say free or restate a deal: the offers and the wheel line carry them, added by code", () => {
+    expect(check("Free tacos for everyone.")).toContain("Free");
+    expect(check("Grab a free phone when you stop by.")).toContain("free");
+    expect(check("Ask about a trade-in or port-in, first month on us.").length).toBeGreaterThan(0);
+    expect(check("Switch and save on unlimited plans.").length).toBeGreaterThan(0);
+  });
+
+  it("applies the plan's own guard: no alcohol, no identity themes, no carrier endorsement", () => {
+    expect(check("Happy hour at the table with a mimosa.").length).toBeGreaterThan(0);
+    expect(check("Celebrate with us at ladies night.").length).toBeGreaterThan(0);
+    expect(check("An afternoon presented by Metro by T-Mobile.").length).toBeGreaterThan(0);
+  });
+
+  it("refuses names nobody gave, and measured names in any case", () => {
+    expect(check("Stop by after lunch at Lou Mitchell's.")).toContain("Lou");
+    expect(check("velvet testline on the speaker all afternoon.").length).toBeGreaterThan(0);
+    expect(check("Saturday in Testville with hip hop on the speaker. DJ sets at noon.")).toEqual([]);
+    expect(check("Come by Corner Wireless on Fifth this Saturday for the Taco Table.")).toEqual([]);
   });
 
   it("never says your customers, never mentions alcohol or tobacco, never aims at minors", () => {
     expect(check("Your customers will love it.")).toContain("Your customers");
     expect(check("Our customers asked for this.")).toContain("Our customers");
-    expect(check("Cold beer at the table.")).toContain("beer");
+    expect(check("Cold beer at the table.").length).toBeGreaterThan(0);
     expect(check("Vapes for the first ten.").length).toBeGreaterThan(0);
     expect(check("Bring the kids!")).toContain("kids");
-    expect(check("A family-friendly afternoon.")).toContain("family-friendly");
+    expect(check("A family-friendly afternoon.").length).toBeGreaterThan(0);
   });
 
   it("refuses em dashes through the shared guardrails", () => {
@@ -118,8 +130,9 @@ describe("the prize wheel", () => {
   });
 
   it("lets a post say there is a prize wheel, never what it pays out", () => {
-    expect(checkPostText("Spin the prize wheel at the table, free to spin.", withWheel, "facebook")).toEqual([]);
-    expect(checkPostText("Win prizes all afternoon.", withWheel, "facebook").map((i) => i.match)).toContain("prizes");
+    expect(checkPostText("Spin the prize wheel at the table.", withWheel, "facebook")).toEqual([]);
+    expect(checkPostText("Win prizes all afternoon.", withWheel, "facebook").map((i) => i.match)).toContain("Win");
+    expect(checkPostText("Spin the prize wheel to win a $10 gift card.", withWheel, "facebook").length).toBeGreaterThan(0);
     expect(checkPostText("Spin the prize wheel.", report, "facebook").map((i) => i.match)).toContain("prize");
     expect(postsPrompt(withWheel)).toContain("never list, describe or promise a prize");
   });
@@ -150,6 +163,7 @@ describe("checkHashtags", () => {
     expect(checkHashtags(["VelvetTestline"], report)).not.toEqual([]);
     expect(checkHashtags(["MetroByTMobile"], report)).not.toEqual([]);
     expect(checkHashtags(["TaqueriaFixtureGrande"], report)).not.toEqual([]);
+    for (const tag of ["FreePhones", "BeerGarden", "HappyHour", "SwitchAndSave", "KidsDay", "BackToSchool", "GiveawayAlert"]) expect(checkHashtags([tag], report), tag).not.toEqual([]);
   });
 });
 
@@ -182,7 +196,7 @@ describe("fallbackOpenings", () => {
     expect(checkLlmPosts(openings, report)).toEqual([]);
     const posts = composePosts(openings, report);
     expect(postsSchema.safeParse(posts).success).toBe(true);
-    expect(posts.facebook.text).toMatch(/^Taco Table Saturday: we're setting up a table outside Corner Wireless on Fifth this Saturday\./);
+    expect(posts.facebook.text).toMatch(/^Taco Table Saturday: we're setting up a table outside Corner Wireless on Fifth on Saturday\./);
   });
 
   it("drops a hook or title that would break a rule", () => {

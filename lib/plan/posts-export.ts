@@ -33,6 +33,8 @@ export const marketingExportSchema = z.strictObject({
   /** The two event payloads, in order (an event takes seq and at when it is appended). */
   events: z.tuple([z.strictObject({ type: z.literal("poster.updated"), poster: posterSchema }), z.strictObject({ type: z.literal("posts.ready"), posts: postsSchema })]),
   drafts: z.array(draftSchema).max(MAX_DRAFT_RENDERS),
+  /** Renders started, recorded before each call to fal, so a render that fails after billing still counts. */
+  renderAttempts: z.number().int().nonnegative().max(MAX_DRAFT_RENDERS).optional(),
   /** An A/B test's variant B, when it runs a second concept: its own poster prompt and posts. */
   variantB: z.strictObject({ conceptId: z.string().min(1), poster: posterSchema, posts: postsSchema }).optional(),
 });
@@ -132,7 +134,7 @@ export function pendingPoster(poster: Pick<Poster, "prompt" | "promptHash" | "al
   return { status: "skipped", prompt: poster.prompt, promptHash: poster.promptHash, alt: poster.alt, reason };
 }
 
-export function exportOf(input: { slug: string; generatedAt: string; writer: MarketingExport["writer"]; poster: Poster; posts: Posts; drafts?: Draft[]; variantB?: MarketingExport["variantB"] }): MarketingExport {
+export function exportOf(input: { slug: string; generatedAt: string; writer: MarketingExport["writer"]; poster: Poster; posts: Posts; drafts?: Draft[]; renderAttempts?: number; variantB?: MarketingExport["variantB"] }): MarketingExport {
   return marketingExportSchema.parse({
     version: MARKETING_EXPORT_VERSION,
     slug: input.slug,
@@ -144,6 +146,7 @@ export function exportOf(input: { slug: string; generatedAt: string; writer: Mar
       { type: "posts.ready", posts: input.posts },
     ],
     drafts: input.drafts ?? [],
+    ...(input.renderAttempts ? { renderAttempts: input.renderAttempts } : {}),
     ...(input.variantB ? { variantB: input.variantB } : {}),
   });
 }

@@ -1,7 +1,7 @@
 // Renders an example store's poster background as a draft for the founder to review, from the prompt
 // frozen in data/plans/<slug>/marketing/marketing.json (scripts/export-marketing.ts), on fal with
-// POSTER_MODEL. At most 2 renders per store, ever: the drafts stay listed in marketing.json and count
-// for good. A prompt that fails the poster check never renders. Each draft is written next to the
+// POSTER_MODEL. At most 2 renders per store, ever: each attempt is recorded in marketing.json before fal
+// is called, and the drafts stay listed there, so both count for good. A prompt that fails the poster check never renders. Each draft is written next to the
 // export with two composited previews (the exact text layer over the art, portrait and link preview),
 // and nothing is copied into public/: pages show demo media only after the founder approves it.
 //   npx tsx scripts/render-poster.ts <slug> [--plans <dir>]
@@ -49,13 +49,17 @@ async function main() {
   if (posterPromptHash(input) !== poster.promptHash) fail(`${slug}: the frozen prompt does not match its promptHash. Export again.`);
   const problems = checkPosterPrompt(poster.prompt, report);
   if (problems.length) fail(`${slug}: the poster prompt fails its check: ${problems.map((p) => p.message).join("; ")}`);
-  if (exported.drafts.length >= MAX_DRAFT_RENDERS) fail(`${slug}: already ${exported.drafts.length} renders, the most a store gets. Review those drafts.`);
+  const attempts = Math.max(exported.renderAttempts ?? 0, exported.drafts.length);
+  if (attempts >= MAX_DRAFT_RENDERS) fail(`${slug}: already ${attempts} renders started, the most a store gets. Review those drafts.`);
 
   loadLocalEnv();
   const key = process.env.FAL_KEY?.trim();
   if (!key) fail("FAL_KEY is not set.");
   const renderer = createPosterRenderer({ credentials: key });
-  console.log(`${slug}: rendering ${exported.drafts.length + 1} of ${MAX_DRAFT_RENDERS} on ${POSTER_MODEL.displayName} (about $${POSTER_MODEL.usdPerImage.toFixed(2)}).`);
+  // The attempt is recorded before fal is called, so a render that bills and then fails still counts.
+  const started = marketingExportSchema.parse({ ...exported, renderAttempts: attempts + 1 });
+  await writeFile(jsonFile, `${JSON.stringify(started, null, 2)}\n`);
+  console.log(`${slug}: rendering ${attempts + 1} of ${MAX_DRAFT_RENDERS} on ${POSTER_MODEL.displayName} (about $${POSTER_MODEL.usdPerImage.toFixed(2)}).`);
   const image = await renderer.render({ endpoint: POSTER_MODEL.endpoint, input });
   const extension = EXTENSIONS[image.contentType];
   if (!extension) fail(`The art came back as ${image.contentType}.`);
@@ -74,7 +78,7 @@ async function main() {
     previews.push(name);
   }
   const draft: Draft = { file, previews, promptHash: poster.promptHash, sha256, modelId: POSTER_MODEL.endpoint, renderedAt: new Date().toISOString() };
-  const updated = marketingExportSchema.parse({ ...exported, drafts: [...exported.drafts, draft] });
+  const updated = marketingExportSchema.parse({ ...started, drafts: [...started.drafts, draft] });
   await writeFile(jsonFile, `${JSON.stringify(updated, null, 2)}\n`);
   await writeFile(path.join(dir, "marketing.md"), marketingMarkdown(report, updated));
   console.log(`${slug}: wrote ${file} and ${previews.join(", ")}. 1 render.`);

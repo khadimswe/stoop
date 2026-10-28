@@ -100,11 +100,15 @@ function addCost(cost: Cost, claude: { calls: number; inputTokens: number; outpu
 export async function runMarketing(env: MarketingEnv, runId: string, visitor: StoryboardVisitor | null): Promise<boolean> {
   const now = env.now ?? (() => new Date());
   const started = now().getTime();
-  if (!(await env.store.set(posterKeys.lock(runId), { at: now().toISOString() }, { ifAbsent: true, ttlSeconds: MARKETING_LOCK_SECONDS }))) return false;
+  // The lock holds this job's own token, so a job that outlived its lock never frees another's.
+  const token = crypto.randomUUID();
+  if (!(await env.store.set(posterKeys.lock(runId), token, { ifAbsent: true, ttlSeconds: MARKETING_LOCK_SECONDS }))) return false;
   try {
     const state = await env.source.state(runId);
     const report = state ? reportOf(state) : null;
     if (!report?.plan) return true;
+    // Checked again inside the lock: a job that just finished leaves nothing to do.
+    if (report.posts && FINAL.has(report.poster.status)) return true;
     const queued = queuedPoster(report);
     await env.source.append(runId, [
       { type: "stage.started", stage: "marketing" },
@@ -120,12 +124,14 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
     // deadline) still ends in the plain template and the plain background, with the reason in the trace.
     const writePosts = (r: MarketingReport) => generatePosts(env.model, r, signal).catch(() => generatePosts(null, r));
     const paint = (r: MarketingReport) =>
-      renderPosterArt(artEnv, r, visitor).catch(() => ({ poster: { ...queuedPoster(r), status: "failed" as const, reason: POSTER_REASONS.failed }, billed: true }));
+      renderPosterArt(artEnv, r, visitor).catch(() => ({ poster: { ...queuedPoster(r), status: "failed" as const, reason: POSTER_REASONS.failed }, billed: false }));
+    // B paints after A, so a B prompt that comes out the same as A's is a cache hit, never a second render.
+    const artA = paint(report);
     const [written, art, bWritten, bArt] = await Promise.all([
       writePosts(report),
-      paint(report),
+      artA,
       bReport ? writePosts(bReport) : Promise.resolve(null),
-      bReport ? paint(bReport) : Promise.resolve(null),
+      bReport ? artA.then(() => paint(bReport)) : Promise.resolve(null),
     ]);
     const posts = { ...written.posts, share: shareLinks(env.origin, runId, written.posts) };
     const events: PlanEventInput[] = [
@@ -152,7 +158,7 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
     await env.source.append(runId, events);
     return true;
   } finally {
-    await env.store.del(posterKeys.lock(runId));
+    await env.store.deleteIfEquals(posterKeys.lock(runId), token);
   }
 }
 
@@ -217,7 +223,8 @@ export function trustedArtUrl(url: string, origins: readonly string[]): boolean 
     return false;
   }
   if (parsed.protocol !== "https:" || parsed.username || parsed.password) return false;
-  if (/^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/.test(parsed.hostname)) return true;
+  // On the Blob store, only the objects the art job writes (posters/<promptHash>.<ext>).
+  if (/^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/.test(parsed.hostname)) return /^\/posters\/[0-9a-f]{64}\.(?:png|jpg|webp)$/.test(parsed.pathname);
   return origins.some((origin) => {
     try {
       return new URL(origin).origin === parsed.origin;
@@ -236,15 +243,39 @@ export interface PosterRouteDeps {
   fetch?: typeof fetch;
 }
 
+/** The image type its first bytes say, or null: art that is not really a PNG, JPEG or WebP is never drawn. */
+export function sniffImage(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
+  const b = (i: number) => bytes[i] ?? -1;
+  if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47) return "image/png";
+  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return "image/jpeg";
+  if (String.fromCharCode(b(0), b(1), b(2), b(3)) === "RIFF" && String.fromCharCode(b(8), b(9), b(10), b(11)) === "WEBP") return "image/webp";
+  return null;
+}
+
 async function fetchArt(url: string, fetchImpl: typeof fetch): Promise<PosterArt | null> {
   try {
     const response = await fetchImpl(url, { signal: AbortSignal.timeout(ART_FETCH_TIMEOUT_MS), redirect: "error" });
     const type = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
-    if (!response.ok || !ART_TYPES.has(type)) return null;
+    if (!response.ok || !ART_TYPES.has(type) || !response.body) return null;
     if (Number(response.headers.get("content-length")) > ART_MAX_BYTES) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength === 0 || bytes.byteLength > ART_MAX_BYTES) return null;
-    return { dataUri: `data:${type};base64,${Buffer.from(bytes).toString("base64")}` };
+    // Read with a cap, whatever content-length said.
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > ART_MAX_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const bytes = Buffer.concat(chunks);
+    const sniffed = sniffImage(bytes);
+    if (!sniffed) return null;
+    return { dataUri: `data:${sniffed};base64,${bytes.toString("base64")}` };
   } catch {
     return null;
   }
@@ -264,7 +295,8 @@ async function findReport(deps: PosterRouteDeps, id: string): Promise<{ report: 
   if (!example && !(deps.live && isLivePlanId(id))) return null;
   const store = storeOrNull(deps);
   if (!example && !store) return null;
-  const state = await deps.source(store).state(id);
+  // A store that cannot answer reads as no plan: a 404, never a broken image.
+  const state = await deps.source(store).state(id).catch(() => null);
   const report = state ? reportOf(state) : null;
   return report ? { report, store } : null;
 }

@@ -5,12 +5,14 @@
 // and its address, and the manager's offers, verbatim. Claude names a measured artist or place only as
 // a "[[id]]" token from the kept concept, and code renders the name from this run's Qloo results, so a
 // partner is mentioned only when Qloo returned it. Every answer passes checkPostText (the shared
-// guardrails plus the rules below); a failing answer gets one repair, then the deterministic template.
+// guardrails, the plan's own guard in lib/plan/guard.ts and the rules below); a failing answer gets one
+// repair, then the deterministic template.
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
 import { GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
-import { checkText, childSetting, FAMOUS_PLACES, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
+import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
+import { textIssues } from "./guard";
 import { BRAND_WORDS } from "./poster-prompt";
 import { keptConcept, posterText, refNames } from "./poster-text";
 import { refsIn, renderRefs } from "./refs";
@@ -34,14 +36,19 @@ export type LlmPosts = z.infer<typeof llmPostsSchema>;
 
 // --- The rules ------------------------------------------------------------------------------------
 
-const AUDIENCE = /\b(?:your|our)\s+(?:customers?|clients?|shoppers?|buyers?)\b/i;
-const ALCOHOL_TOBACCO = /\b(?:beers?|wines?|liquor|alcohol(?:ic)?|booze|cocktails?|margaritas?|tequila|vodka|whiske?y|rum|cigarettes?|cigars?|vapes?|vaping|hookah|tobacco|cannabis|weed|edibles?|cbd)\b/i;
-const FREE = /\bfree\b/i;
-const OFFER_WORDS = /\b(?:deals?|discounts?|%\s*off|half off|bogo|buy one|giveaways?|prizes?|raffle|sale)\b/i;
-/** The prize wheel, named as the plan names it: a post may say there is one, never what it pays out. */
+/** "Free" in Claude's own words is always an offer: the offers and the wheel line carry it, added by code. */
+const FREE = /\bfree\b|\bon us\b|\bno charge\b|\bcomplimentary\b/i;
+/** Deal and prize talk: the offers say it word for word, and a post never says what the wheel pays out. */
+const DEAL_WORDS = /\b(?:deals?|sales?|save|savings|giveaways?|prizes?|raffles?|win|wins|winners?|winning|gift ?cards?|promos?|promotions?|specials?)\b/i;
+/** The prize wheel, as the plan names it: a post may say there is one when the plan has one. */
 const WHEEL = /\bprize wheel\b|\bspin the wheel\b/gi;
+/** Settings aimed at minors that the shared term list leaves out. */
+const MINOR_SETTING = /\bback[- ]?to[- ]?school\b|\bschools?\b|\bcampus\b/i;
+const AUDIENCE = /\b(?:your|our)\s+(?:customers?|clients?|shoppers?|buyers?)\b/i;
 const CLAIMS = /\b(?:everyone|the whole (?:city|block|neighborhood)) (?:is|will be) (?:coming|there)\b|\bbiggest\b|\bbest in (?:town|the city)\b|\bguaranteed\b/i;
 const HASHTAG = /^[A-Za-z][A-Za-z0-9]{1,29}$/;
+const REF_TOKEN = /\[\[[A-Za-z0-9-]+\]\]/g;
+const CALENDAR = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** Every id a post may name: the artists and places in the kept concept (its lines, title and hook). */
 export function allowedRefs(report: Report): Set<string> {
@@ -55,57 +62,79 @@ export function allowedRefs(report: Report): Set<string> {
   return new Set([...ids].filter((id) => known.has(id)));
 }
 
-/** The manager's own words and the plan's, for checking that a post invents no facts. */
+/** The manager's own words and the plan's lines (not the wheel's slices), for checking a post invents no facts. */
 function sellerText(report: Report): string {
   const concept = keptConcept(report);
-  const wheel = report.plan?.wheel;
-  return [...report.inputs.offers.map((o) => o.text), ...(concept?.items.map((i) => i.text) ?? []), ...(wheel ? [...wheel.slices.map((s) => s.text), ...wheel.rules] : [])].join("\n");
+  return [...report.inputs.offers.map((o) => o.text), ...(concept?.items.map((i) => i.text) ?? []), ...(report.plan?.wheel?.rules ?? [])].join("\n");
 }
 
+/** Every real name this run measured, plus famous places: none may be written out instead of a ref. */
 function names(report: Report): string[] {
-  return [
-    ...(report.local.city?.artists.map((a) => a.name) ?? []),
-    ...(report.local.block?.places.map((p) => p.name) ?? []),
-    ...FAMOUS_PLACES,
-  ];
+  return [...(report.local.city?.artists.map((a) => a.name) ?? []), ...(report.local.block?.places.map((p) => p.name) ?? []), ...FAMOUS_PLACES];
+}
+
+/** Words a post may capitalize mid-sentence: the store's, the city's, the event's own, the calendar, and Qloo's music styles. */
+function allowedWords(report: Report): Set<string> {
+  const { store, location } = report.inputs;
+  const concept = keptConcept(report);
+  const city = report.local.city;
+  const sources = [store.name, store.city, store.region, location?.name ?? "", concept?.title.replace(REF_TOKEN, " ") ?? "", ...report.inputs.offers.map((o) => o.text), ...CALENDAR, ...CALENDAR.map((d) => `${d}s`), ...(city?.styles.map((s) => s.name) ?? []), ...(city?.artists.flatMap((a) => a.genres) ?? []), "Facebook Instagram WhatsApp"];
+  return new Set(sources.flatMap((s) => s.toLowerCase().split(/[^\p{L}\p{N}&']+/u)).filter(Boolean));
+}
+
+/**
+ * Names Claude wrote that nobody gave it: a capitalized word that does not open a sentence and is not
+ * the store's, the city's, the event's, a weekday or month, a measured music style or a short acronym
+ * ("DJ", "R&B"). Partners are named only through refs, so anything else is refused (a false alarm
+ * only costs a repair, then the template).
+ */
+export function unknownNames(text: string, report: Report): string[] {
+  const allow = allowedWords(report);
+  const plain = text.replace(REF_TOKEN, " ref ");
+  const found: string[] = [];
+  for (const m of plain.matchAll(/\p{Lu}[\p{L}\p{N}&'’-]*/gu)) {
+    const word = m[0].replace(/['’-]+$/, "");
+    const before = plain.slice(0, m.index).replace(/\s+$/, "");
+    if (before === "" || /[.!?:;\n"“(]$/.test(before) || /\p{Extended_Pictographic}$/u.test(before)) continue;
+    if (/^[\p{Lu}\p{N}&]{1,4}$/u.test(word)) continue;
+    if (word.split(/['’-]/).every((part) => allow.has(part.toLowerCase().replace(/'s$/, "")))) continue;
+    if (allow.has(word.toLowerCase().replace(/['’]s$/, ""))) continue;
+    found.push(word);
+  }
+  return [...new Set(found)];
 }
 
 const issue = (match: string, message: string): GuardIssue => ({ rule: "fake-proof", match, message });
 
 /**
- * Every rule a post opening breaks, before its refs are rendered: the shared guardrails, real names
- * written out instead of a ref, refs outside the kept concept, invented facts (prices, numbers, "free"
- * when neither the offers nor the plan say it, deals), "your customers", alcohol or tobacco, and
- * anything aimed at minors.
+ * What a post's words may never say, names aside: the plan's own guard (lib/plan/guard.ts: alcohol or
+ * tobacco, "your customers", themes built on who people are, implied carrier endorsement, prices and
+ * deal language outside an exactly quoted offer, minors), plus "free", deal and prize talk, settings
+ * aimed at minors, turnout claims, links, carrier names the manager never typed, and facts the plan
+ * and the offers do not give.
  */
-export function checkPostText(text: string, report: Report, path: string): GuardIssue[] {
-  const allowedNames = [report.inputs.store.city, report.inputs.store.name, report.inputs.store.region, ...(report.inputs.location ? [report.inputs.location.name] : [])];
-  const issues = checkText(text, { names: names(report), allowedNames, exactCaseNames: true }).map((i) => ({ ...i, path }));
+function contentIssues(text: string, report: Report, path: string): GuardIssue[] {
+  const issues: GuardIssue[] = [];
   const add = (match: string, message: string) => issues.push({ ...issue(match, message), path });
-  const allowed = allowedRefs(report);
-  for (const id of refsIn(text)) if (!allowed.has(id)) add(`[[${id}]]`, `[[${id}]] is not an artist or place in the kept plan.`);
-  const seller = sellerText(report);
-  for (const claim of unsupportedClaims(text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, ""), seller)) add(claim, `"${claim}" is a fact neither the manager nor the plan gave. Code adds the offers, date and address.`);
-  const free = text.match(FREE)?.[0];
-  if (free && !FREE.test(seller)) add(free, `"${free}" promises something neither the offers nor the plan offer.`);
-  // With a prize wheel in the plan, a post may say so ("spin the prize wheel"); any other prize talk is out.
-  const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(OFFER_WORDS)?.[0];
-  if (deal) add(deal, `"${deal}" restates an offer. Code adds the manager's offers word for word.`);
+  for (const message of textIssues(text, { offers: report.inputs.offers.map((o) => o.text), budgetUsd: report.inputs.budgetUsd, known: allowedRefs(report) })) add(message.slice(0, 60), message);
   const audience = text.match(AUDIENCE)?.[0];
   if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the block.`);
-  const vice = text.match(ALCOHOL_TOBACCO)?.[0];
-  if (vice) add(vice, `"${vice}": no alcohol or tobacco at a sidewalk event.`);
-  const child = childSetting(text);
-  if (child) add(child, `"${child}" aims the event at children. The event is for adults passing by.`);
+  const free = text.match(FREE)?.[0];
+  if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the wheel line word for word.`);
+  const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(DEAL_WORDS)?.[0];
+  if (deal) add(deal, `"${deal}" is deal or prize talk. Code adds the offers word for word, and a post never says what the wheel pays out.`);
+  const minor = text.match(MINOR_SETTING)?.[0];
+  if (minor) add(minor, `"${minor}" points at students. The event is for adults passing by.`);
   const claim = text.match(CLAIMS)?.[0];
   if (claim) add(claim, `"${claim}" is a claim about turnout or rank that nobody measured.`);
   if (/https?:\/\/|www\./i.test(text)) add("link", "Links are added by code: the share link carries the event page.");
+  for (const fact of unsupportedClaims(text.replace(REF_TOKEN, ""), sellerText(report))) add(fact, `"${fact}" is a fact neither the manager nor the plan gave. Code adds the offers, date and address.`);
   // Carrier names and promos come only from what the manager typed (the store's name, the offers).
   const typed = [report.inputs.store.name, ...report.inputs.offers.map((o) => o.text)].join("\n");
   for (const brand of BRAND_WORDS) {
-    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "u");
+    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu");
     const hit = text.match(pattern)?.[0];
-    if (hit && !pattern.test(typed)) {
+    if (hit && !pattern.test(typed) && hit !== hit.toLowerCase()) {
       add(hit, `"${hit}": carrier names and promos come only from the store's name and the manager's offers, never invented.`);
       break;
     }
@@ -113,9 +142,35 @@ export function checkPostText(text: string, report: Report, path: string): Guard
   return issues;
 }
 
+/**
+ * Every rule a post opening breaks, before its refs are rendered: the shared guardrails, any measured
+ * name written out (in any case) instead of a ref, refs outside the kept concept, names nobody gave,
+ * and everything in contentIssues.
+ */
+export function checkPostText(text: string, report: Report, path: string): GuardIssue[] {
+  const allowedNames = [report.inputs.store.city, report.inputs.store.name, report.inputs.store.region, ...(report.inputs.location ? [report.inputs.location.name] : [])];
+  const issues: GuardIssue[] = checkText(text, { names: names(report), allowedNames }).map((i) => ({ ...i, path }));
+  const add = (match: string, message: string) => issues.push({ ...issue(match, message), path });
+  // checkText matches one-word names by exact case; a measured one-word name written in lower case still counts.
+  const lower = text.toLowerCase();
+  for (const name of names(report)) {
+    const word = name.trim().toLowerCase();
+    if (/\s/.test(word) || word.length < 5 || allowedNames.some((a) => a.toLowerCase() === word)) continue;
+    if (new RegExp(`(?<![\\p{L}\\p{N}])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "u").test(lower) && !text.includes(name)) add(name, `"${name}" is a measured name. Write its [[id]] token instead.`);
+  }
+  const allowed = allowedRefs(report);
+  for (const id of refsIn(text)) if (!allowed.has(id)) add(`[[${id}]]`, `[[${id}]] is not an artist or place in the kept plan.`);
+  for (const name of unknownNames(text, report)) add(name, `"${name}" looks like a name nobody gave. Name a measured artist or place only by its [[id]] token, and no other names.`);
+  issues.push(...contentIssues(text, report, path));
+  const seen = new Set<string>();
+  return issues.filter((i) => (seen.has(`${i.path}:${i.message}`) ? false : (seen.add(`${i.path}:${i.message}`), true)));
+}
+
+/** Hashtags: letters and digits, no names, and the same content rules as the posts, read as words ("FreePhones" is "free phones"). */
 export function checkHashtags(tags: readonly string[], report: Report): GuardIssue[] {
   const issues: GuardIssue[] = [];
   const banned = [...names(report), ...BRAND_WORDS];
+  const city = report.inputs.store.city.toLowerCase().replace(/[^a-z0-9]+/g, "");
   tags.forEach((raw, i) => {
     const tag = raw.replace(/^#/, "");
     const path = `instagram.hashtags.${i}`;
@@ -123,12 +178,13 @@ export function checkHashtags(tags: readonly string[], report: Report): GuardIss
     const folded = tag.toLowerCase();
     for (const name of banned) {
       const compact = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-      if (compact.length >= 4 && compact !== report.inputs.store.city.toLowerCase().replace(/[^a-z0-9]+/g, "") && folded.includes(compact)) {
+      if (compact.length >= 4 && compact !== city && folded.includes(compact)) {
         issues.push({ ...issue(tag, `#${tag} names ${name}. Hashtags never carry an artist, place, carrier or brand name.`), path });
         break;
       }
     }
-    issues.push(...checkText(tag).map((i) => ({ ...i, path })));
+    const words = tag.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toLowerCase();
+    issues.push(...checkText(words).map((x) => ({ ...x, path })), ...contentIssues(words, report, path).map((x) => ({ ...x, match: `#${tag}` })));
   });
   return issues;
 }
@@ -171,8 +227,9 @@ export function composePosts(openings: LlmPosts, report: Report): Posts {
   const nameOf = refNames(report);
   const r = (text: string) => renderRefs(text.trim(), nameOf).replace(/[ \t]+/g, " ");
   const f = postFacts(report);
-  // The prize wheel's line, the same words as on the poster.
-  const wheel = f.wheel ? [f.wheel] : [];
+  // The prize wheel's line, the same words as on the poster, and an example store's fictional line.
+  const disclaimer = posterText(report).disclaimer;
+  const wheel = [...(f.wheel ? [f.wheel] : []), ...(disclaimer ? [disclaimer] : [])];
   const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`], f.offers, wheel, 2000);
   const instagram = fitPost([r(openings.instagram), "", `${f.when}`, `${f.where}`], f.offers, wheel, 2200);
   const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`], f.offers, wheel, 1000);
@@ -200,10 +257,10 @@ export function fallbackOpenings(report: Report): LlmPosts {
   }[report.inputs.setting];
   const at = location && report.inputs.setting !== "sidewalk_table" && report.inputs.setting !== "in_store" ? `${location} with ${store}` : store;
   return {
-    facebook: `${title}: ${setup} this ${weekday}.${hook} Stop by and say hi.`,
-    instagram: `${title} at ${at} this ${weekday}.${hook}`,
-    whatsapp: `${title} at ${at} this ${weekday}.${hook} Stop by and say hi.`,
-    hashtags: [...(HASHTAG.test(tag) ? [tag] : []), "ShopLocal", "WeekendPlans"],
+    facebook: `${title}: ${setup} on ${weekday}.${hook} Stop by and say hi.`,
+    instagram: `${title} at ${at} on ${weekday}.${hook}`,
+    whatsapp: `${title} at ${at} on ${weekday}.${hook} Stop by and say hi.`,
+    hashtags: [...(HASHTAG.test(tag) ? [tag] : []), "ShopLocal", ...(weekday === "Saturday" || weekday === "Sunday" ? ["WeekendPlans"] : [])],
   };
 }
 
