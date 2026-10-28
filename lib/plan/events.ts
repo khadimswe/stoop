@@ -6,6 +6,7 @@ import { evidenceSchema } from "../evidence";
 import { costSchema, stageStatsSchema } from "../report/stages";
 import {
   PLAN_VERSION,
+  abTestSchema,
   baselineSchema,
   blockSchema,
   cityTasteSchema,
@@ -46,6 +47,7 @@ export const planEventSchema = z.discriminatedUnion("type", [
   // Marketing runs after the plan, as its own invocation for the poster.
   z.strictObject({ ...base, type: z.literal("poster.updated"), poster: posterSchema }),
   z.strictObject({ ...base, type: z.literal("posts.ready"), posts: postsSchema }),
+  z.strictObject({ ...base, type: z.literal("test.ready"), test: abTestSchema }),
   z.strictObject({ ...base, type: z.literal("results.logged"), results: resultsSchema }),
   z.strictObject({ ...base, type: z.literal("run.cost"), cost: costSchema }),
   z.strictObject({ ...base, type: z.literal("run.partial"), stage: planStageSchema, reason: z.string().min(1) }),
@@ -86,6 +88,7 @@ export const initialPlanState: PlanState = {
     comparison: null,
     poster: { status: "none", prompt: "", promptHash: "", alt: "" },
     posts: null,
+    test: null,
     results: [],
     trace: [],
     stats: { stages: {} },
@@ -127,6 +130,8 @@ export function applyPlan(state: PlanState, event: PlanEvent): PlanState {
       return with_({ poster: event.poster });
     case "posts.ready":
       return with_({ posts: event.posts });
+    case "test.ready":
+      return with_({ test: event.test });
     case "results.logged":
       return with_({ results: [...r.results, event.results] });
     case "run.cost":
