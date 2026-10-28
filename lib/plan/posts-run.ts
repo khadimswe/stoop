@@ -4,25 +4,31 @@
 // the spend added to the run's cost. The checks answer at once; the work runs after the response.
 // Examples ship with their poster and posts recorded, so nothing runs for them.
 //
-// And GET /api/plan/<id>/marketing/poster.png: the composited poster for a live run or an example,
-// always an image. The art is used only when it rendered and lives on Stoop's own storage (or the
-// site's own origin, for approved example art); anything else gets the plain background.
+// When the plan carries an A/B test whose variant B runs another of its concepts, the job also writes
+// variant B's posts and poster, so a store can test two online pushes and not only two events. The
+// contract has one poster and one posts slot (variant A, the kept concept), so variant B is kept under
+// its own key (variantKey) and read through GET /api/plan/<id>/marketing until the contract has a slot.
+//
+// And GET /api/plan/<id>/marketing/poster.png (?variant=b for B): the composited poster for a live run
+// or an example, always an image. The art is used only when it rendered and lives on Stoop's own
+// storage (or the site's own origin, for approved example art); anything else gets the plain background.
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { apiError, type RouteAnswer } from "../route-answer";
 import { PRICES } from "../runtime/cost";
 import { POSTER_MODEL } from "../prompts/models.config";
-import { keys } from "../store/keys";
+import { keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
 import { visitorId, type CookieVisitorId } from "../store/visitor";
 import type { StoryboardVisitor } from "../media/storyboards";
 import type { PlanEventInput } from "./events";
 import { posterKeys, queuedPoster, renderPosterArt, type PosterArtEnv } from "./poster-art";
 import { posterImage, type PosterArt, type PosterSize } from "./poster-image";
-import { posterText } from "./poster-text";
-import { generatePosts } from "./posts";
+import { posterText, variantBConcept, withFrontConcept } from "./poster-text";
+import { generatePosts, type PostsResult } from "./posts";
 import { isExampleId, isLivePlanId, reportOf, type MarketingReport, type PlanSource } from "./posts-store";
 import type { Cost } from "../report/stages";
+import { posterSchema, postsSchema, type Poster, type Posts } from "./schema";
 import { shareLinks } from "./share";
 
 if (typeof window !== "undefined") {
@@ -42,6 +48,29 @@ export type MarketingResponse = z.infer<typeof marketingResponseSchema>;
 
 const answer = (status: number, body: MarketingResponse): RouteAnswer<MarketingResponse> => ({ status, body: marketingResponseSchema.parse(body) });
 
+/** Variant B's poster and posts for one plan, kept until the contract has a slot for them. */
+export const variantKey = (planId: string) => `plan:${planId}:marketing:b`;
+
+export const variantMarketingSchema = z.strictObject({ conceptId: z.string().min(1), poster: posterSchema, posts: postsSchema.nullable() });
+export type VariantMarketing = z.infer<typeof variantMarketingSchema>;
+
+/** GET /api/plan/<id>/marketing: both variants' posters and posts (B only when the plan tests a second concept). */
+export const marketingStateSchema = z.strictObject({
+  a: z.strictObject({ conceptId: z.string().nullable(), poster: posterSchema, posts: postsSchema.nullable() }),
+  b: variantMarketingSchema.nullable(),
+});
+export type MarketingState = z.infer<typeof marketingStateSchema>;
+
+export async function readVariant(store: Store | null, planId: string): Promise<VariantMarketing | null> {
+  if (!store) return null;
+  try {
+    const parsed = variantMarketingSchema.safeParse(await store.get(variantKey(planId)));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 // --- The job ---------------------------------------------------------------------------------------
 
 export interface MarketingEnv {
@@ -58,12 +87,12 @@ export interface MarketingEnv {
 
 const step = (label: string, reason?: string): PlanEventInput => ({ type: "trace.step", step: { stage: "marketing", kind: "decision", label, ...(reason ? { reason: reason.slice(0, 600) } : {}) } });
 
-function addCost(cost: Cost, claude: { calls: number; inputTokens: number; outputTokens: number }, billedArt: boolean): Cost {
+function addCost(cost: Cost, claude: { calls: number; inputTokens: number; outputTokens: number }, billedArt: number): Cost {
   return {
     ...cost,
     claude: { ...cost.claude, calls: cost.claude.calls + claude.calls, inputTokens: cost.claude.inputTokens + claude.inputTokens, outputTokens: cost.claude.outputTokens + claude.outputTokens },
-    frames: cost.frames + (billedArt ? 1 : 0),
-    estimateUsd: Math.round((cost.estimateUsd + (claude.inputTokens * PRICES.input + claude.outputTokens * PRICES.output) / 1_000_000 + (billedArt ? POSTER_MODEL.usdPerImage : 0)) * 10_000) / 10_000,
+    frames: cost.frames + billedArt,
+    estimateUsd: Math.round((cost.estimateUsd + (claude.inputTokens * PRICES.input + claude.outputTokens * PRICES.output) / 1_000_000 + billedArt * POSTER_MODEL.usdPerImage) * 10_000) / 10_000,
   };
 }
 
@@ -82,9 +111,16 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
       { type: "poster.updated", poster: queued },
       step("Froze the poster art prompt", "Background art only: no text, no logos, no people, no names. Every word on the poster is set by code from the plan and the manager's offers."),
     ]);
-    const [written, art] = await Promise.all([
-      generatePosts(env.model, report, env.abortSignal ? { abortSignal: env.abortSignal } : {}),
-      renderPosterArt({ ...env.art, store: env.store, now, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) }, report, visitor),
+    const signal = env.abortSignal ? { abortSignal: env.abortSignal } : {};
+    const artEnv = { ...env.art, store: env.store, now, ...signal };
+    // Variant B, when the plan tests a second concept: the same writers, with that concept in front.
+    const bId = variantBConcept(report);
+    const bReport = bId ? withFrontConcept(report, bId) : null;
+    const [written, art, bWritten, bArt] = await Promise.all([
+      generatePosts(env.model, report, signal),
+      renderPosterArt(artEnv, report, visitor),
+      bReport ? generatePosts(env.model, bReport, signal) : Promise.resolve(null),
+      bReport ? renderPosterArt(artEnv, bReport, visitor) : Promise.resolve(null),
     ]);
     const posts = { ...written.posts, share: shareLinks(env.origin, runId, written.posts) };
     const events: PlanEventInput[] = [
@@ -97,7 +133,16 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
         ? step("Painted the poster background", `${POSTER_MODEL.displayName}, from the city's music styles turned into color and texture.${art.billed ? "" : " From the art cache, at no cost."}`)
         : step("The poster uses the plain background", art.poster.reason),
     ];
-    if (report.cost && (written.usage.calls > 0 || art.billed)) events.push({ type: "run.cost", cost: addCost(report.cost, written.usage, art.billed) });
+    let usage: PostsResult["usage"] = written.usage;
+    let billed = art.billed ? 1 : 0;
+    if (bId && bWritten && bArt) {
+      const bPosts: Posts = { ...bWritten.posts, share: shareLinks(env.origin, runId, bWritten.posts, "b") };
+      await env.store.set(variantKey(runId), variantMarketingSchema.parse({ conceptId: bId, poster: bArt.poster, posts: bPosts }), { ttlSeconds: TTL.report });
+      usage = { calls: usage.calls + bWritten.usage.calls, inputTokens: usage.inputTokens + bWritten.usage.inputTokens, outputTokens: usage.outputTokens + bWritten.usage.outputTokens };
+      billed += bArt.billed ? 1 : 0;
+      events.push(step("Wrote variant B's poster and posts", `From the test's second concept, so the two online pushes can be compared too. ${bWritten.source === "claude" ? "Claude's drafts passed the checks" : "The plain template"}; ${bArt.poster.status === "ready" ? "its own background art" : "the plain background"}.`));
+    }
+    if (report.cost && (usage.calls > 0 || billed > 0)) events.push({ type: "run.cost", cost: addCost(report.cost, usage, billed) });
     events.push({ type: "stage.done", stage: "marketing", stats: { durationMs: now().getTime() - started, liveCalls: 0, cachedCalls: 0 } });
     await env.source.append(runId, events);
     return true;
@@ -209,20 +254,42 @@ function storeOrNull(deps: PosterRouteDeps): Store | null {
   }
 }
 
-async function findReport(deps: PosterRouteDeps, id: string): Promise<MarketingReport | null> {
+async function findReport(deps: PosterRouteDeps, id: string): Promise<{ report: MarketingReport; store: Store | null } | null> {
   const example = isExampleId(id);
   if (!example && !(deps.live && isLivePlanId(id))) return null;
   const store = storeOrNull(deps);
   if (!example && !store) return null;
   const state = await deps.source(store).state(id);
-  return state ? reportOf(state) : null;
+  const report = state ? reportOf(state) : null;
+  return report ? { report, store } : null;
 }
 
-/** The composited poster PNG, or a 404 for an unknown plan. Never an error image. */
-export async function posterResponse(deps: PosterRouteDeps, id: string, size: PosterSize): Promise<Response> {
-  const report = await findReport(deps, id);
-  if (!report) return Response.json({ error: { code: "not_found", message: "No plan with that id." } }, { status: 404, headers: { "cache-control": "no-store" } });
-  const { poster } = report;
+const notFound = () => Response.json({ error: { code: "not_found", message: "No plan with that id." } }, { status: 404, headers: { "cache-control": "no-store" } });
+
+/** Both variants' posters and posts, for the plan page and the share screen. */
+export async function marketingState(deps: PosterRouteDeps, id: string): Promise<Response> {
+  const found = await findReport(deps, id);
+  if (!found) return notFound();
+  const { report, store } = found;
+  const bId = variantBConcept(report);
+  const b = bId ? ((await readVariant(store, id)) ?? { conceptId: bId, poster: { status: "none", prompt: "", promptHash: "", alt: "" } satisfies Poster, posts: null }) : null;
+  const body = marketingStateSchema.parse({ a: { conceptId: report.plan?.conceptId ?? null, poster: report.poster, posts: report.posts }, b: b && b.conceptId === bId ? b : null });
+  return Response.json(body, { headers: { "cache-control": "no-store" } });
+}
+
+/** The composited poster PNG (variant B's with `variant: "b"`), or a 404 for an unknown plan. Never an error image. */
+export async function posterResponse(deps: PosterRouteDeps, id: string, size: PosterSize, variant: "a" | "b" = "a"): Promise<Response> {
+  const found = await findReport(deps, id);
+  if (!found) return notFound();
+  let { report } = found;
+  let poster: Poster = report.poster;
+  if (variant === "b") {
+    const bId = variantBConcept(report);
+    if (!bId) return notFound();
+    const stored = await readVariant(found.store, id);
+    report = withFrontConcept(report, bId);
+    poster = stored?.conceptId === bId ? stored.poster : { status: "none", prompt: "", promptHash: "", alt: "" };
+  }
   const art = poster.status === "ready" && poster.url && trustedArtUrl(poster.url, deps.artOrigins) ? await fetchArt(poster.url, deps.fetch ?? globalThis.fetch) : null;
   const example = report.meta.kind === "example";
   const settled = example || FINAL.has(poster.status);

@@ -32,6 +32,13 @@ describe("share links", () => {
     expect(new URL(links.whatsapp!).searchParams.get("text")).toBe("See you there.\n\nhttps://stoop.test/e/run_1");
   });
 
+  it("points variant B at its own event page and poster", () => {
+    expect(eventUrl("https://stoop.test", "plan_1", "b")).toBe("https://stoop.test/e/plan_1?variant=b");
+    expect(posterUrl("https://stoop.test", "plan_1", "og", "b")).toBe("https://stoop.test/api/plan/plan_1/marketing/poster.png?size=og&variant=b");
+    const links = shareLinks("https://stoop.test", "plan_1", { whatsapp: { text: "B." } }, "b");
+    expect(new URL(links.facebook!).searchParams.get("u")).toBe("https://stoop.test/e/plan_1?variant=b");
+  });
+
   it("serves the poster at its two sizes", () => {
     expect(posterUrl("https://stoop.test", "ex-a")).toBe("https://stoop.test/api/plan/ex-a/marketing/poster.png");
     expect(posterUrl("https://stoop.test", "ex-a", "og")).toBe("https://stoop.test/api/plan/ex-a/marketing/poster.png?size=og");

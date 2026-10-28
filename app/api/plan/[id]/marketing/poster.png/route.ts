@@ -1,5 +1,6 @@
 // GET /api/plan/<id>/marketing/poster.png: the composited event poster, 1080 by 1350 for Instagram
-// portrait, or 1200 by 630 with ?size=og for link previews (the /e/<id> page's og:image). Every word is
+// portrait, or 1200 by 630 with ?size=og for link previews (the /e/<id> page's og:image); ?variant=b
+// draws an A/B test's variant B (404 when the plan tests no second concept). Every word is
 // set by code; the background is the plan's rendered art when it is on Stoop's own storage, else the
 // plain Stoop background. Examples (ex-<slug>) read their recorded plan, so they draw without a store.
 import { connection } from "next/server";
@@ -12,7 +13,9 @@ import { getStore } from "@/lib/store";
 export async function GET(request: Request, ctx: RouteContext<"/api/plan/[id]/marketing/poster.png">) {
   await connection();
   const { id } = await ctx.params;
-  const size = new URL(request.url).searchParams.get("size") === "og" ? "og" : "portrait";
+  const query = new URL(request.url).searchParams;
+  const size = query.get("size") === "og" ? "og" : "portrait";
+  const variant = query.get("variant") === "b" ? "b" : "a";
   const site = metadataOrigin({ app: process.env.NEXT_PUBLIC_APP_URL, production: process.env.VERCEL_PROJECT_PRODUCTION_URL, deployment: process.env.VERCEL_URL }).origin;
   const r2 = process.env.R2_PUBLIC_URL?.trim();
   return posterResponse(
@@ -25,5 +28,6 @@ export async function GET(request: Request, ctx: RouteContext<"/api/plan/[id]/ma
     },
     id,
     size,
+    variant,
   );
 }

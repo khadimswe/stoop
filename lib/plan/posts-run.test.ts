@@ -10,7 +10,8 @@ import { reducePlan, createPlanEmitter, type PlanEventInput } from "./events";
 import { posterKeys, type PosterRenderer } from "./poster-art";
 import { POSTER_SIZES } from "./poster-image";
 import { samplePlanReport } from "./posts-fixture";
-import { marketingResponseSchema, posterResponse, requestMarketing, runMarketing, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
+import { marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
+import type { AbTest } from "./schema";
 import { storePlanSource, type PlanSource } from "./posts-store";
 import type { PlanReport } from "./schema";
 
@@ -221,6 +222,63 @@ describe("posterResponse", () => {
     expect(fetched).toEqual([url]);
     expect(response.headers.get("cache-control")).toMatch(/^public/);
     expect((await pngSize(response)).width).toBe(1080);
+  });
+});
+
+describe("variant B", () => {
+  const test: AbTest = {
+    variants: [
+      { id: "a", label: "Taco table", source: "concept", conceptId: "taco-table" },
+      { id: "b", label: "Park picnic", source: "concept", conceptId: "park-picnic" },
+    ],
+    assignments: [
+      { storeId: "test-store", date: "2026-11-07", variant: "a" },
+      { storeId: "test-store", date: "2026-11-14", variant: "b" },
+    ],
+    metric: "walk_ins",
+    decisionRule: "Keep the variant with more walk-ins than the store's usual Saturday.",
+    caveat: "One weekend each is a first look, not proof.",
+  };
+
+  async function seedTested() {
+    const source = await seedRun(samplePlanReport());
+    await source.append(RUN, [{ type: "test.ready", test }]);
+    return source;
+  }
+
+  it("writes a second poster and posts from the B concept, with share links to the B page", async () => {
+    const source = await seedTested();
+    const art = renderer();
+    await runMarketing({ store, source, model: null, art: { storage: storage(), renderer: art, framesCap: 10 }, origin: "https://stoop.test" }, RUN, null);
+    expect(art.calls).toBe(2);
+    const b = (await readVariant(store, RUN))!;
+    expect(b.conceptId).toBe("park-picnic");
+    expect(b.posts?.facebook.text).toMatch(/^Picnic by the Commons/);
+    expect(b.poster.status).toBe("ready");
+    expect(new URL(b.posts!.share.facebook!).searchParams.get("u")).toBe(`https://stoop.test/e/${RUN}?variant=b`);
+    const state = (await source.state(RUN))!.report;
+    expect(state.posts?.facebook.text).toMatch(/^Taco Table Saturday/);
+    expect(state.cost?.frames).toBe(2);
+    expect(state.trace.map((s) => s.label)).toContain("Wrote variant B's poster and posts");
+  });
+
+  it("serves both variants, and B's poster with B's title", async () => {
+    const source = await seedTested();
+    await runMarketing({ store, source, model: null, art: { storage: null, renderer: null }, origin: "https://stoop.test" }, RUN, null);
+    const deps = { live: true, store: () => store, source: () => source, artOrigins: [] };
+    const body = marketingStateSchema.parse(await (await marketingState(deps, RUN)).json());
+    expect(body.a.conceptId).toBe("taco-table");
+    expect(body.b?.conceptId).toBe("park-picnic");
+    const poster = await posterResponse(deps, RUN, "portrait", "b");
+    expect(poster.status).toBe(200);
+    expect(poster.headers.get("content-type")).toBe("image/png");
+  });
+
+  it("has no B for a plan without a test", async () => {
+    const source = await seedRun(samplePlanReport());
+    const deps = { live: true, store: () => store, source: () => source, artOrigins: [] };
+    expect(marketingStateSchema.parse(await (await marketingState(deps, RUN)).json()).b).toBeNull();
+    expect((await posterResponse(deps, RUN, "portrait", "b")).status).toBe(404);
   });
 });
 

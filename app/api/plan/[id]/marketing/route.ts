@@ -2,14 +2,14 @@
 // checks answer right away (lib/plan/posts-run.ts requestMarketing); the posts (Claude) and the poster
 // art (fal) are written after the response and stream to the plan as poster.updated and posts.ready
 // events. The art counts against the asker's storyboards for the day and the global frame cap.
-import { after } from "next/server";
+import { after, connection } from "next/server";
 import { getBotCheck } from "@/lib/bot-check";
 import { stoopModel } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
 import { cookieVisitorOf } from "@/lib/http";
 import { metadataOrigin } from "@/lib/marketing/site";
 import { posterRendererFromEnv } from "@/lib/plan/poster-art";
-import { requestMarketing, runMarketing } from "@/lib/plan/posts-run";
+import { marketingState, requestMarketing, runMarketing } from "@/lib/plan/posts-run";
 import { storePlanSource } from "@/lib/plan/posts-store";
 import { respond } from "@/lib/route-answer";
 import { browserOnly } from "@/lib/routes/guard";
@@ -56,4 +56,12 @@ export async function POST(request: Request, ctx: RouteContext<"/api/plan/[id]/m
     id,
   );
   return respond(answer);
+}
+
+// GET /api/plan/<id>/marketing: both variants' posters and posts ({ a, b }), b only when the plan's A/B
+// test runs a second concept. Variant A is also in the plan's own events (poster, posts).
+export async function GET(_request: Request, ctx: RouteContext<"/api/plan/[id]/marketing">) {
+  await connection();
+  const { id } = await ctx.params;
+  return marketingState({ live: isLive(), store: getStore, source: (store) => storePlanSource(store), artOrigins: [] }, id);
 }
