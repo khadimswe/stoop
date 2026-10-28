@@ -11,6 +11,7 @@ import path from "node:path";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { examplePlanId, PLAN_EXAMPLES, REAL_STORE_NOTE, type PlanExampleSlug } from "../example-list";
 import type { PlanReport } from "../schema";
+import { eventPageView, type EventPageView } from "./event-page";
 import { planView, sourceFromReport, type PlanView } from "./plan";
 
 const file = (slug: PlanExampleSlug) => path.join(process.cwd(), "data", "plans", slug, "plan.events.json");
@@ -35,6 +36,14 @@ export function loadPlanExampleReport(slug: PlanExampleSlug): PlanReport {
     reports.set(slug, report);
   }
   return report;
+}
+
+/** One example's public event page, under its plan id. A real store carries its permission note. */
+export function loadPlanExampleEventView(slug: PlanExampleSlug): EventPageView {
+  const view = eventPageView(sourceFromReport(loadPlanExampleReport(slug), examplePlanId(slug)));
+  const example = PLAN_EXAMPLES.find((e) => e.slug === slug);
+  if (example && !example.fictional) view.fictional = REAL_STORE_NOTE;
+  return view;
 }
 
 /**
