@@ -11,6 +11,7 @@ import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, ty
 import {
   CARRIER_LABELS,
   ITEM_KIND_LABELS,
+  capitalizeFirst,
   PLACE_KIND_LABELS,
   PLAN_STAGE_LABELS,
   SETTING_LABELS,
@@ -178,10 +179,8 @@ export interface PlaceView {
   name: string;
   kind: Place["kind"];
   kindLabel: string;
-  /** Meters from the store (or the event place), for the block map. */
-  distanceM: number | null;
-  /** Qloo's coordinates, when the run has them. */
-  point: { lat: number; lon: number } | null;
+  /** A national chain: fine for gift cards and snack runs, marked quietly. */
+  chain: boolean;
   tags: string[];
   address: string | null;
   distanceText: string | null;
@@ -193,13 +192,7 @@ export interface PlaceView {
 export interface LocalView {
   /** The city's artists by rank. Genre tags are never shown: no event or crowd is labeled by genre. */
   city: { name: string; ageText: string; artists: ArtistView[] } | null;
-  block: {
-    radiusText: string;
-    radiusM: number;
-    /** The map's center: the event's own place when it is away from the store, else the store. */
-    center: { lat: number; lon: number; label: string };
-    places: PlaceView[];
-  } | null;
+  block: { radiusText: string; places: PlaceView[] } | null;
   /** Music the block's own places point to, shown only when the plan uses it. */
   blockMusic: { places: { name: string; receipt: string | null }[]; artists: { name: string; receipt: string | null }[] } | null;
   gaps: string[];
@@ -519,15 +512,12 @@ export function planView(source: PlanSource): PlanView {
     block: block
       ? {
           radiusText: distanceText(block.radiusM),
-          radiusM: block.radiusM,
-          center: inputs.location ? { ...inputs.location.point, label: "Event" } : { ...inputs.store.point, label: "Store" },
           places: block.places.map((p) => ({
             id: p.id,
             name: p.name,
             kind: p.kind,
             kindLabel: PLACE_KIND_LABELS[p.kind],
-            distanceM: p.distanceM,
-            point: p.point ?? null,
+            chain: p.chain === true,
             tags: p.tags,
             address: p.address,
             distanceText: p.distanceM === null ? null : distanceText(p.distanceM),
@@ -575,7 +565,7 @@ export function planView(source: PlanSource): PlanView {
       dateShort: eventDate(inputs.date, "short"),
       timeText: timeRange(inputs.startTime, inputs.durationMinutes),
       settingLabel: SETTING_LABELS[inputs.setting],
-      venue: inputs.location?.name ?? null,
+      venue: inputs.location ? capitalizeFirst(inputs.location.name) : null,
       budgetText: `${usd(inputs.budgetUsd)} budget`,
       offers: inputs.offers.map((o) => o.text),
       ageText: ageBandsText(inputs.ageBands),

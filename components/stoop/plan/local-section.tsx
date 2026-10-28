@@ -3,10 +3,10 @@
 import { BadgeCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { ArtistView, LocalView, PlaceView } from "@/lib/plan/view/plan";
+import { OriginTag } from "./origin-tag";
 import { ReceiptTrigger } from "./receipts";
 
 const FIRST_ARTISTS = 8;
-const FIRST_PLACES = 6;
 
 /** A name Qloo returned, as a text button that opens its receipt. */
 function NameButton({ name, receiptKey }: { name: string; receiptKey: string | null }) {
@@ -63,41 +63,63 @@ function Artists({ city, artists }: { city: string; artists: readonly ArtistView
   );
 }
 
-function Places({ places, inPlan, radiusText }: { places: readonly PlaceView[]; inPlan: ReadonlySet<string>; radiusText: string }) {
+const GROUPS: { kind: PlaceView["kind"]; label: string }[] = [
+  { kind: "food", label: "Food" },
+  { kind: "venue", label: "Venues" },
+  { kind: "park", label: "Parks" },
+  { kind: "shop", label: "Shops" },
+  { kind: "other", label: "Other" },
+];
+const FIRST_PER_GROUP = 4;
+
+function PlaceGroup({ label, places, uses }: { label: string; places: readonly PlaceView[]; uses: Readonly<Record<string, readonly string[]>> }) {
   const [all, setAll] = useState(false);
-  // The plan's partners first, then Qloo's order.
-  const ordered = [...places].sort((a, b) => Number(inPlan.has(b.id)) - Number(inPlan.has(a.id)));
-  const shown = all ? ordered : ordered.slice(0, FIRST_PLACES);
+  // The plan's places first, then Qloo's order.
+  const ordered = [...places].sort((a, b) => Number(Boolean(uses[b.id])) - Number(Boolean(uses[a.id])));
+  const shown = all ? ordered : ordered.slice(0, FIRST_PER_GROUP);
   return (
-    <section aria-label="Places nearby" className="flex flex-col gap-2">
-      <Heading>Places within {radiusText}</Heading>
+    <section aria-label={label} className="flex flex-col">
+      <h4 className="font-mono text-[0.6875rem] tracking-wide text-ink-soft uppercase">{label}</h4>
       <ul className="flex flex-col">
         {shown.map((p) => (
-          <li key={p.id} className="flex flex-col gap-0.5 border-b border-hairline py-2.5 text-sm">
-            <p className="flex flex-wrap items-baseline gap-x-2">
-              <NameButton name={p.name} receiptKey={p.receipt} />
+          <li key={p.id} className="flex flex-col gap-1.5 border-b border-hairline py-2.5 text-sm">
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="font-semibold">{p.name}</span>
               {p.distanceText && <span className="font-mono text-xs text-ink-soft">{p.distanceText}</span>}
-              {inPlan.has(p.id) && <span className="rounded-full border border-ink px-1.5 text-[0.6875rem] font-semibold">In the plan</span>}
+              {p.chain && <span className="text-xs text-ink-soft">Chain</span>}
+              {uses[p.id] && <span className="rounded-full border border-ink px-1.5 text-[0.6875rem] font-semibold">In the plan</span>}
             </p>
-            {p.why && <p className="line-clamp-2 text-ink-soft">{p.why}</p>}
+            <div>
+              <OriginTag origin="qloo" receiptKey={p.receipt} context={p.name} />
+            </div>
           </li>
         ))}
       </ul>
-      <MoreToggle shown={FIRST_PLACES} total={places.length} open={all} onToggle={() => setAll((v) => !v)} />
+      <MoreToggle shown={FIRST_PER_GROUP} total={places.length} open={all} onToggle={() => setAll((v) => !v)} />
+    </section>
+  );
+}
+
+function Places({ places, uses, radiusText }: { places: readonly PlaceView[]; uses: Readonly<Record<string, readonly string[]>>; radiusText: string }) {
+  return (
+    <section aria-label="Places nearby" className="flex flex-col gap-3">
+      <Heading>Places within {radiusText}</Heading>
+      {GROUPS.map((g) => {
+        const group = places.filter((p) => p.kind === g.kind);
+        return group.length > 0 ? <PlaceGroup key={g.kind} label={g.label} places={group} uses={uses} /> : null;
+      })}
     </section>
   );
 }
 
 /**
- * What Qloo measured around the store, one tap deep: the city's artists (by city name) and the places
- * nearby with Qloo's own "why", the plan's partners first.
+ * What Qloo measured around the store, one tap deep: the places nearby grouped by kind (the plan's
+ * first, each with its receipt) and the city's playlist. A plain list: no map drawing.
  */
-export function YourBlock({ view, partnerIds, map }: { view: LocalView; partnerIds: readonly string[]; map?: ReactNode }) {
+export function YourBlock({ view, uses }: { view: LocalView; uses: Readonly<Record<string, readonly string[]>> }) {
   const { city, block, gaps, blockMusic } = view;
-  const inPlan = new Set(partnerIds);
   return (
     <div className="flex flex-col gap-6">
-      {map}
       {blockMusic && blockMusic.places[0] && (
         <p className="text-sm text-pretty">
           People who love <NameButton name={blockMusic.places[0].name} receiptKey={blockMusic.places[0].receipt} /> also play{" "}
@@ -110,7 +132,7 @@ export function YourBlock({ view, partnerIds, map }: { view: LocalView; partnerI
         </p>
       )}
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
-        {block && block.places.length > 0 ? <Places places={block.places} inPlan={inPlan} radiusText={block.radiusText} /> : <p className="text-sm text-ink-soft">No Qloo places near the store.</p>}
+        {block && block.places.length > 0 ? <Places places={block.places} uses={uses} radiusText={block.radiusText} /> : <p className="text-sm text-ink-soft">No Qloo places near the store.</p>}
         {city ? <Artists city={city.name} artists={city.artists} /> : <p className="text-sm text-ink-soft">No Qloo signal for a playlist.</p>}
       </div>
       {gaps.length > 0 && (

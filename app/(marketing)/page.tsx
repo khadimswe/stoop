@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { TwoBlocks } from "@/components/stoop/landing/two-blocks";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_HERO, FOUNDER_HERO, PILOT_COPY, PILOT_LINE } from "@/lib/marketing/pilot";
+import { FOUNDER_STORY, HERO, PILOT_COPY, PILOT_LINE, PILOT_RESULT, PILOT_RESULT_LABEL } from "@/lib/marketing/pilot";
 import { examplePlanPath, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { loadPlanExampleView, recordedPlanSlugs } from "@/lib/plan/view/load";
 import { blockSide } from "@/lib/plan/view/two-blocks";
@@ -30,17 +30,15 @@ export default function Home() {
   const lead = PLAN_EXAMPLES.find((e) => e.lead)?.slug;
   const pair = [views.find((v) => v.slug === lead) ?? views[0], views.find((v) => v.slug !== lead)].filter((v): v is NonNullable<typeof v> => Boolean(v));
   const sides = pair.length === 2 ? ([blockSide(pair[0]!.view, examplePlanPath(pair[0]!.slug)), blockSide(pair[1]!.view, examplePlanPath(pair[1]!.slug))] as const) : null;
-  const hero = PILOT_COPY ? FOUNDER_HERO : DEFAULT_HERO;
 
   return (
     <main className="flex-1">
       <section aria-labelledby="hero-title" className="mx-auto flex max-w-6xl flex-col gap-10 px-5 pt-10 pb-16 sm:pt-14">
         <div className="flex max-w-3xl flex-col gap-5">
-          <h1 id="hero-title" className="font-display font-extrabold text-balance [font-stretch:75%]" style={{ fontSize: PILOT_COPY ? "clamp(2.5rem, 8vw, 5rem)" : "clamp(3rem, 13vw, 6.5rem)", lineHeight: 0.9, letterSpacing: "-0.03em" }}>
-            {hero.headline}
+          <h1 id="hero-title" className="font-display font-extrabold text-balance [font-stretch:75%]" style={{ fontSize: "clamp(3rem, 13vw, 6.5rem)", lineHeight: 0.9, letterSpacing: "-0.03em" }}>
+            {HERO.headline}
           </h1>
-          <p className="max-w-[34em] text-lg leading-relaxed text-pretty text-ink-soft">{hero.sub}</p>
-          {PILOT_COPY && <p className="font-display text-xl font-bold [font-stretch:85%]">{FOUNDER_HERO.line}</p>}
+          <p className="max-w-[34em] text-lg leading-relaxed text-pretty text-ink-soft">{HERO.sub}</p>
           <div className="flex flex-wrap items-center gap-4">
             <Button asChild size="lg">
               <Link href="/start">Plan an event</Link>
@@ -48,11 +46,21 @@ export default function Home() {
             {PILOT_COPY && PILOT_LINE && <span className="text-sm text-ink-soft">{PILOT_LINE}</span>}
           </div>
         </div>
-        {sides && (
-          <div className="flex flex-col gap-3">
-            <p className="type-kicker text-ink-soft">Two blocks, two tables</p>
-            <TwoBlocks sides={sides} />
-          </div>
+        {sides && <TwoBlocks sides={sides} />}
+        {FOUNDER_STORY && (
+          <figure className="flex max-w-3xl flex-col gap-3 border-l-[3px] border-ink pl-5">
+            <blockquote className="flex flex-col gap-2">
+              <p className="text-lg leading-relaxed text-pretty">“{FOUNDER_STORY.quote}”</p>
+              <p className="font-display text-xl leading-snug font-extrabold text-pretty [font-stretch:85%]">{FOUNDER_STORY.line}</p>
+            </blockquote>
+            <figcaption className="text-sm text-ink-soft">{FOUNDER_STORY.credit}</figcaption>
+          </figure>
+        )}
+        {PILOT_RESULT && (
+          <p className="flex flex-col gap-0.5 text-sm">
+            <span className="font-semibold">{PILOT_RESULT.line}</span>
+            <span className="text-ink-soft">{PILOT_RESULT_LABEL}</span>
+          </p>
         )}
       </section>
 

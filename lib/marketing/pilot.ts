@@ -1,23 +1,32 @@
-// Real-store and pilot copy, behind ONE switch. It stays off until the founder has written permission
-// from the dealer and has approved the wording; flipping PILOT_COPY to true is the only change needed.
-// With it off, the landing tells the product's story with the fictional example stores only.
+// The landing's words, and the switches for anything about real stores.
+//
+// - PILOT_COPY: any pilot or dealer line. OFF until the founder has the dealer's written permission;
+//   flipping it to true is the only change needed.
+// - FOUNDER_STORY: the founder's own story, ON. It names streets he worked on, never a store or dealer.
+// - PILOT_RESULT: the first real event's result. Null renders nothing; fill it in after the event.
 export const PILOT_COPY = false;
 
-/** The founder's story, for the landing hero when PILOT_COPY is on. His words; keep them plain. */
-export const FOUNDER_HERO = {
-  headline: "The table worked on Tara Boulevard. In Kennesaw, people walked right past it.",
-  sub: "The table wasn't the problem. Knowing the block was. Stoop plans the event this block wants.",
-  line: "Marketing isn't just for big companies.",
+/** One line about the pilot, shown only with PILOT_COPY on. Empty until the dealer's written permission. */
+export const PILOT_LINE = "";
+
+export const HERO = {
+  headline: "Give your block a reason to stop.",
+  sub: "The marketing team your store never had. Event, poster and posts, planned from your city and your block.",
 } as const;
 
-/** The landing hero with the pilot copy off. */
-export const DEFAULT_HERO = {
-  headline: "Give your block a reason to stop.",
-  sub: "Your store's event, planned from your city's music and the spots on your block.",
-} as const;
+/** His words, as one quiet strip under the two posters. Set to null to take it down. */
+export const FOUNDER_STORY: { quote: string; line: string; credit: string } | null = {
+  quote:
+    "At my first Metro store, on Tara Boulevard, a table outside with music and snacks brought in big traffic. When I moved to Kennesaw and set up the same table, people walked right past it.",
+  line: "Same table, different block. Stoop plans for the block you're on.",
+  credit: "Khadim, sales floor, Metro by T-Mobile",
+};
 
 /**
- * One line about the pilot, shown only with PILOT_COPY on. Left empty on purpose: the dealer is named
- * here only after their written permission (the founder has the wording).
+ * The first pilot's result, once it has run: for example "First pilot: X walk-ins in 3 hours, vs a
+ * usual Y". Null renders nothing. Never filled in before a real event.
  */
-export const PILOT_LINE = "";
+export const PILOT_RESULT: { line: string } | null = null;
+
+/** Always said next to a pilot result. */
+export const PILOT_RESULT_LABEL = "One Friday. A first look, not proof.";
