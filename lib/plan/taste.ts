@@ -306,6 +306,13 @@ export const NATIONAL_CHAINS = [
   "jason's deli", "newk's", "zoes kitchen", "schlotzsky's", "which wich", "longhorn steakhouse", "texas roadhouse", "outback steakhouse",
   "red lobster", "cheddar's", "ruby tuesday", "tgi fridays", "first watch", "another broken egg", "tropical smoothie", "dave & buster's",
   "portillo's", "lou malnati's", "giordano's", "harold's chicken", "jim 'n nick's", "dickey's barbecue", "golden krust",
+  // National franchises the Dallas and Fort Worth holdout found by hand (Oct 28), and Texas chains like them.
+  "beard papa's", "buttermilk sky pie", "the original pancake house", "original pancake house", "kung fu tea", "cotton patch cafe",
+  "braum's", "golden chick", "bahama buck's", "andy's frozen custard", "kolache factory", "pie five", "village inn", "marie callender's",
+  "snooze", "gong cha", "sharetea", "boba guys", "tiff's treats", "painting with a twist", "tom thumb", "taco bueno", "bubba's 33",
+  "fuzzy's taco shop", "freebirds", "velvet taco", "rosa's cafe", "rudy's", "lupe tortilla", "luby's", "pluckers", "einstein bros",
+  "7 brew", "scooter's coffee", "duck donuts", "shipley", "daylight donuts", "yogurtland", "menchie's", "tcby", "orange leaf", "kona ice",
+  "dairy queen", "sonic", "nothing bundt cakes", "crumbl cookies", "tropical smoothie cafe", "pollo tropical", "jollibee", "cinnaholic",
 ] as const;
 const CHAIN_KEYS = NATIONAL_CHAINS.map(plainName);
 
@@ -318,11 +325,22 @@ export function isChain(name: string, known: ReadonlySet<string> = new Set()): b
   return known.has(plain) || CHAIN_KEYS.some((chain) => plain === chain || plain.startsWith(`${chain} `));
 }
 
-/** The normalized names found on more than one store's block: a business with several branches is a chain. */
-export function repeatedPlaceNames(blocks: readonly { places: readonly { name: string }[] }[]): Set<string> {
-  const seen = new Map<string, number>();
-  for (const block of blocks) for (const name of new Set(block.places.map((p) => plainName(p.name)))) seen.set(name, (seen.get(name) ?? 0) + 1);
-  return new Set([...seen].filter(([, count]) => count > 1).map(([name]) => name));
+/**
+ * The normalized names found at more than one branch across stores' blocks: a business with several
+ * branches is a chain. Branches are told apart by Qloo id, so one place two nearby stores both see
+ * stays an independent; a place with no id counts once per block.
+ */
+export function repeatedPlaceNames(blocks: readonly { places: readonly { name: string; id?: string }[] }[]): Set<string> {
+  const branches = new Map<string, Set<string>>();
+  blocks.forEach((block, b) => {
+    for (const place of block.places) {
+      const name = plainName(place.name);
+      const set = branches.get(name) ?? new Set<string>();
+      set.add(place.id ?? `block-${b}`);
+      branches.set(name, set);
+    }
+  });
+  return new Set([...branches].filter(([, ids]) => ids.size > 1).map(([name]) => name));
 }
 
 /** Place genres built around alcohol or tobacco: never a partner for a public sidewalk table. */
@@ -394,6 +412,9 @@ export function placeWhy(entity: QlooEntity, artistNames: ReadonlyMap<string, st
   return text(entity.properties?.short_description);
 }
 
+/** Words in Qloo's own description of a place that mark it as one of many branches. */
+export const CHAIN_CUE = /\b(chains?|franchises?|franchised|franchisee)\b/i;
+
 export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: string; fallback: Place["kind"]; knownChains?: ReadonlySet<string> }): Place {
   const distance = (entity as QlooEntity & { distance?: unknown }).distance;
   return {
@@ -408,7 +429,9 @@ export function toPlace(entity: QlooEntity, input: { rank: number; evidenceId: s
     rank: input.rank,
     affinity: entity.affinity,
     popularity: entity.popularity,
-    chain: isChain(entity.name, input.knownChains),
+    // A chain by name, by repetition across recorded stores, or by Qloo's own description ("a Texas-born chain").
+    // Parks are never partners, so a repeated park name (two parks called the same) is not a chain.
+    chain: isChain(entity.name) || (placeKind(entity, input.fallback) !== "park" && (isChain(entity.name, input.knownChains) || CHAIN_CUE.test(text(entity.properties?.short_description) ?? ""))),
     evidenceIds: [input.evidenceId],
   };
 }

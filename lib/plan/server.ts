@@ -8,16 +8,20 @@ import { liveModel } from "../runtime/server";
 import { getStore } from "../store";
 import type { PlanRouteDeps } from "./routes";
 import { executePlan } from "./runtime";
-import { loadExampleReport, PLAN_EXAMPLES } from "./examples";
+import { loadExampleReport, PLAN_EXAMPLES, readKnownChains } from "./examples";
 import { repeatedPlaceNames } from "./taste";
 
 let chains: Promise<ReadonlySet<string>> | null = null;
 
-/** Names on more than one recorded example store's block: a business with several branches is a chain. */
+/**
+ * Names found on more than one recorded store's block (data/plans/known-chains.json, written by
+ * scripts/record-plan-chains.ts from the examples and the proof runs): a business with several
+ * branches is a chain. Without the file, the examples' own blocks.
+ */
 function knownChains(): Promise<ReadonlySet<string>> {
-  chains ??= Promise.all(PLAN_EXAMPLES.map((e) => loadExampleReport(e.slug).catch(() => null)))
-    .then((reports) => repeatedPlaceNames(reports.flatMap((r) => (r?.local.block ? [r.local.block] : []))))
-    .catch(() => new Set<string>());
+  chains ??= readKnownChains().catch(() =>
+    Promise.all(PLAN_EXAMPLES.map((e) => loadExampleReport(e.slug).catch(() => null))).then((reports) => repeatedPlaceNames(reports.flatMap((r) => (r?.local.block ? [r.local.block] : [])))),
+  ).catch(() => new Set<string>());
   return chains;
 }
 

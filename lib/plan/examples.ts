@@ -28,6 +28,15 @@ export async function loadExampleReport(slug: PlanExampleSlug, root?: string): P
   return planReportSchema.parse(await readJson(slug, "plan.report.json", root));
 }
 
+/** The file of names the recorded runs found on more than one store's block (scripts/record-plan-chains.ts). */
+export const KNOWN_CHAINS_FILE = "known-chains.json";
+
+/** The known-chain names, normalized; throws when the file is missing. */
+export async function readKnownChains(root = process.cwd()): Promise<Set<string>> {
+  const raw = JSON.parse(await readFile(path.join(root, PLANS_DIR, KNOWN_CHAINS_FILE), "utf8")) as { names?: unknown };
+  return new Set(Array.isArray(raw.names) ? raw.names.filter((n): n is string => typeof n === "string") : []);
+}
+
 /** Both files of one example. */
 export async function loadPlanExample(slug: PlanExampleSlug, root?: string): Promise<{ events: PlanEvent[]; report: PlanReport }> {
   const [events, report] = await Promise.all([loadExampleEvents(slug, root), loadExampleReport(slug, root)]);

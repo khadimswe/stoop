@@ -66,6 +66,7 @@ allow-name: East Baton Rouge Parish
 # Store events: a holiday and the example store's area, both common words.
 allow-name: Mother's Day
 allow-name: West End
+allow-name: San José
 allow-name: Flint Charter Township
 allow-name: Genesee County
 

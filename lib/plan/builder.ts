@@ -8,7 +8,7 @@
 import { z } from "zod";
 import { askOnce, cachedInstructions } from "../agent/ask";
 import { stripEmDashes } from "../guardrails";
-import { planDecide, type PlanEnv } from "./env";
+import { claudeTimeout, planDecide, type PlanEnv } from "./env";
 import { textIssues, type GuardContext } from "./guard";
 import { guardFor } from "./guard-context";
 import { clock, endTime, evidenceFor, inputsText, PLAN_RULES, PLANNER_ROLE, REF_RULES, startMinutes, toKeyRefs, toRealRefs, type Aliases } from "./prompt";
@@ -267,7 +267,12 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
   let ask = prompt;
   let built: PlanCheck["plan"] = null;
   for (let attempt = 1; attempt <= 2 && !built; attempt++) {
-    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: llmPlan, name: "event_plan", description: "The run of show, shopping list and checks.", timeoutMs: env.timeoutMs ?? PLAN_TIMEOUT_MS, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
+    const timeoutMs = claudeTimeout(env, PLAN_TIMEOUT_MS);
+    if (timeoutMs === null) {
+      planDecide(env, "plan", "Skipped another call to Claude for the plan", "Not enough time was left in the run; the plain plan stands in.");
+      break;
+    }
+    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: llmPlan, name: "event_plan", description: "The run of show, shopping list and checks.", timeoutMs, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
     const parsed = reply.failure ? null : llmPlan.safeParse(reply.output);
     if (!parsed?.success) {
       planDecide(env, "plan", attempt === 1 ? "Asked Claude again for the plan" : "Claude's plan did not come back usable", reply.failure ?? "The answer did not match the plan format.");

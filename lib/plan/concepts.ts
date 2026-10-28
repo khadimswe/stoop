@@ -7,7 +7,7 @@ import { z } from "zod";
 import { askOnce, cachedInstructions } from "../agent/ask";
 import { stripEmDashes } from "../guardrails";
 import { CUE_ORIGINS } from "../types";
-import { planDecide, type PlanEnv } from "./env";
+import { claudeTimeout, planDecide, type PlanEnv } from "./env";
 import { itemIssues, type GuardContext } from "./guard";
 import { buildAliases, evidenceFor, inputsText, localText, mostPlayedMix, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
@@ -220,6 +220,31 @@ export function defaultMusicLine(local: Local, aliases: Aliases): PlanItem | nul
   return { kind: "music", text: `A playlist of ${city.city}'s most-played artists on Qloo: ${refs.map((id) => `[[${id}]]`).join(", ")}.`, origin: "qloo", refs, evidenceIds: evidenceFor(aliases, refs, []) };
 }
 
+/**
+ * One concept built by code from what Qloo measured, for a run whose Claude concepts never came back:
+ * the plain playlist, a snack and a gift card from the block's nearest independent food spot, the
+ * manager's first offer on the sign, and the walk-in beat. Scored in the middle of the rubric.
+ */
+export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases, guard: GuardContext): CheckedConcept | null {
+  const items: PlanItem[] = [{ kind: "theme", text: "A free spin, something to eat and the store's own deals, right outside the door.", origin: "creative", refs: [], evidenceIds: [] }];
+  const music = defaultMusicLine(local, aliases);
+  if (music) items.push(music);
+  const spot = (local.block?.places ?? []).filter((p) => p.kind === "food" && !p.chain).sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9))[0];
+  if (spot) {
+    const at = spot.distanceM !== null ? `, ${spot.distanceM} m away` : "";
+    items.push({ kind: "food", text: `Snacks from [[${spot.id}]]${at}, handed out at the table.`, origin: "interpreted", refs: [spot.id], evidenceIds: evidenceFor(aliases, [spot.id], []) });
+    items.push({ kind: "giveaway", text: `A free drawing for a $10 gift card to [[${spot.id}]]. No purchase needed.`, origin: "qloo", refs: [spot.id], evidenceIds: evidenceFor(aliases, [spot.id], []) });
+  }
+  const offer = inputs.offers[0]?.text;
+  if (offer) items.push({ kind: "signage", text: `Table sign: "${offer}"`, origin: "yours", refs: [], evidenceIds: [] });
+  items.push({ kind: "timing", text: "At the busiest hour, one person walks each spin winner inside to hear the deal.", origin: "creative", refs: [], evidenceIds: [] });
+  const passing = items.filter((item) => itemIssues(item, guard).length === 0);
+  if (passing.length < MIN_CONCEPT_ITEMS) return null;
+  const safe = safeTitle(inputs, 0);
+  const scores = Object.fromEntries(PLAN_CRITERION_IDS.map((id) => [id, 3])) as PlanScore["scores"];
+  return { title: safe.title, hook: safe.hook, items: passing, score: { scores, noStereotype: true }, note: "A plain concept built from Qloo's lists.", qlooItems: new Set(passing.flatMap((i) => i.refs)).size };
+}
+
 const ANCHORS = ["Wheel Spin", "Snack Stop", "Block Table"] as const;
 
 /**
@@ -250,7 +275,12 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
   let ask = prompt;
   let best: ConceptCheck | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: conceptsOutputSchema, name: "event_concepts", description: "Three scored event concepts.", timeoutMs: env.timeoutMs ?? CONCEPTS_TIMEOUT_MS, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
+    const timeoutMs = claudeTimeout(env, CONCEPTS_TIMEOUT_MS);
+    if (timeoutMs === null) {
+      planDecide(env, "concepts", "Skipped another call to Claude for the concepts", "Not enough time was left in the run; the plain concept below stands in.");
+      break;
+    }
+    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: conceptsOutputSchema, name: "event_concepts", description: "Three scored event concepts.", timeoutMs, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
     const parsed = reply.failure ? null : conceptsOutputSchema.safeParse(reply.output);
     if (!parsed?.success) {
       planDecide(env, "concepts", attempt === 1 ? "Asked Claude again for the concepts" : "Claude's concepts did not come back usable", reply.failure ?? "The answer did not match the concept format.");
@@ -267,7 +297,12 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
       planDecide(env, "concepts", `Dropped what still failed the checks`, check.issues.slice(0, 4).join(" "));
     }
   }
-  if (!best) return null;
+  if (!best || toConcepts(best.concepts).length === 0) {
+    const plain = plainConcept(inputs, local, aliases, guard);
+    if (!plain) return null;
+    planDecide(env, "concepts", "Built a plain concept from Qloo's own lists", "Claude's concepts could not be used in time. Every line still cites Qloo, quotes the manager, or is marked a creative suggestion.");
+    return { concepts: toConcepts([plain]), aliases };
+  }
   // A concept still without its music line gets the plain one, written by code from Qloo's own list.
   const music = defaultMusicLine(local, aliases);
   if (music) {

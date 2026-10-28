@@ -84,6 +84,12 @@ export const MAJOR_CITIES: Record<string, readonly City[]> = {
   WY: [["Cheyenne", 41.14, -104.82]],
 };
 
+/** A locality farther than this from the store is the wrong place, even in the right state. */
+export const MAX_LOCALITY_KM = 80;
+
+/** Great-circle distance in km. */
+export const kmBetween = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => km(a, b);
+
 const km = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
   const rad = (d: number) => (d * Math.PI) / 180;
   const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
@@ -108,17 +114,41 @@ export interface Locality {
   name: string;
   /** "Jonesboro, Clayton County, Georgia, United States" */
   disambiguation: string | null;
+  /** Qloo's coordinates for the locality, when it sends them. */
+  point: { lat: number; lon: number } | null;
 }
 
 const echo = z.looseObject({
-  query: z.looseObject({ localities: z.looseObject({ signal: z.looseObject({ name: z.string(), disambiguation: z.string().nullish() }).nullish() }).nullish() }).nullish(),
+  query: z
+    .looseObject({
+      localities: z
+        .looseObject({ signal: z.looseObject({ name: z.string(), disambiguation: z.string().nullish(), location: z.looseObject({ lat: z.number(), lon: z.number() }).nullish() }).nullish() })
+        .nullish(),
+    })
+    .nullish(),
 });
 
 /** The locality Qloo says it used for signal.location.query, or null when it sends none. */
 export function signalLocality(body: unknown): Locality | null {
   const parsed = echo.safeParse(body);
   const signal = parsed.success ? parsed.data.query?.localities?.signal : null;
-  return signal ? { name: signal.name, disambiguation: signal.disambiguation ?? null } : null;
+  return signal ? { name: signal.name, disambiguation: signal.disambiguation ?? null, point: signal.location ? { lat: signal.location.lat, lon: signal.location.lon } : null } : null;
+}
+
+/**
+ * Why Qloo's reading of a city name is not this store's city, or null when it is: the wrong state, a
+ * place of the same name far from the store ("Mesquite, Texas" read as a colonia 700 km south), or an
+ * answer with no artists at all. Coordinates are checked only when Qloo sends them.
+ */
+export function localityMiss(locality: Locality | null, artists: number, store: { point: { lat: number; lon: number } }, stateName: string | null): string | null {
+  const where = locality ? (locality.disambiguation ?? locality.name) : "an unnamed place";
+  if (locality && stateName && !inState(locality, stateName)) return `${where}, outside ${stateName}`;
+  if (locality?.point) {
+    const distance = Math.round(kmBetween(locality.point, store.point));
+    if (distance > MAX_LOCALITY_KM) return `${where}, ${distance} km from the store`;
+  }
+  if (artists === 0) return `${where}, with no artists`;
+  return null;
 }
 
 /** True when the locality is in the named state (its disambiguation ends with "<state>, United States"). */
