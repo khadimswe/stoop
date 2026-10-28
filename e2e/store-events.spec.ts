@@ -82,10 +82,10 @@ test("the store form says what's missing and opens More options for its errors",
 
 test("a filled form starts a plan, and a paused day goes to an example with its message", async ({ page }) => {
   await page.route("**/api/plan", async (route) => {
-    const body = route.request().postDataJSON() as { store: { name: string; point: { lat: number } }; offers: { text: string }[] };
-    expect(body.store.name).toBe("Corner Wireless");
-    expect(body.store.point.lat).toBeCloseTo(41.8576);
-    expect(body.offers).toEqual([{ text: "Free tablet with a new line" }]);
+    const { inputs } = route.request().postDataJSON() as { inputs: { store: { name: string; point: { lat: number } }; offers: { text: string }[] } };
+    expect(inputs.store.name).toBe("Corner Wireless");
+    expect(inputs.store.point.lat).toBeCloseTo(41.8576);
+    expect(inputs.offers).toEqual([{ text: "Free tablet with a new line" }]);
     await route.fulfill({ json: { mode: "example", slug: "chicago-18th-street", message: "Live plans are paused today. Here is an example store." } });
   });
   await page.goto("/start");
@@ -126,9 +126,9 @@ test("My stores switches the view, not the data", async ({ page }) => {
   await page.goto("/stores");
   await expect(page.getByRole("heading", { level: 1, name: "My stores" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Open plan/ })).toHaveCount(3);
-  await page.getByRole("radio", { name: "District" }).click();
+  await page.getByRole("button", { name: "District" }).click();
   await expect(page.getByRole("table", { name: /next event/ })).toBeVisible();
-  await page.getByRole("radio", { name: "Store", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(page.getByRole("link", { name: /Open plan/ })).toHaveCount(1);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });

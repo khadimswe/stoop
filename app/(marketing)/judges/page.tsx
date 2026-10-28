@@ -23,7 +23,7 @@ const PATH = [
 ] as const;
 
 const DECIDES = [
-  { call: "/v2/insights · artist", how: "signal.location.query = the city", decides: "The city's music: artists and the styles they share.", code: "lib/plan/requests.ts" },
+  { call: "/v2/insights · artist", how: "signal.location.query = the city", decides: "The playlist: artists the city ranks for these ages.", code: "lib/plan/requests.ts" },
   { call: "/v2/insights · place", how: "filter.location = the store's point, a radius, explainability", decides: "The block: food spots, venues and parks, with Qloo's why.", code: "lib/plan/taste.ts" },
   { call: "/v2/insights · scoring", how: "one call against the city's own picks", decides: "Checks the generic plan's artists against the city.", code: "lib/plan/baseline.ts" },
 ] as const;

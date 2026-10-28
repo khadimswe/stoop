@@ -48,8 +48,8 @@ function Artists({ city, artists }: { city: string; artists: readonly ArtistView
   const [all, setAll] = useState(false);
   const shown = all ? artists : artists.slice(0, FIRST_ARTISTS);
   return (
-    <section aria-label={`Music in ${city}`} className="flex flex-col gap-2">
-      <Heading>Music in {city}</Heading>
+    <section aria-label={`Playlist from ${city}`} className="flex flex-col gap-2">
+      <Heading>Playlist from {city}</Heading>
       <ol className="grid grid-cols-2 gap-x-4">
         {shown.map((a) => (
           <li key={a.id} className="flex items-baseline gap-2 border-b border-hairline py-1.5 text-sm">
@@ -93,14 +93,25 @@ function Places({ places, inPlan, radiusText }: { places: readonly PlaceView[]; 
  * nearby with Qloo's own "why", the plan's partners first.
  */
 export function YourBlock({ view, partnerIds, map }: { view: LocalView; partnerIds: readonly string[]; map?: ReactNode }) {
-  const { city, block, gaps } = view;
+  const { city, block, gaps, blockMusic } = view;
   const inPlan = new Set(partnerIds);
   return (
     <div className="flex flex-col gap-6">
       {map}
+      {blockMusic && blockMusic.places[0] && (
+        <p className="text-sm text-pretty">
+          People who love <NameButton name={blockMusic.places[0].name} receiptKey={blockMusic.places[0].receipt} /> also play{" "}
+          {blockMusic.artists.slice(0, 3).map((a, i, list) => (
+            <span key={a.name}>
+              <NameButton name={a.name} receiptKey={a.receipt} />
+              {i < list.length - 2 ? ", " : i === list.length - 2 ? " and " : "."}
+            </span>
+          ))}
+        </p>
+      )}
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
         {block && block.places.length > 0 ? <Places places={block.places} inPlan={inPlan} radiusText={block.radiusText} /> : <p className="text-sm text-ink-soft">No Qloo places near the store.</p>}
-        {city ? <Artists city={city.name} artists={city.artists} /> : <p className="text-sm text-ink-soft">No Qloo signal for city music.</p>}
+        {city ? <Artists city={city.name} artists={city.artists} /> : <p className="text-sm text-ink-soft">No Qloo signal for a playlist.</p>}
       </div>
       {gaps.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm text-ink-soft">

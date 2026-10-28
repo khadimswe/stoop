@@ -43,7 +43,7 @@ export const AWAY_SETTINGS: readonly Setting[] = ["nearby_venue", "community_eve
 
 export const ITEM_KIND_LABELS: Readonly<Record<ItemKind, string>> = {
   theme: "Theme",
-  music: "Music",
+  music: "Playlist",
   food: "Food",
   partner: "Partner",
   venue: "Venue",
@@ -66,7 +66,7 @@ export const PLACE_KIND_LABELS: Readonly<Record<PlaceKind, string>> = {
 /** Each stage as the trace and the progress rail name it. */
 export const PLAN_STAGE_LABELS: Readonly<Record<PlanStage, string>> = {
   store: "The store",
-  city: "City music",
+  city: "City playlist",
   block: "The block",
   concepts: "Event concepts",
   plan: "The plan",

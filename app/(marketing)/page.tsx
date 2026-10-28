@@ -45,7 +45,7 @@ export default function Home() {
             <Button asChild size="lg">
               <Link href="/start">Plan an event</Link>
             </Button>
-            {PILOT_COPY && <span className="text-sm text-ink-soft">{PILOT_LINE}</span>}
+            {PILOT_COPY && PILOT_LINE && <span className="text-sm text-ink-soft">{PILOT_LINE}</span>}
           </div>
         </div>
         {sides && (

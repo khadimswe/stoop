@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { ResultView } from "@/lib/plan/view/plan";
+import { apiMessageOf } from "@/lib/plan/view/live";
 import { NOTES_MAX, parseResults, type ResultsField, type ResultsFormValues } from "@/lib/plan/view/results-form";
 import { cn } from "cn";
 import { Card, PlanSection } from "./plan-section";
@@ -44,8 +45,7 @@ export function ResultsSection({ planId, results, saveable }: { planId: string; 
         body: JSON.stringify(parsed.body),
       });
       if (!response.ok) {
-        const body: unknown = await response.json().catch(() => null);
-        const message = body && typeof body === "object" && "message" in body && typeof body.message === "string" ? body.message : "Not saved. Try again.";
+        const message = apiMessageOf(await response.json().catch(() => null)) ?? "Not saved. Try again.";
         return setSend({ kind: "error", message });
       }
       const channels = (["facebook", "instagram", "whatsapp"] as const).filter((c) => parsed.body.posted[c]);

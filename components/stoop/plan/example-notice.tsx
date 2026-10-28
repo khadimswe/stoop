@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, X } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { PLAN_NOTICE_KEY } from "@/lib/plan/view/start-form";
 
 const noSubscription = () => () => {};
@@ -21,6 +21,15 @@ function readNotice(): string | null {
 export function ExampleNotice() {
   const stored = useSyncExternalStore(noSubscription, readNotice, () => null);
   const [closed, setClosed] = useState(false);
+  // Shown once: cleared as soon as it is on screen, so the next example page doesn't repeat it.
+  useEffect(() => {
+    if (!stored) return;
+    try {
+      sessionStorage.removeItem(PLAN_NOTICE_KEY);
+    } catch {
+      // Nothing to clear.
+    }
+  }, [stored]);
   if (!stored || closed) return null;
   const close = () => {
     try {

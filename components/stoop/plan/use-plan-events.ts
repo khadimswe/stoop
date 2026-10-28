@@ -52,9 +52,9 @@ export function usePlanEvents(id: string): PlanFeed {
       if (!event) return;
       events.push(event);
       if (endsRun(event)) ended = true;
+      // The poster and posts land after run.done, so the stream stays open: the server ends it, and a
+      // later reconnect gets 204, which stops the EventSource.
       set({ phase: ended ? "ended" : "streaming", state: reducePlan(events) });
-      // Marketing can land after the run is done; once the run itself has ended, close on the next pause.
-      if (ended) source.close();
     };
     source.addEventListener("message", onMessage);
     for (const name of NAMED) source.addEventListener(name, onMessage);

@@ -42,6 +42,8 @@ export function RichText({ parts, quiet = false, className }: { parts: readonly 
           <span key={i}>{part.text}</span>
         ) : quiet ? (
           <span key={i} className="font-semibold text-dusk">
+            <BadgeCheck aria-hidden="true" className="mr-0.5 inline size-3.5 align-[-0.125em]" />
+            <span className="sr-only">From Qloo: </span>
             {part.name}
           </span>
         ) : (

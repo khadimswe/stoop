@@ -8,6 +8,7 @@ import { CopyButton } from "@/components/stoop/copy-button";
 import { Screen } from "@/components/stoop/screen";
 import { Button } from "@/components/ui/button";
 import type { PlanReport } from "@/lib/plan/schema";
+import { apiMessageOf } from "@/lib/plan/view/live";
 import { marketingView, shareLinks, type MarketingView } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { PlanSection } from "./plan-section";
@@ -15,7 +16,7 @@ import { PlanSection } from "./plan-section";
 const noSubscription = () => () => {};
 const useOrigin = () => useSyncExternalStore(noSubscription, () => window.location.origin, () => "");
 
-type GenerateState = { kind: "idle" } | { kind: "working" } | { kind: "error"; message: string } | { kind: "sent" };
+type GenerateState = { kind: "idle" } | { kind: "working" } | { kind: "error"; message: string } | { kind: "sent"; message: string };
 type Channel = "facebook" | "instagram" | "whatsapp";
 const CHANNELS: { id: Channel; label: string }[] = [
   { id: "facebook", label: "Facebook" },
@@ -35,7 +36,8 @@ function readMarketing(body: unknown): { poster: PlanReport["poster"] | null; po
 }
 
 function errorMessage(body: unknown, status: number): string {
-  if (body && typeof body === "object" && "message" in body && typeof (body as { message: unknown }).message === "string") return (body as { message: string }).message;
+  const message = apiMessageOf(body);
+  if (message) return message;
   if (status === 429) return "Posters are paused today. Try tomorrow.";
   return "Couldn't make them right now. Try again.";
 }
@@ -67,7 +69,7 @@ export function MarketingSection({ view, planId, storeName, allowGenerate = true
         const next = marketingView(planId, storeName, made.poster ?? { status: "queued", prompt: "", promptHash: "", alt: "" }, made.posts);
         setFresh({ ...next, posts: next.posts ?? m.posts });
         setState({ kind: "idle" });
-      } else setState({ kind: "sent" });
+      } else setState({ kind: "sent", message: apiMessageOf(body) ?? "On the way. They show up here when ready." });
     } catch {
       setState({ kind: "error", message: "No connection. Try again." });
     }
@@ -163,7 +165,7 @@ export function MarketingSection({ view, planId, storeName, allowGenerate = true
                 {state.kind === "working" ? "Making them..." : "Make the poster and posts"}
               </Button>
               <p role="status" aria-live="polite" className={cn("text-sm", state.kind === "error" ? "text-rose-deep" : "text-ink-soft")}>
-                {state.kind === "error" ? state.message : state.kind === "sent" ? "On the way. Reload in a minute." : ""}
+                {state.kind === "error" || state.kind === "sent" ? state.message : ""}
               </p>
             </div>
           )}

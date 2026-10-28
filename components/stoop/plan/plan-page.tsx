@@ -81,7 +81,7 @@ export function PlanPage({
           <ConceptSection concept={view.concept} pending={running} more={more} />
           {view.wheel && <WheelSection wheel={view.wheel} />}
           <ShoppingSection items={view.shopping} budgetText={view.header.budgetText.replace(" budget", "")} totalText={view.shoppingTotal} pending={running} />
-          <MarketingSection view={view.marketing} planId={view.id} storeName={view.header.storeName} allowGenerate={!running && view.concept !== null} />
+          <MarketingSection view={view.marketing} planId={view.id} storeName={view.header.storeName} allowGenerate={view.kind === "live" && !running && view.concept !== null} />
           <ResultsSection planId={view.id} results={view.results} saveable={view.kind === "live"} />
           <div className="flex flex-col gap-3">
             <TraceSection rows={view.trace} calls={view.calls} live={running} />

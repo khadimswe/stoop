@@ -69,3 +69,12 @@ export function readPlanResponse(body: unknown): { report: PlanReport } | { even
   }
   return null;
 }
+
+/** The API's own words: error bodies are `{ error: { code, message } }`, some answers `{ message }`. */
+export function apiMessageOf(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const b = body as { message?: unknown; error?: unknown };
+  if (b.error && typeof b.error === "object" && typeof (b.error as { message?: unknown }).message === "string") return (b.error as { message: string }).message;
+  if (typeof b.message === "string") return b.message;
+  return null;
+}

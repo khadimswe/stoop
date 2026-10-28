@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageOff } from "lucide-react";
+import { BadgeCheck, ImageOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -42,7 +42,11 @@ function StoreCard({ store, big = false }: { store: StoreRowView; big?: boolean 
         {store.block && (
           <p className="text-sm">
             <span className="text-ink-soft">Block: </span>
-            <span className="font-semibold text-dusk">{store.block}</span>
+            <span className="font-semibold text-dusk">
+              <BadgeCheck aria-hidden="true" className="mr-0.5 inline size-3.5 align-[-0.125em]" />
+              <span className="sr-only">From Qloo: </span>
+              {store.block}
+            </span>
           </p>
         )}
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -94,7 +98,17 @@ function DistrictTable({ stores }: { stores: readonly StoreRowView[] }) {
                 <span className="block">{s.eventTitle ?? "No plan yet"}</span>
                 <span className="font-mono text-xs text-ink-soft">{s.dateShort}</span>
               </td>
-              <td className="md:px-4 md:py-3">{s.block ? <span className="text-dusk">{s.block}</span> : <span className="text-ink-soft">No Qloo place</span>}</td>
+              <td className="md:px-4 md:py-3">
+                {s.block ? (
+                  <span className="text-dusk">
+                    <BadgeCheck aria-hidden="true" className="mr-0.5 inline size-3.5 align-[-0.125em]" />
+                    <span className="sr-only">From Qloo: </span>
+                    {s.block}
+                  </span>
+                ) : (
+                  <span className="text-ink-soft">No Qloo place</span>
+                )}
+              </td>
               <td className="text-ink-soft md:px-4 md:py-3">{s.status}</td>
             </tr>
           ))}
@@ -114,13 +128,12 @@ export function StoresView({ stores }: { stores: readonly StoreRowView[] }) {
   const first = stores[0];
   return (
     <div className="flex flex-col gap-5">
-      <div role="radiogroup" aria-label="View as" className="inline-flex self-start rounded-full border-[1.5px] border-concrete-line bg-surface p-1">
+      <div role="group" aria-label="View as" className="inline-flex self-start rounded-full border-[1.5px] border-concrete-line bg-surface p-1">
         {ROLES.map((r) => (
           <button
             key={r.id}
             type="button"
-            role="radio"
-            aria-checked={role === r.id}
+            aria-pressed={role === r.id}
             onClick={() => setRole(r.id)}
             className={cn("min-h-10 rounded-full px-4 text-sm font-semibold", role === r.id ? "bg-ink text-paper" : "text-ink-soft hover:text-ink")}
           >

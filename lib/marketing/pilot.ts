@@ -16,5 +16,8 @@ export const DEFAULT_HERO = {
   sub: "Your store's event, planned from your city's music and the spots on your block.",
 } as const;
 
-/** One line about the pilot, shown only with PILOT_COPY on. */
-export const PILOT_LINE = "Piloting at two JM Wireless stores, a Metro by T-Mobile authorized dealer.";
+/**
+ * One line about the pilot, shown only with PILOT_COPY on. Left empty on purpose: the dealer is named
+ * here only after their written permission (the founder has the wording).
+ */
+export const PILOT_LINE = "";

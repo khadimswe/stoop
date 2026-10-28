@@ -13,7 +13,7 @@ export function RunOfShow({ steps }: { steps: readonly RunOfShowView[] }) {
             {s.timeLabel}
           </time>
           <p className="min-w-0 text-sm leading-relaxed text-pretty">
-            <RichText parts={s.parts} quiet />
+            <RichText parts={s.parts} />
           </p>
         </li>
       ))}

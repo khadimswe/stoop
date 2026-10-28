@@ -58,7 +58,7 @@ export function BlockMap({ block, uses, compact = false }: { block: Block; uses:
               </g>
             );
           })}
-          <rect x={SIZE / 2 - 6} y={SIZE / 2 - 6} width={12} height={12} fill="var(--color-brick)" stroke="var(--color-ink)" strokeWidth={1.6} transform={`rotate(45 ${SIZE / 2} ${SIZE / 2})`} />
+          <rect x={SIZE / 2 - 6} y={SIZE / 2 - 6} width={12} height={12} fill="var(--color-ink)" stroke="var(--color-ink)" strokeWidth={1.6} transform={`rotate(45 ${SIZE / 2} ${SIZE / 2})`} />
           <text x={SIZE / 2 + 10} y={SIZE / 2 + 14} className="fill-ink text-[10px] font-semibold">
             {block.center.label}
           </text>

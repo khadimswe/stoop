@@ -191,7 +191,8 @@ export interface PlaceView {
 }
 
 export interface LocalView {
-  city: { name: string; ageText: string; artists: ArtistView[]; styles: { name: string; receipt: string | null }[] } | null;
+  /** The city's artists by rank. Genre tags are never shown: no event or crowd is labeled by genre. */
+  city: { name: string; ageText: string; artists: ArtistView[] } | null;
   block: {
     radiusText: string;
     radiusM: number;
@@ -199,6 +200,8 @@ export interface LocalView {
     center: { lat: number; lon: number; label: string };
     places: PlaceView[];
   } | null;
+  /** Music the block's own places point to, shown only when the plan uses it. */
+  blockMusic: { places: { name: string; receipt: string | null }[]; artists: { name: string; receipt: string | null }[] } | null;
   gaps: string[];
 }
 
@@ -339,9 +342,8 @@ function ledgerRows(ledger: Ledger, ids: readonly string[]): ReceiptRow[] | null
 const rankText = (rank: number) => `#${rank} in its response`;
 
 function artistRows(artist: ArtistRef): ReceiptRow[] {
-  const rows: ReceiptRow[] = [{ label: "Qloo pick", value: `${artist.name} (artist, ${rankText(artist.rank)})` }];
-  if (artist.genres.length > 0) rows.push({ label: "Genres", value: artist.genres.join(", ") });
-  return rows;
+  // Genres stay out: an event, a crowd or a block is never labeled by a music genre.
+  return [{ label: "Qloo pick", value: `${artist.name} (artist, ${rankText(artist.rank)})` }];
 }
 
 function placeRows(place: Place): ReceiptRow[] {
@@ -373,7 +375,8 @@ export function planView(source: PlanSource): PlanView {
   const { id, inputs, report } = source;
   const ledger: Ledger = new Map(report.ledger.map((e) => [e.id, e]));
   const receipts: Record<string, ReceiptView> = {};
-  const artists = new Map((report.local.city?.artists ?? []).map((a) => [a.id, a]));
+  // The city's artists, and the block's when the plan uses them ("People who love a place also play...").
+  const artists = new Map<string, ArtistRef>([...(report.local.city?.artists ?? []), ...(report.local.blockMusic?.artists ?? [])].map((a) => [a.id, a]));
   const places = new Map((report.local.block?.places ?? []).map((p) => [p.id, p]));
 
   /** Registers a receipt once under `key`; null when none of its ids is in the ledger. */
@@ -384,7 +387,7 @@ export function planView(source: PlanSource): PlanView {
     receipts[key] = { cue, title, rows: [...lead, ...rows], calls: new Set(ids.filter((i) => ledger.has(i))).size };
     return key;
   };
-  const artistReceipt = (a: ArtistRef) => receipt(`artist:${a.id}`, a.evidenceIds, "City music", a.name, artistRows(a));
+  const artistReceipt = (a: ArtistRef) => receipt(`artist:${a.id}`, a.evidenceIds, "Playlist", a.name, artistRows(a));
   const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The block", p.name, placeRows(p));
 
   const nameOf = (refId: string): { name: string; receipt: string | null } | null => {
@@ -511,7 +514,6 @@ export function planView(source: PlanSource): PlanView {
           name: city.city,
           ageText: ageBandsText(city.ageBands),
           artists: city.artists.map((a) => ({ id: a.id, name: a.name, rank: a.rank, genres: a.genres, receipt: artistReceipt(a) })),
-          styles: city.styles.map((s) => ({ name: s.name, receipt: receipt(`style:${s.tagId}`, s.evidenceIds, "City music", s.name) })),
         }
       : null,
     block: block
@@ -534,6 +536,16 @@ export function planView(source: PlanSource): PlanView {
           })),
         }
       : null,
+    blockMusic:
+      report.local.blockMusic?.used && report.local.blockMusic.artists.length > 0
+        ? {
+            places: report.local.blockMusic.placeIds.flatMap((id) => {
+              const p = places.get(id);
+              return p ? [{ name: p.name, receipt: placeReceipt(p) }] : [];
+            }),
+            artists: report.local.blockMusic.artists.map((a) => ({ name: a.name, receipt: artistReceipt(a) })),
+          }
+        : null,
     gaps: report.local.gaps,
   };
 
@@ -687,7 +699,7 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
   const giveaway = items.find((i) => i.kind === "giveaway");
   const posts = marketing.posts;
   return [
-    { key: "music", label: "Music", value: musicNames.length ? musicNames.slice(0, 3).join(", ") : (music?.plain ?? "Your playlist"), note: null, qloo: isQloo(music), href: "#event" },
+    { key: "music", label: "Playlist", value: musicNames.length ? musicNames.slice(0, 3).join(", ") : (music?.plain ?? "Your playlist"), note: null, qloo: isQloo(music), href: "#event" },
     {
       key: "snacks",
       label: "Snacks",
@@ -697,7 +709,7 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
       href: "#shopping",
     },
     wheelSlices > 0
-      ? { key: "wheel", label: "Prize wheel", value: `${wheelSlices} slices`, note: "Print the labels", qloo: false, href: "#wheel" }
+      ? { key: "wheel", label: "Prize wheel", value: `${wheelSlices} slices`, note: "For your wheel", qloo: false, href: "#wheel" }
       : { key: "wheel", label: "Giveaway", value: giveaway?.plain ?? "Your pick", note: null, qloo: isQloo(giveaway), href: "#event" },
     {
       key: "post",

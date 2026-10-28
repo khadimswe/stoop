@@ -21,6 +21,7 @@ import {
   type StoreField,
   type StoreFormValues,
 } from "@/lib/plan/view/start-form";
+import { apiMessageOf } from "@/lib/plan/view/live";
 import { ageBandLabel } from "@/lib/types";
 import { cn } from "cn";
 
@@ -46,8 +47,8 @@ function durationLabel(minutes: number): string {
 
 /** The API's own words when it sends them, else a plain line for the status. */
 async function apiMessage(response: Response): Promise<string> {
-  const body: unknown = await response.json().catch(() => null);
-  if (body && typeof body === "object" && "message" in body && typeof body.message === "string") return body.message;
+  const message = apiMessageOf(await response.json().catch(() => null));
+  if (message) return message;
   if (response.status === 429) return "Live plans are paused for today. Try an example store instead.";
   return "Stoop could not start this plan. Try again in a minute.";
 }
@@ -119,7 +120,7 @@ export function StoreForm() {
     setErrors({});
     setSend({ kind: "sending" });
     try {
-      const response = await fetch("/api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(parsed.inputs) });
+      const response = await fetch("/api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ inputs: parsed.inputs }) });
       if (!response.ok) return setSend({ kind: "error", message: await apiMessage(response) });
       const body = (await response.json().catch(() => null)) as { mode?: string; id?: string; slug?: string; message?: string } | null;
       if (body?.mode === "live" && body.id) return router.push(`/plan/${encodeURIComponent(body.id)}`);
