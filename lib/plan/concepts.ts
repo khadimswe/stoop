@@ -51,6 +51,7 @@ const TASK = [
   "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
   "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
   "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm.",
+  "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
   "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
   "Where it is natural, let the food, the drinks, the giveaway or the timing draw on the block's places too (hot drinks from a local cafe rather than a grocery store). Never force a place into a line; a good line beats a cited one.",

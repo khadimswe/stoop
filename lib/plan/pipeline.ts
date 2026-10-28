@@ -7,6 +7,7 @@
 // generic plan needs no Qloo, so it starts next to the city stage and is awaited at its own stage.
 import { planDecide, type PlanEnv, type PlanSink } from "./env";
 import { textIssues, type GuardContext } from "./guard";
+import { guardFor } from "./guard-context";
 import { checkPicks, compare, genericCliches, writeBaseline, type BaselineDraft } from "./baseline";
 import { buildPlan } from "./builder";
 import { dayContext } from "./calendar";
@@ -46,9 +47,7 @@ export function usableNotes(inputs: PlanInputs, guard: GuardContext): { inputs: 
   return { inputs: rest, problem: problems[0] as string };
 }
 
-export function guardFor(inputs: PlanInputs, known: Iterable<string> = [], names: readonly string[] = []): GuardContext {
-  return { offers: inputs.offers.map((o) => o.text), budgetUsd: inputs.budgetUsd, known: new Set(known), names, ...(inputs.notes ? { notes: inputs.notes } : {}) };
-}
+export { guardFor };
 
 /**
  * Runs every stage up to marketing. It ends without run.done: the caller adds the run's cost (live

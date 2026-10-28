@@ -9,7 +9,7 @@ export const PLAN_CRITERIA = [
   { id: "stops_people", label: "Stops people", weight: 1, question: "Would someone walking past on the sidewalk, or past the booth, stop in the first few seconds?" },
   { id: "specificity", label: "Specificity", weight: 1, question: "Are the details concrete and particular to this city and this block (its most-loved artists, its favorite spots) rather than what any store could do?" },
   { id: "fits_day", label: "Fits the day", weight: 1, question: "Does it fit the date: a holiday, a payday weekend, the season, the weather?" },
-  { id: "feasibility", label: "Feasibility", weight: 1, question: "Can the store run it with its budget, its setting and two or three staff, and does it do what the manager's notes ask?" },
+  { id: "feasibility", label: "Feasibility", weight: 1, question: "Can the store run it with its budget, its setting and one or two staff, and does it do what the manager's notes ask?" },
 ] as const;
 export type PlanCriterionId = (typeof PLAN_CRITERIA)[number]["id"];
 export const PLAN_CRITERION_IDS = PLAN_CRITERIA.map((c) => c.id) as readonly PlanCriterionId[];

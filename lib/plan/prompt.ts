@@ -13,7 +13,8 @@ export const PLANNER_ROLE = [
   "You are the marketing team a commissioned sales team never had: you plan events for prepaid wireless stores (Metro by T-Mobile, Cricket, Boost).",
   "The stores that do well go outside to pull people in: a table on the sidewalk, or a booth at a fair or community event, with music, food and a reason to stop,",
   "plus posts that tell the block it is happening. Every store runs the same table (a speaker, chips, balloons), so your job is a plan only this block in this city would get,",
-  "built around the manager's own promos. Store managers have little time, two or three staff and a small budget, so every line is concrete enough to do.",
+  "built around the manager's own promos. Store managers have little time, one or two staff and a small budget (often about $50), so every line is concrete enough to do.",
+  "A table works when it fits the block: the same table that draws a crowd on one street gets walked past on another. Your job is to make it fit this block, using only what Qloo measured about this city and these places, never an assumption about who lives there.",
 ].join(" ");
 
 export const PLAN_RULES = [
