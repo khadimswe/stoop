@@ -2,11 +2,11 @@
 // or the plain Stoop background (paper, a sun disc, a brick band) when there is none, and every word
 // on top set by code from lib/plan/poster-text.ts, so the text is always exact. 1080 by 1350 for
 // Instagram portrait; 1200 by 630 for link previews. No carrier logo is ever drawn.
-// Fonts are the OG cards' static instances (SIL Open Font License 1.1); without them the poster still
-// renders in next/og's built-in font, so a missing file never breaks it.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+// Fonts are the OG cards' static instances (SIL Open Font License 1.1), embedded in ./poster-fonts.ts
+// so they ship with the route's bundle; a font that fails to decode falls back to next/og's built-in
+// font, so the poster always draws.
 import { ImageResponse } from "next/og";
+import { POSTER_DISPLAY_FONT_BASE64, POSTER_SANS_FONT_BASE64 } from "./poster-fonts";
 import type { PosterText } from "./poster-text";
 
 export const POSTER_SIZES = {
@@ -26,19 +26,15 @@ const C = {
   brickSoft: "#ffdccb",
 } as const;
 
-const FONT_DIR = join(process.cwd(), "components/stoop/marketing/og/fonts");
-
-function readFont(file: string): Buffer | null {
-  try {
-    return readFileSync(join(FONT_DIR, file));
-  } catch {
-    return null;
-  }
+/** A TrueType font from its base64, or null when it does not decode to one. */
+function decodeFont(base64: string): Buffer | null {
+  const bytes = Buffer.from(base64, "base64");
+  return bytes.byteLength > 12 && bytes.readUInt32BE(0) === 0x00010000 ? bytes : null;
 }
 
-// Read once, when the module loads.
-const DISPLAY = readFont("bricolage-grotesque-800-condensed.ttf");
-const SANS = readFont("figtree-600.ttf");
+// Decoded once, when the module loads.
+const DISPLAY = decodeFont(POSTER_DISPLAY_FONT_BASE64);
+const SANS = decodeFont(POSTER_SANS_FONT_BASE64);
 
 function fonts() {
   return [
