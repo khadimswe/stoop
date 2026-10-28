@@ -7,6 +7,7 @@ export const PLAN_SECTIONS = {
   plan: "plan",
   runOfShow: "run-of-show",
   shopping: "shopping",
+  wheel: "wheel",
   checklist: "checklist",
   generic: "generic",
   local: "local",

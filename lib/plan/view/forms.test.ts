@@ -35,7 +35,7 @@ describe("the store form", () => {
     });
     expect(result.inputs.offers).toEqual([{ text: "$25 unlimited with port-in" }, { text: "Free case with any phone" }]);
     expect(result.inputs.notes).toBe("Saturday crowd is families");
-    expect(result.inputs).toMatchObject({ durationMinutes: 240, budgetUsd: 150, setting: "sidewalk_table", ageBands: ["25_to_29", "30_to_34"] });
+    expect(result.inputs).toMatchObject({ durationMinutes: 240, budgetUsd: 50, setting: "sidewalk_table", ageBands: ["25_to_29", "30_to_34"] });
   });
 
   it("says what is missing in plain words, and the first error leads", () => {
@@ -58,12 +58,18 @@ describe("the store form", () => {
     expect(Object.keys(result.errors).sort()).toEqual(["ageBands", "budgetUsd", "date", "lat", "lon"]);
   });
 
+  it("takes up to 8 promos, the store's whole list", () => {
+    const eight = Array.from({ length: 8 }, (_, i) => `Promo ${i + 1}`);
+    const result = parseStoreForm(filled({ offers: eight }));
+    expect(result.ok && result.inputs.offers.map((o) => o.text)).toEqual(eight);
+  });
+
   it("keeps notes and offers inside their limits", () => {
     const result = parseStoreForm(filled({ notes: "x".repeat(281), offers: ["y".repeat(141), "", ""] }));
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.notes).toBe("Keep notes to 280 characters.");
-    expect(result.errors.offer0).toBe("Keep each offer to 140 characters.");
+    expect(result.errors.offer0).toBe("Keep each promo to 140 characters.");
   });
 
   it("finds the next Saturday and makes a clean store id", () => {

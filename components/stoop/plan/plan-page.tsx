@@ -11,6 +11,7 @@ import { PlanNav } from "./plan-nav";
 import { PlanReceipts } from "./receipts";
 import { ResultsSection } from "./results-section";
 import { TraceSection } from "./trace-section";
+import { WheelSection } from "./wheel-section";
 
 /**
  * One store's event plan, one scrolling page, for example stores and live runs alike: the header, the
@@ -49,11 +50,12 @@ export function PlanPage({
               <span className="font-semibold">Partial plan:</span> {view.partial.stageLabel} stopped early. {view.partial.reason}
             </p>
           )}
-          <PlanNav />
+          <PlanNav wheel={view.wheel !== null} />
           <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
             <ConceptSection concept={view.concept} alternatives={view.alternatives} pending={running} />
             <ShoppingSection items={view.shopping} costLine={view.costLine} budgetText={view.header.budgetText.replace(" budget", "")} totalText={view.shoppingTotal} pending={running} />
           </div>
+          {view.wheel && <WheelSection wheel={view.wheel} />}
           <ChecklistSection items={view.checklist} pending={running} />
           <GenericSection generic={view.generic} comparison={view.comparison} city={view.local.city?.name ?? "this city"} theme={view.concept?.title ?? null} pending={running} />
           <LocalSection view={view.local} partnerIds={view.partnerIds} pending={running} />

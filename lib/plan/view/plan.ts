@@ -84,6 +84,27 @@ export interface RunOfShowView {
   parts: TextPart[];
 }
 
+export interface WheelSliceView {
+  /** Slice number, clockwise from the top. */
+  n: number;
+  /** Printed big on the slice. */
+  label: string;
+  kind: "promo" | "gift_card" | "snack" | "other";
+  kindLabel: string;
+  parts: TextPart[];
+  /** The full line, names filled in: a promo's terms exactly as the manager typed them. */
+  text: string;
+  origin: CueOrigin;
+  receipt: string | null;
+}
+
+export interface WheelView {
+  slices: WheelSliceView[];
+  rules: string[];
+}
+
+const WHEEL_KIND_LABELS: Readonly<Record<WheelSliceView["kind"], string>> = { promo: "Promo", gift_card: "Gift card", snack: "Snack", other: "Prize" };
+
 export interface ShoppingView {
   item: string;
   qty: string | null;
@@ -214,6 +235,8 @@ export interface PlanView {
   /** "$198": the estimated total of the shopping list. */
   shoppingTotal: string | null;
   checklist: TextPart[][];
+  /** The physical prize wheel at the table: what goes on each slice, and the rules. */
+  wheel: WheelView | null;
   generic: GenericView | null;
   comparison: ComparisonView | null;
   local: LocalView;
@@ -514,6 +537,26 @@ export function planView(source: PlanSource): PlanView {
     costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought on the block where Qloo found a partner.` : null,
     shoppingTotal: plan && plan.shopping.length > 0 ? usd(plan.estimatedCostUsd) : null,
     checklist: (plan?.checklist ?? []).map(parts),
+    wheel: plan?.wheel
+      ? {
+          slices: plan.wheel.slices.map((slice, i) => {
+            const textParts = parts(slice.text);
+            const backed = slice.origin === "qloo" || slice.origin === "interpreted";
+            const place = slice.refs.map((r) => places.get(r)).find((p): p is Place => Boolean(p));
+            return {
+              n: i + 1,
+              label: plain(parts(slice.label)),
+              kind: slice.kind,
+              kindLabel: WHEEL_KIND_LABELS[slice.kind],
+              parts: textParts,
+              text: plain(textParts),
+              origin: slice.origin,
+              receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, "Prize wheel", plain(textParts), place ? placeRows(place) : []) : null,
+            };
+          }),
+          rules: plan.wheel.rules,
+        }
+      : null,
     generic,
     comparison,
     local,

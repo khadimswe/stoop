@@ -27,12 +27,16 @@ export interface StoreFormValues {
   venueLat: string;
   venueLon: string;
   budgetUsd: string;
-  offers: [string, string, string];
+  /** The store's promo list, one per row: up to MAX_OFFERS. */
+  offers: string[];
   ageBands: AgeBucket[];
   notes: string;
 }
 
-export type StoreField = Exclude<keyof StoreFormValues, "offers"> | "offer0" | "offer1" | "offer2" | "point";
+export type StoreField = Exclude<keyof StoreFormValues, "offers"> | `offer${number}` | "point";
+
+/** Enough promos to fill a tabletop prize wheel with the store's real deals. */
+export const MAX_OFFERS = 8;
 
 /** The order fields appear in, so the first error gets focus. */
 export const FIELD_ORDER: readonly StoreField[] = [
@@ -52,9 +56,7 @@ export const FIELD_ORDER: readonly StoreField[] = [
   "venueLat",
   "venueLon",
   "budgetUsd",
-  "offer0",
-  "offer1",
-  "offer2",
+  ...Array.from({ length: 8 }, (_, i) => `offer${i}` as const),
   "ageBands",
   "notes",
 ];
@@ -83,7 +85,7 @@ export function emptyStoreForm(): StoreFormValues {
     venueName: "",
     venueLat: "",
     venueLon: "",
-    budgetUsd: "150",
+    budgetUsd: "50",
     offers: ["", "", ""],
     ageBands: ["25_to_29", "30_to_34"],
     notes: "",
@@ -179,8 +181,9 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
 
   const offers = values.offers.map((o) => o.trim());
   offers.forEach((o, i) => {
-    if (o.length > LIMITS.offer) errors[`offer${i}` as StoreField] = `Keep each offer to ${LIMITS.offer} characters.`;
+    if (o.length > LIMITS.offer) errors[`offer${i}`] = `Keep each promo to ${LIMITS.offer} characters.`;
   });
+  if (offers.filter(Boolean).length > MAX_OFFERS) errors[`offer${MAX_OFFERS}`] = `Up to ${MAX_OFFERS} promos.`;
 
   const bands = AGE_BUCKETS.filter((b) => values.ageBands.includes(b));
   if (bands.length === 0) errors.ageBands = "Pick at least one age band.";

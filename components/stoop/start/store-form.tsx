@@ -1,14 +1,15 @@
 "use client";
 
-import { Loader2, LocateFixed } from "lucide-react";
+import { Loader2, LocateFixed, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
-import { CARRIER_LABELS, SETTING_LABELS } from "@/lib/plan/view/format";
+import { AWAY_SETTINGS, CARRIER_LABELS, SETTING_LABELS } from "@/lib/plan/view/format";
 import {
   DURATIONS,
   LIMITS,
+  MAX_OFFERS,
   PLAN_NOTICE_KEY,
   coordText,
   emptyStoreForm,
@@ -30,6 +31,9 @@ const noSubscription = () => () => {};
 
 type SendState = { kind: "idle" } | { kind: "sending" } | { kind: "error"; message: string };
 type LocateState = { kind: "idle" } | { kind: "locating" } | { kind: "error"; message: string } | { kind: "done" };
+
+/** Placeholders that read like a store's promo list, not marketing copy. */
+const PROMO_EXAMPLES = ["Like: Free phone when you switch", "Like: Free tablet with a new line", "Like: $25/mo unlimited, taxes and fees included"];
 
 const SETTING_HINTS: Record<Setting, string> = {
   sidewalk_table: "A table outside the store",
@@ -218,7 +222,7 @@ export function StoreForm() {
               ))}
             </select>
           </Field>
-          <Field id={fid("budgetUsd")} label="Budget (dollars)" hint="Snacks, supplies, partners" error={errors.budgetUsd}>
+          <Field id={fid("budgetUsd")} label="Budget (dollars)" hint="Snacks, supplies, gift cards" error={errors.budgetUsd}>
             <input id={fid("budgetUsd")} inputMode="numeric" value={values.budgetUsd} onChange={(e) => set("budgetUsd", e.target.value)} className={FIELD} {...errorProps("budgetUsd", `${fid("budgetUsd")}-hint`)} />
           </Field>
         </div>
@@ -243,25 +247,60 @@ export function StoreForm() {
           </div>
           {errors.setting && <ErrorText id={`${fid("setting")}-error`}>{errors.setting}</ErrorText>}
         </fieldset>
+        {AWAY_SETTINGS.includes(values.setting) && (
+          <fieldset className="flex flex-col gap-3 rounded-lg bg-fill p-3">
+            <legend className="sr-only">Where the event is</legend>
+            <p className="text-sm text-ink-soft">
+              Away from the store? Name the place and Stoop searches the spots around it instead. Leave it blank to plan around the store.
+            </p>
+            <Field id={fid("venueName")} label="Place name" optional error={errors.venueName}>
+              <input id={fid("venueName")} value={values.venueName} maxLength={LIMITS.venueName} placeholder="Like: Pilsen Fall Fest" onChange={(e) => set("venueName", e.target.value)} className={FIELD} {...errorProps("venueName")} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field id={fid("venueLat")} label="Latitude" error={errors.venueLat}>
+                <input id={fid("venueLat")} inputMode="decimal" value={values.venueLat} onChange={(e) => set("venueLat", e.target.value)} className={cn(FIELD, "font-mono")} {...errorProps("venueLat")} />
+              </Field>
+              <Field id={fid("venueLon")} label="Longitude" error={errors.venueLon}>
+                <input id={fid("venueLon")} inputMode="decimal" value={values.venueLon} onChange={(e) => set("venueLon", e.target.value)} className={cn(FIELD, "font-mono")} {...errorProps("venueLon")} />
+              </Field>
+            </div>
+          </fieldset>
+        )}
       </Group>
 
-      <Group title="Your offers" description="Up to 3, word for word. Stoop never invents a deal: the poster and posts use only what you type here.">
-        {values.offers.map((offer, i) => {
-          const field = `offer${i}` as StoreField;
-          return (
-            <Field key={i} id={fid(field)} label={`Offer ${i + 1}`} optional error={errors[field]}>
-              <input
-                id={fid(field)}
-                value={offer}
-                maxLength={LIMITS.offer}
-                placeholder={i === 0 ? "Like: Free case with any new line" : undefined}
-                onChange={(e) => set("offers", values.offers.map((o, j) => (j === i ? e.target.value : o)) as StoreFormValues["offers"])}
-                className={FIELD}
-                {...errorProps(field)}
-              />
-            </Field>
-          );
-        })}
+      <Group
+        title="Today's promos"
+        description={`Typed exactly as your store runs them, terms and all. Up to ${MAX_OFFERS}. The plan, the wheel, the poster and the posts quote them word for word; Stoop never invents a deal.`}
+      >
+        <ol className="flex flex-col gap-2">
+          {values.offers.map((offer, i) => {
+            const field = `offer${i}` as StoreField;
+            return (
+              <li key={i} className="grid grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-2">
+                <span aria-hidden="true" className="pt-3 font-mono text-sm text-ink-soft">
+                  {i + 1}
+                </span>
+                <Field id={fid(field)} label={`Promo ${i + 1}`} hideLabel error={errors[field]}>
+                  <input
+                    id={fid(field)}
+                    value={offer}
+                    maxLength={LIMITS.offer}
+                    placeholder={PROMO_EXAMPLES[i]}
+                    onChange={(e) => set("offers", values.offers.map((o, j) => (j === i ? e.target.value : o)))}
+                    className={FIELD}
+                    {...errorProps(field)}
+                  />
+                </Field>
+              </li>
+            );
+          })}
+        </ol>
+        {values.offers.length < MAX_OFFERS && (
+          <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => set("offers", [...values.offers, ""])}>
+            <Plus aria-hidden="true" />
+            Add a promo
+          </Button>
+        )}
       </Group>
 
       <Group title="Who it's for" description="Adults only: events never aim at minors. Pick up to 3 age bands; Qloo reads your city's music for them.">

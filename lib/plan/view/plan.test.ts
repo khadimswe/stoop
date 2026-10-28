@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { PLAN_EXAMPLES, examplePlanId } from "../example-list";
+import { planReportSchema } from "../schema";
 import { railRows, readPlanResponse } from "./live";
 import { clicheKind, compareRows, planView, shareLinks, sourceFromReport, sourceFromState, type PlanView, type TextPart } from "./plan";
 
@@ -98,6 +99,36 @@ describe("live plans", () => {
     expect(readPlanResponse({ report })).toEqual({ report });
     expect(readPlanResponse({ events: events(PLAN_EXAMPLES[0].slug).slice(0, 3) })).toMatchObject({ events: expect.any(Array) });
     expect(readPlanResponse({ nope: true })).toBeNull();
+  });
+});
+
+describe("the prize wheel", () => {
+  it("quotes promo slices exactly and names gift-card places from Qloo, with receipts", () => {
+    const report = toPlanReport(reducePlan(events("chicago-18th-street")));
+    const place = report.local.block!.places[0]!;
+    const promo = report.inputs.offers[0]!.text;
+    // The wheel's shape is the pipeline's; its place and promo are the run's own.
+    const withWheel = planReportSchema.parse({
+      ...report,
+      plan: {
+        ...report.plan!,
+        wheel: {
+          slices: [
+            { label: "Switch deal", kind: "promo", text: promo, origin: "yours", refs: [], evidenceIds: [] },
+            { label: "Gift card", kind: "gift_card", text: `A $10 gift card to [[${place.id}]]`, origin: "qloo", refs: [place.id], evidenceIds: place.evidenceIds },
+            { label: "Hand warmers", kind: "other", text: "A pair of hand warmers", origin: "creative", refs: [], evidenceIds: [] },
+            { label: "Spin again", kind: "other", text: "Spin again", origin: "creative", refs: [], evidenceIds: [] },
+          ],
+          rules: ["Free to spin, no purchase needed."],
+        },
+      },
+    });
+    const wheel = planView(sourceFromReport(withWheel)).wheel!;
+    expect(wheel.slices.map((s) => s.n)).toEqual([1, 2, 3, 4]);
+    expect(wheel.slices[0]).toMatchObject({ text: promo, origin: "yours", receipt: null, kindLabel: "Promo" });
+    expect(wheel.slices[1]!.text).toBe(`A $10 gift card to ${place.name}`);
+    expect(wheel.slices[1]!.receipt).toBe("wheel:1");
+    expect(wheel.rules).toEqual(["Free to spin, no purchase needed."]);
   });
 });
 
