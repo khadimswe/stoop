@@ -7,8 +7,8 @@
 export const PLAN_CRITERIA = [
   { id: "walk_ins", label: "Brings people inside", weight: 2, question: "Does it turn a stop into a walk-in or a sign-up: a clear reason and moment to step inside, with the manager's promo doing the work? An event that sends people to other businesses scores low." },
   { id: "stops_people", label: "Stops people", weight: 1, question: "Would someone walking past on the sidewalk, or past the booth, stop in the first few seconds?" },
-  { id: "specificity", label: "Specificity", weight: 1, question: "Are the details concrete and particular to this city and this block (its most-loved artists, its favorite spots) rather than what any store could do?" },
-  { id: "fits_day", label: "Fits the day", weight: 1, question: "Does it fit the date: a holiday, a payday weekend, the season, the weather?" },
+  { id: "specificity", label: "Specificity", weight: 1, question: "Are the details concrete and particular to this block and this city (the block's own independents, the city's most-loved artists) rather than what any store could do?" },
+  { id: "fits_day", label: "Fits the day", weight: 1, question: "Does it fit the date where the date matters: a holiday, the season, the weather? A payday alone is a hint for timing, not a theme." },
   { id: "feasibility", label: "Feasibility", weight: 1, question: "Can the store run it with its budget, its setting and one or two staff, and does it do what the manager's notes ask?" },
 ] as const;
 export type PlanCriterionId = (typeof PLAN_CRITERIA)[number]["id"];
@@ -16,7 +16,11 @@ export const PLAN_CRITERION_IDS = PLAN_CRITERIA.map((c) => c.id) as readonly Pla
 /** The highest total a concept can score. */
 export const PLAN_MAX_TOTAL = PLAN_CRITERIA.reduce((sum, c) => sum + 5 * c.weight, 0);
 
-export const PLAN_GATE = { id: "no_stereotype", label: "No stereotype", question: "Does any part rely on a stereotype about a group of people? Fail means discard." } as const;
+export const PLAN_GATE = {
+  id: "no_stereotype",
+  label: "No stereotype",
+  question: "Does any part rely on a stereotype about a group of people, or turn a music genre into the theme or a label for the people walking by? Fail means discard.",
+} as const;
 
 export interface PlanScore {
   scores: Record<PlanCriterionId, number>;

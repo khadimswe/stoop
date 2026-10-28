@@ -12,6 +12,7 @@ import { refsIn } from "./refs";
 import { replayClient, replayPlanModel } from "./replay";
 import { planReportSchema, type PlanReport } from "./schema";
 import { isChain } from "./taste";
+import { genreOrSlang, titleGenre, VOLUME_FRAMING } from "./words";
 
 describe("the example list", () => {
   it("has one lead, three fictional stores in three cities, and ids accepted as plan ids", () => {
@@ -43,8 +44,9 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
 
   it("names Qloo results only through refs, with a receipt on every Qloo line", async () => {
     const { report } = await loadPlanExample(slug);
-    const known = new Set([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
-    const names = [...(report.local.city?.artists.map((a) => a.name) ?? []), ...(report.local.block?.places.map((p) => p.name) ?? [])].filter((n) => n.length > 4);
+    const offered = report.local.blockMusic?.used ? report.local.blockMusic.artists : [];
+    const known = new Set([...(report.local.city?.artists.map((a) => a.id) ?? []), ...offered.map((a) => a.id), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
+    const names = [...(report.local.city?.artists.map((a) => a.name) ?? []), ...offered.map((a) => a.name), ...(report.local.block?.places.map((p) => p.name) ?? [])].filter((n) => n.length > 4);
     for (const concept of report.plan?.concepts ?? []) {
       for (const item of concept.items) {
         for (const ref of refsIn(item.text)) expect(known.has(ref)).toBe(true);
@@ -54,6 +56,19 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
     }
     for (const step of report.plan?.runOfShow ?? []) for (const ref of refsIn(step.step)) expect(known.has(ref)).toBe(true);
     for (const line of report.baseline?.items ?? []) expect(line.origin).toBe("creative");
+  });
+
+  it("never names a music genre or community slang in a title, a hook or a line, and never frames music by volume", async () => {
+    const { report } = await loadPlanExample(slug);
+    for (const concept of report.plan?.concepts ?? []) {
+      expect(titleGenre(`${concept.title} ${concept.hook}`)).toBeNull();
+      for (const item of concept.items) {
+        expect(genreOrSlang(item.text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "))).toBeNull();
+        expect(VOLUME_FRAMING.test(item.text)).toBe(false);
+      }
+    }
+    for (const step of report.plan?.runOfShow ?? []) expect(genreOrSlang(step.step.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "))).toBeNull();
+    for (const line of report.baseline?.items ?? []) expect(genreOrSlang(line.text)).toBeNull();
   });
 
   it("keeps the plan inside its budget, with a free wheel whose promos are quoted exactly", async () => {

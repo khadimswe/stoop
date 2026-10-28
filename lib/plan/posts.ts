@@ -7,6 +7,7 @@
 // partner is mentioned only when Qloo returned it. Every answer passes checkPostText (the shared
 // guardrails, the plan's own guard in lib/plan/guard.ts and the rules below); a failing answer gets one
 // repair, then the deterministic template.
+import { GENRE_AND_SLANG } from "./words";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
@@ -157,7 +158,7 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
  * event, never its identity, so posts and hashtags never name a genre ("Trap Friday", "Southern trap you
  * can hear from down the block" read as a stereotype of the crowd).
  */
-export const GENRE_AND_SLANG = ["trap", "drill", "rap", "hip hop", "hip-hop", "hiphop", "gangsta", "crunk", "dirty south", "reggaeton", "banda", "corridos", "norteno", "norteño", "mariachi", "hood", "ghetto", "thug", "ratchet"];
+export { GENRE_AND_SLANG };
 const wordRe = (word: string) => new RegExp(`(?<![\\p{L}\\p{N}])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu");
 
 /**

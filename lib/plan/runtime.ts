@@ -207,6 +207,8 @@ export interface PlanExecuteDeps {
   store: Store;
   client: QlooClient;
   model: LanguageModel & { modelId: string };
+  /** Names the recorded runs found on more than one store's block (lib/plan/taste.ts repeatedPlaceNames). */
+  knownChains?: ReadonlySet<string>;
   now?: () => number;
   deadlineMs?: number;
 }
@@ -236,7 +238,7 @@ export async function executePlan(deps: PlanExecuteDeps, runId: string): Promise
     const timer = setTimeout(() => stop.abort(new PlanDeadlineError()), deps.deadlineMs ?? PLAN_DEADLINE_MS);
     const started = now();
     try {
-      const outcome = await runPlan({ client: deps.client, ctx, sink, model, abortSignal: stop.signal }, { runId, kind: "live", inputs }, { now });
+      const outcome = await runPlan({ client: deps.client, ctx, sink, model, abortSignal: stop.signal, ...(deps.knownChains ? { knownChains: deps.knownChains } : {}) }, { runId, kind: "live", inputs }, { now });
       status = outcome.status;
       sink.emit({
         type: "run.cost",

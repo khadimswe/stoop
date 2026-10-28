@@ -81,6 +81,7 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     if (!Number.isFinite(card.amountUsd) || card.amountUsd < GIFT_CARD_MIN_USD || card.amountUsd > GIFT_CARD_MAX_USD) return issues.push(`${at}: a gift card is $${GIFT_CARD_MIN_USD} to $${GIFT_CARD_MAX_USD}.`);
     const amount = Math.round(card.amountUsd);
     const cards = Math.max(1, Math.min(10, Math.round(card.cards || 1)));
+    if (place.chain && [...aliases.places.values()].some((p) => !p.chain && p.kind === "food")) issues.push(`${at}: the block has local independents; a gift card to one of them beats a chain.`);
     const evidenceIds = evidenceFor(aliases, [id], []);
     slices.push({ label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds });
     purchases.push({ item: `Gift cards for the wheel's ${place.name} slice`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });

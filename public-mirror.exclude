@@ -63,6 +63,9 @@ allow-name: West Virginia
 allow-name: Hong Kong
 allow-name: Washoe County
 allow-name: East Baton Rouge Parish
+# Store events: a holiday and the example store's area, both common words.
+allow-name: Mother's Day
+allow-name: West End
 allow-name: Flint Charter Township
 allow-name: Genesee County
 
@@ -132,3 +135,9 @@ blob:38e39245093fde3501e49d89a9fe1bf0267b6dc0 lib/stages/culture.ts
 blob:d80e066cb0f4c4cc019e022aeb8cc97a397a6112 lib/stages/culture.ts
 blob:3e36a52f6ade873e6751d5aa84ea460958b7bfd2 lib/stages/revise.test.ts
 blob:5e989fece4569913bc9fe06428c795f8b6b06d46 scripts/proof-measure.ts
+# Store events: early versions of the plan tests held recorded Qloo ids and names (now made up).
+blob:086f71de29220b9fa4ffa8f8a1a95cc588ee70ae lib/plan/baseline.test.ts
+blob:9daaa74c83d559be67dab132f75005c1d5c4f65d lib/plan/guard.test.ts
+blob:d0f621fa81c4d3dce7ffa2fff6670249acedb6cf lib/plan/month.test.ts
+blob:9831a49a4fc8ac57a3e4e681649161ba59ea9017 lib/plan/rubric.test.ts
+blob:6d40c20bf9fb1fa3b4e974629a84e35635acc199 lib/plan/taste.test.ts

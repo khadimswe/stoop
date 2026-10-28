@@ -61,7 +61,7 @@ async function runOnce(slug: PlanExampleSlug, client: QlooClient, model: Languag
 const essence = (report: PlanReport) => JSON.stringify({ local: report.local, plan: report.plan, baseline: report.baseline, comparison: report.comparison });
 
 async function record(slug: PlanExampleSlug): Promise<void> {
-  if (existsSync(planDir(slug))) fail(`data/plans/${slug} exists. Recorded runs are never rewritten: delete the folder first to re-record it.`);
+  if (existsSync(path.join(planDir(slug), "plan.report.json"))) fail(`data/plans/${slug}/plan.report.json exists. Recorded runs are never rewritten: delete plan.events.json and plan.report.json first to re-record it.`);
   loadLocalEnv();
   const apiKey = process.env.QLOO_API_KEY?.trim();
   if (!apiKey) fail("QLOO_API_KEY missing. Run this from a checkout whose local env file holds it (never commit it).");

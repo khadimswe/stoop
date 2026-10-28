@@ -8,7 +8,8 @@
 import { planDecide, type PlanEnv, type PlanSink } from "./env";
 import { textIssues, type GuardContext } from "./guard";
 import { guardFor } from "./guard-context";
-import { checkPicks, compare, genericCliches, writeBaseline, type BaselineDraft } from "./baseline";
+import { checkPicks, compare, genericCliches, namedPlaces, writeBaseline, type BaselineDraft } from "./baseline";
+import { readBlockMusic } from "./block-music";
 import { buildPlan } from "./builder";
 import { dayContext } from "./calendar";
 import { buildAbTest } from "./test-plan";
@@ -85,7 +86,7 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     const { inputs: cleaned, problem } = usableNotes(run.inputs, guardFor(run.inputs));
     if (problem) planDecide(env, "store", "Left the manager's notes out", problem);
     const day = dayContext(run.inputs.date);
-    planDecide(env, "store", `Read the day: ${day.label}`, day.notes.length ? day.notes.join(" ") : "Nothing special about this date.");
+    planDecide(env, "store", `Read the day: ${day.label}`, [...day.notes, ...day.hints.map((h) => `Hint only: ${h}`)].join(" ") || "Nothing special about this date.");
     return cleaned;
   });
 
@@ -93,26 +94,29 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   const baselinePromise = writeBaseline(env, inputs, guardFor(inputs));
   baselinePromise.catch(() => undefined);
 
-  // 2. The city, by name.
-  const city = await stage(env, "city", now, async () => {
-    const taste = await readCity(env, inputs);
-    if (taste) sink.emit({ type: "local.city", city: taste });
-    return taste;
+  // 2. The city, by name, checked against the store's state.
+  const { taste: city, query: cityQuery } = await stage(env, "city", now, async () => {
+    const read = await readCity(env, inputs);
+    if (read.taste) sink.emit({ type: "local.city", city: read.taste });
+    return read;
   });
 
-  // 3. The block, around the store's point.
-  const block = await stage(env, "block", now, async () => {
+  // 3. The block, around the store's point, and the music its own places point to (a tested option).
+  const { block, blockMusic } = await stage(env, "block", now, async () => {
     const found = await readBlock(env, inputs);
     if (found) sink.emit({ type: "local.block", block: found });
-    return found;
+    const music = await readBlockMusic(env, inputs, found, city);
+    if (music) sink.emit({ type: "local.blockMusic", blockMusic: music });
+    return { block: found, blockMusic: music };
   });
 
-  const local = { city, block, gaps };
-  const known = [...(city?.artists.map((a) => a.id) ?? []), ...(block?.places.map((p) => p.id) ?? [])];
+  const local = { city, block, gaps, blockMusic };
+  const offered = blockMusic?.used ? blockMusic.artists : [];
+  const known = [...(city?.artists.map((a) => a.id) ?? []), ...offered.map((a) => a.id), ...(block?.places.map((p) => p.id) ?? [])];
   if (known.length === 0 && (city?.styles.length ?? 0) === 0) {
     return stop("block", "Qloo had no signal for this store's city or block, so there is nothing to plan from.");
   }
-  const names = [...(city?.artists.map((a) => a.name) ?? []), ...(block?.places.map((p) => p.name) ?? [])];
+  const names = [...(city?.artists.map((a) => a.name) ?? []), ...offered.map((a) => a.name), ...(block?.places.map((p) => p.name) ?? [])];
   const guard = guardFor(inputs, known, names);
 
   // 4. Three concepts, scored; the best is kept.
@@ -137,6 +141,7 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   });
 
   // 6. The generic plan, its cliches and Qloo's check of its picks; then the side by side.
+  let baselinePlaces: string[] = [];
   const baseline = await stage(env, "baseline", now, async (): Promise<Baseline | null> => {
     let draft: BaselineDraft | null = null;
     try {
@@ -149,17 +154,23 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     }
     if (!draft) return null;
     planDecide(env, "baseline", "Wrote the generic plan with no Qloo", "The same facts and the same model, with no city or block data: every line is a creative suggestion.");
-    const picks = await checkPicks(env, inputs, city, draft.picks);
+    const picks = await checkPicks(env, inputs, city, draft.picks, cityQuery);
     for (const line of picks?.lines ?? []) planDecide(env, "baseline", "Checked a generic pick against Qloo", line);
     const check = picks?.check ?? null;
-    const cliches = [...draft.cliches, ...genericCliches(draft.items, check, block?.places.map((p) => p.name) ?? [], inputs.store.city)];
+    const named = namedPlaces(draft.picks.places, block, env.knownChains);
+    if (draft.picks.places.length) planDecide(env, "baseline", `Checked the ${named.named} ${named.named === 1 ? "place" : "places"} the generic plan named`, `${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}; ${named.onBlock} ${named.onBlock === 1 ? "is" : "are"} on Qloo's list for this block.`);
+    baselinePlaces = draft.picks.places;
+    const cliches = [...draft.cliches, ...genericCliches(draft.items, check, block?.places.map((p) => p.name) ?? [], city?.city ?? inputs.store.city, named)];
     if (cliches.length) planDecide(env, "baseline", `Flagged ${cliches.length} generic ${cliches.length === 1 ? "choice" : "choices"} in the generic plan`, cliches.map((c) => `${c.text}: ${c.why}`).join(" "));
     const result: Baseline = { items: draft.items, cliches, check };
     sink.emit({ type: "baseline.ready", baseline: result });
     return result;
   });
   const kept = plan.concepts.find((c) => c.id === plan.conceptId) ?? null;
-  sink.emit({ type: "comparison.ready", comparison: compare({ kept, plan, baseline, block, city: inputs.store.city, where: inputs.location ? inputs.location.name : "the store" }) });
+  sink.emit({
+    type: "comparison.ready",
+    comparison: compare({ kept, plan, baseline, block, blockMusic, baselinePlaces, ...(env.knownChains ? { knownChains: env.knownChains } : {}), city: city?.city ?? inputs.store.city, where: inputs.location ? inputs.location.name : "the store" }),
+  });
   if (!baseline) return stop("baseline", "The generic plan could not be written, so the side by side has only this plan.");
   return { status: "done", partial: null };
 }

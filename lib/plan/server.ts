@@ -8,10 +8,22 @@ import { liveModel } from "../runtime/server";
 import { getStore } from "../store";
 import type { PlanRouteDeps } from "./routes";
 import { executePlan } from "./runtime";
+import { loadExampleReport, PLAN_EXAMPLES } from "./examples";
+import { repeatedPlaceNames } from "./taste";
+
+let chains: Promise<ReadonlySet<string>> | null = null;
+
+/** Names on more than one recorded example store's block: a business with several branches is a chain. */
+function knownChains(): Promise<ReadonlySet<string>> {
+  chains ??= Promise.all(PLAN_EXAMPLES.map((e) => loadExampleReport(e.slug).catch(() => null)))
+    .then((reports) => repeatedPlaceNames(reports.flatMap((r) => (r?.local.block ? [r.local.block] : []))))
+    .catch(() => new Set<string>());
+  return chains;
+}
 
 /** One live plan, bound to its vendors. Runs inside `after()`. */
-export function execute(runId: string): Promise<void> {
-  return executePlan({ store: getStore(), client: getQlooClient(), model: liveModel() }, runId);
+export async function execute(runId: string): Promise<void> {
+  return executePlan({ store: getStore(), client: getQlooClient(), model: liveModel(), knownChains: await knownChains() }, runId);
 }
 
 export const planRouteDeps = (): PlanRouteDeps => ({

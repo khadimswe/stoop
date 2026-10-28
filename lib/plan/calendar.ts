@@ -6,8 +6,10 @@
 export interface DayContext {
   /** "Saturday, October 31, 2026" */
   label: string;
-  /** Plain facts about the day, most relevant first. */
+  /** What can carry a theme: a holiday near the day, the season, the weather. */
   notes: string[];
+  /** Small hints that never make a theme by themselves: paydays, game days. */
+  hints: string[];
 }
 
 const utc = (date: string) => new Date(`${date}T12:00:00Z`);
@@ -55,6 +57,7 @@ export function dayContext(date: string): DayContext {
   const dom = day.getUTCDate();
   const label = day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
   const notes: string[] = [];
+  const hints: string[] = [];
 
   for (const h of [...holidays(year), ...holidays(year + 1)]) {
     const diff = Math.round((utc(h.date).getTime() - day.getTime()) / 86_400_000);
@@ -63,19 +66,19 @@ export function dayContext(date: string): DayContext {
     else if (diff < 0 && diff >= -2) notes.push(`${h.name} was ${diff === -1 ? "yesterday" : "two days ago"}.`);
   }
 
-  if (dom <= 3) notes.push("It is the start of the month, when many people have just been paid and bills come due.");
-  else if (dom >= 14 && dom <= 17) notes.push("It is mid-month, around a common payday.");
+  if (dom <= 3) hints.push("It is the start of the month, when many people have just been paid and bills come due.");
+  else if (dom >= 14 && dom <= 17) hints.push("It is mid-month, around a common payday.");
   const weekday = day.getUTCDay();
-  if (weekday === 5) notes.push("It is a Friday, a common payday.");
-  if (weekday === 6 && (dom <= 3 || (dom >= 15 && dom <= 17))) notes.push("It is the weekend right after a common payday.");
+  if (weekday === 5) hints.push("It is a Friday, a common payday.");
+  if (weekday === 6 && (dom <= 3 || (dom >= 15 && dom <= 17))) hints.push("It is the weekend right after a common payday.");
 
   if ((month === 2) || (month === 3) || (month === 4 && dom <= 15)) notes.push("It is tax refund season, when many people shop for a new phone.");
   if ((month === 7 && dom >= 20) || month === 8) notes.push("It is back-to-school shopping season for adults buying for their households (nothing aimed at minors).");
   if (month === 11 && dom >= 20) notes.push("The holiday shopping season is starting.");
   if (month === 12 && dom <= 24) notes.push("It is the holiday shopping season.");
-  if (weekday === 6 && month >= 9 && month <= 11) notes.push("It is a fall Saturday: college football is on, and game-day crowds can shift foot traffic.");
-  if (weekday === 0 && (month >= 9 || month === 1)) notes.push("It is a fall or winter Sunday: pro football is on in the afternoon.");
+  if (weekday === 6 && month >= 9 && month <= 11) hints.push("It is a fall Saturday: college football is on, and game-day crowds can shift foot traffic.");
+  if (weekday === 0 && (month >= 9 || month === 1)) hints.push("It is a fall or winter Sunday: pro football is on in the afternoon.");
   if (month === 12 || month <= 2) notes.push("It is winter: plan for the cold.");
   else if (month >= 6 && month <= 8) notes.push("It is summer: plan for heat and shade.");
-  return { label, notes };
+  return { label, notes, hints };
 }
