@@ -141,6 +141,17 @@ describe("the prize wheel", () => {
   });
 });
 
+describe("the store's phone", () => {
+  it("adds Call or text to the Facebook and WhatsApp facts when the store gave a phone, never the store number", () => {
+    const store = { ...report.inputs.store, phone: "(312) 555-0142", storeNumber: "MP-4471" };
+    const posts = composePosts(good, { ...report, inputs: { ...report.inputs, store } });
+    expect(posts.facebook.text).toContain("Call or text: (312) 555-0142");
+    expect(posts.whatsapp.text).toContain("Call or text: (312) 555-0142");
+    expect(JSON.stringify(posts)).not.toContain("MP-4471");
+    expect(composePosts(good, report).facebook.text).not.toContain("Call or text");
+  });
+});
+
 describe("fitPost", () => {
   it("keeps every offer whole: past the limit, whole offers drop and one line says how many more", () => {
     const offers = Array.from({ length: 8 }, (_, i) => `Offer number ${i + 1}: ${"x".repeat(120)}`);

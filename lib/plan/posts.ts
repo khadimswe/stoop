@@ -215,7 +215,8 @@ export function checkLlmPosts(posts: LlmPosts, report: Report): GuardIssue[] {
 export function postFacts(report: Report) {
   const text = posterText(report);
   const where = text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`;
-  return { title: text.title, when: `${text.date}, ${text.time}`, where, offers: text.offers, wheel: text.wheel, weekday: text.date.split(",")[0] ?? "" };
+  // The store's public phone, when it gave one; the internal store number never reaches a post.
+  return { title: text.title, when: `${text.date}, ${text.time}`, where, phone: text.phone, offers: text.offers, wheel: text.wheel, weekday: text.date.split(",")[0] ?? "" };
 }
 
 /**
@@ -240,9 +241,10 @@ export function composePosts(openings: LlmPosts, report: Report): Posts {
   // The prize wheel's line, the same words as on the poster, and an example store's fictional line.
   const disclaimer = posterText(report).disclaimer;
   const wheel = [...(f.wheel ? [f.wheel] : []), ...(disclaimer ? [disclaimer] : [])];
-  const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`], f.offers, wheel, 2000);
+  const call = f.phone ? [`Call or text: ${f.phone}`] : [];
+  const facebook = fitPost([r(openings.facebook), "", `When: ${f.when}`, `Where: ${f.where}`, ...call], f.offers, wheel, 2000);
   const instagram = fitPost([r(openings.instagram), "", `${f.when}`, `${f.where}`], f.offers, wheel, 2200);
-  const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`], f.offers, wheel, 1000);
+  const whatsapp = fitPost([r(openings.whatsapp), `${f.when}, ${f.where}.`, ...call], f.offers, wheel, 1000);
   const hashtags = [...new Set(openings.hashtags.map((t) => t.replace(/^#/, "")))].slice(0, 8);
   return { facebook: { text: facebook }, instagram: { caption: instagram, hashtags }, whatsapp: { text: whatsapp }, share: {} };
 }

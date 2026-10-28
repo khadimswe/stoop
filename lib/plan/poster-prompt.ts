@@ -1,43 +1,78 @@
-// The poster's background art prompt: abstract art only, painted by fal (POSTER_MODEL), with every word
-// set on top by code afterwards (lib/plan/poster-text.ts). The style comes from what Qloo measured, the
-// way Stoop turns taste into craft: the city's music styles become visual energy (grade, palette,
-// texture, era) and the kept concept's hook sets the feeling. No genre, artist, place, store, carrier
-// or brand name ever reaches the prompt, and it always ends with the same exclusions: no text, no
-// logos, no people. A deterministic check (checkPosterPrompt) refuses any prompt that breaks this.
-// A plain module (no server imports): the UI and scripts can show the frozen prompt.
+// The poster's background art prompt, painted by fal (POSTER_MODEL), with every word set on top by code
+// afterwards (lib/plan/poster-text.ts). The look follows the posters stores already put up, a bit
+// cleaner: an illustrated neon scene on a dark ground, themed by the date (a haunted street with
+// pumpkins and friendly ghosts on Halloween weekend, an autumn evening in November, and so on) and by
+// the kept concept's hook, in the carrier's color set (colors only, never a logo). What Qloo measured
+// still sets the craft: the city's music styles become energy and texture. No genre, artist, place,
+// store, carrier or brand name ever reaches the prompt, and it always ends with the same exclusions: no
+// text, no logos, no people. A deterministic check (checkPosterPrompt) refuses any prompt that breaks
+// this. A plain module (no server imports): the UI and scripts can show the frozen prompt.
 import { checkText, FAMOUS_PLACES, type GuardIssue } from "../guardrails";
 import { hashOf } from "../hash";
 import { POSTER_MODEL } from "../prompts/models.config";
-import type { PlanReport } from "./schema";
+import type { PlanReport, Store } from "./schema";
 import { keptConcept } from "./poster-text";
 
 /** Bumped when the template changes, so the render cache never serves art from an older template. */
-export const POSTER_PROMPT_VERSION = 2;
+export const POSTER_PROMPT_VERSION = 3;
 
-/** Music style keywords to visual energy. Matched against Qloo's style names, first match wins. */
+/** Music style keywords to energy and texture (the carrier's set gives the colors). Matched against Qloo's style names, first match wins. */
 export const STYLE_ENERGY: readonly { match: RegExp; energy: string }[] = [
-  { match: /\bdrill\b/i, energy: "a cold blue and steel grey grade, grainy concrete texture, sharp angular shapes and hard contrast" },
-  { match: /jersey club|footwork|juke|\bclub\b|house|techno|electronic|\bedm\b|dance|future bass|french.?touch|chillwave|synth|garage|dubstep|\bbass\b/i, energy: "bright strobing geometry, stacked repeating shapes, saturated neon accents on a dark ground, a fast rhythmic pattern" },
-  { match: /\btrap\b|hip ?hop|\brap\b|crunk|bounce/i, energy: "a deep violet and warm amber grade, chrome highlights, heavy rounded shapes that feel like low bass, crisp hard edges" },
-  { match: /r&b|rnb|rhythm and blues|soul|motown/i, energy: "a warm dusk grade, soft gradients of rose, plum and gold, gentle film grain, smooth flowing curves" },
-  { match: /gospel|choir/i, energy: "radiant warm gold light, rays fanning out from the center, clean uplifting shapes" },
-  { match: /jazz|blues|swing/i, energy: "smoky midnight blue and brass tones, loose confident brush strokes, a sixties print texture" },
-  { match: /reggaeton|dembow|latin trap|dancehall|afrobeat|afro ?pop|amapiano/i, energy: "hot coral, lime and bright teal, bouncing rounded shapes, glossy sunlit highlights" },
-  { match: /cumbia|salsa|bachata|merengue|regional|corrido|banda|norte|tejano|mariachi|tropical/i, energy: "a warm sunlit palette of tangerine, turquoise and marigold, swinging rhythmic curves, a hand-cut paper texture" },
-  { match: /reggae|ska|dub\b/i, energy: "a sun-warmed palette, rolling wave shapes, soft offset print texture" },
-  { match: /country|americana|bluegrass|folk/i, energy: "sun-faded denim blue and rust, woodgrain and letterpress texture, a seventies print feel" },
-  { match: /punk|rock|grunge|metal|emo|alternative|indie/i, energy: "a photocopied zine texture, torn paper edges, high-contrast black with one loud accent color" },
-  { match: /k-?pop|j-?pop|\bpop\b/i, energy: "a clean candy-bright palette, glossy bubbles of color, playful bold shapes" },
+  { match: /\bdrill\b/i, energy: "a cold haze, gritty concrete texture and sharp angular light" },
+  { match: /jersey club|footwork|juke|\bclub\b|house|techno|electronic|\bedm\b|dance|future bass|french.?touch|chillwave|synth|garage|dubstep|\bbass\b/i, energy: "strobing light beams and a pulsing geometric glow" },
+  { match: /\btrap\b|hip ?hop|\brap\b|crunk|bounce/i, energy: "heavy chrome highlights and a deep glow that feels like low bass" },
+  { match: /r&b|rnb|rhythm and blues|soul|motown/i, energy: "a soft dreamy glow and smooth flowing light trails" },
+  { match: /gospel|choir/i, energy: "radiant rays of warm light fanning out" },
+  { match: /jazz|blues|swing/i, energy: "a smoky haze and a brass-like gleam" },
+  { match: /reggaeton|dembow|latin trap|dancehall|afrobeat|afro ?pop|amapiano/i, energy: "bouncing glossy light and a sunlit sparkle" },
+  { match: /cumbia|salsa|bachata|merengue|regional|corrido|banda|norte|tejano|mariachi|tropical/i, energy: "swinging rhythmic light trails and a hand-cut paper texture" },
+  { match: /reggae|ska|dub\b/i, energy: "rolling waves of warm light and a soft offset print texture" },
+  { match: /country|americana|bluegrass|folk/i, energy: "woodgrain and letterpress grain with a seventies print feel" },
+  { match: /punk|rock|grunge|metal|emo|alternative|indie/i, energy: "photocopied zine grit and torn-paper edges" },
+  { match: /k-?pop|j-?pop|\bpop\b/i, energy: "glossy bubbles of light and a playful sparkle" },
 ];
 
-export const DEFAULT_ENERGY = "a warm late-afternoon palette, bold flat shapes and light print grain";
+export const DEFAULT_ENERGY = "a bold neon glow and light print grain";
 
-/** The closing rules every poster prompt carries, word for word. */
+/** The closing rules every poster prompt carries, word for word. Pumpkins and cartoon ghosts may have faces; people may not. */
 export const POSTER_EXCLUSIONS =
-  "No text, no letters, no words, no numbers, no logos, no brand marks, no signs or signage, no people, no faces, no hands, no crowds, no phones or devices, no flags.";
+  "No text, no letters, no words, no numbers, no logos, no brand marks, no signs or signage, no people, no human faces, no hands, no crowds, no phones or devices, no flags, no money or trophies.";
 
 /** Carrier and brand words that never appear in art prompts (the poster names the store in text only). */
 export const BRAND_WORDS = ["Metro", "Metro by T-Mobile", "T-Mobile", "Cricket", "Cricket Wireless", "Boost", "Boost Mobile", "AT&T", "Verizon"] as const;
+
+/** The carrier's color set, in words for the art (the text layer uses the same set as hex, poster-image.tsx). Colors only. */
+export const CARRIER_ART_PALETTE: Record<Store["carrier"], string> = {
+  metro: "a deep purple and black ground with neon purple, magenta, lime and orange glow",
+  cricket: "a deep green and black ground with neon green, lime and gold glow",
+  boost: "a deep brown and black ground with neon orange, amber and coral glow",
+  other: "a deep charcoal ground with cool blue, white and gold glow",
+};
+
+/**
+ * The scene for the event's date: Halloween weekend (October 15 to November 1) gets the haunted street,
+ * and every other stretch of the year its own scene. Never school, never anything aimed at minors.
+ */
+export function seasonalScene(dateIso: string): string {
+  const [, m, d] = dateIso.split("-").map(Number) as [number, number, number];
+  const md = m * 100 + d;
+  if (md >= 1015 && md <= 1101) return "a haunted city street at dusk with glowing carved pumpkins on the front steps, bats crossing a big moon, bare trees, drifting fog and a few friendly cartoon ghosts";
+  if (m === 11) return "a city street on a crisp autumn evening with swirling fallen leaves, bare trees, warm string lights and steam rising from hot food";
+  if (m === 12) return "a city street on a winter holiday night with string lights, light snow, wrapped gift boxes with plain ribbons and warm glowing windows";
+  if (m === 2 && d <= 14) return "a city street at night with floating glowing hearts and string lights";
+  if (m <= 2) return "a city street on a cold winter night with light snow, warm glowing windows and steam rising from hot food";
+  if (m <= 5) return "a city street on a spring evening with blossoming trees, puddles reflecting neon light and string lights";
+  if (m === 7 && d <= 5) return "a summer night over the city with fireworks bursting in the sky and string lights over the street";
+  if (m <= 8) return "a city block party on a summer evening with string lights, a warm dusk sky and trees in full leaf";
+  return "a city street on a late-summer evening with string lights, a warm dusk sky and leaves just starting to turn";
+}
+
+const SETTING_MOTIF: Record<PlanReport["inputs"]["setting"], string> = {
+  sidewalk_table: "an empty folding table on the sidewalk with a small speaker",
+  in_store: "a warm, cozy glow spilling out of an open doorway",
+  nearby_venue: "the warm glow of a small venue down the block",
+  community_event: "the bustle of an outdoor community fair with an empty booth under string lights",
+};
 
 /**
  * Up to two visual energies from the music, in this order: the genres of the artists the kept plan's
@@ -57,22 +92,6 @@ export function visualEnergy(report: Pick<PlanReport, "local"> & Partial<Pick<Pl
   }
   return energies.length > 0 ? energies : [DEFAULT_ENERGY];
 }
-
-/** Light from the start time. */
-export function eventLight(startTime: string): string {
-  const hour = Number(startTime.slice(0, 2));
-  if (hour < 11) return "clear morning light";
-  if (hour < 16) return "bright afternoon sun";
-  if (hour < 19) return "low golden-hour light";
-  return "an evening glow under streetlights";
-}
-
-const SETTING_FEEL: Record<PlanReport["inputs"]["setting"], string> = {
-  sidewalk_table: "open-air sidewalk energy",
-  in_store: "a warm indoor glow",
-  nearby_venue: "the buzz of a night out nearby",
-  community_event: "the bustle of an outdoor community fair",
-};
 
 /** Every real name the run knows, plus the store's own words: none may reach the art prompt. */
 export function posterBannedNames(report: Pick<PlanReport, "local" | "inputs">): string[] {
@@ -128,15 +147,17 @@ export function posterPromptHash(input: Record<string, unknown>): string {
   return hashOf({ kind: "event-poster-art", templateVersion: POSTER_PROMPT_VERSION, endpoint: POSTER_MODEL.endpoint, input });
 }
 
+/** The scene, the theme, the carrier's colors and the music's energy, in that order, then the exclusions. */
 export function buildPosterPrompt(report: Pick<PlanReport, "plan" | "local" | "inputs">): PosterPrompt {
   const feeling = posterFeeling(report);
   const prompt = [
-    "Background art only, in portrait format: abstract and graphic, made to sit behind type that is added later.",
-    `Visual energy: ${visualEnergy(report).join("; ")}.`,
-    `Light and feel: ${eventLight(report.inputs.startTime)}, ${SETTING_FEEL[report.inputs.setting]}.`,
-    ...(feeling ? [`The feeling to evoke: ${feeling}.`] : []),
-    "Composition: the strongest shapes and color sit in the middle band; the top fifth and the bottom third stay calm, simple and darker so type can sit on them.",
-    "Finish: printed texture with fine grain.",
+    "An illustrated neon scene in portrait format, made to sit behind type and cards that are added later.",
+    `Scene: ${seasonalScene(report.inputs.date)}, with ${SETTING_MOTIF[report.inputs.setting]}.`,
+    ...(feeling ? [`Theme to show: ${feeling}.`] : []),
+    `Palette: ${CARRIER_ART_PALETTE[report.inputs.store.carrier]}.`,
+    `Energy and texture: ${visualEnergy(report).join("; ")}.`,
+    "Style: bold glowing digital illustration with neon rim light on a rich dark ground, clean and uncluttered, one clear focal scene.",
+    "Composition: the illustration frames the edges and corners; the top fifth, a wide band across the middle and the bottom third stay dark and quiet so type and cards can sit on them.",
     POSTER_EXCLUSIONS,
   ].join(" ");
   const input = posterFalInput(prompt);
@@ -154,9 +175,9 @@ export function checkPosterPrompt(prompt: string, report: Pick<PlanReport, "loca
   const body = prompt.slice(0, prompt.length - POSTER_EXCLUSIONS.length);
   if (/\d/.test(body)) add("digit", "Numbers never reach the art prompt: dates, prices and times are set as text by code.");
   if (/["“”]/.test(body)) add("quote", "Quoted words invite the model to paint them as text.");
-  for (const word of [/\blogos?\b/i, /\btypography\b/i, /\blettering\b/i, /\bheadline\b/i, /\bslogan\b/i, /\bposter\b/i, /\bflyer\b/i, /\bportrait of\b/i, /\bperson\b/i, /\bpeople\b/i, /\bcrowd\b/i]) {
+  for (const word of [/\blogos?\b/i, /\btypography\b/i, /\blettering\b/i, /\bheadline\b/i, /\bslogan\b/i, /\bposter\b/i, /\bflyer\b/i, /\bportrait of\b/i, /\bperson\b/i, /\bpeople\b/i, /\bcrowd\b/i, /\btroph(?:y|ies)\b/i, /\bcash\b/i, /\bmoney\b/i, /\bwinners?\b/i, /\bcontest\b/i]) {
     const match = body.match(word)?.[0];
-    if (match) add(match, `"${match}" asks for text, a logo or people in the art.`);
+    if (match) add(match, `"${match}" asks for text, a logo, people or contest imagery in the art.`);
   }
   for (const word of [report.inputs.store.address, report.inputs.location?.name, ...report.inputs.offers.map((o) => o.text)]) {
     if (word && prompt.toLowerCase().includes(word.toLowerCase())) add(word, "The store's address and offers are set as text by code, never painted.");

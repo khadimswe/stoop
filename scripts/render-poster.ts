@@ -4,7 +4,9 @@
 // is called, and the drafts stay listed there, so both count for good. A prompt that fails the poster check never renders. Each draft is written next to the
 // export with two composited previews (the exact text layer over the art, portrait and link preview),
 // and nothing is copied into public/: pages show demo media only after the founder approves it.
-//   npx tsx scripts/render-poster.ts <slug> [--plans <dir>]
+//   npx tsx scripts/render-poster.ts <slug> [--plans <dir>] [--logo <png>] [--plain]
+// --logo puts the store's own official logo (a PNG the store supplied) at the top of the previews; Stoop
+// never draws or generates one. --plain writes the previews on the plain neon ground and renders nothing.
 // Reads FAL_KEY from the environment (run it from the checkout that holds the keys). Logs no response.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -13,7 +15,7 @@ import path from "node:path";
 import { CliError, parseCliArgs } from "../lib/cli-args";
 import { planEventSchema, reducePlan, toPlanReport } from "../lib/plan/events";
 import { createPosterRenderer } from "../lib/plan/poster-art";
-import { posterImage } from "../lib/plan/poster-image";
+import { posterImage, type PosterLogo } from "../lib/plan/poster-image";
 import { checkPosterPrompt, posterFalInput, posterPromptHash } from "../lib/plan/poster-prompt";
 import { posterText } from "../lib/plan/poster-text";
 import { MAX_DRAFT_RENDERS, marketingExportSchema, marketingMarkdown, type Draft } from "../lib/plan/posts-export";
@@ -26,13 +28,25 @@ function fail(message: string): never {
 }
 
 const EXTENSIONS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
+/** A store-supplied PNG logo, checked by its signature, with its size read from the PNG header. */
+async function readLogo(file: string): Promise<PosterLogo> {
+  const bytes = await readFile(file);
+  if (bytes.byteLength > LOGO_MAX_BYTES) fail(`The logo is over ${LOGO_MAX_BYTES / 1024 / 1024} MB.`);
+  if (bytes.readUInt32BE(0) !== 0x89504e47 || bytes.readUInt32BE(4) !== 0x0d0a1a0a) fail("The logo must be a PNG file.");
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (!width || !height) fail("The logo PNG has no size.");
+  return { dataUri: `data:image/png;base64,${bytes.toString("base64")}`, width, height };
+}
 
 async function main() {
   let args;
   try {
-    args = parseCliArgs(process.argv.slice(2), { flags: [], options: ["--plans"], positionals: { min: 1, max: 1 } });
+    args = parseCliArgs(process.argv.slice(2), { flags: ["--plain"], options: ["--plans", "--logo"], positionals: { min: 1, max: 1 } });
   } catch (error) {
-    fail(error instanceof CliError ? `${error.message}\nUsage: npx tsx scripts/render-poster.ts <slug> [--plans <dir>]` : String(error));
+    fail(error instanceof CliError ? `${error.message}\nUsage: npx tsx scripts/render-poster.ts <slug> [--plans <dir>] [--logo <png>] [--plain]` : String(error));
   }
   const slug = args.positional[0]!;
   if (!/^[a-z0-9-]+$/.test(slug)) fail(`"${slug}" is not a slug.`);
@@ -49,6 +63,18 @@ async function main() {
   if (posterPromptHash(input) !== poster.promptHash) fail(`${slug}: the frozen prompt does not match its promptHash. Export again.`);
   const problems = checkPosterPrompt(poster.prompt, report);
   if (problems.length) fail(`${slug}: the poster prompt fails its check: ${problems.map((p) => p.message).join("; ")}`);
+  const logoFile = args.options.get("--logo");
+  const logo = logoFile ? await readLogo(path.resolve(logoFile)) : null;
+  const text = posterText(report);
+
+  // The plain previews: the exact text layer on the plain neon ground, with nothing rendered.
+  if (args.flags.has("--plain")) {
+    for (const size of ["portrait", "og"] as const) {
+      await writeFile(path.join(dir, `poster-preview-plain-${size}.png`), Buffer.from(await posterImage(text, null, size, {}, logo).arrayBuffer()));
+    }
+    console.log(`${slug}: wrote poster-preview-plain-portrait.png and poster-preview-plain-og.png. 0 renders.`);
+    return;
+  }
   const attempts = Math.max(exported.renderAttempts ?? 0, exported.drafts.length);
   if (attempts >= MAX_DRAFT_RENDERS) fail(`${slug}: already ${attempts} renders started, the most a store gets. Review those drafts.`);
 
@@ -70,11 +96,10 @@ async function main() {
 
   // The previews: the poster exactly as the route draws it, over this art.
   const art = { dataUri: `data:${image.contentType};base64,${Buffer.from(image.bytes).toString("base64")}` };
-  const text = posterText(report);
   const previews: string[] = [];
   for (const size of ["portrait", "og"] as const) {
     const name = `poster-preview-${tag}-${size}.png`;
-    await writeFile(path.join(dir, name), Buffer.from(await posterImage(text, art, size).arrayBuffer()));
+    await writeFile(path.join(dir, name), Buffer.from(await posterImage(text, art, size, {}, logo).arrayBuffer()));
     previews.push(name);
   }
   const draft: Draft = { file, previews, promptHash: poster.promptHash, sha256, modelId: POSTER_MODEL.endpoint, renderedAt: new Date().toISOString() };
