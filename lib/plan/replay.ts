@@ -6,7 +6,8 @@ import path from "node:path";
 import { LlmStore, replayModel } from "../agent/llm-replay";
 import { stoopModel, stoopModelId } from "../agent/model";
 import { createQlooClient, type QlooClient } from "../qloo/client";
-import { FixtureCache, loadFixtures } from "../qloo/fixtures";
+import type { QlooCache } from "../qloo/cache";
+import { FixtureCache, loadFixtures, readFixtureFile } from "../qloo/fixtures";
 import type { LanguageModel } from "ai";
 import type { PlanExampleSlug } from "./example-list";
 
@@ -17,11 +18,23 @@ export function planFixtureFiles(slug: PlanExampleSlug, dir = "fixtures"): strin
 }
 
 /**
- * A client that answers only from recordings. Every fixture is loaded, not only the plan's own: a
- * search the recorder found already recorded elsewhere (a famous artist's name) was never re-recorded.
+ * A client that answers only from recordings: the plan's own fixtures first, and every other fixture
+ * only on a miss (a search the recorder found already recorded elsewhere, such as a famous artist's
+ * name, was never recorded again), so most replays never parse the whole recorded set.
  */
-export function replayClient(_slug: PlanExampleSlug, dir = "fixtures"): QlooClient {
-  return createQlooClient({ cache: new FixtureCache(loadFixtures(dir), { strict: true }) });
+export function replayClient(slug: PlanExampleSlug, dir = "fixtures"): QlooClient {
+  const own = new FixtureCache(planFixtureFiles(slug, dir).map(readFixtureFile));
+  let all: FixtureCache | null = null;
+  const cache: QlooCache = {
+    async get(key, request) {
+      const hit = await own.get(key);
+      if (hit) return hit;
+      all ??= new FixtureCache(loadFixtures(dir), { strict: true });
+      return all.get(key, request);
+    },
+    async set() {},
+  };
+  return createQlooClient({ cache });
 }
 
 export function replayPlanModel(slug: PlanExampleSlug, dir = path.join("fixtures", "llm")): LanguageModel {
