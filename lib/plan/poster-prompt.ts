@@ -82,7 +82,8 @@ export function posterBannedNames(report: Pick<PlanReport, "local" | "inputs">):
   ];
 }
 
-const REF = /\[\[[A-Za-z0-9-]+\]\]/g;
+/** A ref token, with the small word that leads into it ("from [[id]]"), so removing it leaves a sentence. */
+const REF = /(?:\s+(?:from|at|with|by|of|near|like|in the spirit of))?\s*\[\[[A-Za-z0-9-]+\]\]/gi;
 
 /**
  * The feeling to evoke, from the kept concept's hook (else its title): refs removed, and dropped
@@ -98,7 +99,7 @@ export function posterFeeling(report: Pick<PlanReport, "plan" | "local" | "input
     if (/[0-9"“”$#@]/.test(text)) continue;
     if (/\b(?:from|at|with|by|of|near)\s*[,.]?$/i.test(text)) continue;
     if (checkText(text, { names }).length > 0) continue;
-    return text.charAt(0).toLowerCase() + text.slice(1);
+    return raw === concept.title ? text.toLowerCase() : text.charAt(0).toLowerCase() + text.slice(1);
   }
   return null;
 }

@@ -1,0 +1,228 @@
+// The marketing routes with fake dependencies: POST /api/plan/<id>/marketing (requestMarketing and the
+// job it schedules, runMarketing) and GET /api/plan/<id>/marketing/poster.png (posterResponse), on a
+// MemoryStore, the stand-in plan source, a fake renderer and the AI SDK mock.
+import { MockLanguageModelV4 } from "ai/test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { Storage } from "../storage";
+import { MemoryStore } from "../store/memory";
+import type { VisitorId } from "../store/visitor";
+import type { PlanEventInput } from "./events";
+import { posterKeys, type PosterRenderer } from "./poster-art";
+import { POSTER_SIZES } from "./poster-image";
+import { samplePlanReport } from "./posts-fixture";
+import { marketingResponseSchema, posterResponse, requestMarketing, runMarketing, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
+import { storePlanSource } from "./posts-store";
+import type { PlanReport } from "./schema";
+
+const usage = { inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 50, text: 50, reasoning: undefined } };
+const model = (output: unknown) =>
+  new MockLanguageModelV4({ doGenerate: async () => ({ content: [{ type: "text" as const, text: JSON.stringify(output) }], finishReason: { unified: "stop" as const, raw: undefined }, usage, warnings: [] }) });
+const openings = {
+  facebook: "We're out front this Saturday with tacos from [[place-taqueria]] and the city's sound. Come say hi.",
+  instagram: "Tacos from [[place-taqueria]] out front this Saturday.",
+  hashtags: ["Testville", "ShopLocal", "TacoSaturday"],
+  whatsapp: "Out front Saturday with tacos from [[place-taqueria]].",
+};
+
+const storage = (): Storage => ({
+  kind: "blob",
+  put: async (path) => ({ path, url: `https://abc123.public.blob.vercel-storage.com/${path}` }),
+  url: async () => null,
+  delete: async () => undefined,
+});
+const renderer = (): PosterRenderer & { calls: number } => {
+  const r = { calls: 0, render: async () => (r.calls++, { bytes: new Uint8Array([137, 80, 78, 71]), contentType: "image/png" }) };
+  return r;
+};
+
+const RUN = "run_test0001";
+let store: MemoryStore;
+beforeEach(() => {
+  store = new MemoryStore();
+});
+
+/** Writes a live run's events, as the pipeline would, up to `upTo`. */
+async function seedRun(report: PlanReport, upTo: "started" | "plan" | "done" | "failed" = "done") {
+  const source = storePlanSource(store);
+  const events: PlanEventInput[] = [{ type: "plan.started", runId: RUN, kind: "live", inputs: report.inputs }];
+  for (const evidence of report.ledger) events.push({ type: "evidence.added", evidence });
+  events.push({ type: "local.city", city: report.local.city! }, { type: "local.block", block: report.local.block! });
+  if (upTo !== "started") events.push({ type: "plan.ready", plan: report.plan! });
+  events.push({ type: "run.cost", cost: { durationMs: 1000, qloo: { live: 10, cached: 0 }, claude: { calls: 3, inputTokens: 1000, outputTokens: 500, cachedInputTokens: 0 }, frames: 0, estimateUsd: 0.1 } });
+  if (upTo === "done" || upTo === "plan") events.push({ type: "run.done" });
+  if (upTo === "failed") events.push({ type: "run.failed", stage: "plan", message: "The plan writer failed." });
+  if (upTo === "started") events.pop();
+  await source.append(RUN, events);
+  return source;
+}
+
+const routeDeps = (over: Partial<MarketingRouteDeps> = {}): MarketingRouteDeps & { scheduled: (() => Promise<unknown>)[] } => {
+  const scheduled: (() => Promise<unknown>)[] = [];
+  return {
+    live: true,
+    store: () => store,
+    source: (s) => storePlanSource(s),
+    headers: new Headers({ "x-forwarded-for": "203.0.113.9" }),
+    schedule: (task) => scheduled.push(task),
+    job: async () => true,
+    scheduled,
+    ...over,
+  };
+};
+
+describe("requestMarketing", () => {
+  it("answers examples at once: they ship with their poster and posts", async () => {
+    const deps = routeDeps({ live: false });
+    const answer = await requestMarketing(deps, "ex-test-store");
+    expect(answer.status).toBe(200);
+    expect(marketingResponseSchema.parse(answer.body).status).toBe("done");
+    expect(deps.scheduled).toHaveLength(0);
+  });
+
+  it("is off when live runs are off, and refuses bad or unknown ids", async () => {
+    expect((await requestMarketing(routeDeps({ live: false }), RUN)).status).toBe(503);
+    expect((await requestMarketing(routeDeps(), "../etc")).status).toBe(400);
+    expect((await requestMarketing(routeDeps(), "run_unknown1")).status).toBe(404);
+    expect((await requestMarketing(routeDeps({ store: () => { throw new Error("no store"); } }), RUN)).status).toBe(503);
+  });
+
+  it("waits for the plan, and refuses a failed run", async () => {
+    await seedRun(samplePlanReport(), "started");
+    expect((await requestMarketing(routeDeps(), RUN)).status).toBe(409);
+    store = new MemoryStore();
+    await seedRun(samplePlanReport(), "failed");
+    expect((await requestMarketing(routeDeps(), RUN)).status).toBe(409);
+  });
+
+  it("schedules the job once for a finished plan, then answers working while it holds the lock", async () => {
+    await seedRun(samplePlanReport());
+    const deps = routeDeps();
+    const first = await requestMarketing(deps, RUN);
+    expect(first.status).toBe(202);
+    expect(deps.scheduled).toHaveLength(1);
+    await store.set(posterKeys.lock(RUN), { at: "now" });
+    const second = await requestMarketing(deps, RUN);
+    expect(second).toMatchObject({ status: 202, body: { status: "working" } });
+    expect(deps.scheduled).toHaveLength(1);
+  });
+
+  it("limits one visitor's requests in an hour", async () => {
+    await seedRun(samplePlanReport());
+    const deps = routeDeps({ perVisitorHour: 2 });
+    await requestMarketing(deps, RUN);
+    await requestMarketing(deps, RUN);
+    expect((await requestMarketing(deps, RUN)).status).toBe(429);
+  });
+});
+
+describe("runMarketing", () => {
+  it("writes the queued poster, the posts with share links, the art and the cost, in that order", async () => {
+    const source = await seedRun(samplePlanReport());
+    const art = renderer();
+    const visitor = { id: "v_000000000000000000000001" as VisitorId, cookie: null };
+    expect(await runMarketing({ store, source, model: model(openings), art: { storage: storage(), renderer: art, framesCap: 10 }, origin: "https://stoop.test" }, RUN, visitor)).toBe(true);
+    const state = (await source.state(RUN))!;
+    const r = state.report;
+    expect(r.posts?.facebook.text).toContain("tacos from Taqueria Fixture Grande");
+    expect(new URL(r.posts!.share.facebook!).searchParams.get("u")).toBe(`https://stoop.test/e/${RUN}`);
+    expect(new URL(r.posts!.share.whatsapp!).searchParams.get("text")).toContain(`https://stoop.test/e/${RUN}`);
+    expect(r.poster.status).toBe("ready");
+    expect(r.poster.url).toMatch(/^https:\/\/abc123\.public\.blob\.vercel-storage\.com\/posters\//);
+    expect(art.calls).toBe(1);
+    expect(r.cost).toMatchObject({ frames: 1, claude: { calls: 4, inputTokens: 1100, outputTokens: 550 } });
+    expect(r.cost!.estimateUsd).toBeGreaterThan(0.1 + 0.08);
+    expect(r.stats.stages.marketing).toBeDefined();
+    expect(r.trace.filter((s) => s.stage === "marketing").map((s) => s.label)).toEqual(["Froze the poster art prompt", "Wrote the Facebook, Instagram and WhatsApp drafts", "Painted the poster background"]);
+    // The lock is gone, and a second request answers done without a new job.
+    expect(await store.get(posterKeys.lock(RUN))).toBeNull();
+    const deps = routeDeps();
+    expect((await requestMarketing(deps, RUN)).body).toMatchObject({ status: "done" });
+    expect(deps.scheduled).toHaveLength(0);
+  });
+
+  it("still writes posts and a poster when fal is off: the template text on the plain background", async () => {
+    const source = await seedRun(samplePlanReport());
+    await runMarketing({ store, source, model: null, art: { storage: null, renderer: null }, origin: "https://stoop.test" }, RUN, null);
+    const r = (await source.state(RUN))!.report;
+    expect(r.posts?.facebook.text).toMatch(/^Taco Table Saturday/);
+    expect(r.poster).toMatchObject({ status: "skipped" });
+    expect(r.poster.reason).toMatch(/plain background/);
+  });
+
+  it("does nothing while another job holds the plan", async () => {
+    const source = await seedRun(samplePlanReport());
+    await store.set(posterKeys.lock(RUN), { at: "now" });
+    expect(await runMarketing({ store, source, model: null, art: { storage: null, renderer: null }, origin: "https://stoop.test" }, RUN, null)).toBe(false);
+    expect((await source.state(RUN))!.report.posts).toBeNull();
+  });
+});
+
+describe("posterResponse", () => {
+  const pngSize = async (response: Response) => {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const view = new DataView(bytes.buffer);
+    return { signature: [...bytes.slice(1, 4)].map((b) => String.fromCharCode(b)).join(""), width: view.getUint32(16), height: view.getUint32(20) };
+  };
+
+  function exampleDir(report: PlanReport) {
+    const dir = mkdtempSync(join(tmpdir(), "stoop-plans-"));
+    mkdirSync(join(dir, "test-store"));
+    writeFileSync(join(dir, "test-store", "plan.report.json"), JSON.stringify(report));
+    return dir;
+  }
+
+  it("draws an example's poster at 1080 by 1350, and 1200 by 630 for link previews, without a store", async () => {
+    const dataDir = exampleDir(samplePlanReport({ kind: "example" }));
+    const deps = { live: false, store: () => { throw new Error("no store"); }, source: () => storePlanSource(new MemoryStore(), { dataDir }), artOrigins: [] };
+    const portrait = await posterResponse(deps, "ex-test-store", "portrait");
+    expect(portrait.status).toBe(200);
+    expect(portrait.headers.get("content-type")).toBe("image/png");
+    expect(portrait.headers.get("cache-control")).toMatch(/^public/);
+    expect(await pngSize(portrait)).toEqual({ signature: "PNG", ...POSTER_SIZES.portrait });
+    const og = await posterResponse(deps, "ex-test-store", "og");
+    expect(await pngSize(og)).toEqual({ signature: "PNG", ...POSTER_SIZES.og });
+  });
+
+  it("answers 404 for an unknown plan, and never fetches art from an untrusted host", async () => {
+    const report = samplePlanReport({ kind: "example" });
+    const dataDir = exampleDir({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url: "https://evil.test/art.png" } });
+    const fetched: string[] = [];
+    const fetchSpy = (async (url: string) => (fetched.push(url), new Response("x"))) as unknown as typeof fetch;
+    const deps = { live: true, store: () => store, source: () => storePlanSource(store, { dataDir }), artOrigins: ["https://stoop.test"], fetch: fetchSpy };
+    expect((await posterResponse(deps, "ex-missing", "portrait")).status).toBe(404);
+    expect((await posterResponse(deps, "run_unknown1", "portrait")).status).toBe(404);
+    const plain = await posterResponse(deps, "ex-test-store", "portrait");
+    expect(plain.status).toBe(200);
+    expect(fetched).toEqual([]);
+    // Art that should be there but could not be read is never cached.
+    expect(plain.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("uses the art from Stoop's own storage", async () => {
+    const report = samplePlanReport({ kind: "example" });
+    const url = "https://abc123.public.blob.vercel-storage.com/posters/h.png";
+    const dataDir = exampleDir({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url } });
+    const tiny = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+    const fetched: string[] = [];
+    const fetchSpy = (async (target: string) => (fetched.push(target), new Response(tiny, { headers: { "content-type": "image/png" } }))) as unknown as typeof fetch;
+    const response = await posterResponse({ live: false, store: () => store, source: () => storePlanSource(store, { dataDir }), artOrigins: [], fetch: fetchSpy }, "ex-test-store", "portrait");
+    expect(fetched).toEqual([url]);
+    expect(response.headers.get("cache-control")).toMatch(/^public/);
+    expect((await pngSize(response)).width).toBe(1080);
+  });
+});
+
+describe("trustedArtUrl", () => {
+  it("trusts only https on the Blob store or a listed origin", () => {
+    expect(trustedArtUrl("https://abc123.public.blob.vercel-storage.com/posters/x.png", [])).toBe(true);
+    expect(trustedArtUrl("https://stoop.test/demo/a/poster-bg.png", ["https://stoop.test"])).toBe(true);
+    expect(trustedArtUrl("http://abc123.public.blob.vercel-storage.com/x.png", [])).toBe(false);
+    expect(trustedArtUrl("https://evil.test/x.png", ["https://stoop.test"])).toBe(false);
+    expect(trustedArtUrl("https://user:pw@stoop.test/x.png", ["https://stoop.test"])).toBe(false);
+    expect(trustedArtUrl("https://public.blob.vercel-storage.com.evil.test/x.png", [])).toBe(false);
+    expect(trustedArtUrl("not a url", [])).toBe(false);
+  });
+});
