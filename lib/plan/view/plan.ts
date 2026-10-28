@@ -174,7 +174,12 @@ export interface ArtistView {
 export interface PlaceView {
   id: string;
   name: string;
+  kind: Place["kind"];
   kindLabel: string;
+  /** Meters from the store (or the event place), for the block map. */
+  distanceM: number | null;
+  /** Qloo's coordinates, when the run has them. */
+  point: { lat: number; lon: number } | null;
   tags: string[];
   address: string | null;
   distanceText: string | null;
@@ -185,7 +190,13 @@ export interface PlaceView {
 
 export interface LocalView {
   city: { name: string; ageText: string; artists: ArtistView[]; styles: { name: string; receipt: string | null }[] } | null;
-  block: { radiusText: string; places: PlaceView[] } | null;
+  block: {
+    radiusText: string;
+    radiusM: number;
+    /** The map's center: the event's own place when it is away from the store, else the store. */
+    center: { lat: number; lon: number; label: string };
+    places: PlaceView[];
+  } | null;
   gaps: string[];
 }
 
@@ -256,6 +267,8 @@ export interface PlanView {
   local: LocalView;
   /** Block places the plan uses (named in a line or bought from), Qloo ids. */
   partnerIds: string[];
+  /** How the plan uses each of those places: "Snacks", "Partner", "Gift card". */
+  placeUses: Record<string, string[]>;
   marketing: MarketingView;
   results: ResultView[];
   trace: PlanTraceRow[];
@@ -502,10 +515,15 @@ export function planView(source: PlanSource): PlanView {
     block: block
       ? {
           radiusText: distanceText(block.radiusM),
+          radiusM: block.radiusM,
+          center: inputs.location ? { ...inputs.location.point, label: "Event" } : { ...inputs.store.point, label: "Store" },
           places: block.places.map((p) => ({
             id: p.id,
             name: p.name,
+            kind: p.kind,
             kindLabel: PLACE_KIND_LABELS[p.kind],
+            distanceM: p.distanceM,
+            point: p.point ?? null,
             tags: p.tags,
             address: p.address,
             distanceText: p.distanceM === null ? null : distanceText(p.distanceM),
@@ -579,6 +597,7 @@ export function planView(source: PlanSource): PlanView {
     generic,
     comparison,
     local,
+    placeUses: placeUsesOf(kept, plan, places),
     partnerIds: [...new Set([...(kept?.items.flatMap((i) => i.refs.filter((r) => places.has(r))) ?? []), ...(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? [])])],
     marketing,
     results: report.results.map((r) => ({
@@ -635,6 +654,22 @@ export function shareLinks(eventUrl: string, whatsappText: string): { facebook: 
 }
 
 const isQloo = (item: ItemView | undefined) => item?.origin === "qloo" || item?.origin === "interpreted";
+
+const USE_LABELS: Partial<Record<ItemKind, string>> = { food: "Snacks", partner: "Partner", venue: "Venue", giveaway: "Giveaway", activity: "Activity", music: "Music" };
+
+/** How the kept plan uses each block place, in words ("Snacks", "Gift card"). */
+function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: ReadonlyMap<string, Place>): Record<string, string[]> {
+  const uses: Record<string, string[]> = {};
+  const add = (id: string, label: string) => {
+    if (!places.has(id)) return;
+    const list = (uses[id] ??= []);
+    if (!list.includes(label)) list.push(label);
+  };
+  for (const item of kept?.items ?? []) for (const ref of item.refs) add(ref, USE_LABELS[item.kind] ?? ITEM_KIND_LABELS[item.kind]);
+  for (const s of plan?.shopping ?? []) if (s.from) add(s.from, "Shopping");
+  for (const slice of plan?.wheel?.slices ?? []) for (const ref of slice.refs) add(ref, slice.kind === "gift_card" ? "Gift card" : "Prize wheel");
+  return uses;
+}
 
 /** The first screen's tiles, from the kept concept, the wheel and the marketing state. */
 export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView): TileView[] {

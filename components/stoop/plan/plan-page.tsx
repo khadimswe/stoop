@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { PlanView } from "@/lib/plan/view/plan";
 import { StickyBar } from "../sticky-bar";
+import { BlockMap } from "./block-map";
 import { ConceptSection } from "./concept-section";
 import { Disclosure } from "./disclosure";
 import { GenericCompare } from "./generic-section";
@@ -60,7 +61,7 @@ export function PlanPage({
       )}
       {(view.local.block || view.local.city) && (
         <Disclosure title="Your block" meta={view.local.block ? `${view.local.block.places.length} places` : undefined}>
-          <YourBlock view={view.local} partnerIds={view.partnerIds} />
+          <YourBlock view={view.local} partnerIds={view.partnerIds} map={view.local.block && view.local.block.places.length > 0 ? <BlockMap block={view.local.block} uses={view.placeUses} /> : null} />
         </Disclosure>
       )}
     </>
