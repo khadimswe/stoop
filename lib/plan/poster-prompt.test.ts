@@ -97,6 +97,18 @@ describe("posterFeeling", () => {
   });
 });
 
+describe("an event at a fair", () => {
+  it("never paints the event's place name", () => {
+    const report = samplePlanReport();
+    const fair = { ...report, inputs: { ...report.inputs, setting: "community_event" as const, location: { name: "Testville Fall Fair", point: { lat: 41.86, lon: -87.64 } } } };
+    const { prompt } = buildPosterPrompt(fair);
+    expect(prompt).toContain("community fair");
+    expect(prompt).not.toContain("Testville Fall Fair");
+    expect(checkPosterPrompt(prompt, fair)).toEqual([]);
+    expect(checkPosterPrompt(`Testville Fall Fair at dusk. ${POSTER_EXCLUSIONS}`, fair).length).toBeGreaterThan(0);
+  });
+});
+
 describe("checkPosterPrompt", () => {
   const report = samplePlanReport();
   const ok = buildPosterPrompt(report).prompt;

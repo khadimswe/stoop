@@ -43,6 +43,17 @@ describe("posterText", () => {
   });
 });
 
+describe("an event away from the store", () => {
+  it("shows the event's place and names the store as host", () => {
+    const report = samplePlanReport();
+    const text = posterText({ ...report, inputs: { ...report.inputs, setting: "community_event", location: { name: "Testville Fall Fair", point: { lat: 41.86, lon: -87.64 } } } });
+    expect(text.location).toBe("Testville Fall Fair");
+    expect(text.store).toBe("Corner Wireless on Fifth");
+    expect(posterAlt(text)).toContain("at Testville Fall Fair, hosted by Corner Wireless on Fifth");
+    expect(posterText(report).location).toBeNull();
+  });
+});
+
 describe("dates and times", () => {
   it("reads the event day as a calendar day", () => {
     expect(eventDate("2026-11-07")).toBe("Saturday, November 7");

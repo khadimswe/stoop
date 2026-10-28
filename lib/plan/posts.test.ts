@@ -75,6 +75,28 @@ describe("checkPostText", () => {
   });
 });
 
+describe("carrier promos and the event's place", () => {
+  it("names a carrier or a promo only when the manager typed it", () => {
+    const promo = { ...report, inputs: { ...report.inputs, offers: [{ text: "Free tablet with a new line on T-Mobile Tuesdays" }] } };
+    expect(checkPostText("Stop by on T-Mobile Tuesdays.", report, "facebook").map((i) => i.match)).toContain("T-Mobile");
+    expect(checkPostText("Stop by on T-Mobile Tuesdays.", promo, "facebook")).toEqual([]);
+    expect(checkPostText("Ask about Metro deals.", report, "facebook").map((i) => i.match)).toContain("Metro");
+    // A plain word that happens to be a brand, in lower case, is not a brand.
+    expect(checkPostText("A warm drink to boost the afternoon.", report, "facebook")).toEqual([]);
+  });
+
+  it("puts the event's place first and still names the store", () => {
+    const fair = { ...report, inputs: { ...report.inputs, setting: "community_event" as const, location: { name: "Testville Fall Fair", point: { lat: 41.86, lon: -87.64 } } } };
+    const openings = fallbackOpenings(fair);
+    expect(openings.facebook).toContain("Corner Wireless on Fifth will have a booth at Testville Fall Fair");
+    expect(checkLlmPosts(openings, fair)).toEqual([]);
+    const posts = composePosts(openings, fair);
+    expect(posts.facebook.text).toContain("Where: Testville Fall Fair, hosted by Corner Wireless on Fifth");
+    expect(posts.whatsapp.text).not.toContain("1200 Fifth Ave");
+    expect(postsPrompt(fair)).toContain("a booth at a fair or community event, at Testville Fall Fair, hosted by Corner Wireless on Fifth");
+  });
+});
+
 describe("checkHashtags", () => {
   it("keeps hashtags to letters and digits, without names, carriers or brands", () => {
     expect(checkHashtags(["Testville", "TacoSaturday"], report)).toEqual([]);
