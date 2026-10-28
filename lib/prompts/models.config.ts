@@ -34,6 +34,10 @@
 //     https://fal.ai/models/fal-ai/flux/schnell/api
 //     https://fal.ai/models/fal-ai/flux/schnell
 //
+//   fal (store event poster background art, POSTER_MODEL below; checked Oct 28, 2026, POSTER_MODEL_VERIFIED_AT)
+//     https://fal.ai/models/fal-ai/nano-banana-2/api
+//     https://fal.ai/models/fal-ai/nano-banana-2
+//
 // Not listed on purpose: Sora 2 has left Higgsfield's lineup. Kling 4.0 went live Oct 15, 2026 but is
 // not confirmed on Higgsfield yet, so it gets no row until it is.
 //
@@ -659,6 +663,41 @@ export const VIDEO_MODELS: Readonly<Record<VideoModelRole, VideoModel>> = Object
 
 /** The estimate shown before a draft renders, in dollars. */
 export const draftUsd = (model: VideoModel, seconds: number) => Math.round(model.usdPerSecond480p * seconds * 100) / 100;
+
+// Store event poster background on fal ---------------------------------------------------------------
+// The poster is two layers (lib/plan/poster-*.ts): this model paints the background art only (no text,
+// no logos, no people), and code sets every word on top with next/og, so the text is always exact.
+// Text to image at 4:5 (Instagram portrait). A fal endpoint id, so not a ModelId.
+
+export const POSTER_MODEL_VERIFIED_AT = "2026-10-28";
+
+export interface PosterModel {
+  /** fal's endpoint id. */
+  endpoint: string;
+  displayName: string;
+  aspectRatio: "4:5";
+  resolution: "1K";
+  /** Dollars per image at the settings Stoop sends. */
+  usdPerImage: number;
+  notes: string[];
+  verifiedAt: typeof POSTER_MODEL_VERIFIED_AT;
+  sourceUrls: string[];
+}
+
+export const POSTER_MODEL: Readonly<PosterModel> = Object.freeze({
+  endpoint: "fal-ai/nano-banana-2",
+  displayName: "Nano Banana 2 (fal)",
+  aspectRatio: "4:5",
+  resolution: "1K",
+  usdPerImage: 0.08,
+  notes: [
+    "Input: prompt (required), num_images (default 1), aspect_ratio (auto, 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16, 4:1, 1:4, 8:1, 1:8; default auto), output_format (jpeg, png, webp; default png), resolution (0.5K, 1K, 2K, 4K; default 1K), safety_tolerance (1 strictest to 6; default 4), seed, enable_web_search (off unless set).",
+    "Output: images[] with url (plus content_type, width, height), and a description.",
+    "$0.08 per image at 1K; 0.5K bills 0.75 times, 2K 1.5 times and 4K 2 times that. SynthID watermark on every output.",
+  ],
+  verifiedAt: POSTER_MODEL_VERIFIED_AT,
+  sourceUrls: ["https://fal.ai/models/fal-ai/nano-banana-2/api", "https://fal.ai/models/fal-ai/nano-banana-2"],
+});
 
 // Camera presets ---------------------------------------------------------------------------------
 // Camera moves are always creative or interpreted cues, never Qloo data. Each preset will later get a
