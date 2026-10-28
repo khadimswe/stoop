@@ -65,6 +65,15 @@ export const CLICHES: readonly { pattern: RegExp; text: string; why: string }[] 
   { pattern: /\b(swag|branded (merch|giveaways?)|tote bags?|keychains?|pens)\b/i, text: "Branded swag", why: "Giveaways people leave behind; nothing local about them." },
 ];
 
+/** The cliches a Stoop plan itself must avoid: decor and sound with no local signal (snacks are judged by the founder's budget rule instead). */
+const AVOIDED = new Set(["Balloons", "A DJ", "A playlist of popular hits", "An inflatable tube man"]);
+
+/** The no-signal cliche in a line of a Stoop plan, or null. */
+export function clicheIn(text: string): { text: string; why: string } | null {
+  const hit = CLICHES.find((c) => AVOIDED.has(c.text) && c.pattern.test(text));
+  return hit ? { text: hit.text, why: hit.why } : null;
+}
+
 export interface BaselineDraft {
   items: PlanItem[];
   cliches: Baseline["cliches"];

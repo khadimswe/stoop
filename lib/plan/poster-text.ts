@@ -38,7 +38,7 @@ export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> |
   if (!slices?.length) return null;
   const deals = slices.some((s) => s.kind === "promo");
   const cards = slices.some((s) => s.kind === "gift_card");
-  const what = deals && cards ? "today's deals and free gift cards" : deals ? "today's deals" : cards ? "free gift cards" : "small treats from the table";
+  const what = deals && cards ? "store deals and free gift cards" : deals ? "store deals" : cards ? "free gift cards" : "small treats from the table";
   return `Spin the prize wheel: ${what}. Free to spin, no purchase needed.`;
 }
 

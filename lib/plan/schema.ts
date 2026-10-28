@@ -39,6 +39,10 @@ export const storeSchema = z.strictObject({
   /** The city name Qloo resolves (signal.location.query), e.g. "Chicago". */
   city: z.string().min(1).max(80),
   region: z.string().min(1).max(40),
+  /** The store's public phone number, printed on the poster and in the posts so people can call. */
+  phone: z.string().regex(/^[0-9()+.\-\s]{7,24}$/).optional(),
+  /** The store's own number in the dealer's system (for example "Store 1234"), for multi-store views. */
+  storeNumber: z.string().min(1).max(24).optional(),
   /** The store itself: places near it are searched around this point (filter.location). */
   point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }),
 });
@@ -110,6 +114,8 @@ export const placeSchema = z.strictObject({
   rank: z.number().int().min(1),
   affinity: z.number().nullable(),
   popularity: z.number().nullable(),
+  /** A national chain: fine for gift cards and snack runs, never a co-promo partner. */
+  chain: z.boolean().optional(),
   evidenceIds,
 });
 export type Place = z.infer<typeof placeSchema>;
@@ -142,7 +148,8 @@ export type ItemKind = (typeof ITEM_KINDS)[number];
 export const planItemSchema = z
   .strictObject({
     kind: z.enum(ITEM_KINDS),
-    text: z.string().min(1).max(240),
+    /** Room for two or three ref tokens (about 40 characters each) plus a full sentence. */
+    text: z.string().min(1).max(320),
     origin: z.enum(CUE_ORIGINS),
     refs: z.array(z.string().min(1)),
     evidenceIds,
@@ -172,7 +179,7 @@ export const conceptSchema = z.strictObject({
 });
 export type Concept = z.infer<typeof conceptSchema>;
 
-export const runOfShowStepSchema = z.strictObject({ time: hhmm, step: z.string().min(1).max(160) });
+export const runOfShowStepSchema = z.strictObject({ time: hhmm, step: z.string().min(1).max(220) });
 
 export const shoppingItemSchema = z.strictObject({
   item: z.string().min(1).max(120),

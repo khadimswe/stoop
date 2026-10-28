@@ -11,14 +11,15 @@ import { EVERYONE, reserveEach, ruleCounter, type Capped, type Reserved } from "
 import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
 
-export type McpTool = "score_brief" | "culture_brief";
+export type McpTool = "score_brief" | "culture_brief" | "plan_store_event";
 export type McpCapName = "token-culture-briefs" | "token-calls" | "daily-calls";
 
 /** The counters one call takes from, narrowest first: the token's own limits before the shared one. */
 export function callCounters(tokenHash: string, tool: McpTool, caps: McpCaps, now: number = Date.now()): Capped<McpCapName>[] {
   const day = dayOf(now);
   return [
-    ...(tool === "culture_brief" ? [{ name: "token-culture-briefs" as const, key: keys.mcp.cultureBriefs(tokenHash, day), cap: caps.perToken.cultureBriefs, ttlSeconds: TTL.daily }] : []),
+    // A store-event plan starts a live run too, so it shares the token's daily brief limit.
+    ...(tool !== "score_brief" ? [{ name: "token-culture-briefs" as const, key: keys.mcp.cultureBriefs(tokenHash, day), cap: caps.perToken.cultureBriefs, ttlSeconds: TTL.daily }] : []),
     { name: "token-calls", key: keys.mcp.calls(tokenHash, day), cap: caps.perToken.calls, ttlSeconds: TTL.daily },
     { name: "daily-calls", key: keys.daily("mcp-calls", day), cap: caps.daily, ttlSeconds: TTL.daily },
   ];

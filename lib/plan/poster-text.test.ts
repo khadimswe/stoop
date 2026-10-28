@@ -48,8 +48,8 @@ describe("wheelLine", () => {
   const plan = (kinds: ("promo" | "gift_card" | "snack" | "other")[]) => ({ wheel: { slices: kinds.map(slice), rules: ["Free to spin."] } });
 
   it("says there is a wheel in one line, from what its slices are", () => {
-    expect(wheelLine(plan(["promo", "gift_card", "snack", "other"]))).toBe("Spin the prize wheel: today's deals and free gift cards. Free to spin, no purchase needed.");
-    expect(wheelLine(plan(["promo", "promo", "snack", "other"]))).toBe("Spin the prize wheel: today's deals. Free to spin, no purchase needed.");
+    expect(wheelLine(plan(["promo", "gift_card", "snack", "other"]))).toBe("Spin the prize wheel: store deals and free gift cards. Free to spin, no purchase needed.");
+    expect(wheelLine(plan(["promo", "promo", "snack", "other"]))).toBe("Spin the prize wheel: store deals. Free to spin, no purchase needed.");
     expect(wheelLine(plan(["gift_card", "snack", "other", "other"]))).toBe("Spin the prize wheel: free gift cards. Free to spin, no purchase needed.");
     expect(wheelLine({})).toBeNull();
     expect(wheelLine(null)).toBeNull();

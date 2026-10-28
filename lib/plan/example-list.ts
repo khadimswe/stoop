@@ -20,6 +20,12 @@ export type PlanExample = (typeof PLAN_EXAMPLES)[number];
 
 export const LEAD_PLAN_EXAMPLE = PLAN_EXAMPLES.find((e) => e.lead) as PlanExample;
 
+/**
+ * What /start fills in before the manager changes anything. A store's real event budget is small
+ * (about $50: snacks plus one or two small gift cards), so that is the default.
+ */
+export const PLAN_DEFAULTS = { budgetUsd: 50, startTime: "12:00", durationMinutes: 180, setting: "sidewalk_table" } as const satisfies Partial<PlanInputs>;
+
 /** Shown next to every fictional example store. */
 export const EXAMPLE_DISCLAIMER = "A fictional store, for illustration. Not affiliated with T-Mobile.";
 /** Shown next to a real store's example, which is published only with the dealer's written permission. */
@@ -56,10 +62,14 @@ export const PLAN_EXAMPLE_INPUTS: Record<PlanExampleSlug, PlanInputs> = {
     startTime: "12:00",
     durationMinutes: 240,
     setting: "sidewalk_table",
-    budgetUsd: 200,
-    offers: [{ text: "$25/mo unlimited when you switch, taxes and fees included" }, { text: "Free 5G phone when you port in your number (select models)" }],
+    budgetUsd: 50,
+    offers: [
+      { text: "$25/mo unlimited when you switch, taxes and fees included" },
+      { text: "Free 5G phone when you port in your number (select models)" },
+      { text: "Free tablet with a new line" },
+    ],
     ageBands: ["25_to_29", "30_to_34"],
-    notes: "One folding table, one speaker, two of us on staff. It will be cold out, so something warm would help.",
+    notes: "One folding table, one speaker and the prize wheel, two of us on staff. It will be cold out, so something warm would help.",
   },
   "atlanta-west-end": {
     store: {
@@ -75,8 +85,8 @@ export const PLAN_EXAMPLE_INPUTS: Record<PlanExampleSlug, PlanInputs> = {
     startTime: "13:00",
     durationMinutes: 240,
     setting: "sidewalk_table",
-    budgetUsd: 250,
-    offers: [{ text: "2 lines for $50/mo with autopay" }, { text: "Bring your own phone, first month free" }],
+    budgetUsd: 75,
+    offers: [{ text: "2 lines for $50/mo with autopay" }, { text: "Bring your own phone, first month free" }, { text: "Free phone when you switch (select models)" }],
     ageBands: ["24_and_younger", "25_to_29"],
     notes: "Foot traffic picks up after 2 pm when people come off the train. Needs to be quick to set up and break down.",
   },
@@ -95,9 +105,9 @@ export const PLAN_EXAMPLE_INPUTS: Record<PlanExampleSlug, PlanInputs> = {
     durationMinutes: 300,
     setting: "community_event",
     location: { name: "a fall community fair on Navigation Blvd", point: { lat: 29.7566, lon: -95.3422 } },
-    budgetUsd: 150,
+    budgetUsd: 50,
     offers: [{ text: "Free tablet with a new line" }, { text: "$30/mo unlimited, no annual contract" }],
     ageBands: ["30_to_34", "35_to_44"],
-    notes: "We got a booth at the fair two blocks from the store. Small budget this month, so keep it simple.",
+    notes: "We got a booth at the fair two blocks from the store. Snacks, not catering, and a couple of small gift cards.",
   },
 };

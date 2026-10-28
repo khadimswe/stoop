@@ -10,8 +10,11 @@ import { askOnce, cachedInstructions } from "../agent/ask";
 import { stripEmDashes } from "../guardrails";
 import { planDecide, type PlanEnv } from "./env";
 import { textIssues, type GuardContext } from "./guard";
+import { guardFor } from "./guard-context";
 import { clock, endTime, evidenceFor, inputsText, PLAN_RULES, PLANNER_ROLE, REF_RULES, startMinutes, toKeyRefs, toRealRefs, type Aliases } from "./prompt";
 import { renderRefs } from "./refs";
+import { clicheIn } from "./baseline";
+import { checkWheel, GIFT_CARD_MAX_USD, llmWheel, wheelWanted, WHEEL_RULES } from "./wheel";
 import type { Concept, Plan, PlanInputs } from "./schema";
 
 export const PLAN_TIMEOUT_MS = 90_000;
@@ -52,6 +55,7 @@ const llmPlan = z.object({
     )
     .describe("Everything the event needs that the store does not have, inside the budget"),
   checks: z.array(z.string()).describe("1 to 4 extra checks specific to this concept, at most 180 characters each, with no keys"),
+  wheel: llmWheel.nullable().describe("The tabletop prize wheel's slices when the event is outside, else null"),
 });
 type LlmPlan = z.infer<typeof llmPlan>;
 
@@ -67,6 +71,14 @@ export function planInstructions(): string {
   return [PLANNER_ROLE, PLAN_RULES, REF_RULES, TASK].join("\n\n");
 }
 
+const WHEEL_TASK = [
+  "The prize wheel: the store owns a tabletop prize wheel, and this event is outside, so plan its slices.",
+  "- promoLabels: a short label for each of the manager's offers (by its number), made only of that offer's own words. The slice itself quotes the offer in full.",
+  `- giftCards: 1 or 2 gift-card slices to places on the block ($5 to $${GIFT_CARD_MAX_USD} each), with how many cards to buy. They count against the budget; do not list them again in shopping.`,
+  "- snack: optionally a free snack slice from what the table serves, or null.",
+  "The run of show turns a promo win into a walk-in: winners of a promo slice walk in with a staffer to see it.",
+].join("\n");
+
 export function planPrompt(inputs: PlanInputs, concept: Concept, aliases: Aliases): string {
   const places = [...aliases.places.values()].map((p) => `- [[${aliases.keys.get(p.id)}]] ${p.name} (${p.kind}${p.tags.length ? `; ${p.tags.slice(0, 4).join(", ")}` : ""})`);
   const lines = concept.items.map((i) => `- ${i.kind}: ${toKeyRefs(i.text, aliases)}`);
@@ -74,6 +86,7 @@ export function planPrompt(inputs: PlanInputs, concept: Concept, aliases: Aliase
     inputsText(inputs),
     `The kept concept: ${concept.title}. ${concept.hook}\n${lines.join("\n")}`,
     places.length ? `Block places you may buy from:\n${places.join("\n")}` : "There are no block places to buy from.",
+    wheelWanted(inputs) ? WHEEL_TASK : "There is no prize wheel at this event: set wheel to null.",
     "Write the plan.",
   ].join("\n\n");
 }
@@ -85,7 +98,45 @@ const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 
 
 export interface PlanCheck {
   plan: Omit<Plan, "conceptId" | "concepts"> | null;
+  /** The plan as answered even when it runs over budget, for a last trim on the final attempt. */
+  draft: Omit<Plan, "conceptId" | "concepts"> | null;
   issues: string[];
+}
+
+/**
+ * Brings a plan inside its budget by cutting its own shopping lines, last and creative ones first
+ * (gift cards and partner buys stay as long as anything else can go). Null when it still cannot fit.
+ */
+export function fitBudget(draft: Omit<Plan, "conceptId" | "concepts">, budgetUsd: number): { plan: Omit<Plan, "conceptId" | "concepts">; cut: string[] } | null {
+  const shopping = draft.shopping.map((s) => ({ ...s }));
+  const total = () => Math.round(shopping.reduce((sum, s) => sum + (s.estUsd ?? 0), 0));
+  const cut: string[] = [];
+  // First, one fewer gift card at a time (a wheel slice keeps at least one).
+  for (const line of shopping) {
+    const each = /^(\d+) at \$(\d+) each$/.exec(line.qty ?? "");
+    if (!each || !line.from) continue;
+    let count = Number(each[1]);
+    const amount = Number(each[2]);
+    while (total() > budgetUsd && count > 1) {
+      count--;
+      line.qty = `${count} at $${amount} each`;
+      line.estUsd = count * amount;
+      cut.push(`one ${line.item.replace(/^Gift cards/, "gift card")}`);
+    }
+  }
+  // Creative lines go first, then partner buys; the wheel's gift cards only when nothing else is left.
+  const keep = (i: number) => (shopping[i]?.from ? (/gift ?cards?/i.test(shopping[i]!.item) ? 2 : 1) : 0);
+  const order = [...shopping.keys()].sort((a, b) => keep(a) - keep(b) || b - a);
+  const lines = [...shopping];
+  for (const index of order) {
+    if (total() <= budgetUsd) break;
+    const line = lines[index];
+    if (!line) continue;
+    cut.push(line.item);
+    shopping.splice(shopping.indexOf(line), 1);
+  }
+  if (total() > budgetUsd) return null;
+  return { plan: { ...draft, shopping, estimatedCostUsd: total() }, cut };
 }
 
 /** Checks one answer and builds the plan from what passes. */
@@ -119,6 +170,8 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const real = toRealRefs(s.item.trim(), aliases);
     const problems = textIssues(real, guard);
     const item = renderRefs(real, aliases.names);
+    const cliche = clicheIn(item);
+    if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal; leave it out.`);
     if (!item || item.length > 120) problems.push("item must be 1 to 120 characters.");
     const fromKey = s.from?.trim().toLowerCase() || null;
     const from = fromKey ? aliases.ids.get(fromKey) : undefined;
@@ -133,6 +186,18 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const estUsd = Math.round(s.estUsd * 100) / 100;
     shopping.push({ item, ...(qty ? { qty } : {}), estUsd, ...(from ? { from, origin: "interpreted" as const, evidenceIds: evidenceFor(aliases, [from], []) } : { origin: "creative" as const, evidenceIds: [] }) });
   });
+  // The wheel: its gift cards replace any gift-card line Claude listed for the same place, and count against the budget.
+  let wheel: Plan["wheel"];
+  if (wheelWanted(inputs)) {
+    const built = checkWheel(answer.wheel, inputs, aliases, guard);
+    issues.push(...built.issues);
+    if (built.wheel) {
+      wheel = built.wheel;
+      const bought = new Set(built.purchases.map((p) => p.from));
+      for (let i = shopping.length - 1; i >= 0; i--) if (shopping[i]?.from && bought.has(shopping[i]!.from) && /gift ?cards?/i.test(shopping[i]!.item)) shopping.splice(i, 1);
+      shopping.push(...built.purchases);
+    }
+  }
   const estimatedCostUsd = Math.round(shopping.reduce((sum, s) => sum + (s.estUsd ?? 0), 0));
   if (estimatedCostUsd > inputs.budgetUsd) issues.push(`shopping: the total is $${estimatedCostUsd}, over the $${inputs.budgetUsd} budget. Cut or shrink lines.`);
 
@@ -147,12 +212,12 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
   });
 
   const checklist = [...baseChecklist(inputs, shopping.some((s) => s.from)), ...extras].filter((line, i, all) => all.indexOf(line) === i);
-  const plan = runOfShow.length >= 3 && estimatedCostUsd <= inputs.budgetUsd ? { runOfShow, shopping, checklist, estimatedCostUsd } : null;
-  return { plan, issues };
+  const draft = runOfShow.length >= 3 ? { runOfShow, shopping, checklist, estimatedCostUsd, ...(wheel ? { wheel } : {}) } : null;
+  return { plan: draft && estimatedCostUsd <= inputs.budgetUsd ? draft : null, draft, issues };
 }
 
 /** A plain plan from the concept alone, when Claude's answer cannot be used: the day's shape, no purchases guessed. */
-export function fallbackPlan(inputs: PlanInputs, concept: Concept): Omit<Plan, "conceptId" | "concepts"> {
+export function fallbackPlan(inputs: PlanInputs, concept: Concept, aliases?: Aliases): Omit<Plan, "conceptId" | "concepts"> {
   const start = startMinutes(inputs);
   const peak = start + Math.round(inputs.durationMinutes / 2);
   const runOfShow = [
@@ -161,7 +226,17 @@ export function fallbackPlan(inputs: PlanInputs, concept: Concept): Omit<Plan, "
     { time: clock(peak), step: "Peak: one person at the table, one ready to walk people inside to hear the promo." },
     { time: endTime(inputs), step: "Wrap: pack up, clean the sidewalk and take down every sign." },
   ];
-  return { runOfShow, shopping: [], checklist: baseChecklist(inputs, false), estimatedCostUsd: 0 };
+  const plain = { runOfShow, shopping: [] as Plan["shopping"], checklist: baseChecklist(inputs, false), estimatedCostUsd: 0 };
+  if (!wheelWanted(inputs) || !aliases) return plain;
+  // The wheel still works: promo slices verbatim, and a gift card to the block's top food spot if the budget allows.
+  const top = [...aliases.places.values()].filter((p) => p.kind === "food").sort((a, b) => a.rank - b.rank)[0];
+  const cards = top ? Math.min(2, Math.floor(inputs.budgetUsd / GIFT_CARD_MAX_USD)) : 0;
+  const key = top ? aliases.keys.get(top.id) : undefined;
+  const raw = { promoLabels: [], giftCards: cards > 0 && key ? [{ place: key, amountUsd: GIFT_CARD_MAX_USD, cards }] : [], snack: null };
+  const built = checkWheel(raw, inputs, aliases, guardFor(inputs, aliases.ids.values()));
+  if (!built.wheel) return plain;
+  const cost = built.purchases.reduce((sum, s) => sum + (s.estUsd ?? 0), 0);
+  return { ...plain, shopping: built.purchases, estimatedCostUsd: cost, wheel: { ...built.wheel, rules: [...WHEEL_RULES, ...built.wheel.rules.slice(WHEEL_RULES.length)] } };
 }
 
 function repairPrompt(prompt: string, previous: unknown, issues: readonly string[]): string {
@@ -190,11 +265,17 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
     } else if (check.plan) {
       built = check.plan;
       planDecide(env, "plan", "Dropped the lines that still failed the checks", check.issues.slice(0, 4).join(" "));
+    } else {
+      const fitted = check.draft ? fitBudget(check.draft, inputs.budgetUsd) : null;
+      if (fitted) {
+        built = fitted.plan;
+        planDecide(env, "plan", `Cut ${fitted.cut.length} ${fitted.cut.length === 1 ? "line" : "lines"} to stay within the $${inputs.budgetUsd} budget`, fitted.cut.join("; "));
+      } else planDecide(env, "plan", "Claude's plan still failed the checks", check.issues.slice(0, 4).join(" "));
     }
   }
   if (!built) {
     planDecide(env, "plan", "Built a plain plan from the concept", "Claude's plan could not be used, so the day's shape and the standard checks stand in. Nothing is bought or priced for you.");
-    built = fallbackPlan(inputs, kept);
+    built = fallbackPlan(inputs, kept, aliases);
   }
   const partners = built.shopping.filter((s) => s.from).length;
   planDecide(env, "plan", `Planned the day: ${built.runOfShow.length} steps, ${built.shopping.length} things to buy`, `About $${built.estimatedCostUsd} of the $${inputs.budgetUsd} budget${partners ? `, ${partners} bought from block partners` : ""}.`);

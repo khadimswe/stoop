@@ -13,6 +13,7 @@ import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_R
 import { refsIn } from "./refs";
 import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
 import { isChain } from "./taste";
+import { clicheIn } from "./baseline";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
 export const CONCEPT_COUNT = 3;
@@ -50,7 +51,9 @@ const TASK = [
   "The manager's notes are requirements: every concept does what they ask.",
   "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
   "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
+  "Skip what every table already has with nothing local behind it: balloons, a hired DJ, a playlist of popular hits, an inflatable tube man.",
   "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm.",
+  "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
   "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
   "Where it is natural, let the food, the drinks, the giveaway or the timing draw on the block's places too (hot drinks from a local cafe rather than a grocery store). Never force a place into a line; a good line beats a cited one.",
@@ -126,6 +129,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       else if (text.length > MAX_TEXT) problems.push(`is ${text.length} characters once its keys become Qloo ids (each key is about 40); the limit is ${MAX_TEXT}. Shorten it or use fewer keys.`);
       if (unknownStyles.length) problems.push(`styles ${unknownStyles.join(", ")} are not s-keys from the data.`);
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
+      const cliche = clicheIn(text);
+      if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the block instead.`);
       if (item.kind === "partner") {
         const chain = refs.map((id) => aliases.places.get(id)).find((p) => p && isChain(p.name));
         if (chain) problems.push(`a national chain is not a co-promo partner; use it for a gift card or a snack run (kind giveaway or food), or partner with a local independent.`);
