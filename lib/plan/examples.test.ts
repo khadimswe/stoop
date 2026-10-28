@@ -44,8 +44,9 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
 
   it("names Qloo results only through refs, with a receipt on every Qloo line", async () => {
     const { report } = await loadPlanExample(slug);
-    const known = new Set([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
-    const names = [...(report.local.city?.artists.map((a) => a.name) ?? []), ...(report.local.block?.places.map((p) => p.name) ?? [])].filter((n) => n.length > 4);
+    const offered = report.local.blockMusic?.used ? report.local.blockMusic.artists : [];
+    const known = new Set([...(report.local.city?.artists.map((a) => a.id) ?? []), ...offered.map((a) => a.id), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
+    const names = [...(report.local.city?.artists.map((a) => a.name) ?? []), ...offered.map((a) => a.name), ...(report.local.block?.places.map((p) => p.name) ?? [])].filter((n) => n.length > 4);
     for (const concept of report.plan?.concepts ?? []) {
       for (const item of concept.items) {
         for (const ref of refsIn(item.text)) expect(known.has(ref)).toBe(true);
