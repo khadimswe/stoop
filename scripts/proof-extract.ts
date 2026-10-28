@@ -5,7 +5,7 @@
 // The generic plan is told to describe music and food "by style and kind, never by an artist's or a
 // business's name" in its lines, and to list the real artists and food brands it leans on separately
 // (picks, kept for scoring). So the extraction reads both: the lines (for any name that slipped in)
-// and the picks, and sorts every name into a type, so a packaged-snack brand ("Lay's") is not
+// and the picks, and sorts every name into a type, so a packaged-snack brand is not
 // counted as a place on the block.
 //
 // Writes data/proof/extract.json.
