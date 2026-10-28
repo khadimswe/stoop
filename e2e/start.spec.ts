@@ -98,7 +98,7 @@ test("the link flow reads the page, shows the seeds with their origins, adds a Q
     await route.fulfill({ json: { mode: "live", runId: RUN_ID, eventsUrl: `/api/run/${RUN_ID}/events`, reportUrl: `/report/${RUN_ID}`, joined: false } });
   });
 
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await expect(page.getByRole("heading", { level: 1, name: "What are you selling?" })).toBeVisible();
   await expect(page.getByText("Reels + TikTok 9:16")).toBeVisible();
   await page.getByLabel("Store or product link").fill("porchlight.example/products/red");
@@ -153,7 +153,7 @@ test("the description flow works without a website", async ({ page }) => {
     bodies.push(route.request().postDataJSON());
     await route.fulfill({ json: fromDescription });
   });
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await page.getByRole("button", { name: "No website? Describe it instead" }).click();
   await expect(page.getByLabel("Describe your product")).toBeFocused();
   await page.getByLabel("Describe your product").fill(DESCRIPTION);
@@ -180,7 +180,7 @@ test("a page that can't be read asks for a description and keeps the link", asyn
     if (!body.description) return route.fulfill({ status: 422, json: { error: { code: "invalid", message: "Stoop could not read that page. Add a short description of the product." } } });
     await route.fulfill({ json: blockedLink });
   });
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await page.getByLabel("Store or product link").fill("https://porchlight.example/products/red");
   await page.getByRole("button", { name: "Read my page" }).click();
   await expect(page.getByText("Stoop could not read that page. Add a short description of the product.")).toBeVisible();
@@ -197,7 +197,7 @@ test("validation is inline and plain, and nothing is sent until it passes", asyn
     sent++;
     return route.fulfill({ json: fromLink });
   });
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await page.getByRole("button", { name: "Read my page" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("Paste a store or product link.");
   await expect(page.getByLabel("Store or product link")).toHaveAttribute("aria-invalid", "true");
@@ -214,7 +214,7 @@ test("validation is inline and plain, and nothing is sent until it passes", asyn
 test("with live runs off, the composer says so and offers an example run", async ({ page }) => {
   // Not intercepted: the server is in replay mode and answers "off".
   const errors = consoleErrors(page, [/status of 503/]);
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await page.getByLabel("Store or product link").fill("porchlight.example/products/red");
   await page.getByRole("button", { name: "Read my page" }).click();
   await expect(page.getByText("Live runs are off right now.")).toBeVisible();
@@ -225,7 +225,7 @@ test("with live runs off, the composer says so and offers an example run", async
 test("a start that becomes an example replay says why, plainly, and opens the replay", async ({ page }) => {
   await page.route("**/api/intake", (route) => route.fulfill({ json: fromDescription }));
   await page.route("**/api/run", (route) => route.fulfill({ json: { mode: "example", slug: "food-hot-sauce", reason: "busy", message: "Two live runs are going right now." } }));
-  await page.goto("/start");
+  await page.goto("/ads/start");
   await page.getByRole("button", { name: "No website? Describe it instead" }).click();
   await page.getByLabel("Describe your product").fill(DESCRIPTION);
   await page.getByRole("button", { name: "Next" }).click();
@@ -236,7 +236,7 @@ test("a start that becomes an example replay says why, plainly, and opens the re
 });
 
 test("the example chips open the three recorded runs", async ({ page }) => {
-  await page.goto("/start");
+  await page.goto("/ads/start");
   const chips = page.getByRole("list", { name: "Try an example" }).getByRole("link");
   await expect(chips).toHaveCount(3);
   for (const [i, slug] of ["food-hot-sauce", "home-candles", "pets-outfits"].entries()) await expect(chips.nth(i)).toHaveAttribute("href", `/run/example-${slug}`);

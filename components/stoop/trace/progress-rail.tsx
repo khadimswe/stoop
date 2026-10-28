@@ -28,7 +28,10 @@ function StatusIcon({ status }: { status: RailStatus }) {
   return <span aria-hidden="true" className="m-0.5 size-3.5 shrink-0 rounded-full border-[1.5px] border-concrete-line" />;
 }
 
-function callsText(row: RailRow): string {
+/** A rail row of any pipeline: the ad runs' stages or the store-events stages. */
+export type RailRowLike = Omit<RailRow, "stage"> & { stage: string };
+
+function callsText(row: RailRowLike): string {
   const total = row.calls.live + row.calls.cached;
   if (row.status === "pending" || total === 0) return "";
   return `${total} Qloo ${total === 1 ? "call" : "calls"}`;
@@ -38,7 +41,7 @@ function callsText(row: RailRow): string {
  * The run's stages with done, in progress, waiting or stopped, each with the Qloo calls its steps
  * made. Worlds run side by side, so two stages can be in progress at once.
  */
-export function ProgressRail({ rows, className }: { rows: readonly RailRow[]; className?: string }) {
+export function ProgressRail({ rows, className }: { rows: readonly RailRowLike[]; className?: string }) {
   return (
     <ol aria-label="Progress" className={cn("overflow-hidden rounded-xl border border-hairline bg-surface", className)}>
       {rows.map((row) => (

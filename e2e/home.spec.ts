@@ -16,7 +16,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 
 test("the hero leads with the lead example's Reality Check until the hero clips are approved", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
   await expect(page.getByText("Data, not stereotypes.").first()).toBeVisible();
   await expect(page.getByText("Ads are free to make now. Knowing who they're for isn't.")).toBeVisible();
@@ -42,7 +42,7 @@ test("the hero leads with the lead example's Reality Check until the hero clips 
 });
 
 test("the H1 is the largest paint", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const lcp = await page.evaluate(
     () =>
@@ -58,7 +58,7 @@ test("the H1 is the largest paint", async ({ page }) => {
 });
 
 test("each concept world's cues switch the open receipt, and the full receipt opens in a drawer", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const screening = page.getByRole("region", { name: "Same product. Same video model. Only the brief changed." });
   // Until clips are approved, every screen shows its concept preview (never an empty "clip coming"
   // player), and the Control's says it is not from Qloo.
@@ -90,7 +90,7 @@ test("each concept world's cues switch the open receipt, and the full receipt op
 });
 
 test("the shelf shows the three examples with their recorded Reality Check lines", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const shelf = page.getByRole("region", { name: "Three brands. Three taste neighborhoods." });
   for (const [brand, slug] of [
     ["Porchlight Pepper Co.", "food-hot-sauce"],
@@ -117,11 +117,11 @@ test("the shelf shows the three examples with their recorded Reality Check lines
 });
 
 test("the three ways row sits below the shelf, one line each", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const row = page.getByRole("region", { name: "Three ways to use it" });
   await expect(row.getByRole("heading", { level: 3 })).toHaveText(["In the browser", "In your Claude", "Export to your video tool"]);
   await expect(row.getByRole("link", { name: /Set it up/ })).toHaveAttribute("href", "/mcp");
-  await expect(row.getByRole("link", { name: /Try it free/ })).toHaveAttribute("href", "/start");
+  await expect(row.getByRole("link", { name: /Try it free/ })).toHaveAttribute("href", "/ads/start");
   const [shelfBottom, rowTop] = await Promise.all([
     page.getByRole("region", { name: "Example reports" }).evaluate((n) => n.getBoundingClientRect().bottom + window.scrollY),
     row.evaluate((n) => n.getBoundingClientRect().top + window.scrollY),
@@ -130,7 +130,7 @@ test("the three ways row sits below the shelf, one line each", async ({ page }) 
 });
 
 test("how it works is four numbered steps, with the lead example's real age skews", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const how = page.getByRole("region", { name: "From your link to the test, in four steps." });
   await expect(how.getByRole("heading", { level: 3 })).toHaveText([
     "Step 1: Read your site",
@@ -149,7 +149,7 @@ test("how it works is four numbered steps, with the lead example's real age skew
 });
 
 test("the agent demo sits right under the hero and replays the recorded run in a screen that never changes size", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.locator("main > section").nth(1)).toHaveAttribute("id", "agent-demo");
   const slot = page.getByRole("region", { name: "The agent at work · Porchlight Pepper Co." });
   await expect(slot.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
@@ -172,7 +172,7 @@ const FIGURES = ["55+", "#319 of 321", "0 of 19", "18 to 24"];
 
 test("the proof stats count up once to the recorded values, without moving the layout, and open their receipts", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   const proof = page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." });
   const figures = proof.locator("[data-count-up]");
   await expect(figures).toHaveCount(4);
@@ -205,7 +205,7 @@ test("the proof stats count up once to the recorded values, without moving the l
 });
 
 test("below-the-fold sections rise in once as they scroll into view", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const cards = page.getByRole("region", { name: "From your link to the test, in four steps." }).locator("ol > li");
   await expect(cards.first()).toHaveAttribute("data-reveal", "pending");
   await cards.first().scrollIntoViewIfNeeded();
@@ -219,7 +219,7 @@ test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("every number shows its recorded value and nothing is hidden or moving", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/ads");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(500);
     await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
@@ -231,7 +231,7 @@ test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
   test("the landing reads in full: the H1, the replay's frame, every number and every section", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/ads");
     await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
     await expect(page.getByText("Replay of a recorded run")).toBeVisible();
     await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
@@ -242,7 +242,7 @@ test.describe("without JavaScript", () => {
 
 test("the whole landing scrolls without layout shift, sideways overflow or console errors", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   await page.evaluate(() => {
     const w = window as unknown as { __cls: number };
     w.__cls = 0;
@@ -267,7 +267,7 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
     body = route.request().postDataJSON();
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ position: 7 }) });
   });
-  await page.goto("/");
+  await page.goto("/ads");
   const pricing = page.getByRole("region", { name: "Free in beta. $49 per campaign after." });
   for (const plan of ["Free", "Campaign", "Founder", "Studio"]) await expect(pricing.getByRole("heading", { name: plan, exact: true })).toBeVisible();
   await expect(pricing.getByText("$399")).toBeVisible();
@@ -287,19 +287,19 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
   await dialog.getByRole("checkbox").check();
   await submit.click();
   await expect(dialog.getByText("You're #7.")).toBeVisible();
-  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true, sourceReport: "home" });
+  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true });
 });
 
 test("nothing pops up on its own, and the footer says what Stoop measures", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(1500);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const footer = page.getByRole("contentinfo");
-  await expect(footer.getByText("Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.")).toBeVisible();
+  await expect(footer.getByText(/Stoop reads your city and your block through Qloo/)).toBeVisible();
   await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
   await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
-  await expect(footer.getByRole("link", { name: "Use Stoop in Claude" })).toHaveAttribute("href", "/mcp");
+  await expect(footer.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
 });
 
 test("the PWA manifest and icons are served", async ({ request }) => {

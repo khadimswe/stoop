@@ -29,8 +29,7 @@ export const metadata: Metadata = {
     deployment: process.env.VERCEL_URL,
   }),
   title: "Stoop",
-  description:
-    "Stoop uses Qloo's taste data to map the audience around your product, then writes the scripts, hooks and AI-video prompts that culture would make.",
+  description: "Stoop plans a store event your block wants: music your city plays, snacks from the spots nearby, a prize wheel, a poster and posts.",
 };
 
 export const viewport: Viewport = {
