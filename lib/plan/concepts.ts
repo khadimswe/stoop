@@ -11,7 +11,8 @@ import { planDecide, type PlanEnv } from "./env";
 import { itemIssues, type GuardContext } from "./guard";
 import { buildAliases, evidenceFor, inputsText, localText, PLAN_RULES, PLANNER_ROLE, REF_RULES, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
-import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
+import { bounded, PLAN_CRITERIA, PLAN_CRITERION_IDS, PLAN_MAX_TOTAL, PLAN_RUBRIC_TEXT, pickKept, planTotal, type PlanScore } from "./rubric";
+import { isChain } from "./taste";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
 
 export const CONCEPT_COUNT = 3;
@@ -22,15 +23,15 @@ const MAX_TEXT = 240;
 
 const llmItem = z.object({
   kind: z.enum(ITEM_KINDS),
-  text: z.string().describe("One concrete line. Artists and places only as [[a1]] or [[p2]] keys."),
+  text: z.string().describe("One concrete line of at most 150 characters, with at most 2 keys. Artists and places only as [[a1]] or [[p2]] keys."),
   origin: z.enum(CUE_ORIGINS),
   styles: z.array(z.string()).describe("s-keys of the music styles this line uses, or an empty list"),
 });
 export const conceptsOutputSchema = z.object({
   concepts: z.array(
     z.object({
-      title: z.string().describe("At most 60 characters"),
-      hook: z.string().describe("Why someone walking past stops, in one line of at most 140 characters"),
+      title: z.string().describe("At most 50 characters, with no artist or place names"),
+      hook: z.string().describe("Why someone walking past stops, in one line of at most 120 characters, with no artist or place names"),
       items: z.array(llmItem).describe("5 to 8 lines: a theme, the music, food or a partner, an activity, a giveaway, the setup, the signage, the timing"),
       scores: z.object(Object.fromEntries(PLAN_CRITERION_IDS.map((id) => [id, z.number().describe("1 to 5")])) as Record<(typeof PLAN_CRITERION_IDS)[number], z.ZodNumber>),
       noStereotype: z.boolean().describe("True when nothing relies on a stereotype about a group of people"),
@@ -42,9 +43,17 @@ type LlmConcepts = z.infer<typeof conceptsOutputSchema>;
 
 const TASK = [
   "Task:",
-  `Write ${CONCEPT_COUNT} clearly different event concepts for this store's table, grounded only in the store's facts and what Qloo measured.`,
+  `Write ${CONCEPT_COUNT} clearly different event concepts for this store's table or booth, grounded only in the store's facts and what Qloo measured.`,
+  "The store runs events for walk-ins and sign-ups. Every concept has one line that turns a stop into a walk-in: the moment and the reason to step inside, with the manager's promo doing the work. Never build the event around sending people to other businesses.",
   "Each concept has a title, a hook and 5 to 8 lines. Lines are short and concrete: what plays, what is served and from where, what people do, what they take home, how the table looks, what the sign says, when the peak is.",
+  "Fit the day: use what the data says about the date (a holiday, a payday weekend, the season) where it helps.",
+  "The manager's notes are requirements: every concept does what they ask.",
+  "Food: snacks and drinks the area likes (from the block's favorite spots, or the kind of thing they sell), not catering. Order a meal from a partner only when the budget clearly covers it.",
+  "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
+  "Music: lead with the city's most-loved artists (the first keys in the list) and an energy that carries on a sidewalk, unless the notes ask for something calm.",
   "Use the block's places as partners where it fits (order food from them, point people to a nearby park or venue), and the city's artists and styles for the music.",
+  "Favor what pulls people in from outside: the table or booth itself, something people can see and hear from down the block, and one line that tells people to come inside.",
+  "Where it is natural, let the food, the drinks, the giveaway or the timing draw on the block's places too (hot drinks from a local cafe rather than a grocery store). Never force a place into a line; a good line beats a cited one.",
   "If the manager gave offers, one signage line quotes one of them exactly. If not, no line mentions a price or a deal.",
   "Then score each concept with the rubric below and say its main weakness in one sentence.",
 ].join("\n");
@@ -54,7 +63,7 @@ export function conceptsInstructions(): string {
 }
 
 export function conceptsPrompt(inputs: PlanInputs, local: Local, aliases: Aliases): string {
-  return [inputsText(inputs), localText(local, aliases), "Write the concepts."].join("\n\n");
+  return [inputsText(inputs), localText(local, aliases, inputs), "Write the concepts."].join("\n\n");
 }
 
 export interface CheckedConcept {
@@ -74,6 +83,19 @@ export interface ConceptCheck {
 }
 
 const clip = (text: string) => text.trim();
+
+/** Things the manager's notes ask for that a concept's lines must carry (checked by words, not by the model). */
+const NOTE_ASKS: readonly { asks: RegExp; carries: RegExp; what: string }[] = [
+  { asks: /gift ?cards?/i, carries: /gift ?cards?/i, what: "gift cards" },
+  { asks: /\bsnacks?\b/i, carries: /\b(snacks?|chips|bites|treats?|pastr\w*|doughnuts?|donuts?|cookies|paletas?|popsicles?|fruit|nuts|popcorn|cups? of)\b/i, what: "snacks" },
+  { asks: /\b(drinks?|coffee|cocoa|cider|water)\b/i, carries: /\b(drinks?|coffee|cocoa|chocolate|cider|tea|water|juice|lemonade|agua)\b/i, what: "drinks" },
+  { asks: /\b(post|facebook|instagram|whatsapp|social)\b/i, carries: /\b(post|facebook|instagram|whatsapp|social)\b/i, what: "posting about it" },
+];
+
+/** What the notes ask for that none of the lines carry. */
+export function notesMissing(notes: string, items: readonly Pick<PlanItem, "text">[]): string[] {
+  return NOTE_ASKS.filter((n) => n.asks.test(notes) && !items.some((i) => n.carries.test(i.text))).map((n) => n.what);
+}
 
 /** Maps one answer to plan items with real refs and receipts, and lists every problem. Lines with problems are left out. */
 export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardContext): ConceptCheck {
@@ -100,9 +122,14 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       const styles = item.styles.filter((key) => aliases.styles.has(key.toLowerCase()));
       const evidenceIds = item.origin === "creative" || item.origin === "yours" ? [] : evidenceFor(aliases, refs, styles);
       const problems = itemIssues({ kind: item.kind, text, origin: item.origin, refs, evidenceIds }, guard);
-      if (!text || text.length > MAX_TEXT) problems.push(`must be 1 to ${MAX_TEXT} characters.`);
+      if (!text) problems.push("must not be empty.");
+      else if (text.length > MAX_TEXT) problems.push(`is ${text.length} characters once its keys become Qloo ids (each key is about 40); the limit is ${MAX_TEXT}. Shorten it or use fewer keys.`);
       if (unknownStyles.length) problems.push(`styles ${unknownStyles.join(", ")} are not s-keys from the data.`);
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
+      if (item.kind === "partner") {
+        const chain = refs.map((id) => aliases.places.get(id)).find((p) => p && isChain(p.name));
+        if (chain) problems.push(`a national chain is not a co-promo partner; use it for a gift card or a snack run (kind giveaway or food), or partner with a local independent.`);
+      }
       if (problems.length) {
         for (const problem of problems) issues.push(`${where}: ${problem}`);
         return;
@@ -114,6 +141,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     const qlooItems = used.size;
     if (!concept.noStereotype) issues.push(`${at}: it fails the no-stereotype gate; rewrite it without relying on a stereotype.`);
     if (items.length < MIN_CONCEPT_ITEMS) issues.push(`${at}: needs at least ${MIN_CONCEPT_ITEMS} lines that pass the checks.`);
+    for (const missing of notesMissing(guard.notes ?? "", items)) issues.push(`${at}: the manager's notes ask for ${missing}; add a line for it.`);
     const scores = Object.fromEntries(PLAN_CRITERION_IDS.map((id) => [id, concept.scores[id]])) as PlanScore["scores"];
     concepts.push({ title: title.slice(0, 60), hook: hook.slice(0, 140), items, score: { scores, noStereotype: concept.noStereotype }, note: clip(concept.note), qlooItems });
   });
@@ -150,7 +178,7 @@ export function toConcepts(checked: readonly CheckedConcept[]): Concept[] {
       scores: PLAN_CRITERIA.map((criterion) => ({ criterion: criterion.label, score: c.score.scores[criterion.id] })),
       total,
       kept: isKept,
-      ...(isKept ? {} : { note: `Scored ${total} of 25 against ${keptTotal} for the kept concept.${c.note ? ` ${c.note}` : ""}`.slice(0, 300) }),
+      ...(isKept ? {} : { note: `Scored ${total} of ${PLAN_MAX_TOTAL} against ${keptTotal} for the kept concept.${c.note ? ` ${c.note}` : ""}`.slice(0, 300) }),
     };
   });
 }
@@ -198,6 +226,6 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
   const concepts = toConcepts(best.concepts);
   if (concepts.length === 0) return null;
   const kept = concepts.find((c) => c.kept);
-  planDecide(env, "concepts", `Kept "${kept?.title}"`, `It scored ${kept?.total} of 25 on the event rubric; ${concepts.length - 1} other ${concepts.length - 1 === 1 ? "concept stays" : "concepts stay"} with their scores.`);
+  planDecide(env, "concepts", `Kept "${kept?.title}"`, `It scored ${kept?.total} of ${PLAN_MAX_TOTAL} on the event rubric (bringing people inside counts double); ${concepts.length - 1} other ${concepts.length - 1 === 1 ? "concept stays" : "concepts stay"} with their scores.`);
   return { concepts, aliases };
 }

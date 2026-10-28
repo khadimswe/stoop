@@ -11,7 +11,7 @@ import { stripEmDashes } from "../guardrails";
 import { planDecide, type PlanEnv } from "./env";
 import { textIssues, type GuardContext } from "./guard";
 import { clock, endTime, evidenceFor, inputsText, PLAN_RULES, PLANNER_ROLE, REF_RULES, startMinutes, toKeyRefs, toRealRefs, type Aliases } from "./prompt";
-import { refsIn } from "./refs";
+import { renderRefs } from "./refs";
 import type { Concept, Plan, PlanInputs } from "./schema";
 
 export const PLAN_TIMEOUT_MS = 90_000;
@@ -31,6 +31,7 @@ export function baseChecklist(inputs: PlanInputs, hasPartners: boolean): string[
     "Staff the table and the floor at the same time: one person outside, at least one inside for walk-ins, and a plan for breaks.",
     "No alcohol or tobacco at the table, in giveaways or in anything a partner brings.",
     "Nothing aimed at minors: the music, the games and the giveaways are for adults on a public sidewalk.",
+    "Giveaways are free to enter, no purchase needed.",
     "Keep the walkway clear and the volume friendly to neighbors and the businesses next door.",
     "Clean up the sidewalk and take down every sign when the event ends.",
   ];
@@ -39,26 +40,26 @@ export function baseChecklist(inputs: PlanInputs, hasPartners: boolean): string[
 }
 
 const llmPlan = z.object({
-  runOfShow: z.array(z.object({ time: z.string().describe("24 hour HH:MM"), step: z.string().describe("What happens, at most 160 characters. Artists and places only as keys.") })).describe("4 to 8 steps: setup, opening, the peak, the wrap"),
+  runOfShow: z.array(z.object({ time: z.string().describe("24 hour HH:MM"), step: z.string().describe("What happens, at most 110 characters and at most 1 key. Artists and places only as keys.") })).describe("4 to 8 steps: setup, opening, the peak, the wrap"),
   shopping: z
     .array(
       z.object({
-        item: z.string().describe("What to buy or rent, at most 120 characters, no prices in the text"),
-        qty: z.string().describe("How many, e.g. '40 tacos' or '1'"),
+        item: z.string().describe("What to buy or rent, at most 100 characters, with no prices and no place names or keys in the text"),
+        qty: z.string().describe("How many and the math in at most 40 characters, e.g. '4 at $10 each' or '3 dozen at $12 a dozen'"),
         estUsd: z.number().describe("Estimated dollars for this line"),
         from: z.string().nullable().describe("The p-key of the block place to buy it from, or null"),
       }),
     )
     .describe("Everything the event needs that the store does not have, inside the budget"),
-  checks: z.array(z.string()).describe("1 to 4 extra checks specific to this concept, at most 200 characters each"),
+  checks: z.array(z.string()).describe("1 to 4 extra checks specific to this concept, at most 180 characters each, with no keys"),
 });
 type LlmPlan = z.infer<typeof llmPlan>;
 
 const TASK = [
   "Task:",
   "Turn the kept concept below into a plan the manager can run: a run of show, a shopping list and a few checks specific to this concept.",
-  "Run of show: 4 to 8 steps from setup (before the start time) through the peak to the wrap, with 24 hour times.",
-  "Shopping list: only what the store does not already have. Buy food from the block's places where the concept uses them (set from to that place's key). Every line has a realistic price estimate, and the total stays within the budget.",
+  "Run of show: 4 to 8 steps from setup (before the start time) through the peak to the wrap, with 24 hour times. At least one step says how a stop becomes a walk-in (who brings people inside, and with which of the manager's promos).",
+  "Shopping list: only what the store does not already have. Snacks and drinks, not catering. Buy from the block's places where the concept uses them (set from to that place's key); gift cards come from the place they are for. Every line has a realistic price and shows its math in qty (\"4 at $10 each\"), and the total stays within the budget.",
   "Checks: only what this concept adds (for example, confirming a partner's order size). The standard checks (permits, carrier brand rules, staffing, cleanup, no alcohol or tobacco, nothing for minors) are added for you.",
 ].join("\n");
 
@@ -78,6 +79,8 @@ export function planPrompt(inputs: PlanInputs, concept: Concept, aliases: Aliase
 }
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+/** A run-of-show step that brings people into the store. */
+export const WALK_IN = /\b(inside|walk[- ]ins?|come in|comes in|step in|into the store|in the store|in-store|to the counter|at the counter|sign[- ]ups?)\b/i;
 const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 export interface PlanCheck {
@@ -100,29 +103,33 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const problems = textIssues(step, guard);
     if (!HHMM.test(time)) problems.push(`time must be HH:MM (24 hour), got "${s.time}".`);
     else if (toMinutes(time) < start - SETUP_MARGIN_MIN || toMinutes(time) > end + SETUP_MARGIN_MIN) problems.push(`time ${time} is outside the day (${clock(start - SETUP_MARGIN_MIN)} to ${clock(end + SETUP_MARGIN_MIN)}).`);
-    if (!step || step.length > 160) problems.push("step must be 1 to 160 characters.");
+    if (!step) problems.push("step must not be empty.");
+    else if (step.length > 160) problems.push(`step is ${step.length} characters once its keys become Qloo ids (each key is about 40); the limit is 160. Shorten it or drop a key.`);
     if (problems.length) issues.push(...problems.map((p) => `${at}: ${p}`));
     else runOfShow.push({ time, step });
   });
   runOfShow.sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   if (runOfShow.length < 3) issues.push("runOfShow: needs at least 3 steps that pass the checks (setup, the peak, the wrap).");
+  if (runOfShow.length >= 3 && !runOfShow.some((s) => WALK_IN.test(s.step))) issues.push("runOfShow: add a step that turns a stop into a walk-in (who brings people inside, with which promo).");
 
   const shopping: Plan["shopping"] = [];
   answer.shopping.slice(0, MAX_SHOPPING).forEach((s, i) => {
     const at = `shopping.${i + 1}`;
-    const item = s.item.trim();
-    const problems = textIssues(item, guard);
-    if (refsIn(item).length) problems.push("item names a place; set from to its key instead.");
+    // A key in a plain line is shown as the place's name, rendered by code from Qloo's answer.
+    const real = toRealRefs(s.item.trim(), aliases);
+    const problems = textIssues(real, guard);
+    const item = renderRefs(real, aliases.names);
     if (!item || item.length > 120) problems.push("item must be 1 to 120 characters.");
     const fromKey = s.from?.trim().toLowerCase() || null;
     const from = fromKey ? aliases.ids.get(fromKey) : undefined;
     if (fromKey && (!from || !aliases.places.has(from))) problems.push(`from "${s.from}" is not a block place key.`);
     if (!Number.isFinite(s.estUsd) || s.estUsd < 0) problems.push("estUsd must be 0 or more.");
+    if (s.qty.trim().length > 40) problems.push(`qty is ${s.qty.trim().length} characters; keep it to 40 ("4 at $10 each").`);
     if (problems.length) {
       issues.push(...problems.map((p) => `${at}: ${p}`));
       return;
     }
-    const qty = s.qty.trim().slice(0, 40);
+    const qty = s.qty.trim();
     const estUsd = Math.round(s.estUsd * 100) / 100;
     shopping.push({ item, ...(qty ? { qty } : {}), estUsd, ...(from ? { from, origin: "interpreted" as const, evidenceIds: evidenceFor(aliases, [from], []) } : { origin: "creative" as const, evidenceIds: [] }) });
   });
@@ -131,9 +138,9 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
 
   const extras: string[] = [];
   answer.checks.slice(0, MAX_EXTRA_CHECKS).forEach((c, i) => {
-    const check = c.trim();
-    const problems = textIssues(check, guard);
-    if (refsIn(check).length) problems.push("checks name places by key; describe the check without the key.");
+    const real = toRealRefs(c.trim(), aliases);
+    const problems = textIssues(real, guard);
+    const check = renderRefs(real, aliases.names);
     if (!check || check.length > 200) problems.push("each check must be 1 to 200 characters.");
     if (problems.length) issues.push(...problems.map((p) => `checks.${i + 1}: ${p}`));
     else extras.push(check);
@@ -151,7 +158,7 @@ export function fallbackPlan(inputs: PlanInputs, concept: Concept): Omit<Plan, "
   const runOfShow = [
     { time: clock(start - 45), step: "Set up the table, the speaker and the store's official signage." },
     { time: clock(start), step: `Open the table: ${concept.title}.` },
-    { time: clock(peak), step: "Peak: both staff on the sidewalk side, one ready to bring people inside." },
+    { time: clock(peak), step: "Peak: one person at the table, one ready to walk people inside to hear the promo." },
     { time: endTime(inputs), step: "Wrap: pack up, clean the sidewalk and take down every sign." },
   ];
   return { runOfShow, shopping: [], checklist: baseChecklist(inputs, false), estimatedCostUsd: 0 };
