@@ -287,7 +287,7 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
   await dialog.getByRole("checkbox").check();
   await submit.click();
   await expect(dialog.getByText("You're #7.")).toBeVisible();
-  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true, sourceReport: "home" });
+  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true });
 });
 
 test("nothing pops up on its own, and the footer says what Stoop measures", async ({ page }) => {
@@ -296,10 +296,10 @@ test("nothing pops up on its own, and the footer says what Stoop measures", asyn
   await page.waitForTimeout(1500);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const footer = page.getByRole("contentinfo");
-  await expect(footer.getByText("Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.")).toBeVisible();
+  await expect(footer.getByText(/Stoop reads your city and your block through Qloo/)).toBeVisible();
   await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
   await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
-  await expect(footer.getByRole("link", { name: "Use Stoop in Claude" })).toHaveAttribute("href", "/mcp");
+  await expect(footer.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
 });
 
 test("the PWA manifest and icons are served", async ({ request }) => {
