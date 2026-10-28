@@ -517,7 +517,8 @@ export function planView(source: PlanSource): PlanView {
     gaps: report.local.gaps,
   };
 
-  const marketing = marketingView(id, inputs.store.name, report.poster, report.posts);
+  // The poster route draws a poster for any plan with a concept (every word set by code, the art when there is one).
+  const marketing = marketingView(id, inputs.store.name, report.poster, report.posts, Boolean(report.plan?.concepts.length));
 
   const trace = traceRows(report.trace);
   const calls = { live: 0, cached: 0 };
@@ -603,11 +604,11 @@ export function posterRoute(id: string, size?: "og"): string {
 }
 
 /** The poster and the posts as the marketing section shows them (also used after "Generate poster and posts"). */
-export function marketingView(id: string, storeName: string, poster: PlanReport["poster"], posts: PlanReport["posts"]): MarketingView {
+export function marketingView(id: string, storeName: string, poster: PlanReport["poster"], posts: PlanReport["posts"], hasPlan = true): MarketingView {
   return {
     poster: {
       status: poster.status,
-      src: poster.status === "ready" ? (poster.url ?? posterRoute(id)) : null,
+      src: poster.status === "ready" && poster.url ? poster.url : hasPlan ? posterRoute(id) : null,
       alt: poster.alt || `Event poster for ${storeName}`,
       reason: poster.reason ?? null,
     },
@@ -660,7 +661,7 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
     {
       key: "post",
       label: "Post it",
-      value: posts ? "Poster and 3 posts" : marketing.poster.status === "ready" ? "Poster ready" : "Make the poster",
+      value: posts ? "Poster and 3 posts" : marketing.poster.src ? "Poster ready" : "Make the poster",
       note: posts ? "Facebook, Instagram, WhatsApp" : null,
       qloo: false,
       href: "#posts",
