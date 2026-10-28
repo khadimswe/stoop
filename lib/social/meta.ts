@@ -22,6 +22,7 @@
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { checkUrl } from "../intake/address";
+import { META_ERROR_KINDS, type MetaErrorKind } from "./api";
 import { SCHEDULE_MAX_MS, SCHEDULE_MIN_MS } from "./schedule";
 
 if (typeof window !== "undefined") {
@@ -65,8 +66,7 @@ export function metaApp(env: Env = process.env): MetaApp | null {
 
 // --- Errors -------------------------------------------------------------------------------------
 
-export const META_ERROR_KINDS = ["auth", "permission", "rate_limited", "image", "invalid", "unavailable", "not_linked", "schedule"] as const;
-export type MetaErrorKind = (typeof META_ERROR_KINDS)[number];
+export { META_ERROR_KINDS, type MetaErrorKind };
 
 export const META_ERROR_MESSAGES: Readonly<Record<MetaErrorKind, string>> = {
   auth: "Facebook ended this connection. Connect Facebook again.",
@@ -278,7 +278,7 @@ export async function postPagePhoto(call: MetaCall, page: { id: string; token: s
   assertId(page.id, "Page");
   if (post.scheduleAt && !inScheduleWindow(post.scheduleAt, now)) throw new MetaError("schedule");
   const form = new FormData();
-  form.set("source", new Blob([post.image.bytes], { type: post.image.contentType }), post.image.filename);
+  form.set("source", new Blob([new Uint8Array(post.image.bytes)], { type: post.image.contentType }), post.image.filename);
   const params: Record<string, string> = { caption: post.caption, published: post.scheduleAt ? "false" : "true" };
   if (post.scheduleAt) params.scheduled_publish_time = String(Math.floor(post.scheduleAt.getTime() / 1000));
   const data = await graph(call, photoSchema, "POST", `${page.id}/photos`, params, page.token, form);
