@@ -102,6 +102,8 @@ export const placeSchema = z.strictObject({
   /** Qloo tag names on the place, e.g. "Mexican", "Live music venue", "Lemonade". */
   tags: z.array(z.string()),
   address: z.string().nullable(),
+  /** Qloo's coordinates for the place, for the block map (the store at the center, places around it). */
+  point: z.strictObject({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).nullable().optional(),
   distanceM: z.number().nonnegative().nullable(),
   /** Qloo's explainability for the place, shown as is. */
   why: z.string().nullable(),
