@@ -89,25 +89,11 @@ export type ArtistRef = z.infer<typeof artistRefSchema>;
 export const styleSchema = z.strictObject({ tagId: z.string().min(1), name: z.string().min(1), evidenceIds });
 export type MusicStyle = z.infer<typeof styleSchema>;
 
-export const SCREEN_KINDS = ["tv_show", "movie", "podcast"] as const;
-
-/** A TV show, film or podcast the city's adults over-index on: for theme ideas and trivia, never a poster. */
-export const screenRefSchema = z.strictObject({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  kind: z.enum(SCREEN_KINDS),
-  rank: z.number().int().min(1),
-  evidenceIds,
-});
-export type ScreenRef = z.infer<typeof screenRefSchema>;
-
 export const cityTasteSchema = z.strictObject({
   city: z.string().min(1),
   ageBands: z.array(z.enum(AGE_BUCKETS)).min(1),
   artists: z.array(artistRefSchema),
   styles: z.array(styleSchema),
-  /** The city's shows, films and podcasts, when the plan read them. Plan text may ref them like artists. */
-  screen: z.array(screenRefSchema).optional(),
 });
 export type CityTaste = z.infer<typeof cityTasteSchema>;
 
@@ -405,7 +391,7 @@ function cited(value: unknown, found: string[] = []): string[] {
 
 /**
  * A plan report is valid only when every receipt it cites is in its ledger, the kept concept is one of
- * its concepts, and every ref and partner points at an artist, show or place Qloo returned in this run.
+ * its concepts, and every ref and partner points at an artist or place Qloo returned in this run.
  */
 export const planReportSchema = planReportShape.superRefine((report, ctx) => {
   const issue = (message: string, path: (string | number)[]) => ctx.addIssue({ code: "custom", message, path });
@@ -413,7 +399,7 @@ export const planReportSchema = planReportShape.superRefine((report, ctx) => {
   for (const id of new Set(cited({ local: report.local, plan: report.plan, baseline: report.baseline, trace: report.trace }))) {
     if (!ledger.has(id)) issue(`cites ${id}, which is not in the ledger`, ["ledger"]);
   }
-  const known = new Set<string>([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.city?.screen?.map((s) => s.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
+  const known = new Set<string>([...(report.local.city?.artists.map((a) => a.id) ?? []), ...(report.local.block?.places.map((p) => p.id) ?? [])]);
   const places = new Set(report.local.block?.places.map((p) => p.id) ?? []);
   if (report.plan) {
     const ids = report.plan.concepts.map((c) => c.id);
