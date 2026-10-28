@@ -1,14 +1,13 @@
 // GET /api/plan/<id>/marketing/poster.png: the composited event poster, 1080 by 1350 for Instagram
 // portrait, or 1200 by 630 with ?size=og for link previews (the /e/<id> page's og:image). Every word is
 // set by code; the background is the plan's rendered art when it is on Stoop's own storage, else the
-// plain Stoop background. Examples (ex-<slug>) read their recorded plan and never touch the store.
+// plain Stoop background. Examples (ex-<slug>) read their recorded plan, so they draw without a store.
 import { connection } from "next/server";
 import { isLive } from "@/lib/config";
 import { metadataOrigin } from "@/lib/marketing/site";
 import { posterResponse } from "@/lib/plan/posts-run";
 import { storePlanSource } from "@/lib/plan/posts-store";
 import { getStore } from "@/lib/store";
-import { MemoryStore } from "@/lib/store/memory";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/plan/[id]/marketing/poster.png">) {
   await connection();
@@ -20,8 +19,8 @@ export async function GET(request: Request, ctx: RouteContext<"/api/plan/[id]/ma
     {
       live: isLive(),
       store: getStore,
-      // Examples never read the store, so they work where none is configured.
-      source: (store) => storePlanSource(store ?? new MemoryStore()),
+      // Examples read their recording, so they work where no store is configured.
+      source: (store) => storePlanSource(store),
       artOrigins: [site, ...(r2 ? [r2] : [])],
     },
     id,

@@ -9,7 +9,7 @@ export function samplePlanReport(patch: { kind?: "live" | "example"; id?: string
   const kind = patch.kind ?? "live";
   return planReportSchema.parse({
     version: 1,
-    meta: { id: patch.id ?? (kind === "example" ? "ex-test-store" : "run_test0001"), kind, createdAt: "2026-10-28T15:00:00.000Z", provenance: kind === "example" ? "recorded" : "live" },
+    meta: { id: patch.id ?? (kind === "example" ? "ex-chicago-18th-street" : "plan_000000000000000000000001"), kind, createdAt: "2026-10-28T15:00:00.000Z", provenance: kind === "example" ? "recorded" : "live" },
     inputs: {
       store: {
         id: "test-store",

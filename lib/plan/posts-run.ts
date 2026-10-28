@@ -21,7 +21,7 @@ import { posterKeys, queuedPoster, renderPosterArt, type PosterArtEnv } from "./
 import { posterImage, type PosterArt, type PosterSize } from "./poster-image";
 import { posterText } from "./poster-text";
 import { generatePosts } from "./posts";
-import { exampleSlugOf, reportOf, type MarketingReport, type PlanSource } from "./posts-store";
+import { isExampleId, isLivePlanId, reportOf, type MarketingReport, type PlanSource } from "./posts-store";
 import type { Cost } from "../report/stages";
 import { shareLinks } from "./share";
 
@@ -33,8 +33,6 @@ if (typeof window !== "undefined") {
 export const MARKETING_PER_VISITOR_HOUR = 10;
 /** The lock outlives the route's time limit, so a crashed job frees its plan within minutes. */
 export const MARKETING_LOCK_SECONDS = 10 * 60;
-
-const RUN_ID = /^[A-Za-z0-9_-]{6,64}$/;
 
 export const marketingResponseSchema = z.strictObject({
   status: z.enum(["working", "done"]),
@@ -125,9 +123,9 @@ export interface MarketingRouteDeps {
 const FINAL = new Set(["ready", "skipped", "failed"]);
 
 export async function requestMarketing(deps: MarketingRouteDeps, id: string): Promise<RouteAnswer<MarketingResponse>> {
-  if (exampleSlugOf(id)) return answer(200, { status: "done", message: "Examples ship with their poster and posts." });
+  if (isExampleId(id)) return answer(200, { status: "done", message: "Examples ship with their poster and posts." });
   if (!deps.live) return apiError("off", "Live runs are off, so posters and posts are not written. The examples show theirs.");
-  if (!RUN_ID.test(id)) return apiError("invalid", "That is not a plan id.");
+  if (!isLivePlanId(id)) return apiError("invalid", "That is not a plan id.");
   let store: Store;
   try {
     store = deps.store();
@@ -202,16 +200,20 @@ async function fetchArt(url: string, fetchImpl: typeof fetch): Promise<PosterArt
   }
 }
 
-async function findReport(deps: PosterRouteDeps, id: string): Promise<MarketingReport | null> {
-  const slug = exampleSlugOf(id);
-  if (slug) return deps.source(null).example(slug);
-  if (!deps.live || !RUN_ID.test(id)) return null;
-  let store: Store;
+/** The store, or null where none is configured (examples still read their recordings). */
+function storeOrNull(deps: PosterRouteDeps): Store | null {
   try {
-    store = deps.store();
+    return deps.store();
   } catch {
     return null;
   }
+}
+
+async function findReport(deps: PosterRouteDeps, id: string): Promise<MarketingReport | null> {
+  const example = isExampleId(id);
+  if (!example && !(deps.live && isLivePlanId(id))) return null;
+  const store = storeOrNull(deps);
+  if (!example && !store) return null;
   const state = await deps.source(store).state(id);
   return state ? reportOf(state) : null;
 }

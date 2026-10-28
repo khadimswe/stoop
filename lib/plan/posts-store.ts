@@ -1,12 +1,10 @@
-// Where the marketing lane reads a plan and writes its events. The pipeline lane owns the plan store
-// (lib/plan/store.ts: appendPlanEvents, loadPlanEvents, loadPlanReport) and the example loaders
-// (lib/plan/examples.ts); this file is the thin interface the marketing code is written against, with
-// a stand-in implementation until those land, so the routes and tests run on their own. Once they do,
-// `planSource` wires to them and the stand-in goes.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { createPlanEmitter, planEventSchema, reducePlan, type PlanEvent, type PlanEventInput, type PlanState } from "./events";
-import { planReportSchema, type PlanReport } from "./schema";
+// Where the marketing lane reads a plan and writes its events: the pipeline lane's plan store
+// (lib/plan/store.ts) behind a small interface, so the routes and tests can pass their own. An example
+// ("ex-<slug>") reads its recording plus anything added to it in the store; a live plan reads the store.
+import { createPlanEmitter, reducePlan, type PlanEventInput, type PlanState } from "./events";
+import { planExampleSlug } from "./example-list";
+import type { PlanReport } from "./schema";
+import { appendPlanEvents, livePlanIdSchema, loadPlanEvents } from "./store";
 import type { Store } from "../store/types";
 
 if (typeof window !== "undefined") {
@@ -14,58 +12,49 @@ if (typeof window !== "undefined") {
 }
 
 /** What a poster or posts step needs from a plan: live or example, the same shape. */
-export type MarketingReport = Pick<PlanReport, "inputs" | "plan" | "local" | "meta" | "poster" | "posts" | "cost">;
+export type MarketingReport = Pick<PlanReport, "inputs" | "plan" | "local" | "meta" | "poster" | "posts" | "cost" | "test">;
 
 export interface PlanSource {
-  /** A live run's events so far, folded; null when there is no such run. */
-  state(runId: string): Promise<PlanState | null>;
-  /** Appends events to a live run (the source stamps seq and at). */
-  append(runId: string, events: PlanEventInput[]): Promise<void>;
-  /** A recorded example's report by slug, or null. */
-  example(slug: string): Promise<PlanReport | null>;
+  /** A plan's events so far, folded; null when there is no such plan. */
+  state(planId: string): Promise<PlanState | null>;
+  /** Appends events to a plan (the store stamps seq; the emitter stamps at). */
+  append(planId: string, events: PlanEventInput[]): Promise<void>;
 }
 
-export const EXAMPLE_PREFIX = "ex-";
-export const exampleSlugOf = (id: string): string | null => (id.startsWith(EXAMPLE_PREFIX) && /^[a-z0-9-]+$/.test(id.slice(3)) ? id.slice(3) : null);
+export const isExampleId = (id: string) => planExampleSlug(id) !== null;
+export const isLivePlanId = (id: string) => livePlanIdSchema.safeParse(id).success;
 
-/** A folded live run as the marketing steps read it, or null before it started. */
+/** A folded plan as the marketing steps read it, or null before it started. */
 export function reportOf(state: PlanState): MarketingReport | null {
   const r = state.report;
   if (!state.runId || !state.kind || !state.createdAt || !r.inputs) return null;
-  return { inputs: r.inputs, plan: r.plan, local: r.local, poster: r.poster, posts: r.posts, cost: r.cost, meta: { id: state.runId, kind: state.kind, createdAt: state.createdAt, provenance: "live" } };
+  return {
+    inputs: r.inputs,
+    plan: r.plan,
+    local: r.local,
+    poster: r.poster,
+    posts: r.posts,
+    cost: r.cost,
+    test: r.test,
+    meta: { id: state.runId, kind: state.kind, createdAt: state.createdAt, provenance: state.kind === "example" ? "recorded" : "live" },
+  };
 }
 
-// --- The stand-in, until lib/plan/store.ts lands --------------------------------------------------
-
-const RUN_TTL = 7 * 24 * 60 * 60;
-const eventsKey = (runId: string) => `plan:${runId}:events`;
-const seqKey = (runId: string) => `plan:${runId}:seq`;
-
-export function storePlanSource(store: Store, options: { dataDir?: string; now?: () => Date } = {}): PlanSource {
-  const dataDir = options.dataDir ?? join(process.cwd(), "data/plans");
+/** The plan store as a source. Without a store, examples still read their recordings and nothing is written. */
+export function storePlanSource(store: Store | null, options: { now?: () => Date } = {}): PlanSource {
   return {
-    async state(runId) {
-      const raw = await store.range<unknown>(eventsKey(runId), 0, -1);
-      if (raw.length === 0) return null;
-      const events = raw.flatMap((e) => {
-        const parsed = planEventSchema.safeParse(e);
-        return parsed.success ? [parsed.data] : [];
-      });
-      return reducePlan(events);
+    async state(planId) {
+      if (!isExampleId(planId) && !isLivePlanId(planId)) return null;
+      const events = await loadPlanEvents(store, planId);
+      if (events.length === 0) return null;
+      const state = reducePlan(events);
+      return state.runId ? state : null;
     },
-    async append(runId, inputs) {
+    async append(planId, inputs) {
       if (inputs.length === 0) return;
-      const last = await store.incr(seqKey(runId), { by: inputs.length, ttlSeconds: RUN_TTL });
+      if (!store) throw new Error("No store to write the plan's events to.");
       const emit = createPlanEmitter(options.now);
-      const events: PlanEvent[] = inputs.map((input, i) => ({ ...emit(input), seq: last - inputs.length + i }));
-      await store.append(eventsKey(runId), events, { ttlSeconds: RUN_TTL });
-    },
-    async example(slug) {
-      try {
-        return planReportSchema.parse(JSON.parse(readFileSync(join(dataDir, slug, "plan.report.json"), "utf8")));
-      } catch {
-        return null;
-      }
+      await appendPlanEvents(store, planId, inputs.map(emit));
     },
   };
 }

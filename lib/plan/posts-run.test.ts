@@ -1,20 +1,17 @@
 // The marketing routes with fake dependencies: POST /api/plan/<id>/marketing (requestMarketing and the
 // job it schedules, runMarketing) and GET /api/plan/<id>/marketing/poster.png (posterResponse), on a
-// MemoryStore, the stand-in plan source, a fake renderer and the AI SDK mock.
+// MemoryStore with the plan store (lib/plan/store.ts), a fake renderer and the AI SDK mock.
 import { MockLanguageModelV4 } from "ai/test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Storage } from "../storage";
 import { MemoryStore } from "../store/memory";
 import type { VisitorId } from "../store/visitor";
-import type { PlanEventInput } from "./events";
+import { reducePlan, createPlanEmitter, type PlanEventInput } from "./events";
 import { posterKeys, type PosterRenderer } from "./poster-art";
 import { POSTER_SIZES } from "./poster-image";
 import { samplePlanReport } from "./posts-fixture";
 import { marketingResponseSchema, posterResponse, requestMarketing, runMarketing, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
-import { storePlanSource } from "./posts-store";
+import { storePlanSource, type PlanSource } from "./posts-store";
 import type { PlanReport } from "./schema";
 
 const usage = { inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 50, text: 50, reasoning: undefined } };
@@ -38,7 +35,7 @@ const renderer = (): PosterRenderer & { calls: number } => {
   return r;
 };
 
-const RUN = "run_test0001";
+const RUN = "plan_000000000000000000000001";
 let store: MemoryStore;
 beforeEach(() => {
   store = new MemoryStore();
@@ -76,7 +73,7 @@ const routeDeps = (over: Partial<MarketingRouteDeps> = {}): MarketingRouteDeps &
 describe("requestMarketing", () => {
   it("answers examples at once: they ship with their poster and posts", async () => {
     const deps = routeDeps({ live: false });
-    const answer = await requestMarketing(deps, "ex-test-store");
+    const answer = await requestMarketing(deps, "ex-chicago-18th-street");
     expect(answer.status).toBe(200);
     expect(marketingResponseSchema.parse(answer.body).status).toBe("done");
     expect(deps.scheduled).toHaveLength(0);
@@ -85,7 +82,8 @@ describe("requestMarketing", () => {
   it("is off when live runs are off, and refuses bad or unknown ids", async () => {
     expect((await requestMarketing(routeDeps({ live: false }), RUN)).status).toBe(503);
     expect((await requestMarketing(routeDeps(), "../etc")).status).toBe(400);
-    expect((await requestMarketing(routeDeps(), "run_unknown1")).status).toBe(404);
+    expect((await requestMarketing(routeDeps(), "plan_00000000000000000000beef")).status).toBe(404);
+    expect((await requestMarketing(routeDeps(), "run_unknown1")).status).toBe(400);
     expect((await requestMarketing(routeDeps({ store: () => { throw new Error("no store"); } }), RUN)).status).toBe(503);
   });
 
@@ -167,34 +165,45 @@ describe("posterResponse", () => {
     return { signature: [...bytes.slice(1, 4)].map((b) => String.fromCharCode(b)).join(""), width: view.getUint32(16), height: view.getUint32(20) };
   };
 
-  function exampleDir(report: PlanReport) {
-    const dir = mkdtempSync(join(tmpdir(), "stoop-plans-"));
-    mkdirSync(join(dir, "test-store"));
-    writeFileSync(join(dir, "test-store", "plan.report.json"), JSON.stringify(report));
-    return dir;
+  const EX = "ex-chicago-18th-street";
+
+  /** A source that knows one recorded example, built from a report the way the recorder writes it. */
+  function exampleSource(report: PlanReport): PlanSource {
+    const emit = createPlanEmitter(() => new Date("2026-10-28T15:00:00.000Z"));
+    const inputs: PlanEventInput[] = [
+      { type: "plan.started", runId: EX, kind: "example", inputs: report.inputs },
+      ...report.ledger.map((evidence): PlanEventInput => ({ type: "evidence.added", evidence })),
+      { type: "local.city", city: report.local.city! },
+      { type: "local.block", block: report.local.block! },
+      { type: "plan.ready", plan: report.plan! },
+      { type: "poster.updated", poster: report.poster },
+      { type: "run.done" },
+    ];
+    const state = reducePlan(inputs.map(emit));
+    return { state: async (id) => (id === EX ? state : null), append: async () => undefined };
   }
 
   it("draws an example's poster at 1080 by 1350, and 1200 by 630 for link previews, without a store", async () => {
-    const dataDir = exampleDir(samplePlanReport({ kind: "example" }));
-    const deps = { live: false, store: () => { throw new Error("no store"); }, source: () => storePlanSource(new MemoryStore(), { dataDir }), artOrigins: [] };
-    const portrait = await posterResponse(deps, "ex-test-store", "portrait");
+    const deps = { live: false, store: () => { throw new Error("no store"); }, source: () => exampleSource(samplePlanReport({ kind: "example" })), artOrigins: [] };
+    const portrait = await posterResponse(deps, EX, "portrait");
     expect(portrait.status).toBe(200);
     expect(portrait.headers.get("content-type")).toBe("image/png");
     expect(portrait.headers.get("cache-control")).toMatch(/^public/);
     expect(await pngSize(portrait)).toEqual({ signature: "PNG", ...POSTER_SIZES.portrait });
-    const og = await posterResponse(deps, "ex-test-store", "og");
+    const og = await posterResponse(deps, EX, "og");
     expect(await pngSize(og)).toEqual({ signature: "PNG", ...POSTER_SIZES.og });
   });
 
   it("answers 404 for an unknown plan, and never fetches art from an untrusted host", async () => {
     const report = samplePlanReport({ kind: "example" });
-    const dataDir = exampleDir({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url: "https://evil.test/art.png" } });
+    const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url: "https://evil.test/art.png" } });
     const fetched: string[] = [];
     const fetchSpy = (async (url: string) => (fetched.push(url), new Response("x"))) as unknown as typeof fetch;
-    const deps = { live: true, store: () => store, source: () => storePlanSource(store, { dataDir }), artOrigins: ["https://stoop.test"], fetch: fetchSpy };
+    const deps = { live: true, store: () => store, source: () => source, artOrigins: ["https://stoop.test"], fetch: fetchSpy };
     expect((await posterResponse(deps, "ex-missing", "portrait")).status).toBe(404);
     expect((await posterResponse(deps, "run_unknown1", "portrait")).status).toBe(404);
-    const plain = await posterResponse(deps, "ex-test-store", "portrait");
+    expect((await posterResponse(deps, "plan_00000000000000000000beef", "portrait")).status).toBe(404);
+    const plain = await posterResponse(deps, EX, "portrait");
     expect(plain.status).toBe(200);
     expect(fetched).toEqual([]);
     // Art that should be there but could not be read is never cached.
@@ -204,11 +213,11 @@ describe("posterResponse", () => {
   it("uses the art from Stoop's own storage", async () => {
     const report = samplePlanReport({ kind: "example" });
     const url = "https://abc123.public.blob.vercel-storage.com/posters/h.png";
-    const dataDir = exampleDir({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url } });
+    const source = exampleSource({ ...report, poster: { status: "ready", prompt: "p", promptHash: "h", alt: "a", url } });
     const tiny = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
     const fetched: string[] = [];
     const fetchSpy = (async (target: string) => (fetched.push(target), new Response(tiny, { headers: { "content-type": "image/png" } }))) as unknown as typeof fetch;
-    const response = await posterResponse({ live: false, store: () => store, source: () => storePlanSource(store, { dataDir }), artOrigins: [], fetch: fetchSpy }, "ex-test-store", "portrait");
+    const response = await posterResponse({ live: false, store: () => store, source: () => source, artOrigins: [], fetch: fetchSpy }, EX, "portrait");
     expect(fetched).toEqual([url]);
     expect(response.headers.get("cache-control")).toMatch(/^public/);
     expect((await pngSize(response)).width).toBe(1080);
