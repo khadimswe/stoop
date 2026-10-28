@@ -6,7 +6,7 @@ import type { PlanView, TextPart } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { BlockMap } from "./block-map";
 import { ActionBar, AppBar, Fine, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenBody, ScreenTitle, Section, StatStrip, Stepper, type Step } from "./kit";
-import { FloorReceipts, OriginTag } from "./receipts";
+import { FloorReceipts, OpenOnHash, OriginTag } from "./receipts";
 
 
 /** Plan text with measured names in plain ink (their receipt is on the line's own tag). */
@@ -78,6 +78,7 @@ export function EventScreen({
         title="The event"
       />
       <Stepper current="Event" hrefs={hrefs.steps} />
+      <OpenOnHash />
       <ScreenBody>
         {top}
         <div className="flex flex-col gap-2">
@@ -100,7 +101,7 @@ export function EventScreen({
         {running && !view.concept && <p className="text-sm text-fl-dim">The plan fills in as Qloo answers.</p>}
 
         {play.artists.length > 0 && (
-          <Section id="play" title="Play" aside={<OriginTag origin="qloo" receiptKey={play.receipt} context="the playlist" />}>
+          <Section id="play" title="Play" aside={<OriginTag origin="qloo" receiptKey={play.receipt} context="the playlist" openOnHash="receipt-play" />}>
             <RowGroup label="Playlist">
               {play.artists.map((name, i) => (
                 <Row key={name} lead={<NumBadge n={i + 1} />} title={name} />

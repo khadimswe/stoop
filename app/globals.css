@@ -292,6 +292,11 @@
   .floor-dark {
     --ring: #c8f03c;
   }
+  /* Keyboard focus never hides under the sticky app bar or the sticky action bar. */
+  html:has(.floor) {
+    scroll-padding-top: 120px;
+    scroll-padding-bottom: 104px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

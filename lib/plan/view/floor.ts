@@ -158,3 +158,27 @@ export function agentPosts(view: PlanView, inputs: { date: string; startTime: st
     },
   ];
 }
+
+/** The landing's "A generic AI plan could be for any store." rows: the generic plan beside this store's. */
+export function landingCompare(view: PlanView): { row: string; generic: string; stoop: string }[] {
+  const g = view.generic;
+  if (!g || !view.concept) return [];
+  const cliche = (re: RegExp) => g.cliches.find((c) => re.test(c.text));
+  const firstSentence = (text: string | undefined) => (text ? noGenre(text.split(/(?<=\.)\s/)[0]!.replace(/\.$/, "")) : "Nothing on this line");
+  const genericOf = (kind: string) => g.items.find((i) => i.kind === kind)?.text;
+  const play = playView(view);
+  const snack = view.shopping.find((s) => !s.prize && s.from);
+  const cards = (view.wheel?.slices ?? []).filter((s) => s.kind === "gift_card" && s.place).map((s) => s.place!.name);
+  const places = view.local.block?.places.length ?? 0;
+  const rows = [
+    { row: "Music", generic: cliche(/music/i) ? "No local signal" : firstSentence(genericOf("music")), stoop: play.note ?? "Qloo's artists for this city" },
+    {
+      row: "Snacks",
+      generic: cliche(/snack/i) ? "Store-bought snacks, no spot named" : firstSentence(genericOf("food")),
+      stoop: snack?.from ? `${snack.item.split(",")[0]} from ${snack.from.name}${snack.from.distanceText ? `, ${snack.from.distanceText} from the door` : ""}` : "Nothing on this line",
+    },
+    { row: "Prizes", generic: firstSentence(genericOf("giveaway")), stoop: cards.length ? `Gift cards to ${[...new Set(cards)].join(" and ")}` : "The store's own promos" },
+    { row: "Places", generic: cliche(/place|block/i) ? "None on this block" : "Names no place nearby", stoop: places ? `${places} within ${view.local.block?.radiusText ?? "1.5 km"}, from Qloo` : "No Qloo places" },
+  ];
+  return rows.filter((r) => r.stoop !== "Nothing on this line");
+}

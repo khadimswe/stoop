@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { createContext, useContext, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -46,12 +46,20 @@ function Panel({ receipt, onClose }: { receipt: ReceiptView; onClose: () => void
 }
 
 /** Opens one receipt: a dialog on desktop, a bottom sheet on phones. Not rendered without a receipt. */
-export function ReceiptTrigger({ receiptKey, fallback = null, children }: { receiptKey: string | null; fallback?: ReactNode; children: ReactElement }) {
+export function ReceiptTrigger({ receiptKey, fallback = null, openOnHash, children }: { receiptKey: string | null; fallback?: ReactNode; openOnHash?: string; children: ReactElement }) {
   const receipts = useContext(Receipts);
   const receipt = receiptKey ? receipts[receiptKey] : undefined;
   const desktop = useMediaQuery("(min-width: 640px)", true);
   const mounted = useSyncExternalStore(noSubscription, () => true, () => false);
   const [open, setOpen] = useState(false);
+  // A link to "#<openOnHash>" (the judges' guide) opens this receipt on arrival.
+  useEffect(() => {
+    if (!openOnHash) return;
+    const check = () => window.location.hash === `#${openOnHash}` && setOpen(true);
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, [openOnHash]);
   if (!receipt) return <>{fallback}</>;
   const title = `Receipt: ${receipt.cue}`;
   return (
@@ -85,7 +93,7 @@ const WORDS: Record<CueOrigin, string> = { qloo: "Qloo", interpreted: "Qloo", yo
  * Creative suggestion (a dashed ring). A Qloo line with a receipt reads "Why Qloo picked this" and
  * opens it. `extra` follows the words ("· 440 m").
  */
-export function OriginTag({ origin, receiptKey = null, extra, context }: { origin: CueOrigin; receiptKey?: string | null; extra?: string; context?: string }) {
+export function OriginTag({ origin, receiptKey = null, extra, context, openOnHash }: { origin: CueOrigin; receiptKey?: string | null; extra?: string; context?: string; openOnHash?: string }) {
   const qloo = origin === "qloo" || origin === "interpreted";
   const body = (why: boolean) => (
     <>
@@ -100,7 +108,7 @@ export function OriginTag({ origin, receiptKey = null, extra, context }: { origi
   const plain = <span className="inline-flex items-center gap-1.5 text-xs leading-4 font-medium whitespace-nowrap text-fl-muted">{body(false)}</span>;
   if (!qloo || !receiptKey) return plain;
   return (
-    <ReceiptTrigger receiptKey={receiptKey} fallback={plain}>
+    <ReceiptTrigger receiptKey={receiptKey} fallback={plain} openOnHash={openOnHash}>
       <button
         type="button"
         className="relative inline-flex items-center gap-1.5 rounded-[6px] text-xs leading-4 font-medium whitespace-nowrap text-fl-ink underline decoration-fl-line underline-offset-[3px] after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:decoration-fl-ink"
@@ -115,4 +123,22 @@ export function OriginTag({ origin, receiptKey = null, extra, context }: { origi
 /** A section's "Qloo" tag that opens the section's receipt ("Why Qloo picked this"). */
 export function QlooTag({ receiptKey, context }: { receiptKey: string | null; context?: string }) {
   return <OriginTag origin="qloo" receiptKey={receiptKey} context={context} />;
+}
+
+/** Opens the <details> a link points at ("#compare"), on arrival and when the hash changes. */
+export function OpenOnHash() {
+  useEffect(() => {
+    const open = () => {
+      const id = window.location.hash.slice(1);
+      const el = id ? document.getElementById(id) : null;
+      if (el instanceof HTMLDetailsElement) {
+        el.open = true;
+        el.scrollIntoView({ block: "start" });
+      }
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, []);
+  return null;
 }

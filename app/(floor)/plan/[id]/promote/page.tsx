@@ -21,7 +21,7 @@ async function Step({ params }: { params: PageProps<"/plan/[id]/promote">["param
   if (slug && isRecordedPlanSlug(slug)) {
     const h = exampleHrefs(slug);
     const { inputs } = loadPlanExampleReport(slug);
-    return <PromoteScreen view={loadPlanExampleView(slug)} inputs={{ date: inputs.date, startTime: inputs.startTime }} hrefs={{ back: h.poster, steps: h.steps }} />;
+    return <PromoteScreen view={loadPlanExampleView(slug)} inputs={inputs} hrefs={{ back: h.poster, steps: h.steps }} />;
   }
   if (!/^plan_[0-9a-f]{24}$/.test(id)) notFound();
   return <LiveStep planId={id} step="promote" />;

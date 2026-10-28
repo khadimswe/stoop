@@ -1,8 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { examplePlanId, examplePlanPath, LEAD_PLAN_EXAMPLE } from "@/lib/plan/example-list";
+import { PRIMARY } from "@/components/stoop/floor/kit";
+import { HomeNav } from "@/components/stoop/home/home-nav";
+import { examplePlanId, LEAD_PLAN_EXAMPLE } from "@/lib/plan/example-list";
+import { exampleHrefs } from "@/lib/plan/view/hrefs";
 import { codeUrl } from "@/lib/marketing/site";
 
 export const metadata: Metadata = {
@@ -13,12 +15,12 @@ export const metadata: Metadata = {
 // Static: recorded example stores only.
 export const ensureStatic = "navigation";
 
-const LEAD = examplePlanPath(LEAD_PLAN_EXAMPLE.slug);
+const LEAD = exampleHrefs(LEAD_PLAN_EXAMPLE.slug).event;
 
 const PATH = [
-  { title: "Open a store", line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}: the event at a glance.`, href: LEAD, cta: "Open the plan" },
-  { title: "Tap a receipt", line: "Why Qloo picked this: the exact query, never the key.", href: `${LEAD}#event`, cta: "See the plan lines" },
-  { title: "Compare", line: "Open Compare with a generic AI plan. Clichés struck through.", href: `${LEAD}#event`, cta: "Go to the plan" },
+  { title: "Open a store", line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}: the block, then the event.`, href: exampleHrefs(LEAD_PLAN_EXAMPLE.slug).block, cta: "Open the block" },
+  { title: "Tap a receipt", line: "Why Qloo picked this: the exact query, never the key.", href: `${LEAD}#receipt-play`, cta: "Open a receipt" },
+  { title: "Compare", line: "The generic AI plan beside this one, clichés named.", href: `${LEAD}#compare`, cta: "Open the comparison" },
   { title: "Plan your own", line: "Your store, the day, your promos.", href: "/start", cta: "Plan an event" },
 ] as const;
 
@@ -39,23 +41,25 @@ const RULES = [
 
 export default function JudgesPage() {
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-14 px-5 pt-10 pb-20 sm:pt-14">
+    <>
+    <HomeNav />
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-14 px-4 pt-10 pb-20 sm:px-8 sm:pt-14">
       <div className="flex flex-col gap-3">
-        <h1 className="type-h2">For judges</h1>
-        <p className="type-lead max-w-[36em] text-pretty text-ink-soft">Every store runs the same table outside. Stoop plans the one its block wants, with Qloo deciding the music and the spots.</p>
+        <h1 className="font-serif text-[2.125rem] leading-[1.06] font-normal lg:text-[3.375rem]">For judges</h1>
+        <p className="max-w-[36em] text-lg leading-[1.5] text-pretty text-fl-muted">Every store runs the same table outside. Stoop plans the one its block wants, with Qloo deciding the music and the spots.</p>
       </div>
 
       <section aria-labelledby="path-title" className="flex flex-col gap-5">
-        <h2 id="path-title" className="font-display text-2xl font-extrabold [font-stretch:85%]">
+        <h2 id="path-title" className="font-serif text-[1.75rem] leading-tight font-normal">
           The one-minute path
         </h2>
-        <ol className="grid gap-x-8 gap-y-6 border-t-2 border-ink pt-6 sm:grid-cols-2">
+        <ol className="grid gap-x-8 gap-y-6 border-t border-fl-ink pt-6 sm:grid-cols-2">
           {PATH.map((step, i) => (
             <li key={step.title} className="flex flex-col items-start gap-1.5">
-              <span className="font-mono text-sm text-ink-soft">{i + 1}</span>
-              <h3 className="font-display text-xl leading-tight font-extrabold [font-stretch:85%]">{step.title}</h3>
-              <p className="text-base text-pretty text-ink-soft">{step.line}</p>
-              <Link href={step.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold underline decoration-2 underline-offset-4 hover:decoration-brick">
+              <span className="text-sm font-semibold text-fl-dim tabular-nums">{i + 1}</span>
+              <h3 className="text-lg leading-tight font-semibold">{step.title}</h3>
+              <p className="text-base text-pretty text-fl-muted">{step.line}</p>
+              <Link href={step.href} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
                 {step.cta}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
@@ -63,21 +67,21 @@ export default function JudgesPage() {
           ))}
         </ol>
         <div>
-          <Button asChild size="lg">
-            <Link href={LEAD}>Open the example store</Link>
-          </Button>
+          <Link href={LEAD} className={PRIMARY + " w-auto px-6"}>
+            Open the example event
+          </Link>
         </div>
       </section>
 
       <section aria-labelledby="decides-title" className="flex flex-col gap-4">
-        <h2 id="decides-title" className="font-display text-2xl font-extrabold [font-stretch:85%]">
+        <h2 id="decides-title" className="font-serif text-[1.75rem] leading-tight font-normal">
           What Qloo decides
         </h2>
-        <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
+        <div className="overflow-hidden rounded-[20px] border border-fl-rule bg-white">
           <table className="w-full text-sm">
             <caption className="sr-only">Each Qloo call and what it decides</caption>
             <thead className="max-md:sr-only">
-              <tr className="border-b border-hairline text-left font-mono text-[0.6875rem] tracking-wide text-ink-soft uppercase">
+              <tr className="border-b border-fl-rule text-left font-mono text-[0.6875rem] tracking-wide text-fl-muted uppercase">
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Call
                 </th>
@@ -91,10 +95,10 @@ export default function JudgesPage() {
             </thead>
             <tbody>
               {DECIDES.map((d) => (
-                <tr key={d.call} className="border-b border-hairline last:border-b-0 max-md:grid max-md:gap-1 max-md:px-4 max-md:py-3">
+                <tr key={d.call} className="border-b border-fl-rule last:border-b-0 max-md:grid max-md:gap-1 max-md:px-4 max-md:py-3">
                   <th scope="row" className="text-left align-top font-normal md:px-4 md:py-3">
                     <span className="block font-mono">{d.call}</span>
-                    <span className="block font-mono text-xs text-ink-soft">{d.how}</span>
+                    <span className="block font-mono text-xs text-fl-muted">{d.how}</span>
                   </th>
                   <td className="align-top md:px-4 md:py-3">{d.decides}</td>
                   <td className="align-top md:px-4 md:py-3">
@@ -107,16 +111,16 @@ export default function JudgesPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-ink-soft">The city sets the music; the block sets the food and partners. Qloo has no reliable read on one neighborhood, so Stoop doesn&apos;t claim one.</p>
+        <p className="text-sm text-fl-muted">The city sets the music; the block sets the food and partners. Qloo has no reliable read on one neighborhood, so Stoop doesn&apos;t claim one.</p>
       </section>
 
       <section aria-labelledby="rules-title" className="flex flex-col gap-4">
-        <h2 id="rules-title" className="font-display text-2xl font-extrabold [font-stretch:85%]">
+        <h2 id="rules-title" className="font-serif text-[1.75rem] leading-tight font-normal">
           Honest by design
         </h2>
         <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
           {RULES.map((r) => (
-            <li key={r} className="border-b border-hairline py-2 text-base text-pretty">
+            <li key={r} className="border-b border-fl-rule py-2 text-base text-pretty">
               {r}
             </li>
           ))}
@@ -124,7 +128,7 @@ export default function JudgesPage() {
       </section>
 
       <section aria-labelledby="more-title" className="flex flex-col gap-3">
-        <h2 id="more-title" className="font-display text-2xl font-extrabold [font-stretch:85%]">
+        <h2 id="more-title" className="font-serif text-[1.75rem] leading-tight font-normal">
           Also look at
         </h2>
         <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold">
@@ -146,5 +150,6 @@ export default function JudgesPage() {
         </ul>
       </section>
     </main>
+    </>
   );
 }
