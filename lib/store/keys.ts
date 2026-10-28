@@ -31,7 +31,7 @@ export const TTL = {
 export const dayOf = (now: number = Date.now()) => new Date(now).toISOString().slice(0, 10);
 
 /** Names of the global daily caps (live runs, frames, fresh Qloo calls, renders and MCP), plus per-visitor limits. */
-export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes" | "mcp-calls" | "mcp-tokens";
+export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes" | "mcp-calls" | "mcp-tokens" | "meta-posts";
 
 export const keys = {
   run: {
@@ -128,4 +128,15 @@ export const keys = {
   planClaim: (inputHash: string) => `plan:claim:${inputHash}`,
   /** Live plan admission leases. */
   planLeases: "leases:live-plans",
+  // Facebook and Instagram posting (lib/social). Tokens live only in metaSession, encrypted.
+  social: {
+    /** One browser's Meta connection: its user and Page tokens, AES-GCM encrypted, by the id in its signed cookie. */
+    metaSession: (sessionId: string) => `social:meta:session:${sessionId}`,
+    /** Channel posts one connection made on one day. */
+    metaSessionPosts: (sessionId: string, day: string = dayOf()) => `social:meta:session:${sessionId}:posts:${day}`,
+    /** Channel posts to one Page on one day, across every connection to it. */
+    metaPagePosts: (pageId: string, day: string = dayOf()) => `social:meta:page:${pageId}:posts:${day}`,
+    /** Held once a plan's poster went to one Page channel at one time, so a double tap never posts twice. */
+    metaPosted: (planId: string, pageId: string, channel: string, when: string) => `social:meta:posted:${planId}:${pageId}:${channel}:${when}`,
+  },
 } as const;
