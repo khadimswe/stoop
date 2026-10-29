@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { LiveStep } from "@/components/stoop/floor/live-plan";
 import { PlanLoading } from "@/components/stoop/floor/plan-loading";
 import { PromoteScreen } from "@/components/stoop/floor/promote-screen";
+import { promoteScreenView } from "@/lib/plan/view/promote";
 import { examplePlanId, planExampleSlug } from "@/lib/plan/example-list";
 import { exampleHrefs } from "@/lib/plan/view/hrefs";
 import { isRecordedPlanSlug, loadPlanExampleReport, loadPlanExampleView, recordedPlanSlugs } from "@/lib/plan/view/load";
@@ -21,7 +22,7 @@ async function Step({ params }: { params: PageProps<"/plan/[id]/promote">["param
   if (slug && isRecordedPlanSlug(slug)) {
     const h = exampleHrefs(slug);
     const { inputs } = loadPlanExampleReport(slug);
-    return <PromoteScreen view={loadPlanExampleView(slug)} inputs={inputs} hrefs={{ back: h.poster, steps: h.steps }} />;
+    return <PromoteScreen view={promoteScreenView(loadPlanExampleView(slug))} inputs={inputs} hrefs={{ back: h.poster, steps: h.steps }} />;
   }
   if (!/^plan_[0-9a-f]{24}$/.test(id)) notFound();
   return <LiveStep planId={id} step="promote" />;

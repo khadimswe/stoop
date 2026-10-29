@@ -38,9 +38,9 @@ describe("wall-clock times", () => {
 describe("suggestPostTimes", () => {
   it("offers the evening before, the morning of and an hour before, in the store's time", () => {
     expect(suggestPostTimes(report, NOW)).toEqual([
-      { id: "evening_before", at: "2026-11-07T01:00:00.000Z", name: "Evening before", label: "Fri, Nov 6, 7:00 pm", day: "Fri, Nov 6", clock: "7:00 pm" },
-      { id: "morning_of", at: "2026-11-07T15:00:00.000Z", name: "Morning of", label: "Sat, Nov 7, 9:00 am", day: "Sat, Nov 7", clock: "9:00 am" },
-      { id: "hour_before", at: "2026-11-07T17:00:00.000Z", name: "An hour before", label: "Sat, Nov 7, 11:00 am", day: "Sat, Nov 7", clock: "11:00 am" },
+      { id: "evening_before", at: "2026-11-07T01:00:00.000Z", name: "Evening before", label: "Fri, Nov 6, 7 pm", day: "Fri, Nov 6", clock: "7 pm" },
+      { id: "morning_of", at: "2026-11-07T15:00:00.000Z", name: "Morning of", label: "Sat, Nov 7, 9 am", day: "Sat, Nov 7", clock: "9 am" },
+      { id: "hour_before", at: "2026-11-07T17:00:00.000Z", name: "An hour before", label: "Sat, Nov 7, 11 am", day: "Sat, Nov 7", clock: "11 am" },
     ]);
   });
 

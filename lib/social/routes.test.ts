@@ -210,13 +210,13 @@ describe("posting a plan", () => {
     const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: "now" }, cookie), RUN, deps());
     expect(response.status).toBe(200);
     const body = JSON.parse(await noTokens(response));
-    expect(body.results).toEqual([{ channel: "facebook", status: "posted", message: "Posted to Facebook at 10:00 am on Wed, Oct 28", link: "https://www.facebook.com/111_900", error: null }]);
+    expect(body.results).toEqual([{ channel: "facebook", status: "posted", message: "Posted to Facebook at 10 am on Wed, Oct 28", link: "https://www.facebook.com/111_900", error: null }]);
     const call = meta.calls.find((c) => c.path === "111/photos")!;
     expect(call.body.caption).toBe(posts.facebook.text);
     expect(call.body.published).toBe("true");
     expect(call.file).toMatchObject({ type: "image/png", size: PNG.length });
     const trail = readSocialTrail(reducePlan(await loadPlanEvents(store, RUN)).report.trace);
-    expect(trail).toEqual([{ channel: "facebook", status: "posted", label: "Posted to Facebook at 10:00 am on Wed, Oct 28" }]);
+    expect(trail).toEqual([{ channel: "facebook", status: "posted", label: "Posted to Facebook at 10 am on Wed, Oct 28" }]);
   });
 
   it("never posts twice on a double tap", async () => {
@@ -235,7 +235,7 @@ describe("posting a plan", () => {
     const when = "2026-11-07T01:00:00.000Z";
     const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook", "instagram"], when }, cookie), RUN, deps());
     const body = await response.json();
-    expect(body.results[0]).toMatchObject({ channel: "facebook", status: "scheduled", message: "Scheduled on Facebook for 7:00 pm on Fri, Nov 6", link: null });
+    expect(body.results[0]).toMatchObject({ channel: "facebook", status: "scheduled", message: "Scheduled on Facebook for 7 pm on Fri, Nov 6", link: null });
     expect(body.results[1]).toMatchObject({ channel: "instagram", status: "skipped", error: "schedule" });
     const call = meta.calls.find((c) => c.path === "111/photos")!;
     expect(call.body).toMatchObject({ published: "false", scheduled_publish_time: String(Date.parse(when) / 1000) });

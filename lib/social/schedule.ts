@@ -89,9 +89,9 @@ export function zonedInstant(date: string, minutes: number, timeZone: string): D
 
 const tidy = (text: string) => text.replace(/[  ]/g, " ").replace(/\bAM\b/g, "am").replace(/\bPM\b/g, "pm");
 
-/** "7:02 pm" in the store's time zone. */
+/** "7 pm" or "7:02 pm" in the store's time zone: one format wherever a post time shows. */
 export function localClock(at: Date, timeZone: string): string {
-  return tidy(at.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit" }));
+  return tidy(at.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit" })).replace(/:00(?= [ap]m$)/, "");
 }
 
 /** "Thu, Oct 29" in the store's time zone. */
