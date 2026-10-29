@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { inputsSchema } from "../schema";
 import { ageBandsText, distanceText, eventDate, fictionalNotice, timeOfDay, timeRange, usd } from "./format";
 import { parseResults } from "./results-form";
-import { emptyStoreForm, firstError, nextSaturday, parseStoreForm, storeSlug, type StoreFormValues } from "./start-form";
+import { emptyStoreForm, firstError, nextSaturday, parseStoreForm, phoneProblem, storeSlug, type StoreFormValues } from "./start-form";
 
 function filled(overrides: Partial<StoreFormValues> = {}): StoreFormValues {
   return {
@@ -46,6 +46,21 @@ describe("the store form", () => {
     expect(result.errors.point).toMatch(/Use my location/);
     expect(result.errors.date).toBe("Pick the event day.");
     expect(firstError(result.errors)).toBe("storeName");
+  });
+
+  it("says what is wrong with a phone number, and accepts the usual ways to write one", () => {
+    expect(phoneProblem("call me maybe")).toMatch(/digits only/);
+    expect(phoneProblem("312-555-0142 ext 4")).toMatch(/digits only/);
+    expect(phoneProblem("12")).toMatch(/Use digits/);
+    expect(phoneProblem("(312) 555-0142")).toBeNull();
+    expect(phoneProblem("+1 312.555.0142")).toBeNull();
+    expect(phoneProblem("")).toBeNull();
+  });
+
+  it("rejects a budget under the floor", () => {
+    const result = parseStoreForm(filled({ budgetUsd: "0" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.budgetUsd).toMatch(/at least \$10/);
   });
 
   it("rejects bad coordinates, past dates, budgets over the cap and too many age bands", () => {

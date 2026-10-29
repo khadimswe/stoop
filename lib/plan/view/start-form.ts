@@ -72,6 +72,21 @@ export const PLAN_NOTICE_KEY = "stoop:plan-notice";
 
 export const LIMITS = { storeName: 80, venueName: 120, address: 200, city: 80, region: 40, offer: 140, notes: 280, budget: 5000, maxBands: 3 } as const;
 
+/** The least a plan can work with, in dollars. */
+export const BUDGET_MIN = 10;
+
+/**
+ * Why a phone number can't go on the poster, or null when it can (or is left empty): digits and the
+ * usual separators only, the same rule the plan's inputs use.
+ */
+export function phoneProblem(phone: string): string | null {
+  const p = phone.trim();
+  if (!p) return null;
+  if (/[a-z]/i.test(p)) return "Use digits only, like (312) 555-0142. Leave out words and extensions.";
+  if (!/^[0-9()+.\-\s]{7,24}$/.test(p)) return "Use digits, like (312) 555-0142.";
+  return null;
+}
+
 /** Event lengths the form offers, in minutes. */
 export const DURATIONS = [60, 90, 120, 180, 240, 300, 360, 480] as const;
 
@@ -152,7 +167,8 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   const region = required("region", values.region, "state", LIMITS.region);
   if (!(CARRIERS as readonly string[]).includes(values.carrier)) errors.carrier = "Pick the store's carrier.";
   const phone = values.phone.trim();
-  if (phone && !/^[0-9()+.\-\s]{7,24}$/.test(phone)) errors.phone = "Use digits, like (312) 555-0142.";
+  const badPhone = phoneProblem(phone);
+  if (badPhone) errors.phone = badPhone;
   const storeNumber = values.storeNumber.trim();
   if (storeNumber.length > 24) errors.storeNumber = "Keep it to 24 characters.";
 
@@ -190,6 +206,7 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   const budget = Number(budgetText);
   if (!/^\d+$/.test(budgetText)) errors.budgetUsd = "Enter the budget in whole dollars, like 150.";
   else if (budget > LIMITS.budget) errors.budgetUsd = `Stoop plans events up to $${LIMITS.budget.toLocaleString("en-US")}.`;
+  else if (budget < BUDGET_MIN) errors.budgetUsd = `Plan with at least $${BUDGET_MIN}.`;
 
   const offers = values.offers.map((o) => o.trim());
   offers.forEach((o, i) => {
