@@ -54,7 +54,7 @@ export function POST(request: Request) {
       ageBands,
     };
     const example = (message: string): Response => json({ mode: "example", slug: exampleFor(inputs), message } satisfies BlockAnswer);
-    if (!isLive()) return example("Live maps are off right now. Here's an example block to look around.");
+    if (!isLive()) return example("Live maps are off right now. Here's an example community to look around.");
 
     const { store } = admitted;
     const cacheKey = `plan:block:${hashOf({ city: shop.city, region: shop.region, lat: shop.point.lat.toFixed(4), lon: shop.point.lon.toFixed(4), ageBands })}`;
@@ -64,7 +64,7 @@ export function POST(request: Request) {
     const daily = keys.daily("qloo");
     if ((await store.incr(daily, { by: BLOCK_CALLS, ttlSeconds: 36 * 60 * 60 })) > dailyCaps().qloo) {
       await store.incr(daily, { by: -BLOCK_CALLS }).catch(() => undefined);
-      return example("Stoop has used today's Qloo calls. Here's an example block; your own works tomorrow.");
+      return example("Stoop has used today's Qloo calls. Here's an example community; your own works tomorrow.");
     }
 
     const events: PlanEvent[] = [];

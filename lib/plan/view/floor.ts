@@ -31,7 +31,7 @@ export function placeMeta(p: Pick<PlaceView, "kindLabel" | "distanceText" | "dis
 export function eventStats(view: PlanView): { value: string; label: string }[] {
   const spent = view.shopping.reduce((sum, s) => sum + (s.usd ?? 0), 0);
   const budget = view.header.budgetText.replace(" budget", "");
-  const stats = [{ value: usd(spent), label: `of ${budget}` }, { value: String(view.partnerIds.length), label: view.partnerIds.length === 1 ? "spot on the block" : "spots on the block" }];
+  const stats = [{ value: usd(spent), label: `of ${budget}` }, { value: String(view.partnerIds.length), label: view.partnerIds.length === 1 ? "spot in the community" : "spots in the community" }];
   if (view.wheel) stats.push({ value: "Free", label: "to spin" });
   else stats.push({ value: String(view.runOfShow.length), label: "timeline steps" });
   return stats;
@@ -83,7 +83,7 @@ export interface JudgeView {
 }
 
 const PAIR_CUES: { cliche: RegExp; line: RegExp }[] = [
-  { cliche: /place|block/i, line: /^Buys from|places? on this block/i },
+  { cliche: /place|community/i, line: /^Buys from|places? in this community/i },
   { cliche: /music|playlist/i, line: /playlist|artists/i },
   { cliche: /snack|food|drink/i, line: /snack|food|buys/i },
 ];
@@ -178,7 +178,7 @@ export function landingCompare(view: PlanView): { row: string; generic: string; 
       stoop: snack?.from ? `${snack.item.split(",")[0]} from ${snack.from.name}${snack.from.distanceText ? `, ${snack.from.distanceText} from the door` : ""}` : "Nothing on this line",
     },
     { row: "Prizes", generic: firstSentence(genericOf("giveaway")), stoop: cards.length ? `Gift cards to ${[...new Set(cards)].join(" and ")}` : "The store's own promos" },
-    { row: "Places", generic: cliche(/place|block/i) ? "None on this block" : "Names no place nearby", stoop: places ? `${places} within ${view.local.block?.radiusText ?? "1.5 km"}, from Qloo` : "No Qloo places" },
+    { row: "Places", generic: cliche(/place|community/i) ? "None in this community" : "Names no place nearby", stoop: places ? `${places} within ${view.local.block?.radiusText ?? "1.5 km"}, from Qloo` : "No Qloo places" },
   ];
   return rows.filter((r) => r.stoop !== "Nothing on this line");
 }

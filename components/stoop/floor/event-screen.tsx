@@ -71,7 +71,7 @@ export function EventScreen({
     <FloorReceipts receipts={view.receipts}>
       <AppBar
         left={
-          <IconSlot href={hrefs.back} label="Back to the block">
+          <IconSlot href={hrefs.back} label="Back to your community">
             <ChevronLeft aria-hidden="true" />
           </IconSlot>
         }

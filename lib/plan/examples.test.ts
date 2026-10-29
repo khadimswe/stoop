@@ -142,5 +142,7 @@ describeRecorded.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example", (slug)
     expect(replayed.plan).toEqual(report.plan);
     expect(replayed.baseline).toEqual(report.baseline);
     expect(replayed.comparison).toEqual(report.comparison);
+    // The trace's words too (its timings differ), so a wording change reaches the stored examples.
+    expect(replayed.trace.map((t) => [t.stage, t.label, t.reason])).toEqual(report.trace.map((t) => [t.stage, t.label, t.reason]));
   });
 });

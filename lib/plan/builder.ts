@@ -192,7 +192,7 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     if (!item || item.length > 120) problems.push("item must be 1 to 120 characters.");
     const fromKey = s.from?.trim().toLowerCase() || null;
     const from = fromKey ? aliases.ids.get(fromKey) : undefined;
-    if (fromKey && (!from || !aliases.places.has(from))) problems.push(`from "${s.from}" is not a block place key.`);
+    if (fromKey && (!from || !aliases.places.has(from))) problems.push(`from "${s.from}" is not a community place key.`);
     const odd = from ? aliases.places.get(from) : undefined;
     if (odd && outOfScope(odd, inputs.date)) problems.push(`from "${s.from}": ${outOfScope(odd, inputs.date)}; buy elsewhere.`);
     if (!Number.isFinite(s.estUsd) || s.estUsd < 0) problems.push("estUsd must be 0 or more.");
@@ -256,7 +256,7 @@ export function prizePurchases(kept: Concept, plan: Pick<Plan, "runOfShow" | "sh
   for (const step of plan.runOfShow) note(step.step, refsIn(step.step));
   const bought = new Set(plan.shopping.filter((s) => s.from && GIFT.test(s.item) && !/\bwheel\b/i.test(s.item)).map((s) => s.from as string));
   return [...amounts].filter(([id]) => !bought.has(id)).map(([id, amount]) => ({
-    item: `Gift card for the free drawing (${aliases.names.get(id) ?? "a block place"})`.slice(0, 120),
+    item: `Gift card for the free drawing (${aliases.names.get(id) ?? "a community place"})`.slice(0, 120),
     qty: `1 at $${amount} each`,
     estUsd: amount,
     from: id,
@@ -341,6 +341,6 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
     if (fitted) built = { ...fitted.plan, checklist: built.checklist };
   }
   const partners = built.shopping.filter((s) => s.from).length;
-  planDecide(env, "plan", `Planned the day: ${built.runOfShow.length} steps, ${built.shopping.length} things to buy`, `About $${built.estimatedCostUsd} of the $${inputs.budgetUsd} budget${partners ? `, ${partners} bought from block partners` : ""}.`);
+  planDecide(env, "plan", `Planned the day: ${built.runOfShow.length} steps, ${built.shopping.length} things to buy`, `About $${built.estimatedCostUsd} of the $${inputs.budgetUsd} budget${partners ? `, ${partners} bought from community partners` : ""}.`);
   return { conceptId: kept.id, concepts, ...built };
 }

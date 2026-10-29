@@ -56,14 +56,14 @@ export function baselineInstructions(): string {
  * cliches: both plans may use them, and the difference Stoop shows is local grounding.
  */
 export const CLICHES: readonly { pattern: RegExp; text: string; why: string }[] = [
-  { pattern: /\bballoons?\b/i, text: "Balloons", why: "Every store's table has balloons; they say nothing about this block." },
+  { pattern: /\bballoons?\b/i, text: "Balloons", why: "Every store's table has balloons; they say nothing about this community." },
   { pattern: /\bDJs?\b/i, text: "A DJ", why: "A hired DJ spends the budget on a set that could play anywhere." },
   { pattern: /\b(top[- ]40|top hits|popular (music|songs|hits)|chart(-topping)? hits|today's hits|upbeat (music|playlist|tunes|songs)|crowd[- ]pleas\w*)\b/i, text: "A playlist of popular hits", why: "Popular hits are the same in every city; nothing ties them to what this city plays." },
-  { pattern: /\bpizzas?\b/i, text: "Pizza", why: "The default snack, not food from this block." },
+  { pattern: /\bpizzas?\b/i, text: "Pizza", why: "The default snack, not food from this community." },
   { pattern: /\b(grand opening|customer appreciation)\b/i, text: "A stock event name", why: "\"Customer appreciation\" is what every store calls it." },
   { pattern: /\b(inflatable|tube man|air dancer|wacky waving)\b/i, text: "An inflatable tube man", why: "Every phone store's sidewalk has one." },
-  { pattern: /\b(chips|cookies|candy|bottled water|soda)\b/i, text: "Generic store-bought snacks", why: "Snacks any table sets out, with nothing from this block's favorite spots." },
-  { pattern: /\bphoto (booth|backdrop|op)\b|\bselfie (station|wall)\b/i, text: "A photo backdrop", why: "A generic prop with no tie to this block." },
+  { pattern: /\b(chips|cookies|candy|bottled water|soda)\b/i, text: "Generic store-bought snacks", why: "Snacks any table sets out, with nothing from the spots near the store." },
+  { pattern: /\bphoto (booth|backdrop|op)\b|\bselfie (station|wall)\b/i, text: "A photo backdrop", why: "A generic prop with no tie to this community." },
   { pattern: /\b(swag|branded (merch|giveaways?)|tote bags?|keychains?|pens)\b/i, text: "Branded swag", why: "Giveaways people leave behind; nothing local about them." },
 ];
 
@@ -217,9 +217,9 @@ export function genericCliches(items: readonly Pick<PlanItem, "kind" | "text">[]
   const out: Baseline["cliches"] = [];
   const text = items.map((i) => i.text.toLowerCase()).join("\n");
   if (!(named && named.onBlock > 0) && !blockNames.some((name) => name.trim().length > 2 && text.includes(name.trim().toLowerCase()))) {
-    out.push({ text: "No place on this block", why: "It names no food spot, venue or park Qloo found near the store, so any store in any city could run it." });
+    out.push({ text: "No place in this community", why: "It names no food spot, venue or park Qloo found near the store, so any store in any city could run it." });
   }
-  if (named && named.named > 0 && named.chains === named.named) out.push({ text: "Chains instead of the block", why: "Every place it names is a chain, the same at any store." });
+  if (named && named.named > 0 && named.chains === named.named) out.push({ text: "Chains instead of community spots", why: "Every place it names is a chain, the same at any store." });
   if (items.some((i) => i.kind === "music")) {
     if (!check || check.checkable === 0) out.push({ text: "Music with no local signal", why: `None of its artists could be checked against what Qloo measured for ${city}.` });
     else if (check.belowMedian * 2 >= check.checkable) out.push({ text: "Music with no local signal", why: `Qloo put ${check.belowMedian} of its ${check.checkable} checkable artists below the median of its own picks for ${city}.` });
@@ -247,7 +247,7 @@ export function qlooDecided(kept: Concept | null, plan: Pick<Plan, "shopping" | 
   if (music.length) {
     decided.push("the playlist");
     without.add("no local music");
-    if (music.some((i) => i.refs.some((r) => blockArtists.has(r)))) decided.push("the block's music option");
+    if (music.some((i) => i.refs.some((r) => blockArtists.has(r)))) decided.push("the music the nearby places point to");
   }
   const giftPlaces = new Set([
     ...(plan?.wheel?.slices ?? []).filter((s) => s.kind === "gift_card").flatMap((s) => s.refs),
@@ -261,7 +261,7 @@ export function qlooDecided(kept: Concept | null, plan: Pick<Plan, "shopping" | 
   const pointers = backed(["venue"]).flatMap((i) => i.refs).map((r) => places.get(r)).filter((p) => !!p);
   if (pointers.some((p) => p?.kind === "venue")) decided.push("the nearby venue");
   if (pointers.some((p) => p?.kind === "park")) decided.push("the park");
-  if (giftPlaces.size || snackPlaces.size || pointers.length || backed(["partner"]).length) without.add("no block spots");
+  if (giftPlaces.size || snackPlaces.size || pointers.length || backed(["partner"]).length) without.add("no community spots");
   if (backed(["theme"]).length) {
     decided.push("the theme");
     without.add("no local theme");
@@ -322,8 +322,8 @@ export function compare(input: CompareInput): Comparison {
     const nearest = distances.length ? `, ${used.length > 1 ? "the nearest " : ""}${meters(Math.min(...distances))} from ${where}` : "";
     const bought = new Set(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? []).size;
     const places = (n: number) => `${n} ${n === 1 ? "place" : "places"}`;
-    const head = bought === used.length ? `Buys from ${places(bought)} on this block${nearest}` : `Uses ${places(used.length)} on this block${nearest}${bought ? `, and buys from ${bought} of them` : ""}`;
-    lines.push(`${head}; the generic plan names no place on this block.`);
+    const head = bought === used.length ? `Buys from ${places(bought)} in this community${nearest}` : `Uses ${places(used.length)} in this community${nearest}${bought ? `, and buys from ${bought} of them` : ""}`;
+    lines.push(`${head}; the generic plan names no place in this community.`);
   }
   if (kept) lines.push(`${backed} of ${items.length} lines in the kept concept cite a Qloo receipt; the generic plan cites none.`);
   if (baseline) {
@@ -335,7 +335,7 @@ export function compare(input: CompareInput): Comparison {
     }
     const named = namedPlaces(input.baselinePlaces ?? [], block, input.knownChains);
     if (named.named === 0) lines.push("The generic plan names no place.");
-    else lines.push(`The generic plan names ${named.named} ${named.named === 1 ? "place" : "places"}: ${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}, and ${named.onBlock === 0 ? "none is" : `${named.onBlock} ${named.onBlock === 1 ? "is" : "are"}`} on Qloo's list for this block.`);
+    else lines.push(`The generic plan names ${named.named} ${named.named === 1 ? "place" : "places"}: ${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}, and ${named.onBlock === 0 ? "none is" : `${named.onBlock} ${named.onBlock === 1 ? "is" : "are"}`} on Qloo's list for this community.`);
     const n = baseline.cliches.length;
     if (n > 0) lines.push(`The generic plan leans on ${n} generic ${n === 1 ? "choice" : "choices"}: ${baseline.cliches.map((c) => c.text.toLowerCase()).join(", ")}.`);
   }

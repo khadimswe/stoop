@@ -87,7 +87,7 @@ export function StoresScreen({ stores, nextEvent, note, today }: { stores: reado
                         {s.when && <span className="text-[0.8125rem] text-fl-dim tabular-nums">{s.when}</span>}
                       </>
                     ) : (
-                      <span className="mt-1 text-[0.9375rem] text-fl-muted">No event yet. Plan one from the block.</span>
+                      <span className="mt-1 text-[0.9375rem] text-fl-muted">No event yet. Plan one from the Community step.</span>
                     )}
                     {(s.status || s.fact) && (
                       <span className="mt-1.5 flex flex-wrap items-center gap-2">

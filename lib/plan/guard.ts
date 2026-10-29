@@ -74,9 +74,9 @@ export function textIssues(text: string, ctx: GuardContext): string[] {
   const alcohol = text.match(ALCOHOL_TOBACCO);
   if (alcohol) issues.push(`"${alcohol[0]}": no alcohol or tobacco at a sidewalk table or in giveaways.`);
   const customers = text.match(YOUR_CUSTOMERS);
-  if (customers) issues.push(`"${customers[0]}": Stoop measures the city and the block, never a store's customers. Say "your city" or "your block".`);
+  if (customers) issues.push(`"${customers[0]}": Stoop measures the city and the places in a community, never a store's customers. Say "your city" or "your community".`);
   const identity = text.match(IDENTITY_THEME);
-  if (identity) issues.push(`"${identity[0]}": no theme built on who people are. Build it on the city's music and the block's places.`);
+  if (identity) issues.push(`"${identity[0]}": no theme built on who people are. Build it on the city's music and the community's places.`);
   const carrier = text.match(CARRIER_ENDORSEMENT);
   if (carrier) issues.push(`"${carrier[0]}": nothing may imply the carrier sponsors or endorses the event, and no logos: the store adds its official signage.`);
   const genre = genreOrSlang(text.replace(/\[\[[A-Za-z0-9-]+\]\]/g, " "));

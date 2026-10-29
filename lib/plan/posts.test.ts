@@ -60,6 +60,7 @@ describe("checkPostText", () => {
     expect(check("Rated 5 stars by the block.")).not.toEqual([]);
     expect(check("Big deals at the table.")).toContain("deals");
     expect(check("Everyone is coming.").length).toBeGreaterThan(0);
+    expect(check("The whole community will be there.")).toContain("The whole community will be there");
     expect(check("The biggest party on the block.")).toContain("biggest");
     expect(check("Visit https://example.com")).toContain("link");
   });

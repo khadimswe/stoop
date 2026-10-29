@@ -32,7 +32,7 @@ async function Create({ params }: { params: PageProps<"/s/[store]/new">["params"
         durationMinutes: String(inputs.durationMinutes),
       }}
       backHref={h.block}
-      steps={{ Block: h.block }}
+      steps={{ Community: h.block }}
     />
   );
 }

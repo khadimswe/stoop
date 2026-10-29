@@ -416,7 +416,7 @@ export function planView(source: PlanSource): PlanView {
     return key;
   };
   const artistReceipt = (a: ArtistRef) => receipt(`artist:${a.id}`, a.evidenceIds, "Playlist", a.name, artistRows(a));
-  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The block", p.name, placeRows(p));
+  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The community", p.name, placeRows(p));
 
   const nameOf = (refId: string): { name: string; receipt: string | null } | null => {
     const artist = artists.get(refId);
@@ -625,7 +625,7 @@ export function planView(source: PlanSource): PlanView {
       return { time: s.time, timeLabel: timeOfDay(s.time), clock, label, rest, parts: all };
     }),
     shopping,
-    costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought on the block where Qloo found a partner.` : null,
+    costLine: plan && plan.shopping.length > 0 ? `About ${usd(plan.estimatedCostUsd)} of a ${usd(inputs.budgetUsd)} budget, bought in the community where Qloo found a partner.` : null,
     shoppingTotal: plan && plan.shopping.length > 0 ? usd(plan.estimatedCostUsd) : null,
     checklist: (plan?.checklist ?? []).map(parts),
     wheel: plan?.wheel

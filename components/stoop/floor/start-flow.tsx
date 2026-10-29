@@ -28,7 +28,7 @@ type Phase = { kind: "store" } | { kind: "finding" } | { kind: "block"; view: Pl
 
 const FIELD = "h-11 w-full min-w-0 rounded-[12px] border border-fl-line bg-white px-3 text-base text-fl-ink placeholder:text-fl-dim";
 
-/** A plan view of just a block (no plan yet), so the Block step shows it with its receipts. */
+/** A plan view of just a block (no plan yet), so the Community step shows it with its receipts. */
 function blockView(store: CreateStore, local: Local, ledger: Evidence[]): PlanView {
   return planView({
     id: "block",
@@ -129,7 +129,7 @@ export function StartFlow() {
       if (body?.mode === "live" && body.local) return setPhase({ kind: "block", view: blockView(store, body.local, body.ledger ?? []), example: null });
       if (body?.mode === "example" && body.slug) return setPhase({ kind: "block", view: null, example: { slug: body.slug, message: body.message ?? "Live maps are off right now." } });
       setPhase({ kind: "store" });
-      setProblem(apiMessageOf(body) ?? "Couldn't read the block right now. Try again in a minute.");
+      setProblem(apiMessageOf(body) ?? "Couldn't map your community right now. Try again in a minute.");
     } catch {
       setPhase({ kind: "store" });
       setProblem("No connection. Try again.");
@@ -157,16 +157,16 @@ export function StartFlow() {
     return (
       <>
         <AppBar left={<BackButton onClick={() => setPhase({ kind: "store" })} />} title={store.name} subtitle={`${store.city}, ${store.region}`} />
-        <Stepper current="Block" />
+        <Stepper current="Community" />
         <ScreenBody>
-          <ScreenTitle title="Your block" meta={store.address} />
+          <ScreenTitle title="Your community" meta={store.address} />
           <Notice title="Live maps are off right now">
             {phase.example?.message}{" "}
             <Link href={`/s/${phase.example?.slug}`} className={TEXT_LINK}>
-              See an example block
+              See an example community
             </Link>
           </Notice>
-          <p className="text-sm text-fl-muted">You can still plan your event. Stoop measures your block when live plans are on.</p>
+          <p className="text-sm text-fl-muted">You can still plan your event. Stoop maps the places in your community when live plans are on.</p>
         </ScreenBody>
         <ActionBar>
           <button type="button" onClick={() => setPhase({ kind: "create" })} className={PRIMARY}>
@@ -187,9 +187,9 @@ export function StartFlow() {
         }
         title="Your store"
       />
-      <Stepper current="Block" />
+      <Stepper current="Community" />
       <ScreenBody>
-        <ScreenTitle title="Your store" meta="Where the table goes. Stoop maps the block around it." />
+        <ScreenTitle title="Your store" meta="Where the table goes. Stoop maps the community around it." />
         <ul className="overflow-hidden rounded-[20px] bg-white [&>li+li]:border-t [&>li+li]:border-fl-rule">
           <li className="flex flex-col gap-1.5 px-4 py-3">
             <div className="flex min-h-11 items-center gap-3">
@@ -296,7 +296,7 @@ export function StartFlow() {
       <ActionBar>
         <button type="button" onClick={seeBlock} disabled={phase.kind === "finding"} className={PRIMARY}>
           {phase.kind === "finding" && <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />}
-          {phase.kind === "finding" ? "Finding your block..." : "See my block"}
+          {phase.kind === "finding" ? "Finding your community..." : "See my community"}
         </button>
       </ActionBar>
     </>

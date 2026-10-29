@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/s/[store]">): Pro
   const { store } = await params;
   if (!isRecordedPlanSlug(store)) return {};
   const view = loadPlanExampleView(store);
-  return { title: `${view.header.storeName}: your block · Stoop`, description: `The block around a fictional store in ${view.header.cityLine}, from Qloo.` };
+  return { title: `${view.header.storeName}: your community · Stoop`, description: `The community around a fictional store in ${view.header.cityLine}, from Qloo.` };
 }
 
 async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) {
@@ -39,7 +39,7 @@ async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) 
 
 export default function StorePage({ params }: PageProps<"/s/[store]">) {
   return (
-    <Suspense fallback={<PlanLoading step="Block" />}>
+    <Suspense fallback={<PlanLoading step="Community" />}>
       <Block params={params} />
     </Suspense>
   );

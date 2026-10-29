@@ -107,10 +107,10 @@ export function BlockScreen({
           </IconSlot>
         }
       />
-      <Stepper current="Block" />
+      <Stepper current="Community" />
       <ScreenBody>
         {notice}
-        <ScreenTitle title="Your block" meta={`${street} · within ${block?.radiusText ?? "1.5 km"}`} />
+        <ScreenTitle title="Your community" meta={`${street} · within ${block?.radiusText ?? "1.5 km"}`} />
         {block && places.length > 0 ? (
           <div className="flex flex-col gap-3.5">
             <div className="relative">
@@ -152,7 +152,7 @@ export function BlockScreen({
         {shown.length > 0 && (
           <Section
             id="on-the-block"
-            title="On the block"
+            title="In your community"
             aside={
               shown.length > FIRST && (
                 <button type="button" onClick={() => setAll((v) => !v)} className={cn(TEXT_LINK, "text-sm")} aria-expanded={all}>
@@ -161,7 +161,7 @@ export function BlockScreen({
               )
             }
           >
-            <RowGroup label="Places on the block">
+            <RowGroup label="Places in your community">
               {list.map((p) => (
                 <PlaceRow key={p.id} p={p} used={Boolean(uses[p.id])} picked={picked === p.id} onPick={pick} />
               ))}

@@ -11,9 +11,9 @@ export const PILOT_LINE = "";
 
 export const HERO = {
   eyebrow: "For prepaid wireless stores",
-  headline: "Give your block a reason to stop.",
-  sub: "Stoop plans the table outside your store from what your city plays and the spots on your block. Then it makes the poster and posts it, once you approve.",
-  note: "Built by a sales rep who works the floor at a prepaid wireless store, with Qloo's taste data for your city and your block.",
+  headline: "Give your community a reason to stop.",
+  sub: "Stoop plans the table outside your store from what your city plays and the spots in your community. Then it makes the poster and posts it, once you approve.",
+  note: "Built by a sales rep who works the floor at a prepaid wireless store, with Qloo's taste data for your city and the places in your community.",
 } as const;
 
 /**
@@ -29,7 +29,7 @@ export const PILOT_MEDIA:
 export const FOUNDER_STORY: { quote: string; line: string; credit: string } | null = {
   quote:
     "At my first Metro store, on Tara Boulevard, a table outside with music and snacks brought in big traffic. When I moved to Kennesaw and set up the same table, people walked right past it.",
-  line: "Same table, different block. Stoop plans for the block you're on.",
+  line: "Same table, different community. Stoop plans for the community you're in.",
   credit: "Khadim, sales floor, Metro by T-Mobile",
 };
 

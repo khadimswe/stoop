@@ -18,7 +18,7 @@ export const ensureStatic = "navigation";
 
 const WHO = [
   { title: "Store manager", line: "This Saturday's table, poster and posts." },
-  { title: "Multi-store manager", line: "One plan per store, each for its own block." },
+  { title: "Multi-store manager", line: "One plan per store, each for its own community." },
   { title: "District manager", line: "Every store's next event on one list." },
 ] as const;
 
@@ -78,13 +78,13 @@ export default function Home() {
             <div className="flex flex-col gap-3">
               <p className="text-sm font-medium text-fl-dark-dim">How it works</p>
               <h2 id="how-title" className="font-serif text-[2.125rem] leading-[1.06] font-normal text-balance lg:text-[3.375rem]">
-                Planned for the block you&apos;re on.
+                Planned for the community you&apos;re in.
               </h2>
             </div>
             <ol className="-mx-4 flex gap-6 overflow-x-auto px-4 pb-2 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
               <li className="flex shrink-0 flex-col gap-4">
                 <MiniScreen title={view.header.storeName}>
-                  <p className="font-serif text-xl">Your block</p>
+                  <p className="font-serif text-xl">Your community</p>
                   <ul className="overflow-hidden rounded-[14px] bg-white text-xs [&>li+li]:border-t [&>li+li]:border-fl-rule">
                     {(view.local.block?.places ?? []).slice(0, 4).map((p) => (
                       <li key={p.id} className="flex items-center gap-2 px-3 py-2">
@@ -98,8 +98,8 @@ export default function Home() {
                   </ul>
                 </MiniScreen>
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-fl-signal">1 · Your block</p>
-                  <h3 className="text-lg font-semibold">Qloo maps your block</h3>
+                  <p className="text-sm font-semibold text-fl-signal">1 · Your community</p>
+                  <h3 className="text-lg font-semibold">Qloo maps your community</h3>
                   <p className="max-w-xs text-sm text-fl-dark-dim">Spots within 1.5 km of the door, and what your city plays.</p>
                 </div>
               </li>
@@ -175,7 +175,7 @@ export default function Home() {
           <section aria-labelledby="generic-title" className="bg-fl-band">
             <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
               <div className="flex flex-col gap-3">
-                <p className="text-sm font-medium text-fl-dim">Same table, different block</p>
+                <p className="text-sm font-medium text-fl-dim">Same table, different community</p>
                 <h2 id="generic-title" className="font-serif text-[2.125rem] leading-[1.06] font-normal text-balance lg:text-[3.375rem]">
                   A generic AI plan could be for any store.
                 </h2>
@@ -228,7 +228,7 @@ export default function Home() {
             <div className="flex flex-col gap-3">
               <p className="text-sm font-medium text-fl-dim">Examples</p>
               <h2 id="examples-title" className="font-serif text-[2.125rem] leading-[1.06] font-normal lg:text-[3.375rem]">
-                Three stores, three blocks.
+                Three stores, three communities.
               </h2>
             </div>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3 lg:gap-x-8">

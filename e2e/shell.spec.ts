@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Every page renders exactly one header: the marketing pill or the app bar.
 const PAGES = [
-  { path: "/", h1: "Give your block a reason to stop." },
+  { path: "/", h1: "Give your community a reason to stop." },
   { path: "/judges", h1: "For judges" },
   { path: "/mcp", h1: "Use Stoop inside your Claude" },
   { path: "/ads", h1: "Stop making ads for nobody." },

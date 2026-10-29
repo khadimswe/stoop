@@ -15,7 +15,7 @@ const noSubscription = () => () => {};
 const FIELD = "w-full min-w-0 bg-transparent text-[0.9375rem] text-fl-ink outline-none placeholder:text-fl-dim";
 const START_TIMES = Array.from({ length: 27 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
 
-/** The store the event is for; fixed on this screen (it was set on the Block step). */
+/** The store the event is for; fixed on this screen (it was set on the Community step). */
 export interface CreateStore {
   name: string;
   address: string;
@@ -151,7 +151,7 @@ export function CreateScreen({
     <>
       <AppBar
         left={
-          <IconSlot href={backHref} label="Back to the block">
+          <IconSlot href={backHref} label="Back to your community">
             <ChevronLeft aria-hidden="true" />
           </IconSlot>
         }

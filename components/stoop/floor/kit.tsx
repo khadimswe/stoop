@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { cn } from "cn";
 
 /** The 5 steps of the flow, in order. */
-export const STEPS = ["Block", "Create", "Event", "Poster", "Promote"] as const;
+export const STEPS = ["Community", "Create", "Event", "Poster", "Promote"] as const;
 export type Step = (typeof STEPS)[number];
 
 export const PRIMARY =
@@ -57,14 +57,15 @@ export function IconSlot({ href, label, children }: { href: string; label: strin
 }
 
 /**
- * The stepper: Block, Create, Event, Poster, Promote. Done steps are links (ink bar), the current one
- * is bold with a thicker bar, later ones are dim. `hrefs` maps a done step to where it goes.
+ * The stepper: Community, Create, Event, Poster, Promote. Done steps are links (ink bar), the current one
+ * is bold with a thicker bar, later ones are dim. `hrefs` maps a done step to where it goes. The first
+ * column never shrinks below its label, so "Community" stays whole on a phone.
  */
 export function Stepper({ current, hrefs = {} }: { current: Step; hrefs?: Partial<Record<Step, string>> }) {
   const at = STEPS.indexOf(current);
   return (
     <nav aria-label="Steps" className="mx-auto max-w-xl px-4">
-      <ol className="grid grid-cols-5 gap-1">
+      <ol className="grid grid-cols-[minmax(max-content,1fr)_repeat(4,minmax(0,1fr))] gap-1">
         {STEPS.map((step, i) => {
           const state = i < at ? "done" : i === at ? "now" : "next";
           const label = (

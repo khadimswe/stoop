@@ -23,7 +23,7 @@ export function liveHrefs(id: string) {
     event: base,
     poster: `${base}/poster`,
     promote: `${base}/promote`,
-    steps: { Block: "/start", Create: "/start", Event: base, Poster: `${base}/poster` } as Partial<Record<Step, string>>,
+    steps: { Community: "/start", Create: "/start", Event: base, Poster: `${base}/poster` } as Partial<Record<Step, string>>,
   };
 }
 

@@ -5,7 +5,7 @@ import { StartFlow } from "@/components/stoop/floor/start-flow";
 // steps run in the browser against /api/geocode, /api/plan/block and /api/plan.
 export const metadata: Metadata = {
   title: "Plan an event · Stoop",
-  description: "Your store, its block and the day. Stoop plans an event your block wants.",
+  description: "Your store, its community and the day. Stoop plans an event for your community.",
 };
 
 export default function StartPage() {

@@ -54,7 +54,7 @@ async function Stores() {
 
 export default function StoresPage() {
   return (
-    <Suspense fallback={<PlanLoading step="Block" />}>
+    <Suspense fallback={<PlanLoading step="Community" />}>
       <Stores />
     </Suspense>
   );

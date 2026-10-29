@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // The store-events floor against the recorded example stores (data/plans): the landing, the five
-// steps (Block, Create, Event, Poster, Promote), a receipt, the judges' fold, My stores, the public
+// steps (Community, Create, Event, Poster, Promote), a receipt, the judges' fold, My stores, the public
 // event page and the new-store form.
 
 const SLUG = "chicago-18th-street";
@@ -22,7 +22,7 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 test("landing to an example event to one receipt", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Give your block a reason to stop." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
   await expect(page.getByText("Khadim, sales floor, Metro by T-Mobile")).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await page.getByRole("link", { name: "See an example" }).click();
@@ -45,8 +45,12 @@ test("landing to an example event to one receipt", async ({ page }) => {
 
 test("the five steps link forward and back", async ({ page }) => {
   await page.goto(`/s/${SLUG}`);
-  await expect(page.getByRole("heading", { level: 1, name: "Your block" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Places on the block" }).getByRole("listitem")).toHaveCount(5);
+  await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  // The current step's name stays whole, even on a phone.
+  const current = page.getByRole("navigation", { name: "Steps" }).locator('[aria-current="step"] span span');
+  await expect(current).toHaveText("Community");
+  expect(await current.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(page.getByRole("list", { name: "Places in your community" }).getByRole("listitem")).toHaveCount(5);
   // Once loading ends, the map stays on the page, or says it didn't load (the tile host is offline in CI).
   await expect(page.getByText("Loading the map...")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.locator(".maplibregl-canvas").or(page.getByText("The map didn't load. The list below has every place."))).toBeVisible();
@@ -59,7 +63,7 @@ test("the five steps link forward and back", async ({ page }) => {
   await expect(page.getByRole("status", { name: "Budget" })).toHaveText("$50");
   await page.getByRole("button", { name: "Ten dollars more" }).click();
   await expect(page.getByRole("status", { name: "Budget" })).toHaveText("$60");
-  await expect(page.getByRole("navigation", { name: "Steps" }).getByRole("link", { name: "Block" })).toHaveAttribute("href", `/s/${SLUG}`);
+  await expect(page.getByRole("navigation", { name: "Steps" }).getByRole("link", { name: "Community" })).toHaveAttribute("href", `/s/${SLUG}`);
 
   await page.goto(`${EVENT}/poster`);
   await expect(page.getByRole("heading", { level: 1, name: "Poster" })).toBeVisible();
@@ -120,14 +124,14 @@ test("the public event page shows the event and no internals", async ({ page }) 
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
-test("a new store needs its name and address before its block", async ({ page }) => {
+test("a new store needs its name and address before its community", async ({ page }) => {
   await page.goto("/start");
   await expect(page.getByRole("heading", { level: 1, name: "Your store" })).toBeVisible();
-  await page.getByRole("button", { name: "See my block" }).click();
+  await page.getByRole("button", { name: "See my community" }).click();
   await expect(page.getByText("Enter the store's name.")).toBeVisible();
   await page.getByLabel("Name").fill("Corner Wireless");
   await expect(page.getByText("Enter the store's name.")).toHaveCount(0);
-  await page.getByRole("button", { name: "See my block" }).click();
+  await page.getByRole("button", { name: "See my community" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("Find the store's address first.");
   // Never raw coordinates: the address is searched, or the browser's location is used.
   await expect(page.getByLabel(/latitude|longitude/i)).toHaveCount(0);

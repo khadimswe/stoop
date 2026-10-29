@@ -18,7 +18,7 @@ export const ensureStatic = "navigation";
 const LEAD = exampleHrefs(LEAD_PLAN_EXAMPLE.slug).event;
 
 const PATH = [
-  { title: "Open a store", line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}: the block, then the event.`, href: exampleHrefs(LEAD_PLAN_EXAMPLE.slug).block, cta: "Open the block" },
+  { title: "Open a store", line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}: the community, then the event.`, href: exampleHrefs(LEAD_PLAN_EXAMPLE.slug).block, cta: "See its community" },
   { title: "Tap a receipt", line: "Why Qloo picked this: the exact query, never the key.", href: `${LEAD}#receipt-play`, cta: "Open a receipt" },
   { title: "Compare", line: "The generic AI plan beside this one, clichés named.", href: `${LEAD}#compare`, cta: "Open the comparison" },
   { title: "Plan your own", line: "Your store, the day, your promos.", href: "/start", cta: "Plan an event" },
@@ -26,7 +26,7 @@ const PATH = [
 
 const DECIDES = [
   { call: "/v2/insights · artist", how: "signal.location.query = the city", decides: "The playlist: artists the city ranks for these ages.", code: "lib/plan/requests.ts" },
-  { call: "/v2/insights · place", how: "filter.location = the store's point, a radius, explainability", decides: "The block: food spots, venues and parks, with Qloo's why.", code: "lib/plan/taste.ts" },
+  { call: "/v2/insights · place", how: "filter.location = the store's point, a radius, explainability", decides: "The community: food spots, venues and parks near the store, with Qloo's why.", code: "lib/plan/taste.ts" },
   { call: "/v2/insights · scoring", how: "one call against the city's own picks", decides: "Checks the generic plan's artists against the city.", code: "lib/plan/baseline.ts" },
 ] as const;
 
@@ -46,7 +46,7 @@ export default function JudgesPage() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-14 px-4 pt-10 pb-20 sm:px-8 sm:pt-14">
       <div className="flex flex-col gap-3">
         <h1 className="font-serif text-[2.125rem] leading-[1.06] font-normal lg:text-[3.375rem]">For judges</h1>
-        <p className="max-w-[36em] text-lg leading-[1.5] text-pretty text-fl-muted">Every store runs the same table outside. Stoop plans the one its block wants, with Qloo deciding the music and the spots.</p>
+        <p className="max-w-[36em] text-lg leading-[1.5] text-pretty text-fl-muted">Every store runs the same table outside. Stoop plans one for its own community, with Qloo deciding the music and the spots.</p>
       </div>
 
       <section aria-labelledby="path-title" className="flex flex-col gap-5">
@@ -111,7 +111,7 @@ export default function JudgesPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-fl-muted">The city sets the music; the block sets the food and partners. Qloo has no reliable read on one neighborhood, so Stoop doesn&apos;t claim one.</p>
+        <p className="text-sm text-fl-muted">The city sets the music; the community, meaning the places Qloo finds near the store, sets the food and partners. Qloo has no reliable read on one neighborhood&apos;s taste, so Stoop doesn&apos;t claim one.</p>
       </section>
 
       <section aria-labelledby="rules-title" className="flex flex-col gap-4">

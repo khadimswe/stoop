@@ -20,7 +20,7 @@ export default function HomeLayout({ children }: LayoutProps<"/">) {
               <FloorMark />
               <span className="font-semibold">Stoop</span>
             </p>
-            <p className="text-sm text-fl-muted">Stoop reads your city and your block through Qloo&apos;s aggregate taste data. It never sees a shopper. Nothing posts until you approve it.</p>
+            <p className="text-sm text-fl-muted">Stoop reads your city and the places in your community through Qloo&apos;s aggregate taste data. It never sees a shopper. Nothing posts until you approve it.</p>
             <p className="text-xs text-fl-dim">
               Example stores are fictional. Stoop is not affiliated with or endorsed by T-Mobile, Metro by T-Mobile, Cricket or Boost, and draws no carrier logos.
             </p>

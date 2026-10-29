@@ -1,7 +1,7 @@
 // Where each step of the floor lives, for example stores (prerendered) and live plans.
 import type { PlanExampleSlug } from "../example-list";
 
-type StepName = "Block" | "Create" | "Event" | "Poster" | "Promote";
+type StepName = "Community" | "Create" | "Event" | "Poster" | "Promote";
 
 export function exampleHrefs(slug: PlanExampleSlug | string) {
   const id = `ex-${slug}`;
@@ -12,6 +12,6 @@ export function exampleHrefs(slug: PlanExampleSlug | string) {
     event,
     poster: `${event}/poster`,
     promote: `${event}/promote`,
-    steps: { Block: `/s/${slug}`, Create: `/s/${slug}/new`, Event: event, Poster: `${event}/poster` } as Partial<Record<StepName, string>>,
+    steps: { Community: `/s/${slug}`, Create: `/s/${slug}/new`, Event: event, Poster: `${event}/poster` } as Partial<Record<StepName, string>>,
   };
 }

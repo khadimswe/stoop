@@ -46,7 +46,7 @@ const WHEEL = /\bprize wheel\b|\bspin the wheel\b/gi;
 /** Settings aimed at minors that the shared term list leaves out. */
 const MINOR_SETTING = /\bback[- ]?to[- ]?school\b|\bschools?\b|\bcampus\b/i;
 const AUDIENCE = /\b(?:your|our)\s+(?:customers?|clients?|shoppers?|buyers?)\b/i;
-const CLAIMS = /\b(?:everyone|the whole (?:city|block|neighborhood)) (?:is|will be) (?:coming|there)\b|\bbiggest\b|\bbest in (?:town|the city)\b|\bguaranteed\b/i;
+const CLAIMS = /\b(?:everyone|the whole (?:city|block|neighborhood|community)) (?:is|will be) (?:coming|there)\b|\bbiggest\b|\bbest in (?:town|the city)\b|\bguaranteed\b/i;
 const HASHTAG = /^[A-Za-z][A-Za-z0-9]{1,29}$/;
 const REF_TOKEN = /\[\[[A-Za-z0-9-]+\]\]/g;
 const CALENDAR = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -129,7 +129,7 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
   const add = (match: string, message: string) => issues.push({ ...issue(match, message), path });
   for (const message of textIssues(text, { offers: report.inputs.offers.map((o) => o.text), budgetUsd: report.inputs.budgetUsd, known: allowedRefs(report) })) add(message.slice(0, 60), message);
   const audience = text.match(AUDIENCE)?.[0];
-  if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the block.`);
+  if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the community.`);
   const free = text.match(FREE)?.[0];
   if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the wheel line word for word.`);
   const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(DEAL_WORDS)?.[0];

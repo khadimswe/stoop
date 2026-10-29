@@ -172,7 +172,7 @@ export async function readBlock(env: PlanEnv, inputs: PlanInputs, radiusM: numbe
     });
     if (kept === 0) env.sink.emit({ type: "local.gap", text: `No Qloo signal for ${spec.label} within ${km(radiusM)} of ${inputs.location ? inputs.location.name : "this store"}` });
   }
-  if (leftOut.length > 0) planDecide(env, "block", `Left ${leftOut.length} ${leftOut.length === 1 ? "place" : "places"} off the block`, leftOut.slice(0, 6).join("; "));
+  if (leftOut.length > 0) planDecide(env, "block", `Left ${leftOut.length} ${leftOut.length === 1 ? "place" : "places"} off the community list`, leftOut.slice(0, 6).join("; "));
   const chains = places.filter((p) => p.chain);
   if (chains.length > 0) planDecide(env, "block", `Marked ${chains.length} national ${chains.length === 1 ? "chain" : "chains"}`, `${chains.map((p) => p.name).slice(0, 5).join(", ")}: fine for a gift card or a snack run; co-promo partners are local independents.`);
   if (answered === 0) return null;
