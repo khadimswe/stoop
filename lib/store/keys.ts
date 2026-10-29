@@ -10,6 +10,12 @@ export const TTL = {
   runEvents: 7 * DAY_SECONDS,
   /** A finished live report. */
   report: 30 * DAY_SECONDS,
+  /**
+   * Every key of a live store-event plan, refreshed together on each write (lib/plan/store.ts). An event
+   * may be up to 28 days ahead (lib/plan/runtime.ts MAX_EVENT_DAYS_AHEAD), so this leaves the manager
+   * more than two weeks after the event to log its results.
+   */
+  plan: 45 * DAY_SECONDS,
   /** An intake (product, reading, proposed and searched seeds) waiting for /start's confirmation. */
   intake: DAY_SECONDS,
   /** A rendered storyboard frame's URL, by prompt hash. */
@@ -120,12 +126,16 @@ export const keys = {
   /** A plan's events, in write order; every writer takes its seqs from planSeq. */
   planEvents: (planId: string) => `plan:${planId}:events`,
   planSeq: (planId: string) => `plan:${planId}:seq`,
-  /** A live plan's status, input hash and starter. */
+  /** A live plan's status, input hash, starter and owner (lib/plan/owner.ts). */
   planMeta: (planId: string) => `plan:${planId}:meta`,
   /** What a live plan was started with, read by its background run. */
   planInput: (planId: string) => `plan:${planId}:input`,
-  /** Idempotent starts: the input hash points at the plan already started for it. */
-  planClaim: (inputHash: string) => `plan:claim:${inputHash}`,
+  /** An A/B test's variant B poster and posts (lib/plan/posts-run.ts variantKey), kept with the plan. */
+  planVariantB: (planId: string) => `plan:${planId}:marketing:b`,
+  /** Idempotent starts: the hash of the inputs and who sent them points at the plan already started for it. */
+  planClaim: (claimHash: string) => `plan:claim:${claimHash}`,
+  /** Live plan event streams open at once, per visitor (lib/plan/stream.ts). */
+  planStreams: (visitor: VisitorId | TokenVisitorId) => `leases:plan-streams:${visitor}`,
   /** Live plan admission leases. */
   planLeases: "leases:live-plans",
   // Facebook and Instagram posting (lib/social). Tokens live only in metaSession, encrypted.
