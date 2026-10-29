@@ -121,18 +121,23 @@ export interface PostTime {
   name: string;
   /** "Fri, Nov 6, 7:00 pm", in the store's time zone. */
   label: string;
+  /** "Fri, Nov 6", in the store's time zone. */
+  day: string;
+  /** "7:00 pm", in the store's time zone. */
+  clock: string;
 }
 
-const NAMES: Readonly<Record<PostTimeId, string>> = { evening_before: "Evening before", morning_of: "Morning of", hour_before: "An hour before" };
+export const POST_TIME_NAMES: Readonly<Record<PostTimeId, string>> = { evening_before: "Evening before", morning_of: "Morning of", hour_before: "An hour before" };
 /** The morning post is offered only when the table opens at least this long after it. */
 const MORNING_LEAD_MINUTES = 90;
 
 /**
- * Two or three times to post, in the store's local day: the evening before (7 pm), the morning of
- * (9 am, when the table opens after 10:30) and an hour before the start. Times Meta could no longer
- * schedule, or that fall after the start, are left out, so a plan for today may get fewer or none.
+ * The plan's one schedule, used everywhere a post time shows (the share timeline, posting from Stoop,
+ * the calendar reminders): the evening before (7 pm), the morning of (9 am, when the table opens at
+ * 10:30 or later) and an hour before the start, in the store's own time zone, in time order. Nothing is
+ * left out here for being past; suggestPostTimes does that.
  */
-export function suggestPostTimes(report: Pick<PlanReport, "inputs">, now: number = Date.now()): PostTime[] {
+export function postSlots(report: Pick<PlanReport, "inputs">): PostTime[] {
   const { inputs } = report;
   const zone = storeTimeZone(inputs.store);
   const start = minutesOf(inputs.startTime);
@@ -144,7 +149,23 @@ export function suggestPostTimes(report: Pick<PlanReport, "inputs">, now: number
     { id: "hour_before", at: new Date(startAt - 60 * 60_000) },
   ];
   return candidates
-    .filter(({ at }) => at.getTime() - now >= SUGGESTION_MARGIN_MS && at.getTime() - now <= SCHEDULE_MAX_MS && at.getTime() < startAt)
+    .filter(({ at }) => at.getTime() < startAt)
     .sort((a, b) => a.at.getTime() - b.at.getTime())
-    .map(({ id, at }) => ({ id, at: at.toISOString(), name: NAMES[id], label: `${localDay(at, zone)}, ${localClock(at, zone)}` }));
+    .map(({ id, at }) => ({ id, at: at.toISOString(), name: POST_TIME_NAMES[id], label: `${localDay(at, zone)}, ${localClock(at, zone)}`, day: localDay(at, zone), clock: localClock(at, zone) }));
+}
+
+/**
+ * The times Meta can still schedule now: postSlots, less any that are too close (with a margin past
+ * Meta's 10 minutes) or too far ahead, so a plan for today may get fewer or none.
+ */
+export function suggestPostTimes(report: Pick<PlanReport, "inputs">, now: number = Date.now()): PostTime[] {
+  return postSlots(report).filter((slot) => {
+    const at = Date.parse(slot.at);
+    return at - now >= SUGGESTION_MARGIN_MS && at - now <= SCHEDULE_MAX_MS;
+  });
+}
+
+/** The slot a scheduled time belongs to, by its exact instant, or null for any other time. */
+export function slotAt(report: Pick<PlanReport, "inputs">, at: Date): PostTime | null {
+  return postSlots(report).find((slot) => Date.parse(slot.at) === at.getTime()) ?? null;
 }

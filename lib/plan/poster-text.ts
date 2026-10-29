@@ -44,17 +44,30 @@ export interface PosterText {
  * gift cards when it carries gift-card slices. Spinning is always free and needs no purchase.
  */
 export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
-  const what = wheelWhat(plan);
+  return wheelLineOf(plan?.wheel?.slices.map((s) => s.kind) ?? null);
+}
+
+/** The wheel's line from its slices' kinds alone (the screens have the kinds, not the plan), or null without a wheel. */
+export function wheelLineOf(kinds: readonly string[] | null): string | null {
+  const what = wheelWhatOf(kinds);
   return what ? `Spin the prize wheel: ${what}. Free to spin, no purchase needed.` : null;
 }
 
 /** What the wheel carries, in lower case, or null without a wheel. */
 export function wheelWhat(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
-  const slices = plan?.wheel?.slices;
-  if (!slices?.length) return null;
-  const deals = slices.some((s) => s.kind === "promo");
-  const cards = slices.some((s) => s.kind === "gift_card");
+  return wheelWhatOf(plan?.wheel?.slices.map((s) => s.kind) ?? null);
+}
+
+function wheelWhatOf(kinds: readonly string[] | null): string | null {
+  if (!kinds?.length) return null;
+  const deals = kinds.includes("promo");
+  const cards = kinds.includes("gift_card");
   return deals && cards ? "store deals and free gift cards" : deals ? "store deals" : cards ? "free gift cards" : "small treats from the table";
+}
+
+/** The fictional-store line for an example plan (by its id), or null for a real store. */
+export function disclaimerFor(meta: Pick<PlanReport["meta"], "kind" | "id">, carrier: Store["carrier"]): string | null {
+  return fictionalExample(meta) ? CARRIER_NOTES[carrier] : null;
 }
 
 export interface Deal {

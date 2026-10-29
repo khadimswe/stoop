@@ -9,7 +9,7 @@
 import { checkText, childSetting, type GuardRule } from "../guardrails";
 import { refsIn } from "./refs";
 import { genreOrSlang, VOLUME_FRAMING } from "./words";
-import type { ItemKind } from "./schema";
+import type { ItemKind, PlanInputs } from "./schema";
 
 export interface GuardContext {
   /** The manager's offers, as typed. */
@@ -118,7 +118,7 @@ export function typedTextIssues(text: string): string[] {
 }
 
 /** The first problem with what the manager typed, naming the field in plain words, or null. */
-export function typedInputsProblem(inputs: { store: { name: string; address: string }; location?: { name: string } | undefined; offers: readonly { text: string }[] }): string | null {
+export function typedInputsProblem(inputs: Pick<PlanInputs, "store" | "location" | "offers">): string | null {
   const fields: [string, string][] = [
     ["The store name", inputs.store.name],
     ["The store address", inputs.store.address],

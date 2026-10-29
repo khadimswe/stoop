@@ -17,6 +17,8 @@ import type { MetaApp } from "./meta";
 import { connectCallback, connectedPages, disconnect, META_POSTS_PER_SESSION_DAILY, postToMeta, posterJpeg, startConnect, type SocialDeps } from "./routes";
 import { loadConnection, META_SESSION_COOKIE, META_STATE_COOKIE, mintSession, mintState, saveConnection, type MetaConnection } from "./session";
 import { readSocialTrail } from "./trail";
+import { reminderCaption, reportReminderFacts } from "./reminders";
+import { postSlots } from "./schedule";
 
 const SECRET = "s".repeat(40);
 const app: MetaApp = { ...FAKE_APP };
@@ -238,6 +240,22 @@ describe("posting a plan", () => {
     const call = meta.calls.find((c) => c.path === "111/photos")!;
     expect(call.body).toMatchObject({ published: "false", scheduled_publish_time: String(Date.parse(when) / 1000) });
     expect(meta.calls.some((c) => c.path.includes("/media"))).toBe(false);
+  });
+
+  it("schedules each of the plan's times with that time's own reminder, never the announcement again", async () => {
+    const report = await seedPlan();
+    const cookie = await connect();
+    const facts = reportReminderFacts(report);
+    const captions: string[] = [];
+    for (const slot of postSlots(report)) {
+      const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: slot.at }, cookie), RUN, deps());
+      expect((await response.json()).results[0]).toMatchObject({ status: "scheduled" });
+      const call = meta.calls.filter((c) => c.path === "111/photos").at(-1)!;
+      expect(call.body.caption).toBe(reminderCaption(facts, slot.id));
+      captions.push(String(call.body.caption));
+    }
+    expect(new Set(captions).size).toBe(captions.length);
+    expect(captions).not.toContain(posts.facebook.text);
   });
 
   it("refuses a schedule Meta would refuse", async () => {

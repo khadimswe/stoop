@@ -12,6 +12,8 @@ import type { MarketingReport } from "../plan/posts-store";
 import type { Posts } from "../plan/schema";
 import { instagramCopy } from "../plan/share";
 import type { GuardIssue } from "../guardrails";
+import { reminderCaption, reminderOpening, reportReminderFacts } from "./reminders";
+import type { PostTimeId } from "./schedule";
 import type { SocialChannel } from "./trail";
 
 /** The exact text each channel posts. */
@@ -62,6 +64,15 @@ export function openingOf(text: string, report: MarketingReport): string {
  */
 export function checkPostedText(text: string, path: string): GuardIssue[] {
   return typedTextIssues(text).map((message) => ({ rule: "fake-proof" as const, match: message.slice(0, 60), message, path }));
+}
+
+/**
+ * A reminder caption checked the same way: its one written sentence (the opening) through the posts
+ * guard, and the whole caption, code lines included, through checkPostedText.
+ */
+export function checkReminder(report: MarketingReport, id: PostTimeId): GuardIssue[] {
+  const facts = reportReminderFacts(report);
+  return [...checkPostText(reminderOpening(facts, id), report, `reminder.${id}`), ...checkPostedText(reminderCaption(facts, id), `reminder.${id}`)];
 }
 
 /** Every rule the approved drafts break now, for the channels about to post. Empty means they may go out. */
