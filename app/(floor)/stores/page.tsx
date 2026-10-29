@@ -36,6 +36,7 @@ function cards(): StoreCard[] {
       fact: view.concept ? `${usd(spent)} of ${view.header.budgetText.replace(" budget", "")}` : null,
       href: exampleHrefs(slug).event,
       blockHref: exampleHrefs(slug).block,
+      createHref: exampleHrefs(slug).create,
     };
   });
 }
