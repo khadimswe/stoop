@@ -52,7 +52,7 @@ export function planMonth(report: Pick<PlanReport, "inputs" | "local" | "plan" |
       label: day.label,
       notes: [...day.notes, ...day.hints],
       conceptId: concept?.id ?? null,
-      title: concept?.title ?? "A table for the block",
+      title: concept?.title ?? "A table for the community",
       artistIds: rotate(artists, week * 3, 3),
       placeIds: rotate(places, week * 2, 2),
       offer: offers.length ? (offers[week % offers.length] as string) : null,
@@ -64,7 +64,7 @@ export function planMonth(report: Pick<PlanReport, "inputs" | "local" | "plan" |
               ? `Repeat what worked: the best logged Saturday had ${best.walkIns ?? "no counted"} walk-ins.`
               : "Repeat the kept concept, or whichever week brought the most walk-ins."
             : concept && !concept.kept
-              ? `The concept that scored ${concept.total}, so the block sees something new.`
+              ? `The concept that scored ${concept.total}, so the community sees something new.`
               : "The kept concept again, with new artists, places and promo.",
     };
   });

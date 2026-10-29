@@ -115,7 +115,7 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
   const offered = blockMusic?.used ? blockMusic.artists : [];
   const known = [...(city?.artists.map((a) => a.id) ?? []), ...offered.map((a) => a.id), ...(block?.places.map((p) => p.id) ?? [])];
   if (known.length === 0 && (city?.styles.length ?? 0) === 0) {
-    return stop("block", "Qloo had no signal for this store's city or block, so there is nothing to plan from.");
+    return stop("block", "Qloo had no signal for this store's city or community, so there is nothing to plan from.");
   }
   const names = [...(city?.artists.map((a) => a.name) ?? []), ...offered.map((a) => a.name), ...(block?.places.map((p) => p.name) ?? [])];
   const guard = guardFor(inputs, known, names);
@@ -126,7 +126,7 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     if (outcome) sink.emit({ type: "plan.concepts", concepts: tidyConcepts(outcome.concepts, inputs.notes) });
     return outcome;
   });
-  if (!written) return stop("concepts", "Claude's concepts could not be used. The city and the block above are still Qloo's.");
+  if (!written) return stop("concepts", "Claude's concepts could not be used. The city and the community above are still Qloo's.");
 
   // 5. The plan for the kept concept.
   const plan = await stage(env, "plan", now, async () => {
@@ -154,12 +154,12 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
       draft = null;
     }
     if (!draft) return null;
-    planDecide(env, "baseline", "Wrote the generic plan with no Qloo", "The same facts and the same model, with no city or block data: every line is a creative suggestion.");
+    planDecide(env, "baseline", "Wrote the generic plan with no Qloo", "The same facts and the same model, with no city or community data: every line is a creative suggestion.");
     const picks = await checkPicks(env, inputs, city, draft.picks, cityQuery);
     for (const line of picks?.lines ?? []) planDecide(env, "baseline", "Checked a generic pick against Qloo", line);
     const check = picks?.check ?? null;
     const named = namedPlaces(draft.picks.places, block, env.knownChains);
-    if (draft.picks.places.length) planDecide(env, "baseline", `Checked the ${named.named} ${named.named === 1 ? "place" : "places"} the generic plan named`, `${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}; ${named.onBlock} ${named.onBlock === 1 ? "is" : "are"} on Qloo's list for this block.`);
+    if (draft.picks.places.length) planDecide(env, "baseline", `Checked the ${named.named} ${named.named === 1 ? "place" : "places"} the generic plan named`, `${named.chains} ${named.chains === 1 ? "is a chain" : "are chains"}; ${named.onBlock} ${named.onBlock === 1 ? "is" : "are"} on Qloo's list for this community.`);
     baselinePlaces = draft.picks.places;
     const cliches = [...draft.cliches, ...genericCliches(draft.items, check, block?.places.map((p) => p.name) ?? [], city?.city ?? inputs.store.city, named)];
     if (cliches.length) planDecide(env, "baseline", `Flagged ${cliches.length} generic ${cliches.length === 1 ? "choice" : "choices"} in the generic plan`, cliches.map((c) => `${c.text}: ${c.why}`).join(" "));

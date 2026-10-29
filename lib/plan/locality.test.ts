@@ -166,7 +166,7 @@ describe("what Qloo decided", () => {
     };
     const { decided, without } = qlooDecided(kept, plan, block);
     expect(decided).toEqual(["the playlist", "the two gift cards", "the snack spot"]);
-    expect(without).toEqual(["no local music", "no block spots"]);
+    expect(without).toEqual(["no local music", "no community spots"]);
     expect(qlooDecided({ items: [kept.items[1]!] } as Concept, null, block)).toEqual({ decided: [], without: [] });
   });
   it("counts the generic plan's named places that are chains or on the block", () => {

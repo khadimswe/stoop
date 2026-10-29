@@ -70,7 +70,7 @@ const newSound = (entity: QlooEntity, sound: readonly string[]) => {
  */
 export function judgeBlockMusic(entities: readonly QlooEntity[], city: CityTaste | null): { used: boolean; reason: string } {
   const top = entities.slice(0, 10);
-  if (top.length < 3) return { used: false, reason: "Qloo returned too few artists for the block's places." };
+  if (top.length < 3) return { used: false, reason: "Qloo returned too few artists for the community's places." };
   const years = top.map(startYear).filter((y): y is number => y !== null);
   const mid = years.length >= 3 ? Math.round(median(years)) : null;
   if (mid !== null && mid < OLDEST) return { used: false, reason: `Its artists are dated (median start year ${mid}): place signals can return old category profiles.` };
@@ -85,7 +85,7 @@ export function judgeBlockMusic(entities: readonly QlooEntity[], city: CityTaste
   if (sound.length && fresh.length * 2 >= top.length) {
     return { used: true, reason: `It brings a sound the city's main styles lack: ${fresh.length} of ${top.length} of its artists${mid !== null ? `, median start year ${mid}` : ""}.` };
   }
-  if (mid !== null && mid < DATED_BEFORE) return { used: false, reason: `Its artists are mostly dated (median start year ${mid}) and sound like the city's list: a category profile, not this block.` };
+  if (mid !== null && mid < DATED_BEFORE) return { used: false, reason: `Its artists are mostly dated (median start year ${mid}) and sound like the city's list: a category profile, not these places.` };
   return { used: true, reason: `Current artists${mid !== null ? ` (median start year ${mid})` : ""}, ${top.length - repeats} of ${top.length} not on the city's list.` };
 }
 
@@ -103,10 +103,10 @@ export async function readBlockMusic(env: PlanEnv, inputs: PlanInputs, block: Bl
       schema: insightsEntitiesResponse,
       slim: slimEntitiesBody,
       budgetRow: "planBlockMusic",
-    }, "The block's own independents as the signal: a test of block music next to the city's, never instead of it.");
+    }, "The community's own independents as the signal: a test of what their fans play, next to the city's music, never instead of it.");
   } catch (error) {
     if (!recoverable(error)) throw error;
-    env.sink.emit({ type: "local.gap", text: gapText(error, "music from the block's places") });
+    env.sink.emit({ type: "local.gap", text: gapText(error, "music from the community's places") });
     return null;
   }
   // Songs about crime or violence are not for a sidewalk table: their artists are left out of the option.
@@ -123,6 +123,6 @@ export async function readBlockMusic(env: PlanEnv, inputs: PlanInputs, block: Bl
     const via = scores.length ? [...new Set(scores.filter((x) => x.score >= best * 0.9).map((x) => x.entityId))] : placeIds;
     return { ...artist, via };
   });
-  planDecide(env, "block", verdict.used ? "Offering music from the block's own places" : "Left the block's music out", verdict.reason);
+  planDecide(env, "block", verdict.used ? "Offering music the nearby places point to" : "Left out the music the nearby places point to", verdict.reason);
   return { placeIds, artists, used: verdict.used && artists.length > 0, reason: verdict.reason };
 }

@@ -46,7 +46,7 @@ export function eventPageView(source: PlanSource): EventPageView {
     address,
     mapsHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inputs.location ? `${inputs.location.point.lat},${inputs.location.point.lon}` : address)}`,
     offers: inputs.offers.map((o) => o.text),
-    poster: kept ? { src: report.poster.status === "ready" && report.poster.url ? report.poster.url : posterRoute(id), alt: report.poster.alt || `Event poster: ${kept.title}, ${inputs.store.name}` } : null,
+    poster: kept ? { src: report.poster.status === "ready" && report.poster.url ? report.poster.url : posterRoute(id, "medium"), alt: report.poster.alt || `Event poster: ${kept.title}, ${inputs.store.name}` } : null,
     ogImage: posterRoute(id, "og"),
     fictional: source.kind === "example" ? fictionalNotice(inputs.store.carrier) : null,
   };

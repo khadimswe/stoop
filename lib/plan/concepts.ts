@@ -136,7 +136,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       if (unknownStyles.length) problems.push(`styles ${unknownStyles.join(", ")} are not s-keys from the data.`);
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
       const cliche = clicheIn(text);
-      if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the block instead.`);
+      if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the community instead.`);
       if (["food", "giveaway", "partner", "venue"].includes(item.kind)) {
         const odd = refs.map((id) => aliases.places.get(id)).find((p) => p && guard.date && outOfScope(p, guard.date));
         if (odd && guard.date) problems.push(`[[${aliases.keys.get(odd.id)}]] is ${outOfScope(odd, guard.date)}; use another place.`);
@@ -250,7 +250,7 @@ export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases,
   return { title: safe.title, hook: safe.hook, items: passing, score: { scores, noStereotype: true }, note: "A plain concept built from Qloo's lists.", qlooItems: new Set(passing.flatMap((i) => i.refs)).size };
 }
 
-const ANCHORS = ["Wheel Spin", "Snack Stop", "Block Table"] as const;
+const ANCHORS = ["Wheel Spin", "Snack Stop", "Community Table"] as const;
 
 /**
  * A safe title and hook when Claude's still name a genre or break a rule after the repair: the day's

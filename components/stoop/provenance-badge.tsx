@@ -7,7 +7,7 @@ const KIND = {
   recorded: {
     label: "Recorded Qloo",
     dot: "bg-dusk",
-    tip: "Real Qloo responses, saved so this loads instantly. Nothing here is made up.",
+    tip: "Real Qloo responses, saved so this loads instantly.",
   },
   live: { label: "Live Qloo", dot: "bg-dusk", tip: "Fresh Qloo responses from this run." },
   partial: {

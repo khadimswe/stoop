@@ -65,7 +65,7 @@ test("the recorded badge explains itself on tap, not only on hover", async ({ pa
   if (isPhone(page)) await badge.tap();
   else await badge.click();
   await expect(badge).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("Real Qloo responses, saved so this loads instantly. Nothing here is made up.")).toBeVisible();
+  await expect(page.getByText("Real Qloo responses, saved so this loads instantly.")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(badge).toHaveAttribute("aria-expanded", "false");
 });

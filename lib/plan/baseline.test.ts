@@ -91,8 +91,8 @@ describe("cliches and the side by side", () => {
   });
   it("flags a plan with no place from this block, and music Qloo does not back", () => {
     const check = { checkable: 3, belowMedian: 2, unverifiable: 0, evidenceIds: [] };
-    expect(genericCliches(items, check, ["Quillon Hall"], "Chicago").map((c) => c.text)).toEqual(["No place on this block", "Music with no local signal"]);
-    expect(genericCliches(items, { ...check, belowMedian: 1 }, ["Quillon Hall"], "Chicago").map((c) => c.text)).toEqual(["No place on this block"]);
+    expect(genericCliches(items, check, ["Quillon Hall"], "Chicago").map((c) => c.text)).toEqual(["No place in this community", "Music with no local signal"]);
+    expect(genericCliches(items, { ...check, belowMedian: 1 }, ["Quillon Hall"], "Chicago").map((c) => c.text)).toEqual(["No place in this community"]);
     expect(genericCliches([{ kind: "food", text: "Snacks from Quillon Hall" }], null, ["Quillon Hall"], "Chicago")).toEqual([]);
   });
   it("says what the plan uses on this block and what Qloo found in the generic plan", () => {
@@ -103,8 +103,8 @@ describe("cliches and the side by side", () => {
     const comparison = compare({ kept, plan: { runOfShow: [], shopping: [{ item: "Sliders", estUsd: 60, from: place, origin: "interpreted", evidenceIds: [] }] }, baseline, block, city: "Chicago", where: "the store" });
     expect(comparison.qlooBacked).toEqual({ items: 1, of: 2 });
     expect(comparison.lines[0]).toBe("Qloo decided: the snack spot.");
-    expect(comparison.lines[1]).toBe("Without Qloo, this plan has no block spots.");
-    expect(comparison.lines).toContain("Buys from 1 place on this block, 30 m from the store; the generic plan names no place on this block.");
+    expect(comparison.lines[1]).toBe("Without Qloo, this plan has no community spots.");
+    expect(comparison.lines).toContain("Buys from 1 place in this community, 30 m from the store; the generic plan names no place in this community.");
     expect(comparison.lines).toContain("The generic plan names no place.");
     expect(comparison.lines.join(" ")).toMatch(/3 of 3 checkable artists sit below the median/);
     expect(comparison.baselineCliches).toBe(1);

@@ -10,15 +10,26 @@ export const PILOT_COPY = false;
 export const PILOT_LINE = "";
 
 export const HERO = {
-  headline: "Give your block a reason to stop.",
-  sub: "The marketing team your store never had. Event, poster and posts, planned from your city and your block.",
+  eyebrow: "For prepaid wireless stores",
+  headline: "Give your community a reason to stop.",
+  sub: "Stoop plans the table outside your store from what your city plays and the spots in your community. Then it makes the poster and posts it, once you approve.",
+  note: "Built by a sales rep who works the floor at a prepaid wireless store, with Qloo's taste data for your city and the places in your community.",
 } as const;
+
+/**
+ * The hero's media: the founder's real event, once he approves it. A video (muted loop, tap for
+ * sound, a poster frame first, captions) or up to three photos. Null: the lead example's poster.
+ */
+export const PILOT_MEDIA:
+  | { kind: "video"; src: string; poster: string; captions: string | null; caption: string }
+  | { kind: "photos"; photos: { src: string; alt: string }[]; caption: string }
+  | null = null;
 
 /** His words, as one quiet strip under the two posters. Set to null to take it down. */
 export const FOUNDER_STORY: { quote: string; line: string; credit: string } | null = {
   quote:
     "At my first Metro store, on Tara Boulevard, a table outside with music and snacks brought in big traffic. When I moved to Kennesaw and set up the same table, people walked right past it.",
-  line: "Same table, different block. Stoop plans for the block you're on.",
+  line: "Same table, different community. Stoop plans for the community you're in.",
   credit: "Khadim, sales floor, Metro by T-Mobile",
 };
 

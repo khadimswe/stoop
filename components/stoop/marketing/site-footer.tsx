@@ -18,7 +18,7 @@ export function SiteFooter() {
           <div className="flex max-w-[36rem] flex-col gap-3">
             <Logo />
             <p className="text-base leading-relaxed text-ink">
-              Stoop reads your city and your block through Qloo&apos;s aggregate taste data. It never sees a shopper, and it never posts for you.
+              Stoop reads your city and the places in your community through Qloo&apos;s aggregate taste data. It never sees a shopper, and it never posts for you.
             </p>
             <p className="text-sm text-ink-soft">
               Example stores are fictional. Stoop is not affiliated with or endorsed by T-Mobile, Metro by T-Mobile, Cricket or Boost, and draws no

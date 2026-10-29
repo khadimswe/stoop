@@ -78,18 +78,18 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     const at = `wheel.giftCards.${i + 1}`;
     const id = aliases.ids.get(card.place.trim().replace(/^\[\[|\]\]$/g, "").toLowerCase());
     const place = id ? aliases.places.get(id) : undefined;
-    if (!place || !id) return issues.push(`${at}: "${card.place}" is not a block place key.`);
+    if (!place || !id) return issues.push(`${at}: "${card.place}" is not a community place key.`);
     if (!Number.isFinite(card.amountUsd) || card.amountUsd < GIFT_CARD_MIN_USD || card.amountUsd > GIFT_CARD_MAX_USD) return issues.push(`${at}: a gift card is $${GIFT_CARD_MIN_USD} to $${GIFT_CARD_MAX_USD}.`);
     const amount = Math.round(card.amountUsd);
     const cards = Math.max(1, Math.min(10, Math.round(card.cards || 1)));
-    if (place.chain && [...aliases.places.values()].some((p) => !p.chain && p.kind === "food")) issues.push(`${at}: the block has local independents; a gift card to one of them beats a chain.`);
+    if (place.chain && [...aliases.places.values()].some((p) => !p.chain && p.kind === "food")) issues.push(`${at}: the community has local independents; a gift card to one of them beats a chain.`);
     const odd = outOfScope(place, inputs.date);
     if (odd) return issues.push(`${at}: ${place.name} is ${odd}; pick another place.`);
     const evidenceIds = evidenceFor(aliases, [id], []);
     slices.push({ label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds });
     purchases.push({ item: `Gift cards for the wheel's ${place.name} slice`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });
   });
-  if (raw.giftCards.length === 0) issues.push("wheel.giftCards: add 1 or 2 gift-card slices to places on the block.");
+  if (raw.giftCards.length === 0) issues.push("wheel.giftCards: add 1 or 2 gift-card slices to places in the community.");
 
   if (raw.snack) {
     const text = toRealRefs(raw.snack.text.trim(), aliases);

@@ -67,7 +67,7 @@ export const PLACE_KIND_LABELS: Readonly<Record<PlaceKind, string>> = {
 export const PLAN_STAGE_LABELS: Readonly<Record<PlanStage, string>> = {
   store: "The store",
   city: "City playlist",
-  block: "The block",
+  block: "The community",
   concepts: "Event concepts",
   plan: "The plan",
   baseline: "Generic AI plan",

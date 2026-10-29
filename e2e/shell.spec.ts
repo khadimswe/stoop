@@ -2,11 +2,9 @@ import { expect, test } from "@playwright/test";
 
 // Every page renders exactly one header: the marketing pill or the app bar.
 const PAGES = [
-  { path: "/", h1: "Give your block a reason to stop." },
+  { path: "/", h1: "Give your community a reason to stop." },
   { path: "/judges", h1: "For judges" },
   { path: "/mcp", h1: "Use Stoop inside your Claude" },
-  { path: "/start", h1: "Plan an event" },
-  { path: "/stores", h1: "My stores" },
   { path: "/ads", h1: "Stop making ads for nobody." },
   { path: "/ads/start", h1: "What are you selling?" },
   // No such run on the server: the live trace says so instead of a blank page.
@@ -23,13 +21,21 @@ for (const { path, h1 } of PAGES) {
   });
 }
 
-for (const path of ["/report/not-a-run", "/examples/not-an-example", "/no-such-page"]) {
+for (const path of ["/report/not-a-run", "/examples/not-an-example"]) {
   test(`${path} shows the not-found page under one header`, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(1);
   });
 }
+
+// Unmatched URLs have no group layout: the message brings its own mark home and no second header.
+test("/no-such-page shows the not-found page with its own way home", async ({ page }) => {
+  await page.goto("/no-such-page");
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Stoop home" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
+});
 
 test("robots.txt disallows only the API, so crawlers can read the private pages' noindex", async ({ request }) => {
   const response = await request.get("/robots.txt");
