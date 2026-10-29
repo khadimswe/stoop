@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { PLAN_EXAMPLES, examplePlanId } from "../example-list";
 import { planReportSchema } from "../schema";
-import { railRows, readPlanResponse } from "./live";
+import { planningSteps, railRows, readPlanResponse } from "./live";
 import { clicheKind, compareRows, planView, shareLinks, sourceFromReport, sourceFromState, type PlanView, type TextPart } from "./plan";
 
 // Built from the recorded example runs (data/plans/<slug>/plan.events.json), the way the pages build them.
@@ -91,6 +91,23 @@ describe("live plans", () => {
     expect(early[0]!.status).toBe("done");
     expect(early.some((r) => r.status === "pending")).toBe(true);
     expect(railRows(reducePlan(all)).every((r) => r.status === "done")).toBe(true);
+  });
+
+  it("tells the agent's work as six steps, filled in as the events arrive", () => {
+    const all = events(PLAN_EXAMPLES[0].slug);
+    const start = planningSteps(reducePlan(all.slice(0, 2)));
+    expect(start.map((s) => s.key)).toEqual(["music", "places", "ideas", "fit", "check", "marketing"]);
+    expect(start[0]!.status).toBe("current");
+    expect(start.slice(1, 5).every((s) => s.status === "pending")).toBe(true);
+    const runDone = all.findIndex((e) => e.type === "run.done");
+    const planned = planningSteps(reducePlan(all.slice(0, runDone + 1)));
+    expect(planned.slice(0, 5).every((s) => s.status === "done")).toBe(true);
+    expect(planned[0]!.title).toMatch(/^Read Chicago's music$/);
+    expect(planned[1]!.title).toMatch(/^Found \d+ places within /);
+    expect(planned[2]!.detail).toMatch(/scored \d+ of \d+$/);
+    expect(planned[2]!.source).toBe("Claude");
+    expect(planned[5]!.status).toBe("pending");
+    expect(planningSteps(reducePlan(all))[5]!.status).toBe("done");
   });
 
   it("reads the plan route's answer as a report or as events", () => {
