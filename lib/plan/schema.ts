@@ -427,7 +427,7 @@ export const planReportSchema = planReportShape.superRefine((report, ctx) => {
     report.plan.concepts.forEach((concept, c) =>
       concept.items.forEach((item, i) => item.refs.forEach((ref) => !known.has(ref) && issue(`ref ${ref} is not an artist or place from this run`, ["plan", "concepts", c, "items", i, "refs"]))),
     );
-    report.plan.shopping.forEach((s, i) => s.from && !places.has(s.from) && issue(`shopping item buys from ${s.from}, which is not a block place`, ["plan", "shopping", i, "from"]));
+    report.plan.shopping.forEach((s, i) => s.from && !places.has(s.from) && issue(`shopping item buys from ${s.from}, which is not a community place`, ["plan", "shopping", i, "from"]));
   }
   report.test?.variants.forEach((v, i) => {
     if (v.source === "concept" && !(v.conceptId && report.plan?.concepts.some((c) => c.id === v.conceptId))) issue(`test variant ${v.id} runs a concept that is not in the plan`, ["test", "variants", i]);
