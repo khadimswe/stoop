@@ -92,6 +92,48 @@ export function textIssues(text: string, ctx: GuardContext): string[] {
   return issues;
 }
 
+/** A link or a bare web address: posts carry Stoop's own share link only, added by code. */
+export const LINK = /https?:\/\/|\bwww\.|\b[a-z0-9-]{2,}\.(?:com|net|org|io|ly|co|app|link|info|biz|xyz|me|gl|site|online|shop|store|us)\b(?:\/\S*)?/i;
+
+/**
+ * What the manager typed and Stoop prints and posts word for word (the store's name and address, the
+ * event's place, the offers), checked for what no poster or post may carry: links, alcohol or
+ * tobacco, implied carrier endorsement, settings aimed at minors, and "your customers"; an offer is
+ * also never a theme built on who people are. Music words and places are fine here: a venue may be
+ * called anything, and a typed offer is the manager's own words.
+ */
+export function typedTextIssues(text: string): string[] {
+  const issues: string[] = [];
+  const link = text.match(LINK)?.[0];
+  if (link) issues.push(`"${link}" is a link. Stoop adds the event's own link; posts and posters carry no other.`);
+  const alcohol = text.match(ALCOHOL_TOBACCO)?.[0];
+  if (alcohol) issues.push(`"${alcohol}": no alcohol or tobacco at the table, on the poster or in a post.`);
+  const carrier = text.match(CARRIER_ENDORSEMENT)?.[0];
+  if (carrier) issues.push(`"${carrier}": nothing may say or imply the carrier sponsors or endorses the event.`);
+  const minor = childSetting(text) ?? checkText(text).find((i) => i.rule === "minor")?.match ?? null;
+  if (minor) issues.push(`"${minor}" points at kids. The event is for adults passing by.`);
+  const customers = text.match(YOUR_CUSTOMERS)?.[0];
+  if (customers) issues.push(`"${customers}": say "your city" or "your community" instead.`);
+  return issues;
+}
+
+/** The first problem with what the manager typed, naming the field in plain words, or null. */
+export function typedInputsProblem(inputs: { store: { name: string; address: string }; location?: { name: string } | undefined; offers: readonly { text: string }[] }): string | null {
+  const fields: [string, string][] = [
+    ["The store name", inputs.store.name],
+    ["The store address", inputs.store.address],
+    ...(inputs.location ? [["The event's place", inputs.location.name] as [string, string]] : []),
+    ...inputs.offers.map((o, i): [string, string] => [inputs.offers.length === 1 ? "The offer" : `Offer ${i + 1}`, o.text]),
+  ];
+  for (const [field, text] of fields) {
+    const offer = field.startsWith("Offer") || field === "The offer";
+    const identity = offer ? text.match(IDENTITY_THEME)?.[0] : undefined;
+    const problem = typedTextIssues(text)[0] ?? (identity ? `"${identity}": an offer is never built on who people are.` : undefined);
+    if (problem) return `${field} can't be used: ${problem}`;
+  }
+  return null;
+}
+
 export interface GuardedItem {
   kind: ItemKind;
   text: string;

@@ -41,6 +41,15 @@ describe("approved captions", () => {
     const token = { ...posts, facebook: { text: `${posts.facebook.text} [[place-x]]` } };
     expect(checkApprovedPosts(token, report, ["facebook"]).some((i) => i.message.includes("never rendered"))).toBe(true);
   });
+
+  it("checks the lines code added too: an offer or a store name that predates the start check never posts", () => {
+    const bad = { ...report, inputs: { ...report.inputs, store: { ...report.inputs.store, name: "Official Metro by T-Mobile Event" }, offers: [{ text: "Free beer + vape with every port-in" }, { text: "Claim at bit.ly/deal" }] } };
+    const composed = composePosts(openings, bad);
+    const messages = checkApprovedPosts(composed, bad, ["facebook", "instagram"]).map((i) => i.message).join(" ");
+    expect(messages).toMatch(/alcohol or tobacco/);
+    expect(messages).toMatch(/is a link/);
+    expect(messages).toMatch(/sponsors or endorses/);
+  });
 });
 
 describe("the examples' approved posts", () => {

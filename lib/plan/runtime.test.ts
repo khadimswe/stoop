@@ -59,6 +59,14 @@ describe("starting a plan", () => {
     await expect(startPlan(deps, { inputs: { ...inputs, notes: "Free beer for everyone" } }, ctxFor(new MemoryStore()))).rejects.toMatchObject({ status: 422 });
   });
 
+  it("refuses an offer or a store name that would post alcohol, a link or an endorsement, before anything starts", async () => {
+    const { deps, scheduled } = startDeps();
+    await expect(startPlan(deps, { inputs: { ...inputs, offers: [{ text: "Free beer with every port-in" }] } }, ctxFor(new MemoryStore()))).rejects.toMatchObject({ status: 422 });
+    await expect(startPlan(deps, { inputs: { ...inputs, offers: [{ text: "Claim at bit.ly/deal" }] } }, ctxFor(new MemoryStore()))).rejects.toMatchObject({ status: 422 });
+    await expect(startPlan(deps, { inputs: { ...inputs, store: { ...inputs.store, name: "Official Metro by T-Mobile Event" } } }, ctxFor(new MemoryStore()))).rejects.toMatchObject({ status: 422 });
+    expect(scheduled).toHaveLength(0);
+  });
+
   it("refuses inputs that break the contract", async () => {
     const { deps } = startDeps();
     await expect(startPlan(deps, { inputs: { ...inputs, ageBands: [] } }, ctxFor(new MemoryStore()))).rejects.toThrow();
