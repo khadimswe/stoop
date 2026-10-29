@@ -98,7 +98,8 @@ export function EventScreen({
   const budget = budgetView(view);
   const snacksTotal = groups.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.usd ?? 0), 0), 0);
   const jumps = JUMPS.filter((j) => j.id !== "wheel" || view.wheel);
-  const stats = eventStats(view).map((s, i) => (i === 0 ? { ...s, label: `${s.label}, estimated` } : s));
+  // Short labels, so three columns still line up at 320 px.
+  const stats = eventStats(view).map((s, i) => (i === 0 ? { ...s, label: `${s.label} (est.)` } : i === 1 && s.label.includes("community") ? { ...s, label: s.value === "1" ? "community spot" : "community spots" } : s));
   const poster = view.concept ? view.marketing.poster.thumb : null;
   const primary = (
     <Link href={hrefs.poster} className={PRIMARY} aria-disabled={!view.concept} tabIndex={view.concept ? undefined : -1}>

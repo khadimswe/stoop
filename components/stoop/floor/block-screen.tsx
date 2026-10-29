@@ -21,7 +21,7 @@ function PlaceRow({ p, uses, picked, onPick }: { p: PlaceView; uses: readonly st
       className={cn("scroll-mt-32 transition-colors motion-reduce:transition-none lg:scroll-mt-20", picked && "bg-fl-sunk shadow-[inset_3px_0_0_var(--color-fl-ink)]")}
       lead={<NumBadge n={p.n} on={used} label={`Pin ${p.n}${used ? ", in the plan" : ""}`} />}
       title={
-        <button type="button" onClick={() => onPick(p.id)} className="text-left after:absolute after:inset-0 after:content-['']" aria-pressed={picked}>
+        <button type="button" onClick={() => onPick(p.id)} className="inline-flex min-h-6 items-center text-left after:absolute after:inset-0 after:content-['']" aria-pressed={picked}>
           {p.name}
         </button>
       }

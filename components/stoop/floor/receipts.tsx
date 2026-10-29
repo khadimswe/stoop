@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -17,7 +17,13 @@ export function FloorReceipts({ receipts, children }: { receipts: Readonly<Recor
   return <Receipts.Provider value={receipts}>{children}</Receipts.Provider>;
 }
 
+/**
+ * One receipt: what Qloo picked and why in plain rows, then the exact request (endpoint, type, query)
+ * under "Technical details", one tap away.
+ */
 function Panel({ receipt, onClose }: { receipt: ReceiptView; onClose: () => void }) {
+  const plain = receipt.rows.filter((r) => !r.mono);
+  const technical = receipt.rows.filter((r) => r.mono);
   return (
     <div className="floor flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-[20px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-fl-ink">
       <div className="flex items-start justify-between gap-3">
@@ -33,13 +39,29 @@ function Panel({ receipt, onClose }: { receipt: ReceiptView; onClose: () => void
         </button>
       </div>
       <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-        {receipt.rows.map((row, i) => (
+        {plain.map((row, i) => (
           <div key={`${i}-${row.label}`} className="contents">
             <dt className="text-fl-dim">{row.label}</dt>
-            <dd className={cn("min-w-0 break-words", row.mono && "font-mono text-[0.8125rem]")}>{row.value}</dd>
+            <dd className="min-w-0 break-words">{row.value}</dd>
           </div>
         ))}
       </dl>
+      {technical.length > 0 && (
+        <details className="group/t rounded-[12px] border border-fl-rule">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            Technical details
+            <ChevronDown aria-hidden="true" className="size-4 text-fl-chev transition-transform group-open/t:rotate-180 motion-reduce:transition-none" />
+          </summary>
+          <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-fl-rule px-3 py-3 text-sm">
+            {technical.map((row, i) => (
+              <div key={`${i}-${row.label}`} className="contents">
+                <dt className="text-fl-dim">{row.label}</dt>
+                <dd className="min-w-0 font-mono text-[0.8125rem] break-words">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       <p className="border-t border-fl-rule pt-3 text-xs text-fl-dim">The exact Qloo request. The API key is never shown. Aggregate taste data, never a shopper.</p>
     </div>
   );
@@ -91,7 +113,7 @@ const WORDS: Record<CueOrigin, string> = { qloo: "Qloo", interpreted: "Qloo", yo
 /**
  * Where a line came from, as an 8 px mark and words: Qloo (a filled square), Your choice (a ring),
  * Creative suggestion (a dashed ring). A Qloo line with a receipt reads "Why Qloo picked this" and
- * opens it. `extra` follows the words ("· 440 m").
+ * opens it; its tap area is 24 px tall and stays out of the line above. `extra` follows the words.
  */
 export function OriginTag({ origin, receiptKey = null, extra, context, openOnHash }: { origin: CueOrigin; receiptKey?: string | null; extra?: string; context?: string; openOnHash?: string }) {
   const qloo = origin === "qloo" || origin === "interpreted";
@@ -111,7 +133,7 @@ export function OriginTag({ origin, receiptKey = null, extra, context, openOnHas
     <ReceiptTrigger receiptKey={receiptKey} fallback={plain} openOnHash={openOnHash}>
       <button
         type="button"
-        className="relative inline-flex items-center gap-1.5 rounded-[6px] text-xs leading-4 font-medium whitespace-nowrap text-fl-ink underline decoration-fl-line underline-offset-[3px] after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] hover:decoration-fl-ink"
+        className="inline-flex min-h-6 items-center gap-1.5 rounded-[6px] text-xs leading-4 font-medium whitespace-nowrap text-fl-ink underline decoration-fl-line underline-offset-[3px] hover:decoration-fl-ink"
       >
         {body(true)}
         {context && <span className="sr-only">: {context}</span>}

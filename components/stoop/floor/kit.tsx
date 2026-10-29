@@ -273,7 +273,7 @@ export function StatStrip({ stats, label }: { stats: readonly { value: ReactNode
   return (
     <dl aria-label={label} className="grid overflow-hidden rounded-[20px] bg-white" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
       {stats.map((s, i) => (
-        <div key={i} className={cn("flex flex-col-reverse px-4 py-3.5", i > 0 && "border-l border-fl-rule")}>
+        <div key={i} className={cn("flex flex-col-reverse justify-end px-3 py-3.5 sm:px-4", i > 0 && "border-l border-fl-rule")}>
           <dt className="text-[0.8125rem] leading-[18px] text-fl-dim">{s.label}</dt>
           <dd className="text-[1.375rem] leading-[26px] font-medium tabular-nums">{s.value}</dd>
         </div>
@@ -290,7 +290,7 @@ export function Fine({ children, className }: { children: ReactNode; className?:
 /** The sticky bottom bar with the screen's one primary action. A desktop layout passes `lg:hidden` and puts its primary in the page. */
 export function ActionBar({ children, note, className }: { children: ReactNode; note?: ReactNode; className?: string }) {
   return (
-    <div className={cn("sticky bottom-0 z-20 mt-auto border-t border-fl-rule bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", className)}>
+    <div role="region" aria-label="Next step" className={cn("sticky bottom-0 z-20 mt-auto border-t border-fl-rule bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", className)}>
       <div className="mx-auto flex max-w-xl flex-col gap-2">
         {note && <p className="text-center text-xs text-fl-dim">{note}</p>}
         {children}
