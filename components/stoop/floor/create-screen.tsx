@@ -6,6 +6,7 @@ import { useId, useState, useSyncExternalStore, type FormEvent, type ReactNode }
 import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
 import { SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
+import type { PlanNotice } from "@/lib/plan/view/notice";
 import { DURATIONS, emptyStoreForm, MAX_OFFERS, nextSaturday, parseStoreForm, PLAN_NOTICE_KEY, type Setting, type StoreField, type StoreFormValues } from "@/lib/plan/view/start-form";
 import { ageBandLabel } from "@/lib/types";
 import { cn } from "cn";
@@ -133,7 +134,9 @@ export function CreateScreen({
       if (body?.mode === "live" && body.id) return router.push(`/plan/${encodeURIComponent(body.id)}`);
       if (body?.mode === "example" && body.slug) {
         try {
-          if (body.message) sessionStorage.setItem(PLAN_NOTICE_KEY, body.message);
+          // The example's Event page says why it opened, whose plan it is and the way back.
+          const notice: PlanNotice = { message: body.message ?? "Live plans are off right now.", slug: body.slug, from: { name: store.name, city: `${store.city}, ${store.region}` }, back: backHref };
+          sessionStorage.setItem(PLAN_NOTICE_KEY, JSON.stringify(notice));
         } catch {
           // Private browsing: the example still opens.
         }
