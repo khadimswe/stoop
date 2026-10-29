@@ -32,9 +32,9 @@ export function FloorMark({ className }: { className?: string }) {
 }
 
 /** The app bar: 52 px, an icon slot, the centered title (with an optional line under it), an icon slot. */
-export function AppBar({ left, title, subtitle, right }: { left?: ReactNode; title: ReactNode; subtitle?: ReactNode; right?: ReactNode }) {
+export function AppBar({ left, title, subtitle, right, className }: { left?: ReactNode; title: ReactNode; subtitle?: ReactNode; right?: ReactNode; className?: string }) {
   return (
-    <header className="sticky top-0 z-30 bg-fl-page/95 backdrop-blur">
+    <header className={cn("sticky top-0 z-30 bg-fl-page/95 backdrop-blur", className)}>
       <div className="mx-auto grid h-13 max-w-xl grid-cols-[44px_minmax(0,1fr)_44px] items-center px-2">
         <div className="flex justify-start">{left}</div>
         <div className="min-w-0 text-center leading-tight">
@@ -44,6 +44,61 @@ export function AppBar({ left, title, subtitle, right }: { left?: ReactNode; tit
         <div className="flex justify-end">{right}</div>
       </div>
     </header>
+  );
+}
+
+/**
+ * The floor's header, phone and desktop. Below 1024 px: the 52 px app bar (back, title, My stores)
+ * with the stepper under it. From 1024 px: one 56 px white bar across the top, the store and its city
+ * on the left, the stepper centered as numbered tabs, "My stores" on the right.
+ */
+export function FloorHeader({
+  title,
+  subtitle,
+  left,
+  right,
+  store,
+  step,
+  hrefs,
+  reasons,
+  storesHref = "/stores",
+}: {
+  /** The phone bar's centered title. */
+  title: ReactNode;
+  subtitle?: ReactNode;
+  /** The phone bar's icon slots. */
+  left?: ReactNode;
+  right?: ReactNode;
+  /** The desktop bar's left side; without it the phone title is used. */
+  store?: { name: string; city?: string | null } | null;
+  step?: Step;
+  hrefs?: Partial<Record<Step, string>>;
+  /** Why a step can't be opened from here, said on the step itself. */
+  reasons?: Partial<Record<Step, string>>;
+  storesHref?: string;
+}) {
+  const side = store ? store.city : subtitle;
+  return (
+    <>
+      <AppBar className="lg:hidden" left={left} title={title} subtitle={subtitle} right={right} />
+      {step && <Stepper className="lg:hidden" current={step} hrefs={hrefs} reasons={reasons} />}
+      <header className="sticky top-0 z-30 hidden h-14 border-b border-fl-rule bg-white lg:block">
+        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start rounded-[8px] outline-offset-4">
+            <FloorMark className="size-7 shrink-0" />
+            <span className="sr-only">Stoop home: </span>
+            <span className="truncate text-[0.9375rem] font-semibold">{store?.name ?? title}</span>
+            {side && <span className="truncate text-[0.9375rem] text-fl-dim">{side}</span>}
+          </Link>
+          {step ? <Stepper variant="bar" current={step} hrefs={hrefs} reasons={reasons} /> : <span />}
+          <div className="flex justify-end">
+            <Link href={storesHref} className="rounded-[8px] px-2 py-1.5 text-sm font-medium text-fl-muted hover:text-fl-ink hover:underline">
+              My stores
+            </Link>
+          </div>
+        </div>
+      </header>
+    </>
   );
 }
 
@@ -57,37 +112,58 @@ export function IconSlot({ href, label, children }: { href: string; label: strin
 }
 
 /**
- * The stepper: Community, Create, Event, Poster, Promote. Done steps are links (ink bar), the current one
- * is bold with a thicker bar, later ones are dim. `hrefs` maps a done step to where it goes. The first
- * column never shrinks below its label, so "Community" stays whole on a phone.
+ * The stepper: Community, Create, Event, Poster, Promote. A step with an href is a link (an example
+ * store links all five; a live plan links the ones that exist), the current one is bold with a 3 px
+ * ink bar, done ones keep an ink bar, later ones are dim. `reasons` says why a step without a link
+ * can't be opened. On a phone it is five columns under the app bar with room between the labels (the
+ * first never shrinks below "Community"); in the desktop bar (`variant="bar"`) the steps are tabs.
  */
-export function Stepper({ current, hrefs = {} }: { current: Step; hrefs?: Partial<Record<Step, string>> }) {
+export function Stepper({
+  current,
+  hrefs = {},
+  reasons = {},
+  variant = "phone",
+  className,
+}: {
+  current: Step;
+  hrefs?: Partial<Record<Step, string>>;
+  reasons?: Partial<Record<Step, string>>;
+  variant?: "phone" | "bar";
+  className?: string;
+}) {
   const at = STEPS.indexOf(current);
+  const bar = variant === "bar";
   return (
-    <nav aria-label="Steps" className="mx-auto max-w-xl px-4">
-      <ol className="grid grid-cols-[minmax(max-content,1fr)_repeat(4,minmax(0,1fr))] gap-1">
+    <nav aria-label="Steps" className={cn(bar ? "h-full" : "mx-auto max-w-xl px-4", className)}>
+      <ol className={bar ? "flex h-full items-stretch gap-2" : "grid grid-cols-[minmax(max-content,1.15fr)_repeat(4,minmax(0,1fr))] gap-2.5"}>
         {STEPS.map((step, i) => {
           const state = i < at ? "done" : i === at ? "now" : "next";
+          const href = state === "now" ? undefined : hrefs[step];
+          const reason = href ? undefined : reasons[step];
           const label = (
             <span
               className={cn(
-                "block truncate border-t-2 pt-2 text-xs leading-4",
+                bar ? "flex h-full items-center border-t-2 px-3 text-sm leading-5 whitespace-nowrap" : "block truncate border-t-2 pt-2 text-xs leading-4",
                 state === "done" && "border-fl-ink text-fl-ink",
-                state === "now" && "border-t-[3px] border-fl-ink pt-[7px] font-bold text-fl-ink",
-                state === "next" && "border-fl-future text-fl-dim",
+                state === "now" && (bar ? "border-t-[3px] border-fl-ink font-bold text-fl-ink" : "border-t-[3px] border-fl-ink pt-[7px] font-bold text-fl-ink"),
+                state === "next" && (href ? "border-fl-future text-fl-muted" : "border-fl-future text-fl-dim"),
               )}
             >
+              {bar && <span className="mr-1.5 tabular-nums">{i + 1}</span>}
               {step}
+              {reason && <span className="sr-only">: {reason}</span>}
             </span>
           );
           return (
-            <li key={step} aria-current={state === "now" ? "step" : undefined}>
-              {state === "done" && hrefs[step] ? (
-                <Link href={hrefs[step]!} className="block min-h-11 hover:[&>span]:underline">
+            <li key={step} aria-current={state === "now" ? "step" : undefined} className={bar ? "flex" : undefined}>
+              {href ? (
+                <Link href={href} className={cn("hover:[&>span]:underline", bar ? "flex h-full" : "block min-h-11")}>
                   {label}
                 </Link>
               ) : (
-                <span className="block min-h-11">{label}</span>
+                <span title={reason} className={cn(bar ? "flex h-full" : "block min-h-11", reason && "cursor-not-allowed")}>
+                  {label}
+                </span>
               )}
             </li>
           );
@@ -211,10 +287,10 @@ export function Fine({ children, className }: { children: ReactNode; className?:
   return <p className={cn("text-xs leading-4 text-fl-dim", className)}>{children}</p>;
 }
 
-/** The sticky bottom bar with the screen's one primary action. */
-export function ActionBar({ children, note }: { children: ReactNode; note?: ReactNode }) {
+/** The sticky bottom bar with the screen's one primary action. A desktop layout passes `lg:hidden` and puts its primary in the page. */
+export function ActionBar({ children, note, className }: { children: ReactNode; note?: ReactNode; className?: string }) {
   return (
-    <div className="sticky bottom-0 z-20 mt-auto border-t border-fl-rule bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className={cn("sticky bottom-0 z-20 mt-auto border-t border-fl-rule bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", className)}>
       <div className="mx-auto flex max-w-xl flex-col gap-2">
         {note && <p className="text-center text-xs text-fl-dim">{note}</p>}
         {children}
@@ -225,7 +301,25 @@ export function ActionBar({ children, note }: { children: ReactNode; note?: Reac
 
 /** The page body under the bar and stepper: one centered column at phone width. */
 export function ScreenBody({ children, className }: { children: ReactNode; className?: string }) {
-  return <main className={cn("mx-auto flex w-full max-w-xl flex-1 flex-col gap-7 px-4 pt-5 pb-8", className)}>{children}</main>;
+  return <main className={cn("mx-auto flex w-full max-w-xl flex-1 flex-col gap-7 px-4 pt-5 pb-8 lg:pt-8", className)}>{children}</main>;
+}
+
+/**
+ * A desktop page in two columns (from 1024 px): the content, and a 380 px side column that stays in
+ * view. Within 1200 px with 24 px gutters. Below 1024 px it is the phone column, the side column last.
+ */
+export function TwoColumn({ main, side, className }: { main: ReactNode; side: ReactNode; className?: string }) {
+  return (
+    <main
+      className={cn(
+        "mx-auto flex w-full max-w-xl flex-1 flex-col gap-7 px-4 pt-5 pb-8 lg:grid lg:max-w-[1200px] lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-12 lg:px-6 lg:pt-8 lg:pb-16",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-7">{main}</div>
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-[80px]">{side}</aside>
+    </main>
+  );
 }
 
 /** A calm notice in the page: what happened and what to do. */

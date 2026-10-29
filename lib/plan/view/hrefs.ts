@@ -12,6 +12,7 @@ export function exampleHrefs(slug: PlanExampleSlug | string) {
     event,
     poster: `${event}/poster`,
     promote: `${event}/promote`,
-    steps: { Community: `/s/${slug}`, Create: `/s/${slug}/new`, Event: event, Poster: `${event}/poster` } as Partial<Record<StepName, string>>,
+    /** An example store's plan is complete, so every step is a link from every other. */
+    steps: { Community: `/s/${slug}`, Create: `/s/${slug}/new`, Event: event, Poster: `${event}/poster`, Promote: `${event}/promote` } as Partial<Record<StepName, string>>,
   };
 }
