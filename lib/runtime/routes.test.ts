@@ -126,7 +126,7 @@ describe("the runtime routes in replay mode (no store at all)", () => {
   it("reports an unreachable store in health, with no secrets", async () => {
     const res = await getHealth(replay);
     expect(res.status).toBe(503);
-    expect(await res.json()).toMatchObject({ ok: false, live: false, store: "unreachable" });
+    expect(await res.json()).toEqual({ ok: false, live: false });
   });
 });
 
@@ -204,10 +204,16 @@ describe("the runtime routes with a store", () => {
     });
   });
 
-  it("shows today's caps and the store kind in health", async () => {
+  it("shows anyone only ok and live in health, and today's caps only with the founder's ops token", async () => {
     const store = new MemoryStore();
     await store.incr(keys.daily("live-runs"), { by: 3 });
-    const body = await (await getHealth(deps({ STOOP_LIVE: "true", LIVE_RUNS_DAILY_CAP: "10" }, store))).json();
+    const token = "t".repeat(40);
+    const env = { STOOP_LIVE: "true", LIVE_RUNS_DAILY_CAP: "10", WAITLIST_EXPORT_TOKEN: token };
+    const health = (authorization?: string) => getHealth(deps(env, store), new Request("https://stoop.example/api/health", authorization ? { headers: { authorization } } : {}));
+    expect(await (await health()).json()).toEqual({ ok: true, live: true });
+    expect(await (await health(`Bearer ${"x".repeat(40)}`)).json()).toEqual({ ok: true, live: true });
+    expect(await (await getHealth(deps(env, store))).json()).toEqual({ ok: true, live: true });
+    const body = await (await health(`Bearer ${token}`)).json();
     expect(body).toMatchObject({ ok: true, live: true, store: "memory", caps: { liveRuns: { used: 3, cap: 10 } } });
   });
 });
