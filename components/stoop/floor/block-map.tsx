@@ -338,12 +338,14 @@ export function BlockMap({
     layoutRef.current = layout;
     const bounds = boundsOf([{ lat: center.lat, lon: center.lon }, ...pinned.map((p) => p.point!)]);
     if (bounds) {
-      const narrow = (box.current?.clientWidth ?? 400) < 480;
-      map.fitBounds(bounds, {
-        padding: controls ? { top: 64, right: 72, bottom: 104, left: 56 } : narrow ? { top: 44, right: 40, bottom: 32, left: 28 } : { top: 48, right: 56, bottom: 40, left: 40 },
-        maxZoom: 16,
-        duration: 0,
-      });
+      const width = box.current?.clientWidth ?? 400;
+      const pad = controls ? { top: 64, right: 72, bottom: 104, left: 56 } : width < 480 ? { top: 44, right: 40, bottom: 32, left: 28 } : { top: 44, right: 56, bottom: 40, left: 40 };
+      const fit = (more = 0) => map.fitBounds(bounds, { padding: { ...pad, right: pad.right + more }, maxZoom: 16, duration: 0 });
+      fit();
+      // The store's pill reads to the right of its point: when it would run off the map, fit again with room for it.
+      const sp = map.project([center.lon, center.lat]);
+      const over = sp.x - 14 + (storeRef.current?.offsetWidth ?? 90) + 12 - width;
+      if (over > 0) fit(over + 12);
     }
     layout();
     map.on("zoomend", layout);

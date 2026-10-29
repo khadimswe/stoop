@@ -308,7 +308,7 @@ export function ScreenBody({ children, className }: { children: ReactNode; class
  * A desktop page in two columns (from 1024 px): the content, and a 380 px side column that stays in
  * view. Within 1200 px with 24 px gutters. Below 1024 px it is the phone column, the side column last.
  */
-export function TwoColumn({ main, side, className }: { main: ReactNode; side: ReactNode; className?: string }) {
+export function TwoColumn({ main, side, sideOnPhone = false, className }: { main: ReactNode; side: ReactNode; sideOnPhone?: boolean; className?: string }) {
   return (
     <main
       className={cn(
@@ -317,7 +317,7 @@ export function TwoColumn({ main, side, className }: { main: ReactNode; side: Re
       )}
     >
       <div className="flex min-w-0 flex-col gap-7">{main}</div>
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-[80px]">{side}</aside>
+      <aside className={cn("flex-col gap-4 lg:sticky lg:top-[80px] lg:flex", sideOnPhone ? "flex" : "hidden")}>{side}</aside>
     </main>
   );
 }
