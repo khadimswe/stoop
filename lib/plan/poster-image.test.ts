@@ -15,11 +15,12 @@ const text = (patch: Partial<PosterText> = {}): PosterText => {
     location: null,
     wheel: null,
     wheelWhat: null,
+    local: null,
     carrier: "metro",
     disclaimer: "Fictional store. Not affiliated with T-Mobile.",
     ...patch,
     offers,
-    deals: patch.deals ?? offers.map((o) => ({ label: o.split(" ").slice(0, 2).join(" "), text: o })),
+    deals: patch.deals ?? offers.map((o) => ({ label: o.split(" ").slice(0, 2).join(" "), text: o, body: o })),
   };
 };
 
