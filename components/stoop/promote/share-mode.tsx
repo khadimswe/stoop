@@ -163,7 +163,7 @@ export function ShareMode({ planId, storeName, marketing, days, eventUrl, eventT
       )}
       <div className="hidden flex-col gap-2 lg:flex">
         {primary}
-        <p className="text-center text-xs text-fl-dim">Every post is ready. You choose where it goes.</p>
+        <p className="text-center text-xs text-fl-dim">{making ? "Your posts are being written. They show here when ready." : "Every post is ready. You choose where it goes."}</p>
       </div>
       {reminders > 0 && (
         <button type="button" onClick={remind} disabled={making} className={BUTTON2}>
@@ -322,7 +322,7 @@ export function ShareMode({ planId, storeName, marketing, days, eventUrl, eventT
     <>
       <TwoColumns header={header} side={side} main={main} />
       <div className="contents lg:hidden">
-        <ActionBar note="Every post is ready. You choose where it goes.">{primary}</ActionBar>
+        <ActionBar note={making ? "Your posts are being written. They show here when ready." : "Every post is ready. You choose where it goes."}>{primary}</ActionBar>
       </div>
     </>
   );

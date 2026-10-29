@@ -29,6 +29,10 @@ function PosterImage({ id, alt, version, format, dim }: { id: string; alt: strin
         width={format === "portrait" ? 1080 : 1200}
         height={format === "portrait" ? 1350 : 630}
         decoding="async"
+        // An image the browser finished before the page hydrated fires no load event: check it once mounted.
+        ref={(img) => {
+          if (img?.complete && img.naturalWidth > 0 && loaded !== src) setLoaded(src);
+        }}
         onLoad={() => setLoaded(src)}
         className={cn("relative h-full w-full object-cover transition-opacity", loaded === src ? "opacity-100" : "opacity-0", dim && "opacity-40")}
       />
@@ -78,7 +82,7 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
           </div>
 
           <div className="floor-dark -mx-4 bg-fl-dark px-8 pt-6 pb-6 lg:mx-0 lg:rounded-[20px] lg:px-10 lg:py-10">
-            <div className={cn("relative mx-auto flex flex-col items-center", format === "portrait" ? "max-w-md lg:max-w-[520px]" : "max-w-[720px]")}>
+            <div className={cn("relative mx-auto flex flex-col items-center", format === "portrait" ? "max-w-md lg:max-w-[min(520px,calc((100dvh-17rem)*0.8))]" : "max-w-[720px]")}>
               {hasPoster ? (
                 <PosterImage id={view.id} alt={poster.alt} version={m.version} format={format} dim={making} />
               ) : (
