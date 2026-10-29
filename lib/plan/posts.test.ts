@@ -85,6 +85,13 @@ describe("checkPostText", () => {
     expect(check("Come by Corner Wireless on Fifth this Saturday for the Taco Table.")).toEqual([]);
   });
 
+  it("never calls the community the block, and leaves block parties and distances alone", () => {
+    expect(check("Come out, the whole block is welcome.")).toContain("whole block");
+    expect(check("Tacos on the block this Saturday.")).toContain("the block");
+    expect(check("A block party table out front.")).toEqual([]);
+    expect(check("We're two blocks from the train.")).toEqual([]);
+  });
+
   it("never says your customers, never mentions alcohol or tobacco, never aims at minors", () => {
     expect(check("Your customers will love it.")).toContain("Your customers");
     expect(check("Our customers asked for this.")).toContain("Our customers");

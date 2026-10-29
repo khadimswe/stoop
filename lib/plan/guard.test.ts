@@ -75,6 +75,23 @@ describe("origins and giveaways", () => {
   });
 });
 
+describe("block as a neighborhood word", () => {
+  const plan = { ...ctx, communityWords: true };
+  it("sends Claude's plan text back when it calls the community the block", () => {
+    for (const text of ["Bring your block out for a free spin.", "The best tacos on the block.", "Tell the block the table is out front.", "This block loves a wheel.", "Built around the block's own food."]) {
+      expect(textIssues(text, plan).join(" "), text).toMatch(/say "the community"/);
+    }
+  });
+  it("leaves block parties, distances and directions alone", () => {
+    for (const text of ["A block party table with a free spin.", "The store is two blocks away.", "Cups from the coffeehouse down the block.", "A line around the block.", "At the end of the block, a free spin."]) {
+      expect(textIssues(text, plan), text).toEqual([]);
+    }
+  });
+  it("never applies to the manager's notes or the generic plan", () => {
+    expect(textIssues("Set up on the block by the bus stop.", ctx)).toEqual([]);
+  });
+});
+
 describe("what the manager typed", () => {
   const base = PLAN_EXAMPLE_INPUTS["chicago-18th-street"];
   const withOffer = (text: string) => ({ ...base, offers: [...base.offers, { text }] });
