@@ -92,7 +92,10 @@ export function BlockMap({
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const pickRef = useRef(onPick);
-  const [state, setState] = useState<"waiting" | "loading" | "ready" | "failed">("waiting");
+  // Two states: whether the map has scrolled near the screen (it builds once, then) and how its load went.
+  // One state for both would rebuild, and so remove, the map the moment it reports ready.
+  const [near, setNear] = useState(false);
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
@@ -106,7 +109,7 @@ export function BlockMap({
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          setState((s) => (s === "waiting" ? "loading" : s));
+          setNear(true);
           io.disconnect();
         }
       },
@@ -117,10 +120,10 @@ export function BlockMap({
   }, []);
 
   useEffect(() => {
-    if (state !== "loading" || !box.current) return;
+    if (!near || !box.current) return;
     let stopped = false;
     let map: import("maplibre-gl").Map | null = null;
-    const near = places.filter((p) => p.distanceM !== null && p.distanceM < NEXT_DOOR_M).length;
+    const nextDoor = places.filter((p) => p.distanceM !== null && p.distanceM < NEXT_DOOR_M).length;
     const pinned = places.filter((p) => p.point && (p.distanceM === null || p.distanceM >= NEXT_DOOR_M));
     (async () => {
       let lib: MapLib;
@@ -186,10 +189,10 @@ export function BlockMap({
         const sq = document.createElement("i");
         sq.className = "block size-[11px] rounded-[3px] bg-[#c8f03c]";
         store.append(sq, document.createTextNode(center.label));
-        if (near > 0) {
+        if (nextDoor > 0) {
           const b = document.createElement("b");
           b.className = "font-medium text-[#c9ccd1]";
-          b.textContent = `+${near} next door`;
+          b.textContent = `+${nextDoor} next door`;
           store.append(b);
         }
         new lib.Marker({ element: store, anchor: "left", offset: [-14, 0] }).setLngLat([center.lon, center.lat]).addTo(map);
@@ -220,7 +223,7 @@ export function BlockMap({
     };
     // The map is built once per mount; its data comes from a recorded or finished run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state === "loading"]);
+  }, [near]);
 
   // Center on a picked place from the list.
   useEffect(() => {

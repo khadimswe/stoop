@@ -47,6 +47,9 @@ test("the five steps link forward and back", async ({ page }) => {
   await page.goto(`/s/${SLUG}`);
   await expect(page.getByRole("heading", { level: 1, name: "Your block" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Places on the block" }).getByRole("listitem")).toHaveCount(5);
+  // Once loading ends, the map stays on the page, or says it didn't load (the tile host is offline in CI).
+  await expect(page.getByText("Loading the map...")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator(".maplibregl-canvas").or(page.getByText("The map didn't load. The list below has every place."))).toBeVisible();
   await page.getByRole("button", { name: /^Food \d+$/ }).click();
   await expect(page.getByRole("button", { name: /^Food \d+$/ })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("link", { name: "Create an event" }).click();
@@ -69,7 +72,7 @@ test("the five steps link forward and back", async ({ page }) => {
   await expect(page.getByText("Nothing posts until you approve.")).toBeVisible();
   // Example stores always share in one tap (posting answers 403 for them).
   await expect(page.getByRole("button", { name: "Share the event" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Accounts" }).getByText("WhatsApp")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Accounts" }).getByText("WhatsApp", { exact: true })).toBeVisible();
 });
 
 test("a filled form starts a plan, and a paused day opens an example with its message", async ({ page }) => {
