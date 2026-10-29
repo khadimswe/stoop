@@ -316,7 +316,7 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
       if (concept.items.some((item) => item.kind === "music" && item.refs.some((r) => artistIds.has(r)))) return;
       concept.items.push(music);
       concept.qlooItems += music.refs.length;
-      planDecide(env, "concepts", `Added the playlist to concept ${i + 1}`, "Every concept plays the city's most-played artists on Qloo, written plainly.");
+      planDecide(env, "concepts", `Added the playlist to concept ${i + 1}`, "Every concept plays artists Qloo ranks for the city, written plainly.");
     });
   }
   // A title or hook that still names a genre, or still breaks a rule, gets the safe template.

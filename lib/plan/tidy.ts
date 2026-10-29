@@ -67,9 +67,24 @@ export function tidy(text: string, notes = ""): string {
 
 const tidyItems = <T extends { text: string }>(items: readonly T[], notes: string): T[] => items.map((i) => ({ ...i, text: tidy(i.text, notes) }));
 
+/**
+ * The plain playlist line code writes (lib/plan/concepts.ts defaultMusicLine) says what Qloo measured:
+ * artists it ranks for the city by affinity, not play counts. The line reaches Claude's plan prompt as
+ * it was written, so the recorded runs replay; it is reworded here, on the way to the page.
+ */
+export function honestPlaylist(text: string): string {
+  return text.replace(/^A playlist of (?!the city's )(.+?)'s most-played artists on Qloo:/, "A playlist of artists Qloo ranks for $1:");
+}
+
 /** Concepts as shown: their titles, hooks, lines and notes tidied. */
 export function tidyConcepts(concepts: readonly Concept[], notes = ""): Concept[] {
-  return concepts.map((c) => ({ ...c, title: tidy(c.title, notes), hook: tidy(c.hook, notes), items: tidyItems(c.items, notes), ...(c.note ? { note: tidy(c.note, notes) } : {}) }));
+  return concepts.map((c) => ({
+    ...c,
+    title: tidy(c.title, notes),
+    hook: tidy(c.hook, notes),
+    items: tidyItems(c.items, notes).map((i) => (i.kind === "music" ? { ...i, text: honestPlaylist(i.text) } : i)),
+    ...(c.note ? { note: tidy(c.note, notes) } : {}),
+  }));
 }
 
 /**
