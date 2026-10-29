@@ -5,7 +5,7 @@
 import "server-only";
 import sharp from "sharp";
 import { getBotCheck } from "../bot-check";
-import { isLive, judgingEndsAt, metaPostingEnabled } from "../config";
+import { isLive, metaPostingEnabled, metaPostingEndsAt } from "../config";
 import { metadataOrigin } from "../marketing/site";
 import { posterResponse } from "../plan/posts-run";
 import { storePlanSource } from "../plan/posts-store";
@@ -32,7 +32,8 @@ export function socialDeps(): SocialDeps {
     enabled: metaPostingEnabled(),
     app: metaApp(),
     secret: signingSecret(),
-    until: judgingEndsAt(),
+    // Posting has its own end (META_POSTING_ENDS_AT, unset means none), apart from judging's.
+    until: metaPostingEndsAt(),
     store: getStore,
     source: (store) => storePlanSource(store),
     fetch: (input, init) => fetch(input, init),

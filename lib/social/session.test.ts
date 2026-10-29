@@ -75,6 +75,8 @@ describe("the stored tokens", () => {
     expect(JSON.stringify(await store.get(keys.social.metaSession(id)))).not.toContain(FAKE_TOKENS.page);
     expect(connectionTtlSeconds(until, NOW)).toBe(20 * 86_400);
     expect(connectionTtlSeconds(until, until + 1)).toBe(0);
+    // With no end date set, a connection still ends with its Meta token, within 60 days.
+    expect(connectionTtlSeconds(Number.POSITIVE_INFINITY, NOW)).toBe(60 * 86_400);
     await expect(saveConnection(store, SECRET, id, connection, 0)).rejects.toThrow();
   });
 });

@@ -2,10 +2,11 @@
 // - the OAuth `state`: a signed value with a random nonce, an expiry and the page to return to; the
 //   same nonce sits in a short httpOnly cookie, so a login another site started is refused;
 // - the session cookie: a random id plus its HMAC ("m_<24 hex>.<mac>"), httpOnly, SameSite=Lax,
-//   scoped to /api, living until JUDGING_ENDS_AT;
+//   scoped to /api, living as long as the connection (connectionTtlSeconds);
 // - the tokens: the long-lived user token and the Page tokens, sealed with AES-256-GCM under a key
 //   derived from STOOP_SIGNING_SECRET (lib/sign.ts subkey "meta-token"), bound to the session id, and
-//   stored in Upstash with a TTL that ends at JUDGING_ENDS_AT. The browser never sees a token.
+//   stored in Upstash with a TTL that ends at META_POSTING_ENDS_AT (when set) and within 60 days. The
+//   browser never sees a token.
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { readCookie } from "../http";
@@ -140,13 +141,19 @@ export function unseal(secret: string, sessionId: string, sealed: unknown): unkn
   }
 }
 
-/** Seconds a connection may live: until JUDGING_ENDS_AT. Zero once judging is over (nothing is stored). */
+/** A connection never outlives its long-lived Meta user token (about 60 days). */
+export const CONNECTION_MAX_SECONDS = 60 * 24 * 60 * 60;
+
+/**
+ * Seconds a connection may live: until posting ends (META_POSTING_ENDS_AT, lib/config.ts; with no end
+ * set, `until` is Infinity) and never past CONNECTION_MAX_SECONDS. Zero once posting has ended (nothing is stored).
+ */
 export function connectionTtlSeconds(until: number, now: number = Date.now()): number {
-  return Math.max(0, Math.floor((until - now) / 1000));
+  return Math.max(0, Math.min(CONNECTION_MAX_SECONDS, Math.floor((until - now) / 1000)));
 }
 
 export async function saveConnection(store: Store, secret: string, sessionId: string, connection: MetaConnection, ttlSeconds: number): Promise<void> {
-  if (ttlSeconds <= 0) throw new Error("Meta connections end with judging.");
+  if (ttlSeconds <= 0) throw new Error("Meta posting has ended (META_POSTING_ENDS_AT).");
   await store.set(keys.social.metaSession(sessionId), seal(secret, sessionId, metaConnectionSchema.parse(connection)), { ttlSeconds });
 }
 
