@@ -297,7 +297,7 @@ test("nothing pops up on its own, and the footer says what Stoop measures", asyn
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const footer = page.getByRole("contentinfo");
   await expect(footer.getByText(/Stoop reads your city and the places in your community through Qloo/)).toBeVisible();
-  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
+  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop/blob/main/LICENSE");
   await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
   await expect(footer.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
 });
