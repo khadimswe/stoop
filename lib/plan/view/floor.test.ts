@@ -96,8 +96,8 @@ describe("the agent's posting plan", () => {
 
 describe("small wording rules", () => {
   it("places read kind, distance, next door and chain in one line", () => {
-    expect(placeMeta({ kindLabel: "Food", distanceText: "26 m", distanceM: 26, chain: false })).toBe("Food · 26 m · next door");
-    expect(placeMeta({ kindLabel: "Shop", distanceText: "800 m", distanceM: 800, chain: true })).toBe("Shop · 800 m · chain");
+    expect(placeMeta({ kindLabel: "Food", distanceText: "100 ft", distanceM: 26, chain: false })).toBe("Food · next door");
+    expect(placeMeta({ kindLabel: "Shop", distanceText: "0.5 mi", distanceM: 800, chain: true })).toBe("Shop · 0.5 mi · chain");
   });
 
   it("counts left-out tags instead of naming them, and drops quoted or genre reasons", () => {

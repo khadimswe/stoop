@@ -17,7 +17,10 @@ import {
   PLAN_STAGE_LABELS,
   SETTING_LABELS,
   ageBandsText,
+  cleanName,
   distanceText,
+  radiusText,
+  usUnits,
   eventDate,
   fictionalNotice,
   stampDate,
@@ -354,12 +357,22 @@ function callRows(entry: Evidence): ReceiptRow[] {
 }
 
 /** The calls behind a fact, each introduced by what it did when there is more than one. */
-function ledgerRows(ledger: Ledger, ids: readonly string[]): ReceiptRow[] | null {
+function ledgerRows(ledger: Ledger, ids: readonly string[], callLabels = true): ReceiptRow[] | null {
   const entries = [...new Set(ids)].map((id) => ledger.get(id)).filter((e): e is Evidence => Boolean(e));
   if (entries.length === 0) return null;
   return entries.flatMap((entry, i) => {
-    const head: ReceiptRow[] =
-      entries.length === 1 ? (entry.label ? [{ label: "Call", value: entry.label }] : []) : [{ label: `Call ${i + 1} of ${entries.length}`, value: entry.label ?? entry.endpoint }];
+    // A place's own receipt leaves out the search's label ("Finding food spots"): Qloo sorts what it
+    // finds by its own tags, so a venue can come back from a food search. The query stays, under
+    // the receipt's technical details.
+    const head: ReceiptRow[] = !callLabels
+      ? entries.length === 1
+        ? []
+        : [{ label: `Call ${i + 1} of ${entries.length}`, value: entry.endpoint, mono: true }]
+      : entries.length === 1
+        ? entry.label
+          ? [{ label: "Call", value: usUnits(entry.label) }]
+          : []
+        : [{ label: `Call ${i + 1} of ${entries.length}`, value: usUnits(entry.label ?? entry.endpoint) }];
     return [...head, ...callRows(entry)];
   });
 }
@@ -372,7 +385,10 @@ function artistRows(artist: ArtistRef): ReceiptRow[] {
 }
 
 function placeRows(place: Place): ReceiptRow[] {
-  const rows: ReceiptRow[] = [{ label: "Qloo pick", value: `${place.name} (${PLACE_KIND_LABELS[place.kind].toLowerCase()}, ${rankText(place.rank)})` }];
+  const rows: ReceiptRow[] = [
+    { label: "Qloo pick", value: `${place.name} (${PLACE_KIND_LABELS[place.kind].toLowerCase()}, ${rankText(place.rank)})` },
+    { label: "Found by", value: "Qloo's places near the store, sorted by Qloo's own tags" },
+  ];
   if (place.why) rows.push({ label: "Why", value: place.why });
   if (place.distanceM !== null) rows.push({ label: "Distance", value: `${distanceText(place.distanceM)} from the store` });
   if (place.address) rows.push({ label: "Address", value: place.address });
@@ -401,22 +417,23 @@ export function planView(source: PlanSource): PlanView {
   const receipts: Record<string, ReceiptView> = {};
   // The city's artists, and the block's when the plan uses them ("People who love a place also play...").
   const artists = new Map<string, ArtistRef>([...(report.local.city?.artists ?? []), ...(report.local.blockMusic?.artists ?? [])].map((a) => [a.id, a]));
-  const places = new Map((report.local.block?.places ?? []).map((p) => [p.id, p]));
+  const blockPlaces = (report.local.block?.places ?? []).map((p) => ({ ...p, name: cleanName(p.name) }));
+  const places = new Map(blockPlaces.map((p) => [p.id, p]));
 
   // Places numbered by distance from the store, nearest first: the block map's pins and every badge.
-  const byDistance = [...(report.local.block?.places ?? [])].sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity) || a.rank - b.rank);
+  const byDistance = [...blockPlaces].sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity) || a.rank - b.rank);
   const pinOf = new Map(byDistance.map((p, i) => [p.id, i + 1]));
 
   /** Registers a receipt once under `key`; null when none of its ids is in the ledger. */
-  const receipt = (key: string, ids: readonly string[], cue: string, title: string, lead: ReceiptRow[] = []): string | null => {
+  const receipt = (key: string, ids: readonly string[], cue: string, title: string, lead: ReceiptRow[] = [], callLabels = true): string | null => {
     if (receipts[key]) return key;
-    const rows = ledgerRows(ledger, ids);
+    const rows = ledgerRows(ledger, ids, callLabels);
     if (!rows) return null;
     receipts[key] = { cue, title, rows: [...lead, ...rows], calls: new Set(ids.filter((i) => ledger.has(i))).size };
     return key;
   };
   const artistReceipt = (a: ArtistRef) => receipt(`artist:${a.id}`, a.evidenceIds, "Playlist", a.name, artistRows(a));
-  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The community", p.name, placeRows(p));
+  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The community", p.name, placeRows(p), false);
 
   const nameOf = (refId: string): { name: string; receipt: string | null } | null => {
     const artist = artists.get(refId);
@@ -498,7 +515,7 @@ export function planView(source: PlanSource): PlanView {
     : null;
   const checkReceipt = baseline?.check ? receipt("generic-check", baseline.check.evidenceIds, "Generic AI plan, checked with Qloo", "The generic plan's picks, scored against this city") : null;
   if (checkReceipt) receipts[checkReceipt] = { ...receipts[checkReceipt]!, subject: "generic" };
-  const cliches = baseline?.cliches ?? [];
+  const cliches = (baseline?.cliches ?? []).map((c) => ({ text: usUnits(c.text), why: usUnits(c.why) }));
   const byKind = new Map<ItemKind, { text: string; why: string }[]>();
   for (const c of cliches) {
     const kind = clicheKind(c.text);
@@ -532,7 +549,7 @@ export function planView(source: PlanSource): PlanView {
     ? {
         backedLine: `${report.comparison.qlooBacked.items} of ${report.comparison.qlooBacked.of} plan lines have a Qloo receipt`,
         clichesLine: report.comparison.baselineCliches === 1 ? "1 cliché flagged in the generic plan" : `${report.comparison.baselineCliches} clichés flagged in the generic plan`,
-        lines: report.comparison.lines,
+        lines: report.comparison.lines.map(usUnits),
       }
     : null;
 
@@ -548,7 +565,7 @@ export function planView(source: PlanSource): PlanView {
       : null,
     block: block
       ? {
-          radiusText: distanceText(block.radiusM),
+          radiusText: radiusText(block.radiusM),
           radiusM: block.radiusM,
           center: inputs.location ? { ...inputs.location.point, label: "The event" } : { ...inputs.store.point, label: "Your store" },
           places: byDistance.map((p) => ({
@@ -793,8 +810,8 @@ export function traceRows(steps: readonly PlanTraceStep[]): PlanTraceRow[] {
     stageLabel: PLAN_STAGE_LABELS[step.stage],
     startsGroup: i === 0 || steps[i - 1]!.stage !== step.stage,
     kind: step.kind,
-    label: titleGenre(step.label) ? "Checked a step that named a music genre" : step.label,
-    reason: safeReason(step.label, step.reason),
+    label: titleGenre(step.label) ? "Checked a step that named a music genre" : usUnits(step.label),
+    reason: ((r) => (r ? usUnits(r) : r))(safeReason(step.label, step.reason)),
     served: step.kind === "tool" ? (step.cached ? "cached" : "live") : null,
     world: null,
     evidenceId: step.evidenceId ?? null,

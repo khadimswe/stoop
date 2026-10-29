@@ -70,7 +70,7 @@ describe("the plan view of each recorded example", () => {
     const view = views["chicago-18th-street"]!;
     const withPlace = view.concept!.items.find((i) => i.places.length > 0)!;
     expect(withPlace.places[0]!.why).toBeTruthy();
-    expect(withPlace.places[0]!.distanceText).toMatch(/ m$| km$/);
+    expect(withPlace.places[0]!.distanceText).toMatch(/ ft$| mi$/);
     expect(view.partnerIds.length).toBeGreaterThan(0);
   });
 });

@@ -122,8 +122,39 @@ export function usd(amount: number): string {
 
 /** "350 m" under a kilometer, else "1.2 km". */
 export function distanceText(meters: number): string {
-  if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
-  return `${(Math.round(meters / 100) / 10).toFixed(1).replace(/\.0$/, "")} km`;
+  // US managers read feet and miles: "300 ft" under a tenth of a mile, then "0.3 mi", "1.2 mi".
+  const miles = meters / M_PER_MI;
+  if (miles < 0.1) return `${Math.max(50, Math.round((meters * FT_PER_M) / 50) * 50)} ft`;
+  return miles < 10 ? `${(Math.round(miles * 10) / 10).toFixed(1)} mi` : `${Math.round(miles)} mi`;
+}
+
+const M_PER_MI = 1609.344;
+const FT_PER_M = 3.28084;
+
+/** A search radius in plain words: 1.5 km is "about 1 mile", 1609 m is "1 mile", 4 km "about 2.5 miles". */
+export function radiusText(meters: number): string {
+  const miles = meters / M_PER_MI;
+  const half = Math.max(0.5, Math.round(miles * 2) / 2);
+  const words = half === 1 ? "1 mile" : `${half} miles`;
+  return Math.abs(half - miles) < 0.02 ? words : `about ${words}`;
+}
+
+/**
+ * Recorded lines (the trace, the comparison) were written in meters; on screen they read in US units:
+ * "440 m" becomes "0.3 mi", "1.5 km" becomes "about 1 mile".
+ */
+export function usUnits(text: string): string {
+  return text
+    .replace(/\b(\d+(?:\.\d+)?)\s?km\b/g, (_, n: string) => {
+      const m = Number(n) * 1000;
+      return m % 500 === 0 ? radiusText(m) : distanceText(m);
+    })
+    .replace(/\b(\d+)\s?m\b/g, (_, n: string) => distanceText(Number(n)));
+}
+
+/** Names as Qloo has them, minus invisible emoji variation selectors ("The Right Greens️"). */
+export function cleanName(name: string): string {
+  return name.replace(/[︎️‍]/g, "").trim();
 }
 
 /** "18 to 24, 25 to 29 and 30 to 34": adult bands only, the youngest always "18 to 24". */

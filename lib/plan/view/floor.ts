@@ -24,7 +24,7 @@ export function kindCounts(places: readonly PlaceView[]): { kind: PlaceView["kin
 
 /** "Food · 26 m · next door". */
 export function placeMeta(p: Pick<PlaceView, "kindLabel" | "distanceText" | "distanceM" | "chain">): string {
-  return [p.kindLabel, p.distanceText, p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : null, p.chain ? "chain" : null].filter(Boolean).join(" · ");
+  return [p.kindLabel, p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : p.distanceText, p.chain ? "chain" : null].filter(Boolean).join(" · ");
 }
 
 /** The event's three numbers: the spend against the budget, the block spots it uses, the wheel or the timeline. */

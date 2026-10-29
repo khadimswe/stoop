@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inputsSchema } from "../schema";
-import { ageBandsText, distanceText, eventDate, fictionalNotice, timeOfDay, timeRange, usd } from "./format";
+import { ageBandsText, cleanName, distanceText, eventDate, fictionalNotice, radiusText, timeOfDay, timeRange, usd, usUnits } from "./format";
 import { parseResults } from "./results-form";
 import { emptyStoreForm, firstError, nextSaturday, parseStoreForm, phoneProblem, storeSlug, type StoreFormValues } from "./start-form";
 
@@ -127,9 +127,16 @@ describe("plan formatters", () => {
     expect(timeRange("11:30", 150)).toBe("11:30 am to 2 pm");
     expect(timeOfDay("09:05")).toBe("9:05 am");
     expect(usd(150)).toBe("$150");
-    expect(distanceText(347)).toBe("350 m");
-    expect(distanceText(1500)).toBe("1.5 km");
-    expect(distanceText(2000)).toBe("2 km");
+    expect(distanceText(30)).toBe("100 ft");
+    expect(distanceText(90)).toBe("300 ft");
+    expect(distanceText(440)).toBe("0.3 mi");
+    expect(distanceText(995)).toBe("0.6 mi");
+    expect(distanceText(2000)).toBe("1.2 mi");
+    expect(radiusText(1500)).toBe("about 1 mile");
+    expect(radiusText(1609)).toBe("1 mile");
+    expect(usUnits("Finding parks within 1.5 km of the store; the nearest 440 m from the store")).toBe("Finding parks within about 1 mile of the store; the nearest 0.3 mi from the store");
+    expect(usUnits("Open at 11 am, 4 pm")).toBe("Open at 11 am, 4 pm");
+    expect(cleanName("The Right Greens️")).toBe("The Right Greens");
   });
 
   it("shows adult age bands, the youngest as 18 to 24", () => {
