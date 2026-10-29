@@ -1,20 +1,20 @@
 // POST /api/plan/<id>/marketing: a finished live plan's poster and posts, as their own invocation. The
-// checks answer right away (lib/plan/posts-run.ts requestMarketing); the posts (Claude) and the poster
-// art (fal) are written after the response and stream to the plan as poster.updated and posts.ready
-// events. The art counts against the asker's storyboards for the day and the global frame cap.
+// plan starts them itself as soon as it finishes (lib/plan/server.ts); the page asks here only when that
+// could not happen, and a second ask never makes a second set (the job's lock). With { "remake": "art" }
+// it paints a new version of the poster's background. The checks answer right away (lib/plan/posts-run.ts
+// requestMarketing); the posts (Claude) and the poster art (fal) are written after the response and
+// stream to the plan as poster.updated and posts.ready events. The art counts against the asker's
+// storyboards for the day and the global frame cap.
 import { after, connection } from "next/server";
 import { getBotCheck } from "@/lib/bot-check";
-import { stoopModel } from "@/lib/agent/model";
 import { isLive } from "@/lib/config";
 import { cookieVisitorOf } from "@/lib/http";
-import { metadataOrigin } from "@/lib/marketing/site";
-import { posterRendererFromEnv } from "@/lib/plan/poster-art";
-import { marketingState, requestMarketing, runMarketing } from "@/lib/plan/posts-run";
+import { marketingJob, remakeJob } from "@/lib/plan/marketing-server";
+import { marketingRequestSchema, marketingState, requestMarketing } from "@/lib/plan/posts-run";
 import { storePlanSource } from "@/lib/plan/posts-store";
-import { respond } from "@/lib/route-answer";
+import { apiError, readJson, respond } from "@/lib/route-answer";
 import { browserOnly } from "@/lib/routes/guard";
 import { signingSecret } from "@/lib/sign";
-import { getStorage, StorageConfigError } from "@/lib/storage";
 import { getStore } from "@/lib/store";
 
 // Node runtime: the default, and Cache Components refuses the runtime segment option.
@@ -23,20 +23,15 @@ export const maxDuration = 300;
 /** The job stops itself before the platform's limit. */
 const DEADLINE_MS = 280_000;
 
-function storageOrNull() {
-  try {
-    return getStorage();
-  } catch (error) {
-    if (error instanceof StorageConfigError) return null;
-    throw error;
-  }
-}
-
 export async function POST(request: Request, ctx: RouteContext<"/api/plan/[id]/marketing">) {
   const refused = await browserOnly(request, getBotCheck);
   if (refused) return refused;
   const { id } = await ctx.params;
-  const origin = metadataOrigin({ app: process.env.NEXT_PUBLIC_APP_URL, production: process.env.VERCEL_PROJECT_PRODUCTION_URL, deployment: process.env.VERCEL_URL }).origin;
+  // An empty body (or none) makes the poster and posts; { "remake": "art" } asks for a new version.
+  const read = request.headers.get("content-length") === "0" || !request.body ? { ok: true as const, body: {} } : await readJson(request, 256);
+  if (!read.ok) return respond(read.answer);
+  const body = marketingRequestSchema.safeParse(read.body ?? {});
+  if (!body.success) return respond(apiError("invalid", "That request is not valid."));
   const answer = await requestMarketing(
     {
       live: isLive(),
@@ -50,10 +45,11 @@ export async function POST(request: Request, ctx: RouteContext<"/api/plan/[id]/m
             console.error(`Marketing job failed: ${error instanceof Error ? error.name : "error"}`);
           }),
         ),
-      job: (store, source, runId, visitor) =>
-        runMarketing({ store, source, model: stoopModel(), art: { storage: storageOrNull(), renderer: posterRendererFromEnv() }, origin, abortSignal: AbortSignal.timeout(DEADLINE_MS) }, runId, visitor),
+      job: (store, source, runId, visitor) => marketingJob(store, source, runId, visitor, DEADLINE_MS),
+      remake: (store, source, runId, visitor, version) => remakeJob(store, source, runId, visitor, version, DEADLINE_MS),
     },
     id,
+    body.data,
   );
   return respond(answer);
 }

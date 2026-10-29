@@ -16,6 +16,7 @@ import { giveBack, reserveUpTo } from "../rate-limit";
 import type { Storage } from "../storage";
 import { dayOf, keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
+import { posterKeys } from "./marketing-keys";
 import { buildPosterPrompt, checkPosterPrompt } from "./poster-prompt";
 import { posterAlt, posterText } from "./poster-text";
 import type { PlanReport, Poster } from "./schema";
@@ -37,12 +38,7 @@ export const POSTER_REASONS = {
   pending: "The background art is waiting for review, so the poster uses the plain background.",
 } as const;
 
-export const posterKeys = {
-  /** A rendered background by its prompt hash: { url, modelId }. */
-  render: (promptHash: string) => `poster:render:${promptHash}`,
-  /** Held while one run's marketing job runs, so two clicks never generate twice. */
-  lock: (runId: string) => `plan:${runId}:marketing:lock`,
-} as const;
+export { posterKeys };
 
 export interface PosterRenderer {
   render(request: { endpoint: string; input: Record<string, unknown> }, options?: { abortSignal?: AbortSignal }): Promise<RenderedImage>;
@@ -116,9 +112,9 @@ export function posterRendererFromEnv(env: Readonly<Record<string, string | unde
   return key ? createPosterRenderer({ credentials: key }) : null;
 }
 
-/** The poster before its art renders: prompt frozen, status queued. */
-export function queuedPoster(report: Pick<PlanReport, "plan" | "local" | "inputs" | "meta">): Poster {
-  const { prompt, promptHash } = buildPosterPrompt(report);
+/** The poster before its art renders: prompt frozen, status queued. A `version` above 0 is a new version of the art (lib/plan/poster-prompt.ts). */
+export function queuedPoster(report: Pick<PlanReport, "plan" | "local" | "inputs" | "meta">, version = 0): Poster {
+  const { prompt, promptHash } = buildPosterPrompt(report, version);
   return { status: "queued", prompt, promptHash, alt: posterAlt(posterText(report)) };
 }
 
@@ -148,10 +144,10 @@ const cachedSchema = z.strictObject({ url: z.url({ protocol: /^https$/ }), model
  * the global frame cap. Never throws for a render problem: the poster comes back skipped or failed,
  * with a reason, and the text layer still renders on the plain background.
  */
-export async function renderPosterArt(env: PosterArtEnv, report: Pick<PlanReport, "plan" | "local" | "inputs" | "meta">, visitor: StoryboardVisitor | null): Promise<PosterArtOutcome> {
+export async function renderPosterArt(env: PosterArtEnv, report: Pick<PlanReport, "plan" | "local" | "inputs" | "meta">, visitor: StoryboardVisitor | null, version = 0): Promise<PosterArtOutcome> {
   const { store } = env;
   const now = env.now ?? (() => new Date());
-  const built = buildPosterPrompt(report);
+  const built = buildPosterPrompt(report, version);
   const base = { prompt: built.prompt, promptHash: built.promptHash, alt: posterAlt(posterText(report)) };
   const ended = (status: "skipped" | "failed", reason: string, billed = false): PosterArtOutcome => ({ poster: { ...base, status, reason }, billed });
 

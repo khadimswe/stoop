@@ -258,7 +258,7 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
   const source = deps.source(store);
   const state = await source.state(planId);
   const report = state ? reportOf(state) : null;
-  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 7 days).", 404);
+  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 30 days).", 404);
   if (state.status === "failed") return apiError("invalid", "This plan did not finish, so it has nothing to post.", 409);
   if (state.status === "running" || state.status === "idle" || !report.posts || !FINAL_POSTER.has(report.poster.status)) return apiError("busy", "The poster and posts are not ready yet. Make them first, then post.", 409);
   const posts = report.posts;
