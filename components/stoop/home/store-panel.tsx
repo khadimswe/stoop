@@ -33,10 +33,14 @@ export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: 
               ),
             )}
           </p>
-          <ul className="mt-3 flex flex-wrap gap-x-2 text-sm text-fl-dark-dim tabular-nums">
+          <ul className="mt-3 flex flex-col gap-0.5 text-sm text-fl-dark-dim tabular-nums sm:flex-row sm:flex-wrap sm:gap-x-2">
             {show.meta.map((m, i) => (
               <li key={m} className="flex gap-2">
-                {i > 0 && <span aria-hidden="true">·</span>}
+                {i > 0 && (
+                  <span aria-hidden="true" className="max-sm:hidden">
+                    ·
+                  </span>
+                )}
                 {m}
               </li>
             ))}

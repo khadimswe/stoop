@@ -98,7 +98,7 @@ export function MediaBand({ media, still }: { media: PilotMedia | null; still: L
                           {row.receipt && (
                             <>
                               {" · "}
-                              <ReceiptLink receiptKey={row.receipt} href={row.href} className="font-medium text-fl-ink underline underline-offset-[3px]" label={`Why Qloo picked this: ${row.title}`}>
+                              <ReceiptLink receiptKey={row.receipt} href={row.href} className="font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Why Qloo picked this: ${row.title}`}>
                                 Why Qloo picked this
                               </ReceiptLink>
                             </>

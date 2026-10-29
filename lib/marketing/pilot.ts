@@ -15,6 +15,8 @@ export const PILOT_LINE = "";
 
 export const HERO = {
   eyebrow: "For Metro by T-Mobile, Cricket and Boost Mobile stores",
+  /** The phone's eyebrow, short enough for one line at 320 px. */
+  eyebrowShort: "For Metro, Cricket and Boost stores",
   headline: "Give your community a reason to stop.",
   sub: "Every prepaid store sets up the same table outside. Stoop plans yours for the community around it: music your city plays, snacks and gift cards from spots down the street, and a prize wheel built from your deals. Then it makes the poster and lines up the posts.",
   /** The phone's shorter line: the same promise in two sentences. */

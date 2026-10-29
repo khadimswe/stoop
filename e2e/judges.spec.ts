@@ -52,3 +52,38 @@ test("the guide never shows a judge code, a performance claim or banned wording"
   // No em dashes anywhere on the page.
   expect(text.includes(String.fromCharCode(0x2014))).toBe(false);
 });
+
+// --- The store-events guide at /judges --------------------------------------------------------------
+
+const EVENT = "/plan/ex-chicago-18th-street";
+
+test("the store-events guide walks the new landing in four steps and links each to its proof", async ({ page }) => {
+  await page.goto("/judges");
+  await expect(page.getByRole("heading", { level: 1, name: "For judges" })).toBeVisible();
+  const path = page.getByRole("region", { name: "The path, in four steps" });
+  await expect(path.getByRole("heading", { level: 3 })).toHaveText(["Same table. Different community.", "One event and its receipts", "The generic AI plan beside it", "Try your own store"]);
+  await expect(path.getByRole("link", { name: "See the three stores" })).toHaveAttribute("href", "/#examples");
+  await expect(path.getByRole("link", { name: "Open a receipt" })).toHaveAttribute("href", `${EVENT}#receipt-play`);
+  await expect(path.getByRole("link", { name: "Open the comparison" })).toHaveAttribute("href", `${EVENT}#compare`);
+  await expect(path.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
+  // It says plainly what happens when live plans are off.
+  await expect(path.getByText(/When live plans are off, Stoop says so plainly and opens the closest example store instead/)).toBeVisible();
+
+  const decides = page.getByRole("region", { name: "What Qloo decides" });
+  for (const file of ["requests", "taste", "block-music", "baseline"]) {
+    await expect(decides.getByRole("link", { name: `lib/plan/${file}.ts` })).toHaveAttribute("href", `https://github.com/khadimswe/stoop/blob/main/lib/plan/${file}.ts`);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("the store-events guide never says block, claims a lift or shows a judge code", async ({ page }) => {
+  await page.goto("/judges");
+  // Code paths (lib/plan/block-music.ts) are file names, not words people read.
+  const text = (await page.locator("main").innerText()).replace(/lib\/plan\/[a-z-]+\.ts/g, "");
+  expect(text).not.toMatch(/\bblock\b/i);
+  expect(text).not.toMatch(/your customers/i);
+  expect(text).not.toMatch(/\d+% (lift|more|better|higher)/i);
+  expect(await page.content()).not.toMatch(/judge=/i);
+  expect(text.includes(String.fromCharCode(0x2014))).toBe(false);
+});

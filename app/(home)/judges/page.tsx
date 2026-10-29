@@ -33,7 +33,7 @@ const PATH = [
   },
   {
     title: "The generic AI plan beside it",
-    line: "The same model, the same inputs, no Qloo. It names no place near the store, and Qloo puts its famous artists below the median of the city's own picks.",
+    line: "The same model, the same inputs, no Qloo. It names no place near the store, and the famous artists it picks rank below Qloo's own top picks for that city and those ages.",
     href: `${LEAD}#compare`,
     cta: "Open the comparison",
   },

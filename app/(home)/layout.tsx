@@ -38,7 +38,9 @@ export default function HomeLayout({ children }: LayoutProps<"/">) {
               </li>
             </ul>
           </div>
-          <p className="max-w-[60rem] border-t border-fl-rule pt-5 text-xs leading-[1.5] text-fl-dim">{FOOTER_NOTICE} Nothing posts until you approve it.</p>
+          <div className="border-t border-fl-rule pt-5">
+            <p className="max-w-[60rem] text-xs leading-[1.5] text-fl-dim">{FOOTER_NOTICE} Nothing posts until you approve it.</p>
+          </div>
         </div>
       </footer>
     </div>

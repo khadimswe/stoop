@@ -68,7 +68,10 @@ export default function Home() {
       <main className="flex-1">
         {/* The hero fills the first screen (the band below only peeks in), so the H1 stays the largest paint. */}
         <section id="hero" aria-labelledby="hero-title" className="mx-auto flex min-h-[calc(100svh-72px-40px)] max-w-[1248px] flex-col items-center justify-center px-4 pt-10 pb-12 text-center sm:px-8">
-          <p className="inline-flex min-h-8 items-center rounded-full border border-fl-line bg-white px-3.5 py-1 text-[0.8125rem] font-medium text-balance">{HERO.eyebrow}</p>
+          <p className="inline-flex min-h-8 items-center rounded-full border border-fl-line bg-white px-3.5 py-1 text-[0.8125rem] font-medium">
+            <span className="hidden sm:inline">{HERO.eyebrow}</span>
+            <span className="sm:hidden">{HERO.eyebrowShort}</span>
+          </p>
           {/* Fluid size with a floor and a ceiling, so no word ever runs wider than the column (320 px and up). */}
           <h1 id="hero-title" className="mt-6 max-w-[11em] font-serif text-[clamp(2.5rem,1.1rem+5.6vw,6rem)] leading-[1] font-normal tracking-[-0.02em] text-balance">
             {HERO.headline}
@@ -141,11 +144,11 @@ export default function Home() {
                   We asked the same model for a plan for {leadView.header.storeName}, with the same budget and deals but no Qloo. Then Qloo checked what it picked.
                 </p>
               </div>
-              <table className="mt-8 w-full text-[0.9375rem] leading-[1.45]">
+              <table className="mt-8 w-full text-[0.9375rem] leading-[1.45] md:table-fixed">
                 <caption className="sr-only">The generic AI plan and Stoop&apos;s plan for {leadView.header.storeName}, line by line</caption>
                 <thead className="max-md:sr-only">
                   <tr className="text-left text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase">
-                    <th scope="col" className="w-36 pb-3 font-semibold">
+                    <th scope="col" className="w-28 pb-3 font-semibold lg:w-36">
                       <span className="sr-only">Line</span>
                     </th>
                     <th scope="col" className="pr-8 pb-3 font-semibold">
@@ -228,7 +231,7 @@ export default function Home() {
         </section>
 
         <section aria-labelledby="posts-title" className="floor-dark bg-fl-dark text-fl-dark-bright">
-          <div className="mx-auto grid max-w-[1248px] items-center gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] lg:gap-16 lg:py-24">
+          <div className="mx-auto grid max-w-[1248px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] lg:gap-16 lg:py-24">
             <div className="flex flex-col gap-4">
               <p className="text-sm font-semibold tracking-[0.02em] text-fl-dark-dim">Promote</p>
               <h2 id="posts-title" className={H2}>
@@ -241,8 +244,9 @@ export default function Home() {
               <ol className="rounded-[20px] bg-fl-dark-2 px-4 py-1 sm:px-5">
                 {posts.map((p, i) => (
                   <li key={p.title} className={cn("flex items-center gap-3 py-3.5", i > 0 && "border-t border-fl-dark-rule")}>
-                    <span className="w-[4.75rem] shrink-0 text-sm font-semibold tabular-nums sm:w-24">{p.when}</span>
+                    <span className="hidden w-24 shrink-0 text-sm font-semibold tabular-nums sm:block">{p.when}</span>
                     <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-fl-dark-dim tabular-nums sm:hidden">{p.when}</span>
                       <span className="block text-[0.9375rem] font-semibold">{p.title}</span>
                       <span className="block text-[0.8125rem] text-fl-dark-dim">{p.channels}</span>
                     </span>
