@@ -9,7 +9,7 @@ import { useMarketing } from "@/components/stoop/promote/use-marketing";
 import { planExampleSlug } from "@/lib/plan/example-list";
 import type { PlanInputs } from "@/lib/plan/schema";
 import { promoteTimeline, type PromoteScreenView } from "@/lib/plan/view/promote";
-import { AppBar, IconSlot, ScreenTitle, Stepper, type Step } from "./kit";
+import { FloorHeader, IconSlot, ScreenTitle, type Step } from "./kit";
 
 const noSubscription = () => () => {};
 const useOrigin = () => useSyncExternalStore(noSubscription, () => window.location.origin, () => "");
@@ -45,15 +45,17 @@ export function PromoteScreen({ view, inputs, hrefs }: { view: PromoteScreenView
   );
   return (
     <>
-      <AppBar
+      <FloorHeader
         left={
           <IconSlot href={hrefs.back} label="Back to the poster">
             <ChevronLeft aria-hidden="true" />
           </IconSlot>
         }
         title="Promote"
+        store={{ name: view.header.storeName, city: view.header.cityLine }}
+        step="Promote"
+        hrefs={hrefs.steps}
       />
-      <Stepper current="Promote" hrefs={hrefs.steps} />
       <main className="flex flex-1 flex-col">
         {example ? (
           share

@@ -7,7 +7,7 @@ import { useMarketing, versioned } from "@/components/stoop/promote/use-marketin
 import { posterRoute } from "@/lib/plan/view/plan";
 import type { PosterScreenView } from "@/lib/plan/view/promote";
 import { cn } from "cn";
-import { ActionBar, AppBar, BUTTON2, Fine, IconSlot, Notice, PRIMARY, ScreenTitle, Stepper, type Step } from "./kit";
+import { ActionBar, BUTTON2, Fine, FloorHeader, IconSlot, Notice, PRIMARY, ScreenTitle, type Step } from "./kit";
 
 type Format = "portrait" | "wide";
 
@@ -63,15 +63,17 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
 
   return (
     <>
-      <AppBar
+      <FloorHeader
         left={
           <IconSlot href={hrefs.back} label="Back to the event">
             <ChevronLeft aria-hidden="true" />
           </IconSlot>
         }
         title="Poster"
+        store={{ name: view.header.storeName, city: view.header.cityLine }}
+        step="Poster"
+        hrefs={hrefs.steps}
       />
-      <Stepper current="Poster" hrefs={hrefs.steps} />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pt-5 pb-8 lg:max-w-[1200px] lg:px-8">
         <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-10 lg:gap-y-6">
           <div className="lg:col-span-2">

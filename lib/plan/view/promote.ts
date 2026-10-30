@@ -12,13 +12,13 @@ import { shareLinks, type PlanView } from "./plan";
 // --- What the Poster and Promote steps read from a plan ------------------------------------------------
 
 /** The Poster step's slice of a plan: small, so an example's page stays light. */
-export type PosterScreenView = Pick<PlanView, "id" | "marketing"> & { header: Pick<PlanView["header"], "storeName" | "fictional">; concept: Pick<NonNullable<PlanView["concept"]>, "title"> | null };
+export type PosterScreenView = Pick<PlanView, "id" | "marketing"> & { header: Pick<PlanView["header"], "storeName" | "cityLine" | "fictional">; concept: Pick<NonNullable<PlanView["concept"]>, "title"> | null };
 
 /** The Promote step's slice of a plan. */
 export type PromoteScreenView = PosterScreenView & { wheel: { slices: { kind: string }[] } | null };
 
 export function posterScreenView(view: PlanView): PosterScreenView {
-  return { id: view.id, marketing: view.marketing, header: { storeName: view.header.storeName, fictional: view.header.fictional }, concept: view.concept ? { title: view.concept.title } : null };
+  return { id: view.id, marketing: view.marketing, header: { storeName: view.header.storeName, cityLine: view.header.cityLine, fictional: view.header.fictional }, concept: view.concept ? { title: view.concept.title } : null };
 }
 
 export function promoteScreenView(view: PlanView): PromoteScreenView {
