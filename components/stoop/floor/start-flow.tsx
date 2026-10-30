@@ -2,8 +2,9 @@
 
 import { ChevronLeft, LayoutGrid, Loader2, LocateFixed, Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
-import { CARRIER_LABELS } from "@/lib/plan/view/format";
+import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
+import { PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
+import { CARRIER_LABELS, fictionalNotice } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
 import { splitMessage } from "@/lib/plan/view/notice";
 import { planView, type PlanView } from "@/lib/plan/view/plan";
@@ -11,9 +12,10 @@ import { phoneProblem, storeSlug } from "@/lib/plan/view/start-form";
 import type { Evidence } from "@/lib/evidence";
 import type { Local } from "@/lib/plan/schema";
 import { cn } from "cn";
+import { BlockMap } from "./block-map";
 import { BlockScreen } from "./block-screen";
 import { CreateScreen, type CreateStore } from "./create-screen";
-import { ActionBar, BUTTON2, FloorHeader, IconSlot, Notice, PRIMARY, RowLabel, ScreenBody, ScreenTitle, Section, TEXT_LINK, TwoColumn } from "./kit";
+import { ActionBar, BUTTON2, Chevron, Fine, FloorHeader, IconSlot, Notice, PRIMARY, RowLabel, ScreenTitle, Section, TEXT_LINK, TwoColumn } from "./kit";
 import { PinMap } from "./pin-map";
 
 interface Hit {
@@ -25,7 +27,12 @@ interface Hit {
   label: string;
 }
 
-type Phase = { kind: "store" } | { kind: "finding" } | { kind: "block"; view: PlanView | null; example: { slug: string; message: string } | null } | { kind: "create" };
+/** What POST /api/plan/block answered: the store's own community, or the example to look at instead. */
+type BlockAnswer = { mode: "live"; local: Local; ledger: Evidence[] } | { mode: "example"; slug: string; message: string };
+type Phase = { kind: "store" } | { kind: "finding" } | { kind: "block" } | { kind: "create" };
+
+/** The ring Stoop maps around a store: Qloo's places within 1,500 m (lib/plan/requests.ts DEFAULT_RADIUS_M). */
+const RING_M = 1500;
 
 /** Hints read as hints: lighter, and starting with "e.g." so nobody takes them for a filled value. */
 const HINT = "placeholder:text-fl-dim/70 placeholder:italic";
@@ -40,6 +47,8 @@ interface Saved {
   phone: string;
   place: Hit | null;
   create: boolean;
+  /** The community the store got, so the Community step opens again without asking twice. */
+  block?: BlockAnswer | null;
 }
 
 /** What this tab kept. It opens on the form again only when coming back from an example ("?resume"). */
@@ -82,13 +91,15 @@ function blockView(store: CreateStore, local: Local, ledger: Evidence[]): PlanVi
  */
 export function StartFlow() {
   // The saved store is read on the client only: the server and the first client render match, then
-  // the form starts again from what this tab kept.
+  // the form starts again from what this tab kept. Only that client copy writes back: the first,
+  // empty render must never overwrite what the tab kept (so a reload of /start?resume=1 finds it).
   const client = useSyncExternalStore(noSubscription, () => true, () => false);
-  return <StartSteps key={client ? "client" : "server"} saved={client ? loadSaved() : null} />;
+  return <StartSteps key={client ? "client" : "server"} saved={client ? loadSaved() : null} persist={client} />;
 }
 
-function StartSteps({ saved }: { saved: Saved | null }) {
+function StartSteps({ saved, persist }: { saved: Saved | null; persist: boolean }) {
   const [phase, setPhase] = useState<Phase>(saved?.create && saved.place && saved.name ? { kind: "create" } : { kind: "store" });
+  const [block, setBlock] = useState<BlockAnswer | null>(saved?.block ?? null);
   const [name, setName] = useState(saved?.name ?? "");
   const [carrier, setCarrier] = useState<CreateStore["carrier"]>(saved?.carrier ?? "metro");
   const [phone, setPhone] = useState(saved?.phone ?? "");
@@ -103,15 +114,17 @@ function StartSteps({ saved }: { saved: Saved | null }) {
   const store: CreateStore | null = place && name.trim() ? { name: name.trim(), address: [place.address, place.city, place.region].filter(Boolean).join(", "), city: place.city, region: place.region, lat: place.lat, lon: place.lon, carrier, phone: phone.trim() || undefined } : null;
 
   useEffect(() => {
+    if (!persist) return;
     try {
-      sessionStorage.setItem(SAVED_KEY, JSON.stringify({ name, carrier, phone, place, create: phase.kind === "create" } satisfies Saved));
+      sessionStorage.setItem(SAVED_KEY, JSON.stringify({ name, carrier, phone, place, create: phase.kind === "create", block } satisfies Saved));
     } catch {
-      // Private browsing: nothing is kept, the flow still works.
+      // Private browsing (or a full store): nothing is kept, the flow still works.
     }
-  }, [name, carrier, phone, place, phase.kind]);
+  }, [persist, name, carrier, phone, place, phase.kind, block]);
 
   const pick = (h: Hit) => {
     setPlace(h);
+    setBlock(null);
     setProblem(null);
   };
 
@@ -181,8 +194,14 @@ function StartSteps({ saved }: { saved: Saved | null }) {
         body: JSON.stringify({ store: { id: storeSlug(store.name, store.city), name: store.name, carrier: store.carrier, address: store.address, city: store.city, region: store.region, point: { lat: store.lat, lon: store.lon }, ...(store.phone ? { phone: store.phone } : {}) } }),
       });
       const body = (await response.json().catch(() => null)) as { mode?: string; local?: Local; ledger?: Evidence[]; slug?: string; message?: string; field?: string; error?: { field?: string } } | null;
-      if (body?.mode === "live" && body.local) return setPhase({ kind: "block", view: blockView(store, body.local, body.ledger ?? []), example: null });
-      if (body?.mode === "example" && body.slug) return setPhase({ kind: "block", view: null, example: { slug: body.slug, message: body.message ?? "Live maps are off right now." } });
+      if (body?.mode === "live" && body.local) {
+        setBlock({ mode: "live", local: body.local, ledger: body.ledger ?? [] });
+        return setPhase({ kind: "block" });
+      }
+      if (body?.mode === "example" && body.slug) {
+        setBlock({ mode: "example", slug: body.slug, message: body.message ?? "Live maps are off right now." });
+        return setPhase({ kind: "block" });
+      }
       setPhase({ kind: "store" });
       // A refused field is said on that field.
       const field = body?.error?.field ?? body?.field;
@@ -197,50 +216,15 @@ function StartSteps({ saved }: { saved: Saved | null }) {
   };
 
   const draftKey = store ? storeSlug(store.name, store.city) : undefined;
-  if (phase.kind === "create" && store) return <CreateScreen store={store} backHref="/start?resume=1" onEditStore={() => setPhase({ kind: "store" })} draftKey={draftKey} />;
+  const create = () => setPhase({ kind: "create" });
+  // The Community step, from the form: the community this store already got, else ask again.
+  const community = () => (block ? setPhase({ kind: "block" }) : void seeBlock());
+  if (phase.kind === "create" && store)
+    return <CreateScreen store={store} backHref="/start?resume=1" onEditStore={() => setPhase({ kind: "store" })} draftKey={draftKey} stepActions={{ Community: community }} />;
 
-  if (phase.kind === "block" && store) {
-    if (phase.view) {
-      return (
-        <BlockScreen
-          storeName={store.name}
-          cityLine={`${store.city}, ${store.region}`}
-          address={store.address}
-          local={phase.view.local}
-          uses={{}}
-          receipts={phase.view.receipts}
-          onCreate={() => setPhase({ kind: "create" })}
-          backHref="/start"
-          fictional={null}
-        />
-      );
-    }
-    const said = splitMessage(phase.example?.message ?? "Live maps are off right now.");
-    return (
-      <>
-        <FloorHeader left={<BackButton onClick={() => setPhase({ kind: "store" })} />} title={store.name} subtitle={`${store.city}, ${store.region}`} store={{ name: store.name, city: `${store.city}, ${store.region}` }} step="Community" />
-        <ScreenBody>
-          <ScreenTitle title="Your community" meta={store.address} />
-          <Notice title={said.title}>
-            Stoop maps the places in your community when live plans are on. Until then, look around{" "}
-            <Link href={`/s/${phase.example?.slug}`} className={TEXT_LINK}>
-              an example store&apos;s community
-            </Link>
-            , or go on and plan your event.
-          </Notice>
-          <div className="hidden lg:block lg:max-w-xs">
-            <button type="button" onClick={() => setPhase({ kind: "create" })} className={PRIMARY}>
-              Create an event
-            </button>
-          </div>
-        </ScreenBody>
-        <ActionBar className="lg:hidden">
-          <button type="button" onClick={() => setPhase({ kind: "create" })} className={PRIMARY}>
-            Create an event
-          </button>
-        </ActionBar>
-      </>
-    );
+  if (phase.kind === "block" && store && block) {
+    if (block.mode === "live") return <LiveBlock store={store} answer={block} onCreate={create} />;
+    return <ExampleBlock store={store} answer={block} onBack={() => setPhase({ kind: "store" })} onCreate={create} />;
   }
 
   const primary = (
@@ -327,11 +311,25 @@ function StartSteps({ saved }: { saved: Saved | null }) {
                   {place.city}, {place.region}
                 </span>
               </span>
-              <button type="button" onClick={() => setPlace(null)} className={cn(TEXT_LINK, "text-sm")}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlace(null);
+                  setBlock(null);
+                }}
+                className={cn(TEXT_LINK, "text-sm")}
+              >
                 Change
               </button>
             </div>
-            <PinMap point={{ lat: place.lat, lon: place.lon }} onChange={(p) => setPlace((x) => (x ? { ...x, lat: p.lat, lon: p.lon } : x))} className="h-[220px] lg:h-[280px]" />
+            <PinMap
+              point={{ lat: place.lat, lon: place.lon }}
+              onChange={(p) => {
+                setPlace((x) => (x ? { ...x, lat: p.lat, lon: p.lon } : x));
+                setBlock(null);
+              }}
+              className="h-[220px] lg:h-[280px]"
+            />
             <p className="text-[0.8125rem] text-fl-dim">Drag the pin onto the store&apos;s door, or tap the map.</p>
           </div>
         ) : (
@@ -423,6 +421,89 @@ function StartSteps({ saved }: { saved: Saved | null }) {
         step="Community"
       />
       <TwoColumn main={main} side={side} />
+      <ActionBar className="lg:hidden">{primary}</ActionBar>
+    </>
+  );
+}
+
+/** The store's own community (live maps on), with its receipts. */
+function LiveBlock({ store, answer, onCreate }: { store: CreateStore; answer: Extract<BlockAnswer, { mode: "live" }>; onCreate: () => void }) {
+  const view = useMemo(() => blockView(store, answer.local, answer.ledger), [store, answer]);
+  return (
+    <BlockScreen
+      storeName={store.name}
+      cityLine={`${store.city}, ${store.region}`}
+      address={store.address}
+      local={view.local}
+      uses={{}}
+      receipts={view.receipts}
+      onCreate={onCreate}
+      stepActions={{ Create: onCreate }}
+      backHref="/start"
+      fictional={null}
+    />
+  );
+}
+
+/**
+ * Live maps are off: the store's own spot on the map (the point picked from the address), the
+ * server's note said once, and the nearest example store's community one tap away. The event form is
+ * still the next step.
+ */
+function ExampleBlock({ store, answer, onBack, onCreate }: { store: CreateStore; answer: Extract<BlockAnswer, { mode: "example" }>; onBack: () => void; onCreate: () => void }) {
+  const said = splitMessage(answer.message);
+  const example = PLAN_EXAMPLES.find((e) => e.slug === answer.slug);
+  const inputs = example ? PLAN_EXAMPLE_INPUTS[example.slug] : null;
+  const cityLine = `${store.city}, ${store.region}`;
+  const primary = (
+    <button type="button" onClick={onCreate} className={PRIMARY}>
+      Create an event
+    </button>
+  );
+  const main = (
+    <>
+      <ScreenTitle title="Your community" meta={store.address} />
+      <BlockMap
+        center={{ lat: store.lat, lon: store.lon, label: "Your store" }}
+        radiusM={RING_M}
+        places={[]}
+        interactive={false}
+        className="h-[240px] lg:h-[320px]"
+        label={`Map of where ${store.name} is, with the ring of about a mile Stoop maps around it`}
+      />
+      <Notice title={said.title}>Stoop maps the places within about a mile of your store when live plans are on. Until then, look around the nearest example store&apos;s community, or go on and plan your event.</Notice>
+      {example && inputs && (
+        <Section title="Nearest example community">
+          <Link href={`/s/${example.slug}`} className="flex min-h-[54px] items-center gap-3 rounded-[20px] bg-white px-4 py-3 hover:bg-fl-sunk">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.9375rem] leading-5 font-medium">See {example.storeName}&apos;s community</span>
+              <span className="mt-px block text-[0.8125rem] leading-[18px] text-fl-dim">
+                An example store in {inputs.store.city}, {inputs.store.region}, with its places from Qloo
+              </span>
+            </span>
+            <Chevron />
+          </Link>
+          <Fine>{fictionalNotice(inputs.store.carrier)}</Fine>
+        </Section>
+      )}
+    </>
+  );
+  return (
+    <>
+      <FloorHeader
+        left={<BackButton onClick={onBack} />}
+        title={store.name}
+        subtitle={cityLine}
+        store={{ name: store.name, city: cityLine }}
+        right={
+          <IconSlot href="/stores" label="My stores">
+            <LayoutGrid aria-hidden="true" />
+          </IconSlot>
+        }
+        step="Community"
+        actions={{ Create: onCreate }}
+      />
+      <TwoColumn main={main} side={primary} />
       <ActionBar className="lg:hidden">{primary}</ActionBar>
     </>
   );

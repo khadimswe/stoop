@@ -4,9 +4,9 @@ import { ChevronDown, ChevronLeft, LayoutGrid, Loader2, Minus, Plus, X } from "l
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
-import { SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
+import { capitalizeFirst, SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
-import type { PlanNotice } from "@/lib/plan/view/notice";
+import { parsePlanNotice, sameStore, type PlanNotice } from "@/lib/plan/view/notice";
 import { BUDGET_MIN, DURATIONS, emptyStoreForm, EVENT_DAYS_AHEAD, LIMITS, MAX_OFFERS, nextSaturday, parseStoreForm, PLAN_NOTICE_KEY, type Setting, type StoreField, type StoreFormValues } from "@/lib/plan/view/start-form";
 import { ageBandLabel } from "@/lib/types";
 import { cn } from "cn";
@@ -122,8 +122,9 @@ function saveDraft(key: string, values: StoreFormValues) {
  * $50 to start), then the store's promos, used exactly as typed, and the optional rest under "More".
  * "Plan my event" starts the plan (POST /api/plan) or, when live plans are paused, opens an example and
  * leaves it a note saying so. With `draftKey` (a store typed on /start) what was typed is kept for the
- * tab, so coming back from an example finds it again. From 1024 px a side column holds the summary and
- * the action.
+ * tab, so coming back from an example finds it again. An example store's form starts from what its
+ * plan was recorded with, the day included (when that day is still ahead), so what is sent matches
+ * the plan that opens. From 1024 px a side column holds the summary and the action.
  */
 export function CreateScreen({
   store,
@@ -131,14 +132,17 @@ export function CreateScreen({
   backHref,
   steps,
   reasons,
+  stepActions,
   onEditStore,
   draftKey,
 }: {
   store: CreateStore;
-  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "notes" | "startTime" | "durationMinutes" | "budgetUsd">>;
+  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "notes" | "startTime" | "durationMinutes" | "budgetUsd" | "date" | "venueName" | "venueLat" | "venueLon">>;
   backHref: string;
   steps?: Partial<Record<Step, string>>;
   reasons?: Partial<Record<Step, string>>;
+  /** Steps that open in place (the /start flow). */
+  stepActions?: Partial<Record<Step, () => void>>;
   onEditStore?: () => void;
   /** Keep what is typed in this tab under this key (client-only screens). */
   draftKey?: string;
@@ -150,7 +154,10 @@ export function CreateScreen({
   const lastDay = useSyncExternalStore(noSubscription, () => localDay(EVENT_DAYS_AHEAD), () => "");
   const [values, setValues] = useState<StoreFormValues>(() => {
     const draft = draftKey ? loadDraft(draftKey) : null;
-    const merged = { ...defaults, ...draft };
+    // The recorded day is a default like the rest, but the form shows it only while it is still ahead (below).
+    const rest = { ...defaults };
+    delete rest.date;
+    const merged = { ...rest, ...draft };
     return {
       ...emptyStoreForm(),
       storeName: store.name,
@@ -170,7 +177,10 @@ export function CreateScreen({
   const [open, setOpen] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<StoreField, string>>>({});
   const [send, setSend] = useState<{ kind: "idle" } | { kind: "sending" } | { kind: "error"; message: string }>({ kind: "idle" });
-  const date = dateTouched ? values.date : saturday;
+  const inFlight = useRef<AbortController | null>(null);
+  // An example store's recorded day, while it is still a day the form takes; else the next Saturday.
+  const recordedDay = defaults?.date && today && lastDay && defaults.date >= today && defaults.date <= lastDay ? defaults.date : null;
+  const date = dateTouched ? values.date : (recordedDay ?? saturday);
   const set = <K extends keyof StoreFormValues>(key: K, value: StoreFormValues[K]) => setValues((v) => ({ ...v, [key]: value }));
   const toggle = (row: string) => setOpen((o) => (o === row ? null : row));
   const budget = Number(values.budgetUsd) || 0;
@@ -191,6 +201,25 @@ export function CreateScreen({
     if (draftKey) saveDraft(draftKey, { ...values, date: dateTouched ? values.date : "" });
   }, [draftKey, values, dateTouched]);
 
+  // Coming back to this form (the browser's Back, or "Back to your store" after an example opened)
+  // finds it ready again, never stuck on "Planning...". Next keeps a left page alive but hidden
+  // (React's Activity), which runs this cleanup; a page restored from the browser's back-forward
+  // cache fires "pageshow" instead. A plan still starting when the page was left is dropped.
+  useLayoutEffect(() => {
+    return () => {
+      inFlight.current?.abort();
+      inFlight.current = null;
+      setSend((s) => (s.kind === "sending" ? { kind: "idle" } : s));
+    };
+  }, []);
+  useEffect(() => {
+    const shown = (event: PageTransitionEvent) => {
+      if (event.persisted) setSend((s) => (s.kind === "sending" ? { kind: "idle" } : s));
+    };
+    window.addEventListener("pageshow", shown);
+    return () => window.removeEventListener("pageshow", shown);
+  }, []);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const parsed = parseStoreForm({ ...values, date }, today || undefined);
@@ -203,15 +232,21 @@ export function CreateScreen({
     }
     setErrors({});
     setSend({ kind: "sending" });
+    inFlight.current?.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
     try {
-      const response = await fetch("/api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ inputs: parsed.inputs }) });
+      const response = await fetch("/api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ inputs: parsed.inputs }), signal: controller.signal });
       const body = (await response.json().catch(() => null)) as { mode?: string; id?: string; slug?: string; message?: string } | null;
       if (!response.ok) return setSend({ kind: "error", message: apiMessageOf(body) ?? "Stoop couldn't start this plan. Try again in a minute." });
       if (body?.mode === "live" && body.id) return router.push(`/plan/${encodeURIComponent(body.id)}`);
       if (body?.mode === "example" && body.slug) {
         try {
-          // The example's Event page says why it opened, whose plan it is and the way back.
-          const notice: PlanNotice = { message: body.message ?? "Live plans are off right now.", slug: body.slug, from: { name: store.name, city: `${store.city}, ${store.region}` }, back: backHref };
+          // The example's Event page says why it opened, whose plan it is and the way back. Planning
+          // from an example store's own form while it stands in for yours keeps the way back to yours.
+          const before = parsePlanNotice(sessionStorage.getItem(PLAN_NOTICE_KEY));
+          const keep = before?.from && before.slug === body.slug && !sameStore(before.from.name, store.name) ? { from: before.from, back: before.back } : null;
+          const notice: PlanNotice = { message: body.message ?? "Live plans are off right now.", slug: body.slug, from: keep?.from ?? { name: store.name, city: `${store.city}, ${store.region}` }, back: keep?.back ?? backHref };
           sessionStorage.setItem(PLAN_NOTICE_KEY, JSON.stringify(notice));
         } catch {
           // Private browsing: the example still opens.
@@ -220,7 +255,11 @@ export function CreateScreen({
       }
       setSend({ kind: "error", message: "Stoop couldn't start this plan. Try again in a minute." });
     } catch {
+      // Left the page while the plan was starting: nothing to say.
+      if (controller.signal.aborted) return;
       setSend({ kind: "error", message: "No connection. Your answers are still here. Try again." });
+    } finally {
+      if (inFlight.current === controller) inFlight.current = null;
     }
   };
 
@@ -394,7 +433,13 @@ export function CreateScreen({
               {bandsFull ? `Up to ${LIMITS.maxBands} age bands. Tap one to swap it.` : `Pick up to ${LIMITS.maxBands}. Adults only.`}
             </p>
           </OpenRow>
-          <OpenRow id={`${id}-setup`} label="Setup" value={SETTING_LABELS[values.setting]} open={open === "setup"} onToggle={() => toggle("setup")}>
+          <OpenRow
+            id={`${id}-setup`}
+            label="Setup"
+            value={values.venueName.trim() && (values.setting === "community_event" || values.setting === "nearby_venue") ? `${SETTING_LABELS[values.setting]}: ${capitalizeFirst(values.venueName.trim())}` : SETTING_LABELS[values.setting]}
+            open={open === "setup"}
+            onToggle={() => toggle("setup")}
+          >
             <div role="radiogroup" aria-label="Setup" className="flex flex-wrap gap-2">
               {(Object.keys(SETTING_LABELS) as Setting[]).map((s) => (
                 <button
@@ -476,6 +521,7 @@ export function CreateScreen({
         step="Create"
         hrefs={steps}
         reasons={reasons}
+        actions={stepActions}
       />
       <form id={`${id}-form`} noValidate onSubmit={submit} className="contents">
         <TwoColumn main={main} side={side} />
