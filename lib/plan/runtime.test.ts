@@ -4,12 +4,14 @@ import { keys } from "../store/keys";
 import type { RequestContext } from "../runtime/types";
 import type { VisitorId } from "../store/visitor";
 import { describeRecorded } from "../testing/recorded";
+import { mintVisitorCookie, VISITOR_COOKIE } from "../visitor-cookie";
 import { createPlanEmitter, reducePlan, toPlanReport, type PlanEvent } from "./events";
 import { examplePlanId, PLAN_EXAMPLE_INPUTS } from "./example-list";
 import { loadExampleEvents } from "./examples";
 import { replayClient, replayPlanModel } from "./replay";
 import { getPlan, getPlanEvents, postPlanResults, type PlanRouteDeps } from "./routes";
-import { exampleFor, executePlan, startPlan, type PlanStartDeps } from "./runtime";
+import { exampleFor, executePlan, MAX_EVENT_DAYS_AHEAD, startPlan, type PlanStartDeps } from "./runtime";
+import { EVENT_DAYS_AHEAD } from "./view/start-form";
 import { appendPlanEvents, getPlanMeta, loadPlanEvents, loadPlanReport, setPlanMeta } from "./store";
 import type { PlanInputs } from "./schema";
 
@@ -85,6 +87,33 @@ describe("the plan store", () => {
     expect(report?.local.gaps).toEqual(["No Qloo signal for parks"]);
     expect(await loadPlanReport(store, "plan_ffffffffffffffffffffffff")).toBeNull();
   });
+
+  it("refreshes every key of a plan together on each write, so no part expires before the rest", async () => {
+    let now = Date.parse("2026-10-29T12:00:00Z");
+    const store = new MemoryStore({ now: () => now });
+    const at = new Date(now).toISOString();
+    await store.set(keys.planInput(RUN_ID), inputs, { ttlSeconds: 60 });
+    await store.set(keys.planVariantB(RUN_ID), { conceptId: "b" }, { ttlSeconds: 60 });
+    await setPlanMeta(store, { runId: RUN_ID, status: "done", inputHash: "0".repeat(64), createdAt: at, updatedAt: at });
+    await store.expire(keys.planMeta(RUN_ID), 60);
+    now += 30_000;
+    await appendPlanEvents(store, RUN_ID, [emit({ type: "plan.started", runId: RUN_ID, kind: "live", inputs })]);
+    now += 10 * 86_400_000;
+    expect(await store.get(keys.planInput(RUN_ID))).toEqual(inputs);
+    expect(await store.get(keys.planVariantB(RUN_ID))).toEqual({ conceptId: "b" });
+    expect(await getPlanMeta(store, RUN_ID)).not.toBeNull();
+    now += 40 * 86_400_000;
+    expect(await store.get(keys.planInput(RUN_ID))).toBeNull();
+  });
+
+  it("refuses an event more than 4 weeks out, before anything is counted", async () => {
+    const store = new MemoryStore();
+    const { deps, scheduled } = startDeps();
+    const far = { ...inputs, date: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10) };
+    await expect(startPlan(deps, { inputs: far }, ctxFor(store))).rejects.toMatchObject({ field: "date", status: 400 });
+    expect(scheduled).toHaveLength(0);
+    expect(await store.get(keys.daily("live-runs"))).toBeNull();
+  });
 });
 
 describeRecorded("examples in the store", () => {
@@ -141,17 +170,33 @@ describeRecorded("the plan routes", () => {
 
 describe("logging results", () => {
   const body = { walkIns: 14, sales: 3, posted: { facebook: true, instagram: false, whatsapp: true } };
-  const post = (id: string, store: MemoryStore) =>
-    postPlanResults(new Request(`http://localhost/api/plan/${id}/results`, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } }), id, { store: () => store, start: () => startDeps().deps, now: () => Date.parse("2026-11-07T22:00:00Z") });
+  const SECRET = "s".repeat(40);
+  const owner = mintVisitorCookie(SECRET);
+  const post = (id: string, store: MemoryStore, cookie: string | null = `${VISITOR_COOKIE}=${owner.value}`) =>
+    postPlanResults(
+      new Request(`http://localhost/api/plan/${id}/results`, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) } }),
+      id,
+      { env: { STOOP_SIGNING_SECRET: SECRET }, store: () => store, start: () => startDeps().deps, now: () => Date.parse("2026-11-07T22:00:00Z") },
+    );
 
   it("keeps example plans read-only", async () => {
     expect((await post("ex-chicago-18th-street", new MemoryStore())).status).toBe(403);
   });
 
+  it("refuses anyone but the browser that started the plan", async () => {
+    const store = new MemoryStore();
+    const at = new Date().toISOString();
+    await setPlanMeta(store, { runId: RUN_ID, status: "done", inputHash: "0".repeat(64), createdAt: at, updatedAt: at, owner: owner.id });
+    await appendPlanEvents(store, RUN_ID, [createPlanEmitter()({ type: "plan.started", runId: RUN_ID, kind: "live", inputs })]);
+    expect((await post(RUN_ID, store, null)).status).toBe(403);
+    expect((await post(RUN_ID, store, `${VISITOR_COOKIE}=${mintVisitorCookie(SECRET).value}`)).status).toBe(403);
+    expect((await loadPlanReport(store, RUN_ID))?.results).toHaveLength(0);
+  });
+
   it("adds a results.logged event to a live plan", async () => {
     const store = new MemoryStore();
     const at = new Date().toISOString();
-    await setPlanMeta(store, { runId: RUN_ID, status: "done", inputHash: "0".repeat(64), createdAt: at, updatedAt: at });
+    await setPlanMeta(store, { runId: RUN_ID, status: "done", inputHash: "0".repeat(64), createdAt: at, updatedAt: at, owner: owner.id });
     await appendPlanEvents(store, RUN_ID, [createPlanEmitter()({ type: "plan.started", runId: RUN_ID, kind: "live", inputs })]);
     const response = await post(RUN_ID, store);
     expect(response.status).toBe(200);
@@ -159,5 +204,11 @@ describe("logging results", () => {
     expect(events.at(-1)).toMatchObject({ type: "results.logged", seq: 1, results: { ...body, loggedAt: "2026-11-07T22:00:00.000Z" } });
     expect((await loadPlanReport(store, RUN_ID))?.results).toHaveLength(1);
     expect((await post("plan_ffffffffffffffffffffffff", store)).status).toBe(404);
+  });
+});
+
+describe("the event date limit", () => {
+  it("is the same in the form's date picker and on the server", () => {
+    expect(EVENT_DAYS_AHEAD).toBe(MAX_EVENT_DAYS_AHEAD);
   });
 });

@@ -101,6 +101,19 @@ export function metaPostingEnabled(env: Env = process.env): boolean {
   return flag(env.ENABLE_META_POSTING);
 }
 
+/**
+ * META_POSTING_ENDS_AT: when posting to Meta and its stored connections end, as an ISO date. Unset (the
+ * default) means no end: managers keep posting after judging. It is apart from JUDGING_ENDS_AT, which
+ * still ends judge passes and MCP tokens. Connections also end with their Meta tokens (lib/social/session.ts).
+ */
+export function metaPostingEndsAt(env: Env = process.env): number {
+  const text = env.META_POSTING_ENDS_AT?.trim();
+  if (!text) return Number.POSITIVE_INFINITY;
+  const at = Date.parse(text);
+  if (Number.isNaN(at)) throw new Error(`META_POSTING_ENDS_AT must be an ISO date, e.g. ${DEFAULT_JUDGING_ENDS_AT}, or unset.`);
+  return at;
+}
+
 /** Storyboard world jobs (up to 8 frames each, with the re-renders) per visitor per day, on top of FRAMES_DAILY_CAP. */
 export const STORYBOARD_LIMITS = { perCookieDaily: 6, perIpDaily: 15 } as const;
 

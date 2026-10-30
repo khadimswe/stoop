@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MemoryStore } from "./memory";
-import { ipGroup, tokenVisitorId, visitorId } from "./visitor";
+import { ipGroup, networkVisitorId, tokenVisitorId, visitorId } from "./visitor";
 
 const idFor = (store: MemoryStore, ip: string) => visitorId(store, new Headers({ "x-forwarded-for": ip }));
 
@@ -36,5 +36,17 @@ describe("visitor ids", () => {
   it("name an MCP token by its hash, never by the token", () => {
     expect(tokenVisitorId("a".repeat(64))).toBe(`t_${"a".repeat(24)}`);
     expect(() => tokenVisitorId("stp_notahash")).toThrow();
+  });
+
+  it("group an IPv6 network by its /48 for daily caps, and IPv4 as the address", async () => {
+    expect(ipGroup("2001:db8:aa:1::9", 48)).toBe("2001:db8:aa::/48");
+    expect(ipGroup("2001:db8:aa:1::9")).toBe("2001:db8:aa:1::/64");
+    expect(ipGroup("203.0.113.7", 48)).toBe("203.0.113.7");
+    const store = new MemoryStore();
+    const net = (ip: string) => networkVisitorId(store, new Headers({ "x-forwarded-for": ip }));
+    expect(await net("2001:db8:aa:1::9")).toBe(await net("2001:db8:aa:ffff::1"));
+    expect(await net("2001:db8:aa:1::9")).not.toBe(await net("2001:db8:ab:1::9"));
+    expect(await idFor(store, "2001:db8:aa:1::9")).not.toBe(await idFor(store, "2001:db8:aa:2::9"));
+    expect(await net("203.0.113.7")).toBe(await idFor(store, "203.0.113.7"));
   });
 });

@@ -7,12 +7,19 @@ import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
 import { SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
 import type { PlanNotice } from "@/lib/plan/view/notice";
-import { BUDGET_MIN, DURATIONS, emptyStoreForm, LIMITS, MAX_OFFERS, nextSaturday, parseStoreForm, PLAN_NOTICE_KEY, type Setting, type StoreField, type StoreFormValues } from "@/lib/plan/view/start-form";
+import { BUDGET_MIN, DURATIONS, emptyStoreForm, EVENT_DAYS_AHEAD, LIMITS, MAX_OFFERS, nextSaturday, parseStoreForm, PLAN_NOTICE_KEY, type Setting, type StoreField, type StoreFormValues } from "@/lib/plan/view/start-form";
 import { ageBandLabel } from "@/lib/types";
 import { cn } from "cn";
 import { ActionBar, Chevron, FloorHeader, IconSlot, Notice, PRIMARY, RowLabel, ScreenTitle, Section, TwoColumn, type Step } from "./kit";
 
 const noSubscription = () => () => {};
+
+/** The local date `days` from today, as YYYY-MM-DD (what a date input reads). */
+function localDay(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 /** Text fields keep the site-wide 3 px focus ring (no outline-none), with a radius so it sits neatly. */
 const FIELD = "w-full min-w-0 rounded-[6px] bg-transparent text-[0.9375rem] text-fl-ink placeholder:text-fl-dim";
 const START_TIMES = Array.from({ length: 27 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
@@ -139,14 +146,8 @@ export function CreateScreen({
   const router = useRouter();
   const id = useId();
   const saturday = useSyncExternalStore(noSubscription, () => nextSaturday(new Date()), () => "");
-  const today = useSyncExternalStore(
-    noSubscription,
-    () => {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    },
-    () => "",
-  );
+  const today = useSyncExternalStore(noSubscription, () => localDay(0), () => "");
+  const lastDay = useSyncExternalStore(noSubscription, () => localDay(EVENT_DAYS_AHEAD), () => "");
   const [values, setValues] = useState<StoreFormValues>(() => {
     const draft = draftKey ? loadDraft(draftKey) : null;
     const merged = { ...defaults, ...draft };
@@ -177,7 +178,13 @@ export function CreateScreen({
   // Functional updates, so quick taps each count.
   const step = (by: number) => setValues((v) => ({ ...v, budgetUsd: String(clampBudget((Number(v.budgetUsd) || 0) + by)) }));
   const errorList = Object.values(errors).filter(Boolean);
-  const dateError = errors.date ?? (dateTouched && today && values.date && values.date < today ? "Pick today or a later day." : undefined);
+  const dateError =
+    errors.date ??
+    (dateTouched && today && values.date && values.date < today
+      ? "Pick today or a later day."
+      : dateTouched && lastDay && values.date > lastDay
+        ? "Pick a day in the next 4 weeks."
+        : undefined);
   const bandsFull = values.ageBands.length >= LIMITS.maxBands;
 
   useEffect(() => {
@@ -258,6 +265,7 @@ export function CreateScreen({
             aria-label="Day of the event"
             value={date}
             min={today || undefined}
+            max={lastDay || undefined}
             aria-invalid={dateError ? true : undefined}
             onChange={(e) => {
               setDateTouched(true);

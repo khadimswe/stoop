@@ -1,8 +1,10 @@
 // A plan's server-sent event stream. Live plans: the plan's list in the store, from where the viewer
 // left off (`Last-Event-ID` is the last seq it has), plus a status message whenever the plan's status
 // changes. Examples: the recorded run (and anything added to it since), paced so it reads like a run.
-// Marketing events that land after the plan keep coming for a while; then the stream ends and the
-// viewer can reconnect. Every event is a PlanEvent, so one reducer (reducePlan) reads them all.
+// Marketing (the poster and posts) runs after the plan: while it is under way the stream stays open,
+// polling more slowly; a plan that has ended with nothing more on the way closes within a few seconds
+// (a little after it ended, so marketing that starts on its own can still begin). Every event is a
+// PlanEvent, so one reducer (reducePlan) reads them all.
 import type { Store } from "../store/types";
 import type { PlanEvent } from "./events";
 import { posterKeys } from "./marketing-keys";
@@ -15,6 +17,36 @@ export async function marketingBusy(store: Store, runId: string): Promise<boolea
   } catch {
     return false;
   }
+}
+
+/** A stream never runs longer than this (the route's maxDuration is 300 s). */
+export const PLAN_STREAM_MAX_MS = 280_000;
+
+interface Progress {
+  /** Marketing has started and not finished. */
+  open: boolean;
+  /** Marketing has finished. */
+  done: boolean;
+  /** When the latest event was written (its `at`), or null before any. */
+  lastAt: number | null;
+}
+
+/** Marketing's progress and the latest write, after these events. */
+function progressOf(events: readonly PlanEvent[], from: Progress = { open: false, done: false, lastAt: null }): Progress {
+  let { open, done, lastAt } = from;
+  for (const event of events) {
+    if (event.type === "stage.started" && event.stage === "marketing") {
+      open = true;
+      done = false;
+    }
+    if (event.type === "stage.done" && event.stage === "marketing") {
+      open = false;
+      done = true;
+    }
+    const at = Date.parse(event.at);
+    if (!Number.isNaN(at)) lastAt = Math.max(lastAt ?? at, at);
+  }
+  return { open, done, lastAt };
 }
 
 export type PlanStreamStatus = { status: "running" | "done" | "partial" | "failed" };
@@ -53,23 +85,38 @@ const wait = (ms: number, signal?: AbortSignal) =>
 export interface PlanStreamOptions {
   lastEventId?: string | null;
   signal?: AbortSignal;
+  /** How often the store is read while the plan runs. */
   pollMs?: number;
+  /** How often it is read once the plan has ended (while marketing may still write). */
+  idlePollMs?: number;
   heartbeatMs?: number;
-  /** After the plan ends, keep the stream open this long for marketing events. */
+  /** After the plan ends with no marketing under way, wait this long (from its end) for marketing to start. */
   lingerMs?: number;
+  /** Marketing that wrote nothing for this long is taken as stuck, and the stream ends. */
+  marketingQuietMs?: number;
   maxMs?: number;
   now?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /** Called once when the stream ends, however it ends (the route frees its stream lease). */
+  onClose?: () => void | Promise<void>;
 }
 
 export function streamLivePlan(store: Store, runId: string, options: PlanStreamOptions = {}): ReadableStream<Uint8Array> {
   const pollMs = options.pollMs ?? 700;
+  const idlePollMs = options.idlePollMs ?? 2_000;
   const heartbeatMs = options.heartbeatMs ?? 15_000;
-  const lingerMs = options.lingerMs ?? 30_000;
-  const maxMs = options.maxMs ?? 280_000;
+  const lingerMs = options.lingerMs ?? 15_000;
+  const marketingQuietMs = options.marketingQuietMs ?? 90_000;
+  const maxMs = options.maxMs ?? PLAN_STREAM_MAX_MS;
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? wait;
   const signal = options.signal;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    await Promise.resolve(options.onClose?.()).catch(() => undefined);
+  };
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (text: string) => controller.enqueue(encoder.encode(text));
@@ -77,68 +124,90 @@ export function streamLivePlan(store: Store, runId: string, options: PlanStreamO
       let lastSent = opened;
       let status: PlanStreamStatus["status"] | null = null;
       let index = -1;
-      let quietSince: number | null = null;
+      let progress: Progress = { open: false, done: false, lastAt: null };
       send("retry: 3000\n\n");
       try {
-        while (!signal?.aborted && now() - opened < maxMs) {
+        while (!closed && !signal?.aborted && now() - opened < maxMs) {
           const meta = await getPlanMeta(store, runId);
           if (!meta) {
             send(sseStatus({ status: "failed" }));
             break;
           }
-          if (index === -1) index = indexAfterSeq(await readStoredPlanEvents(store, runId), lastSeq(options.lastEventId));
+          if (index === -1) {
+            const all = await readStoredPlanEvents(store, runId);
+            index = indexAfterSeq(all, lastSeq(options.lastEventId));
+            progress = progressOf(all.slice(0, index));
+          }
           // Events first, then the status they lead to: a viewer that stops at "done" has the whole plan.
           const events = await readStoredPlanEvents(store, runId, index);
           for (const event of events) send(sseEvent(event));
           if (events.length) {
             index += events.length;
             lastSent = now();
-            quietSince = null;
+            progress = progressOf(events, progress);
           }
           if (status !== meta.status) {
             status = meta.status;
             send(sseStatus({ status }));
             lastSent = now();
           }
-          if (meta.status !== "running") {
-            // While the poster and posts are being made (their job holds the lock), the stream stays open for them.
-            if (await marketingBusy(store, runId)) quietSince = null;
-            else {
-              quietSince ??= now();
-              if (now() - quietSince >= lingerMs) break;
-            }
+          const ended = meta.status !== "running";
+          if (ended) {
+            // When the latest thing happened: the plan's end, or a later write (marketing, a post).
+            const endedAt = Date.parse(meta.updatedAt);
+            const latest = Math.max(Number.isNaN(endedAt) ? opened : endedAt, progress.lastAt ?? 0);
+            // Marketing done: nothing more is coming. Marketing under way (its events say so, or its job holds
+            // the plan's lock before its first event): wait for it, unless it went quiet (a job that died).
+            // Not started: wait a little after the latest write for it to start.
+            if (progress.done && !progress.open) break;
+            const making = progress.open || (await marketingBusy(store, runId));
+            if (now() - latest >= (making ? marketingQuietMs : lingerMs)) break;
           }
           if (now() - lastSent >= heartbeatMs) {
             send(": still here\n\n");
             lastSent = now();
           }
-          await sleep(pollMs, signal);
+          await sleep(ended ? idlePollMs : pollMs, signal);
         }
       } catch {
         // The store went away mid-stream: end it; the viewer reconnects from its last event.
       }
+      await close();
       controller.close();
+    },
+    async cancel() {
+      await close();
     },
   });
 }
 
 /** An example's events, replayed at a reading pace. Ends with its status. */
-export function streamExamplePlan(events: readonly PlanEvent[], options: Pick<PlanStreamOptions, "lastEventId" | "signal" | "sleep"> & { paceMs?: number } = {}): ReadableStream<Uint8Array> {
+export function streamExamplePlan(events: readonly PlanEvent[], options: Pick<PlanStreamOptions, "lastEventId" | "signal" | "sleep" | "onClose"> & { paceMs?: number } = {}): ReadableStream<Uint8Array> {
   const sleep = options.sleep ?? wait;
   const pace = options.paceMs ?? 50;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    await Promise.resolve(options.onClose?.()).catch(() => undefined);
+  };
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (text: string) => controller.enqueue(encoder.encode(text));
       send("retry: 3000\n\n");
       send(sseStatus({ status: "running" }));
       for (const event of events.slice(indexAfterSeq(events, lastSeq(options.lastEventId)))) {
-        if (options.signal?.aborted) break;
+        if (closed || options.signal?.aborted) break;
         send(sseEvent(event));
         await sleep(pace, options.signal);
       }
       const partial = events.some((e) => e.type === "run.partial");
-      if (!options.signal?.aborted) send(sseStatus({ status: partial ? "partial" : "done" }));
+      if (!closed && !options.signal?.aborted) send(sseStatus({ status: partial ? "partial" : "done" }));
+      await close();
       controller.close();
+    },
+    async cancel() {
+      await close();
     },
   });
 }

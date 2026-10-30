@@ -29,7 +29,9 @@ export function tokenVisitorId(tokenHash: string): TokenVisitorId {
 /**
  * The client IP: the first x-forwarded-for entry, else x-real-ip. This trusts the host to set the
  * header, which Vercel does (it overwrites what the client sent). A host that passes the client's own
- * header through needs its own reader, or anyone could pose as many visitors.
+ * header through needs its own reader, or anyone could pose as many visitors: every per-visitor and
+ * per-network limit (and plan ownership without a signing secret, lib/plan/owner.ts) counts by it.
+ * Behind a proxy that appends instead, read the entry that proxy added (the last one), never the first.
  */
 export function clientIp(headers: Headers): string | null {
   const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -95,7 +97,7 @@ function ipv6Groups(text: string): string[] | null {
  * household or device usually holds a whole /64, so per-address limits would be trivial to step
  * around). An IPv4-mapped IPv6 address counts as its IPv4 address. Anything unparseable stays as sent.
  */
-export function ipGroup(ip: string): string {
+export function ipGroup(ip: string, prefix: 48 | 64 = 64): string {
   const bare = ip.trim().replace(/^\[|\]$/g, "").replace(/%.*$/, "").toLowerCase();
   if (!bare.includes(":")) return bare;
   const groups = ipv6Groups(bare);
@@ -104,12 +106,23 @@ export function ipGroup(ip: string): string {
     const [hi, lo] = [parseInt(groups[6], 16), parseInt(groups[7], 16)];
     return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
   }
-  return `${groups.slice(0, 4).join(":")}::/64`;
+  return prefix === 48 ? `${groups.slice(0, 3).join(":")}::/48` : `${groups.slice(0, 4).join(":")}::/64`;
 }
 
 /** Visitors without an IP (local dev, tests) share one id. An IPv6 visitor is their /64 (ipGroup). */
 export async function visitorId(store: Store, headers: Headers): Promise<VisitorId> {
   const forwarded = clientIp(headers);
   const ip = forwarded ? ipGroup(forwarded) : "unknown";
+  return `v_${sha256(`${await salt(store)}:ip:${ip}`).slice(0, 24)}` as VisitorId;
+}
+
+/**
+ * The visitor's network, for daily caps: an IPv4 address as it is (the same id as visitorId), an IPv6
+ * address by its /48. A home or phone line is often handed a whole /48 or /56, so a daily cap by /64
+ * would let one person start fresh by moving to the next /64.
+ */
+export async function networkVisitorId(store: Store, headers: Headers): Promise<VisitorId> {
+  const forwarded = clientIp(headers);
+  const ip = forwarded ? ipGroup(forwarded, 48) : "unknown";
   return `v_${sha256(`${await salt(store)}:ip:${ip}`).slice(0, 24)}` as VisitorId;
 }

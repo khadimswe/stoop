@@ -29,7 +29,7 @@ import { DEFAULT_DIRECTION } from "../types";
 import { callerOf, tokenRefusal, type Caller } from "./auth";
 import { capRefusal, liveRunShareCounter, reserveCall } from "./caps";
 import { scoreBrief, scoreBriefInputSchema, scoreBriefResultSchema, scoreBriefText } from "./score-brief";
-import { planStartRequestSchema, type PlanStartResponse } from "../plan/runtime";
+import { exampleReply, planStartRequestSchema, type PlanStartResponse } from "../plan/runtime";
 
 export const MCP_SERVER_INFO = { name: "stoop", version: "0.1.0" } as const;
 
@@ -215,6 +215,7 @@ export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?
 }
 
 const AGENT_SHARE_MESSAGE = "Today's live runs for MCP agents are used up, so the rest stay open for people on the site. Here's an example report; agent runs open again tomorrow (UTC).";
+const AGENT_SHARE_PLAN_MESSAGE = "Today's live plans for MCP agents are used up, so the rest stay open for people on the site. Here is an example plan; agent plans open again tomorrow (UTC).";
 
 function cultureBriefText(output: CultureBriefOutput): string {
   if (output.mode === "live") {
@@ -326,10 +327,30 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
           if (!reserved.ok) return { ...text(capRefusal(reserved.full, caps), true), structuredContent: { mode: "capped", message: capRefusal(reserved.full, caps) } };
           const origin = originOf(ctx.http?.req);
           const rc = await requestContext(deps, ctx.http?.req, tokenVisitorId(auth.caller.hash));
-          const reply = await startPlan(input, rc);
+          // A live plan takes from the agents' daily share of live runs, like culture_brief, so agents can
+          // never spend the day's runs for people on the site. Given back when no new plan started.
+          const shared = await reserveEach(rc.store, [liveRunShareCounter(caps, deps.now?.())]);
+          if (!shared.ok) {
+            await reserved.reservation.release();
+            const paused = exampleReply("daily-cap", input.inputs, AGENT_SHARE_PLAN_MESSAGE);
+            const pausedOutput = { ...paused, planUrl: `${origin}${paused.planUrl}` };
+            return { content: [{ type: "text", text: `${AGENT_SHARE_PLAN_MESSAGE}\nExample plan: ${pausedOutput.planUrl}` }], structuredContent: pausedOutput };
+          }
+          let reply: PlanStartResponse;
+          try {
+            reply = await startPlan(input, rc);
+          } catch (error) {
+            await shared.reservation.release().catch(() => undefined);
+            throw error;
+          }
+          if (reply.mode === "example" || reply.joined) await shared.reservation.release();
           if (reply.mode === "example") await reserved.reservation.release();
           const output = { ...reply, planUrl: `${origin}${reply.planUrl}`, ...(reply.mode === "live" ? { eventsUrl: `${origin}${reply.eventsUrl}` } : {}) };
-          const message = reply.mode === "live" ? `Started plan ${reply.id}${reply.joined ? " (joined a plan with the same inputs)" : ""}.\nPlan: ${output.planUrl}\nEvents: ${output.eventsUrl}` : `${reply.message}\nExample plan: ${output.planUrl}`;
+          // The plan's full report and events answer only its owner: here, this token (lib/plan/owner.ts).
+          const message =
+            reply.mode === "live"
+              ? `Started plan ${reply.id}${reply.joined ? " (joined a plan with the same inputs)" : ""}.\nPlan: ${output.planUrl}\nEvents: ${output.eventsUrl}\nRead the plan (${origin}/api/plan/${reply.id}) and its events with this same token as "Authorization: Bearer"; without it they show only the public event page's details.`
+              : `${reply.message}\nExample plan: ${output.planUrl}`;
           return { content: [{ type: "text", text: message }], structuredContent: output };
         },
       );

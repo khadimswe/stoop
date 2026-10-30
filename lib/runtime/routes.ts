@@ -14,7 +14,7 @@ import { allowAll, type BotCheck } from "../bot-check";
 import { browserOnly } from "../routes/guard";
 import type { ExampleSlug } from "../demo/examples";
 import { visitorCookie } from "../http";
-import { signingSecret } from "../sign";
+import { safeEqual, signingSecret } from "../sign";
 import { ApiFailure } from "./errors";
 import { runIntake, type IntakeDeps } from "./intake";
 import { contextFor, errorResponse, json } from "./respond";
@@ -152,8 +152,25 @@ export async function getReport(id: string, deps: RouteDeps): Promise<Response> 
   }
 }
 
-export async function getHealth(deps: RouteDeps): Promise<Response> {
+/** The founder's ops token (WAITLIST_EXPORT_TOKEN, 32 or more characters), which also opens health's details. */
+const HEALTH_TOKEN_MIN = 32;
+
+/** Whether the request carries the founder's ops token as "Authorization: Bearer". Constant time. */
+function opsAuthorized(request: Request | null, env: Env): boolean {
+  const token = env.WAITLIST_EXPORT_TOKEN?.trim();
+  if (!request || !token || token.length < HEALTH_TOKEN_MIN) return false;
+  const sent = /^Bearer\s+(\S+)\s*$/i.exec(request.headers.get("authorization") ?? "")?.[1];
+  return sent !== undefined && safeEqual(sent, token);
+}
+
+/**
+ * GET /api/health: anyone sees whether the app is up and live (`ok`, `live`: e2e and the walkthrough
+ * read them). Today's cap usage, the store kind and Qloo's month remaining show only with the founder's
+ * ops token (WAITLIST_EXPORT_TOKEN as "Authorization: Bearer"), so nobody can watch the caps run down.
+ */
+export async function getHealth(deps: RouteDeps, request: Request | null = null): Promise<Response> {
   const env = deps.env ?? process.env;
+  const details = opsAuthorized(request, env);
   const caps = dailyCaps(env);
   const counted: (keyof typeof caps)[] = ["liveRuns", "frames", "qloo", "renders"];
   const capKey: Record<keyof typeof caps, DailyCap> = { liveRuns: "live-runs", frames: "frames", qloo: "qloo", renders: "renders" };
@@ -161,9 +178,11 @@ export async function getHealth(deps: RouteDeps): Promise<Response> {
   try {
     const store = deps.store();
     if (!(await store.ping())) throw new Error("unreachable");
+    if (!details) return json({ ok: true, live: isLive(env) } satisfies Pick<HealthResponse, "ok" | "live">);
     const used = await Promise.all(counted.map(async (name) => [name, { used: (await store.get<number>(keys.daily(capKey[name]))) ?? 0, cap: caps[name] }] as const));
     return json({ ok: true, live: isLive(env), store: store.kind, caps: Object.fromEntries(used) as HealthResponse["caps"], qlooMonthRemaining: (await lastMonthRemaining(store)) ?? null } satisfies HealthResponse);
   } catch {
+    if (!details) return json({ ok: false, live: isLive(env) } satisfies Pick<HealthResponse, "ok" | "live">, 503);
     return json({ ok: false, live: isLive(env), store: "unreachable", caps: zero, qlooMonthRemaining: null } satisfies HealthResponse, 503);
   }
 }

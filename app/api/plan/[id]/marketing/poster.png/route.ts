@@ -5,12 +5,16 @@
 // plain Stoop background. Examples (ex-<slug>) read their recorded plan, so they draw without a store.
 // ?size=thumb (360 wide) and ?size=medium (720 wide) answer the portrait poster as a small WebP, for
 // lists and the public event page, so a phone never downloads the full PNG to show a thumbnail.
+// Each poster has one URL (lib/plan/share.ts canonicalPosterSearch): any other query string is sent
+// there with a 308, so a new query string can never make the server draw the poster again, and the
+// CDN keeps one copy per poster.
 import { connection } from "next/server";
 import sharp from "sharp";
 import { isLive } from "@/lib/config";
 import { metadataOrigin } from "@/lib/marketing/site";
 import { posterResponse } from "@/lib/plan/posts-run";
 import { storePlanSource } from "@/lib/plan/posts-store";
+import { canonicalPosterSearch } from "@/lib/plan/share";
 import { getStore } from "@/lib/store";
 
 const SMALL: Record<string, number> = { thumb: 360, medium: 720 };
@@ -18,10 +22,14 @@ const SMALL: Record<string, number> = { thumb: 360, medium: 720 };
 export async function GET(request: Request, ctx: RouteContext<"/api/plan/[id]/marketing/poster.png">) {
   await connection();
   const { id } = await ctx.params;
-  const query = new URL(request.url).searchParams;
-  const asked = query.get("size") ?? "";
+  const url = new URL(request.url);
+  const canonical = canonicalPosterSearch(url.searchParams);
+  if (url.search !== canonical.search) {
+    return new Response(null, { status: 308, headers: { location: `${url.pathname}${canonical.search}`, "cache-control": "public, max-age=3600, s-maxage=86400" } });
+  }
+  const asked = canonical.size ?? "";
   const size = asked === "og" ? "og" : "portrait";
-  const variant = query.get("variant") === "b" ? "b" : "a";
+  const variant = canonical.variant;
   const site = metadataOrigin({ app: process.env.NEXT_PUBLIC_APP_URL, production: process.env.VERCEL_PROJECT_PRODUCTION_URL, deployment: process.env.VERCEL_URL }).origin;
   const r2 = process.env.R2_PUBLIC_URL?.trim();
   const response = await posterResponse(

@@ -152,7 +152,7 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
     let billed = art.billed ? 1 : 0;
     if (bId && bWritten && bArt) {
       const bPosts: Posts = { ...bWritten.posts, share: shareLinks(env.origin, runId, bWritten.posts, "b") };
-      await env.store.set(variantKey(runId), variantMarketingSchema.parse({ conceptId: bId, poster: bArt.poster, posts: bPosts }), { ttlSeconds: TTL.report });
+      await env.store.set(variantKey(runId), variantMarketingSchema.parse({ conceptId: bId, poster: bArt.poster, posts: bPosts }), { ttlSeconds: TTL.plan });
       usage = { calls: usage.calls + bWritten.usage.calls, inputTokens: usage.inputTokens + bWritten.usage.inputTokens, outputTokens: usage.outputTokens + bWritten.usage.outputTokens };
       billed += bArt.billed ? 1 : 0;
       events.push(step("Wrote variant B's poster and posts", `From the test's second concept, so the two online pushes can be compared too. ${bWritten.source === "claude" ? "Claude's drafts passed the checks" : "The plain template"}; ${bArt.poster.status === "ready" ? "its own background art" : "the plain background"}.`));
@@ -236,7 +236,7 @@ async function admitRemake(deps: MarketingRouteDeps, store: Store, source: PlanS
   if (await store.get(posterKeys.lock(id))) return answer(202, { status: "working", message: null });
   const ip = await visitorId(store, deps.headers);
   if (!(await withinHourly(store, ip, deps.now?.() ?? Date.now(), deps.perVisitorHour ?? MARKETING_PER_VISITOR_HOUR))) return apiError("rate_limited", "That is a lot of posters in an hour. Try again later.");
-  const version = await store.incr(posterKeys.version(id), { ttlSeconds: TTL.report });
+  const version = await store.incr(posterKeys.version(id), { ttlSeconds: TTL.plan });
   if (version > MAX_POSTER_VERSIONS) {
     await store.incr(posterKeys.version(id), { by: -1 }).catch(() => undefined);
     return apiError("rate_limited", `This plan has had ${MAX_POSTER_VERSIONS} new versions of its poster. Keep the one you like best.`);
@@ -260,7 +260,7 @@ export async function requestMarketing(deps: MarketingRouteDeps, id: string, req
   const source = deps.source(store);
   const state = await source.state(id);
   const report = state ? reportOf(state) : null;
-  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 30 days).");
+  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 45 days).");
   if (!report.plan || state.status === "running" || state.status === "idle") return apiError("busy", "The plan is still being written. The poster and posts follow it.");
   if (state.status === "failed") return apiError("invalid", "This plan did not finish, so it has no poster or posts.", 409);
   if (request.remake === "art") return admitRemake(deps, store, source, id, report);

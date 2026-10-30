@@ -21,6 +21,23 @@ export function posterUrl(origin: string, id: string, size: "portrait" | "og" = 
   return `${clean(origin)}/api/plan/${encodeURIComponent(id)}/marketing/poster.png${query ? `?${query}` : ""}`;
 }
 
+/** The poster route's sizes besides the default portrait: og (1200 by 630) and the small WebPs. */
+export const POSTER_QUERY_SIZES = ["og", "thumb", "medium"] as const;
+export type PosterQuerySize = (typeof POSTER_QUERY_SIZES)[number];
+
+/**
+ * The one query string each poster has ("", "?size=og", "?variant=b", "?size=og&variant=b"...), from
+ * whatever was asked: unknown params, repeats, "size=portrait" and "variant=a" drop out, so the route
+ * can send every other spelling to this one and the CDN keeps one copy per poster.
+ */
+export function canonicalPosterSearch(params: URLSearchParams): { search: string; size: PosterQuerySize | null; variant: Variant } {
+  const asked = params.get("size");
+  const size = (POSTER_QUERY_SIZES as readonly string[]).includes(asked ?? "") ? (asked as PosterQuerySize) : null;
+  const variant: Variant = params.get("variant") === "b" ? "b" : "a";
+  const query = [...(size ? [`size=${size}`] : []), ...(variant === "b" ? ["variant=b"] : [])].join("&");
+  return { search: query ? `?${query}` : "", size, variant };
+}
+
 export function facebookShareUrl(url: string): string {
   return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
 }

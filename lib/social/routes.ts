@@ -70,7 +70,7 @@ export interface SocialDeps {
   app: MetaApp | null;
   /** STOOP_SIGNING_SECRET, or null. */
   secret: string | null;
-  /** JUDGING_ENDS_AT, epoch ms: connections end then. */
+  /** META_POSTING_ENDS_AT, epoch ms (Infinity when unset): posting and connections end then. */
   until: number;
   store: () => Store;
   source: (store: Store) => PlanSource;
@@ -86,7 +86,7 @@ export interface SocialDeps {
 
 type On = { app: MetaApp; secret: string; until: number };
 
-/** The feature's config, or null while it is off: the flag, the app keys, the signing secret, and judging not over. */
+/** The feature's config, or null while it is off: the flag, the app keys, the signing secret, and posting not ended. */
 function on(deps: SocialDeps): On | null {
   if (!deps.enabled || !deps.app || !deps.secret || (deps.now?.() ?? Date.now()) >= deps.until) return null;
   return { app: deps.app, secret: deps.secret, until: deps.until };
@@ -259,7 +259,7 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
   const source = deps.source(store);
   const state = await source.state(planId);
   const report = state ? reportOf(state) : null;
-  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 30 days).", 404);
+  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 45 days).", 404);
   if (state.status === "failed") return apiError("invalid", "This plan did not finish, so it has nothing to post.", 409);
   if (state.status === "running" || state.status === "idle" || !report.posts || !FINAL_POSTER.has(report.poster.status)) return apiError("busy", "The poster and posts are not ready yet. Make them first, then post.", 409);
   const posts = report.posts;
@@ -368,5 +368,5 @@ export async function posterJpeg(planId: string, deps: SocialDeps): Promise<Resp
   const png = await deps.poster(planId).catch(() => null);
   if (!png) return notFound();
   const jpeg = await deps.toJpeg(png);
-  return new Response(new Uint8Array(jpeg), { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" } });
+  return new Response(new Uint8Array(jpeg), { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300, s-maxage=300", "x-content-type-options": "nosniff" } });
 }

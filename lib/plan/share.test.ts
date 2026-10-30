@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventUrl, facebookShareUrl, instagramCopy, posterUrl, shareLinks, whatsappMessage, whatsappShareUrl } from "./share";
+import { canonicalPosterSearch, eventUrl, facebookShareUrl, instagramCopy, posterUrl, shareLinks, whatsappMessage, whatsappShareUrl } from "./share";
 
 describe("share links", () => {
   it("points at the public event page, encoding the id", () => {
@@ -47,5 +47,21 @@ describe("share links", () => {
   it("copies the Instagram caption with its hashtags, since Instagram has no web share", () => {
     expect(instagramCopy({ instagram: { caption: "Saturday at the table.", hashtags: ["Testville", "#ShopLocal"] } })).toBe("Saturday at the table.\n\n#Testville #ShopLocal");
     expect(instagramCopy({ instagram: { caption: "Saturday.", hashtags: [] } })).toBe("Saturday.");
+  });
+});
+
+describe("the poster's one URL", () => {
+  const canon = (query: string) => canonicalPosterSearch(new URLSearchParams(query)).search;
+  it("keeps the spellings the pages use, and folds every other one into them", () => {
+    for (const query of ["", "?size=og", "?size=thumb", "?size=medium", "?variant=b", "?size=og&variant=b"]) expect(canon(query)).toBe(query);
+    expect(canon("?variant=b&size=og")).toBe("?size=og&variant=b");
+    expect(canon("?size=portrait&variant=a")).toBe("");
+    expect(canon("?size=og&cb=123")).toBe("?size=og");
+    expect(canon("?size=huge&x=1")).toBe("");
+    // Every URL the share links build is already canonical, so they are never redirected.
+    for (const url of [posterUrl("https://s.test", "p", "portrait"), posterUrl("https://s.test", "p", "og"), posterUrl("https://s.test", "p", "og", "b"), posterUrl("https://s.test", "p", "portrait", "b")]) {
+      const parsed = new URL(url);
+      expect(canon(parsed.search)).toBe(parsed.search);
+    }
   });
 });

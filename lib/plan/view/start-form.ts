@@ -75,6 +75,9 @@ export const LIMITS = { storeName: 80, venueName: 120, address: 200, city: 80, r
 /** The least a plan can work with, in dollars. */
 export const BUDGET_MIN = 10;
 
+/** How far ahead an event can be, in days: the same limit the server keeps (lib/plan/runtime.ts). */
+export const EVENT_DAYS_AHEAD = 28;
+
 /**
  * Why a phone number can't go on the poster, or null when it can (or is left empty): digits and the
  * usual separators only, the same rule the plan's inputs use.
