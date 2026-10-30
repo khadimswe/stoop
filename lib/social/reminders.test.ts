@@ -53,6 +53,10 @@ describe("reminder captions", () => {
     expect(reminderOpening(facts, "morning_of")).toContain("our booth is at East End fall fair");
     expect(reminderCaption(facts, "morning_of")).toContain(`Where: East End fall fair, hosted by ${base.inputs.store.name}`);
     for (const id of POST_TIME_IDS) expect(checkReminder(report, id)).toEqual([]);
+    // A place that starts with an article reads mid-sentence: "at a fall fair", not "at A fall fair".
+    const fair = reportReminderFacts({ ...report, inputs: { ...report.inputs, location: { name: "a fall fair on Navigation Blvd", point: base.inputs.store.point } } });
+    expect(reminderOpening(fair, "evening_before")).toContain("our booth is at a fall fair on Navigation Blvd.");
+    expect(reminderCaption(fair, "evening_before")).toContain("Where: A fall fair on Navigation Blvd, hosted by");
   });
 
   it("is refused at post time when what the manager typed carries a link or alcohol", () => {

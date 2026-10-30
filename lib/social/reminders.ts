@@ -53,17 +53,21 @@ export function reportReminderFacts(report: Pick<PlanReport, "inputs" | "plan" |
   return reminderFacts(report.inputs, report.plan?.wheel?.slices.map((s) => s.kind) ?? null, report.meta);
 }
 
+/** The place mid-sentence: "a fall fair on Navigation Blvd", not "A fall fair". */
+const inline = (place: string) => place.replace(/^(A|An|The)\s/, (word) => word.toLowerCase());
+
 /** Where the table is, as the opening says it: no address (that is its own line). */
 function wherePhrase(f: ReminderFacts): string {
+  const location = f.location ? inline(f.location) : null;
   switch (f.setting) {
     case "sidewalk_table":
       return "our table is out front";
     case "in_store":
       return "come find us inside the store";
     case "nearby_venue":
-      return f.location ? `we're at ${f.location}` : "we're just down the street";
+      return location ? `we're at ${location}` : "we're just down the street";
     case "community_event":
-      return f.location ? `our booth is at ${f.location}` : "our booth is at the community event";
+      return location ? `our booth is at ${location}` : "our booth is at the community event";
   }
 }
 
