@@ -2,9 +2,12 @@ import { ArrowRight, ChevronDown, ChevronLeft, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { gameWords } from "@/lib/plan/game";
 import { about, awayText, budgetView, eventStats, foldMeta, judgeView, playView, prizesView, snackGroups, venueLine } from "@/lib/plan/view/floor";
-import type { PlanView, TextPart } from "@/lib/plan/view/plan";
+import type { PlanView, TextPart, WheelView } from "@/lib/plan/view/plan";
+import type { AskFacts } from "@/lib/plan/ask";
 import { cn } from "cn";
+import { AskCard } from "./ask-card";
 import { BlockMap, type MapPlace } from "./block-map";
 import { ExampleNotice } from "./example-notice";
 import { ActionBar, Fine, FloorHeader, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, StatStrip, TwoColumn, type Step } from "./kit";
@@ -51,6 +54,35 @@ function SliceBullet() {
   );
 }
 
+/**
+ * The drop board drawn as the manager will set it up: a few rows of pegs, then the 6 slots along the
+ * bottom, numbered left to right with what each one wins. Decorative: the list below it carries the
+ * same slots, with their receipts, for screen readers.
+ */
+function DropBoard({ wheel }: { wheel: WheelView }) {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-3 rounded-[20px] bg-white px-4 pt-4 pb-3">
+      <div className="flex flex-col gap-2.5 px-2">
+        {[0, 1, 2].map((row) => (
+          <div key={row} className={cn("flex justify-between", row % 2 ? "px-[8%]" : "px-[2%]")}>
+            {Array.from({ length: row % 2 ? 6 : 7 }, (_, i) => (
+              <i key={i} className="block size-1.5 rounded-full bg-fl-dim" />
+            ))}
+          </div>
+        ))}
+      </div>
+      <ol className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        {wheel.slices.map((s) => (
+          <li key={s.n} className="flex min-h-[68px] flex-col items-center gap-1 rounded-b-[8px] border-[1.5px] border-t-0 border-fl-ink px-1.5 pt-1.5 pb-2 text-center">
+            <span className="text-[0.6875rem] leading-none font-semibold text-fl-dim tabular-nums">{s.n}</span>
+            <span className="text-[0.8125rem] leading-4 font-medium text-pretty break-words">{s.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 /** The places the plan uses, for the mini map: fitted with the store, each with its name. */
 function usedPlaces(view: PlanView): MapPlace[] {
   return (view.local.block?.places ?? [])
@@ -90,6 +122,7 @@ export function EventScreen({
   exampleSlug,
   reasons,
   storesHref = "/stores",
+  ask = null,
 }: {
   view: PlanView;
   hrefs: { back: string; poster: string; steps: Partial<Record<Step, string>> };
@@ -99,6 +132,11 @@ export function EventScreen({
   exampleSlug?: string;
   reasons?: Partial<Record<Step, string>>;
   storesHref?: string;
+  /**
+   * "Get the OK" drafts, for a plan away from the store (lib/plan/ask.ts askFacts). Pass them only to
+   * the plan's owner or on an example: the district manager's draft carries the budget.
+   */
+  ask?: AskFacts | null;
 }) {
   const play = playView(view);
   const groups = snackGroups(view);
@@ -107,7 +145,8 @@ export function EventScreen({
   const judge = judgeView(view);
   const budget = budgetView(view);
   const snacksTotal = groups.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.usd ?? 0), 0), 0);
-  const jumps = JUMPS.filter((j) => j.id !== "wheel" || view.wheel);
+  const game = view.wheel ? gameWords(view.wheel.game) : null;
+  const jumps = JUMPS.filter((j) => j.id !== "wheel" || view.wheel).map((j) => (j.id === "wheel" && game ? { ...j, label: game.short } : j));
   // Short labels, so three columns still line up at 320 px.
   const stats = eventStats(view).map((s, i) => (i === 0 ? { ...s, label: `${s.label} (est.)` } : i === 1 && s.label.includes("community") ? { ...s, label: s.value === "1" ? "community spot" : "community spots" } : s));
   const poster = view.concept ? view.marketing.poster.thumb : null;
@@ -193,9 +232,10 @@ export function EventScreen({
         </Section>
       )}
 
-      {view.wheel && (
-        <Section id="wheel" title="Wheel" aside={view.wheel.rules[0] && <span className="max-w-[14rem] truncate">{view.wheel.rules[0].replace(/\. .*$/, "")}</span>}>
-          <RowGroup label="Put these on your wheel">
+      {view.wheel && game && (
+        <Section id="wheel" title={game.short} aside={view.wheel.rules[0] && <span className="max-w-[14rem] truncate">{view.wheel.rules[0].replace(/\. .*$/, "")}</span>}>
+          {view.wheel.game === "drop_board" && <DropBoard wheel={view.wheel} />}
+          <RowGroup label={game.putOn}>
             {view.wheel.slices.map((s) => (
               <Row
                 key={s.n}
@@ -214,7 +254,8 @@ export function EventScreen({
               />
             ))}
           </RowGroup>
-          <Fine>Slices in order, clockwise from the top. A numbered pin is that place on the Community map.</Fine>
+          <Fine>{game.order}</Fine>
+          {view.wheel.note && <p className="rounded-[12px] border border-fl-line bg-white px-3 py-2 text-[0.8125rem] leading-[18px] text-pretty text-fl-muted">{view.wheel.note}</p>}
           {prizes && (
             <div className="flex flex-col gap-1 px-1">
               <p className="flex items-baseline justify-between gap-3 text-[0.8125rem] font-semibold">
@@ -250,6 +291,8 @@ export function EventScreen({
           </ol>
         </Section>
       )}
+
+      {ask && view.concept && <AskCard facts={ask} />}
 
       {(view.checklist.length > 0 || view.shopping.length > 0) && (
         <div className="overflow-hidden rounded-[20px] bg-white [&>details+details]:border-t [&>details+details]:border-fl-rule">

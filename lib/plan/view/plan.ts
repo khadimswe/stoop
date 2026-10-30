@@ -7,6 +7,8 @@ import { genericCheckWords } from "../../marketing/plain-words";
 import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
+import { canPlanAt } from "../event-spots";
+import { gameOf, gameWords, leftOffNote, offersLeftOff, type TableGame } from "../game";
 import { splitRefs } from "../refs";
 import { PLAN_MAX_TOTAL } from "../rubric";
 import { titleGenre } from "../words";
@@ -118,8 +120,14 @@ export interface WheelSliceView {
 }
 
 export interface WheelView {
+  /** The table's game: a prize wheel (slices clockwise) or a drop board (6 slots, left to right). */
+  game: TableGame;
+  /** "Prize wheel" or "Drop board". */
+  title: string;
   slices: WheelSliceView[];
   rules: string[];
+  /** A drop board that could not fit every promo says which ones are not on it, plainly; else null. */
+  note: string | null;
 }
 
 const WHEEL_KIND_LABELS: Readonly<Record<WheelSliceView["kind"], string>> = { promo: "Promo", gift_card: "Gift card", snack: "Snack", other: "Prize" };
@@ -208,6 +216,11 @@ export interface PlaceView {
   /** Qloo's own explainability, shown as is. */
   why: string | null;
   receipt: string | null;
+  /** Qloo's own order in the one call that found it (never its pin number), and that call's search ("parks"). */
+  rank: number;
+  search: string | null;
+  /** A venue or park the table can go to ("Plan it here"): no chain, nothing for alcohol or minors (lib/plan/event-spots.ts). */
+  eventSpot: boolean;
 }
 
 export interface LocalView {
@@ -617,6 +630,9 @@ export function planView(source: PlanSource): PlanView {
             distanceText: p.distanceM === null ? null : distanceText(p.distanceM),
             why: p.why,
             receipt: placeReceipt(p),
+            rank: p.rank,
+            search: searchOf(ledger.get(p.evidenceIds[0] ?? "")?.label),
+            eventSpot: canPlanAt(p),
           })),
         }
       : null,
@@ -644,7 +660,9 @@ export function planView(source: PlanSource): PlanView {
   const keptView = kept ? concept(kept) : null;
   const partnerId = plan?.shopping.find((x) => x.from && places.has(x.from))?.from;
   const partnerPlace = partnerId ? places.get(partnerId) : undefined;
-  const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing, partnerPlace ? { name: partnerPlace.name, distanceText: partnerPlace.distanceM === null ? null : distanceText(partnerPlace.distanceM) } : null);
+  const game = gameOf(inputs);
+  const words = gameWords(game);
+  const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing, partnerPlace ? { name: partnerPlace.name, distanceText: partnerPlace.distanceM === null ? null : distanceText(partnerPlace.distanceM) } : null, game);
   if (generic) generic.rows = compareRows(keptView?.items ?? [], generic.items);
   // Qloo's check of the generic picks says what it found, in one plain line, above the calls it made.
   if (checkReceipt) {
@@ -689,6 +707,8 @@ export function planView(source: PlanSource): PlanView {
     checklist: (plan?.checklist ?? []).map(parts),
     wheel: plan?.wheel
       ? {
+          game,
+          title: words.title,
           slices: plan.wheel.slices.map((slice, i) => {
             const textParts = parts(slice.text);
             const backed = slice.origin === "qloo" || slice.origin === "interpreted";
@@ -701,17 +721,18 @@ export function planView(source: PlanSource): PlanView {
               parts: textParts,
               text: plain(textParts),
               origin: slice.origin,
-              receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, "Prize wheel", plain(textParts), place ? rowsOf(place) : []) : null,
+              receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, words.title, plain(textParts), place ? rowsOf(place) : []) : null,
               place: place ? { name: place.name, n: pinOf.get(place.id) ?? 0, distanceText: place.distanceM === null ? null : distanceText(place.distanceM) } : null,
             };
           }),
           rules: plan.wheel.rules,
+          note: game === "drop_board" ? leftOffNote(offersLeftOff(inputs.offers, plan.wheel.slices), inputs.offers.length) : null,
         }
       : null,
     generic,
     comparison,
     local,
-    placeUses: placeUsesOf(kept, plan, places),
+    placeUses: placeUsesOf(kept, plan, places, words.title),
     partnerIds: [...new Set([...(kept?.items.flatMap((i) => i.refs.filter((r) => places.has(r))) ?? []), ...(plan?.shopping.flatMap((s) => (s.from ? [s.from] : [])) ?? [])])],
     marketing,
     results: report.results.map((r) => ({
@@ -774,7 +795,7 @@ const isQloo = (item: ItemView | undefined) => item?.origin === "qloo" || item?.
 const USE_LABELS: Partial<Record<ItemKind, string>> = { food: "Snacks", partner: "Partner", venue: "Venue", giveaway: "Giveaway", activity: "Activity", music: "Music" };
 
 /** How the kept plan uses each block place, in words ("Snacks", "Gift card"). */
-function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: ReadonlyMap<string, Place>): Record<string, string[]> {
+function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: ReadonlyMap<string, Place>, gameTitle = "Prize wheel"): Record<string, string[]> {
   const uses: Record<string, string[]> = {};
   const add = (id: string, label: string) => {
     if (!places.has(id)) return;
@@ -783,12 +804,13 @@ function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: Rea
   };
   for (const item of kept?.items ?? []) for (const ref of item.refs) add(ref, USE_LABELS[item.kind] ?? ITEM_KIND_LABELS[item.kind]);
   for (const s of plan?.shopping ?? []) if (s.from) add(s.from, "Shopping");
-  for (const slice of plan?.wheel?.slices ?? []) for (const ref of slice.refs) add(ref, slice.kind === "gift_card" ? "Gift card" : "Prize wheel");
+  for (const slice of plan?.wheel?.slices ?? []) for (const ref of slice.refs) add(ref, slice.kind === "gift_card" ? "Gift card" : gameTitle);
   return uses;
 }
 
 /** The first screen's tiles, from the kept concept, the wheel and the marketing state. */
-export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView, partner: { name: string; distanceText: string | null } | null = null): TileView[] {
+export function tileViews(concept: ConceptView | null, wheelSlices: number, marketing: MarketingView, partner: { name: string; distanceText: string | null } | null = null, game: TableGame = "wheel"): TileView[] {
+  const words = gameWords(game);
   const items = concept?.items ?? [];
   const music = items.find((i) => i.kind === "music");
   const musicNames = music?.parts.flatMap((p) => (p.kind === "ref" ? [p.name] : [])) ?? [];
@@ -808,7 +830,7 @@ export function tileViews(concept: ConceptView | null, wheelSlices: number, mark
       href: "#shopping",
     },
     wheelSlices > 0
-      ? { key: "wheel", label: "Prize wheel", value: `${wheelSlices} slices`, note: "For your wheel", qloo: false, href: "#wheel" }
+      ? { key: "wheel", label: words.title, value: `${wheelSlices} ${words.units}`, note: game === "drop_board" ? "For your drop board" : "For your wheel", qloo: false, href: "#wheel" }
       : { key: "wheel", label: "Giveaway", value: giveaway?.plain ?? "Your pick", note: null, qloo: isQloo(giveaway), href: "#event" },
     {
       key: "post",

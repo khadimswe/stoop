@@ -21,6 +21,7 @@ export type InputField =
   | "startTime"
   | "durationMinutes"
   | "setting"
+  | "game"
   | "location"
   | "budgetUsd"
   | "offers"
@@ -41,6 +42,7 @@ const MESSAGES: Record<InputField, string> = {
   startTime: "Pick a start time.",
   durationMinutes: "Pick how long the event runs, from 30 minutes to 8 hours.",
   setting: "Pick where the event happens.",
+  game: "Pick the game: a prize wheel or a drop board.",
   location: "Give the event's place a name and a pin, or leave it out.",
   budgetUsd: "Set a budget in whole dollars, from $0 to $5,000.",
   offers: "Add up to 8 promos, each up to 140 characters.",

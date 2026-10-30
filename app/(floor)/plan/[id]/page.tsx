@@ -5,9 +5,10 @@ import { StandInBar } from "@/components/stoop/floor/stand-in";
 import { EventScreen } from "@/components/stoop/floor/event-screen";
 import { LiveStep } from "@/components/stoop/floor/live-plan";
 import { PlanLoading } from "@/components/stoop/floor/plan-loading";
+import { askFacts } from "@/lib/plan/ask";
 import { examplePlanId, planExampleSlug } from "@/lib/plan/example-list";
 import { exampleHrefs } from "@/lib/plan/view/hrefs";
-import { isRecordedPlanSlug, loadPlanExampleView, recordedPlanSlugs } from "@/lib/plan/view/load";
+import { isRecordedPlanSlug, loadPlanExampleReport, loadPlanExampleView, recordedPlanSlugs } from "@/lib/plan/view/load";
 
 // Step 3, the event. Example stores ("ex-<slug>") are prerendered from their recorded runs; a live
 // plan streams in from its events in the browser. The id is read behind <Suspense>.
@@ -36,7 +37,8 @@ async function Step({ params }: { params: PageProps<"/plan/[id]">["params"] }) {
     return (
       <>
         <StandInBar slug={slug} storeName={view.header.storeName} withNote />
-        <EventScreen view={view} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} exampleSlug={slug} />
+        {/* An example's budget is already public, so its "Get the OK" drafts show to everyone. */}
+        <EventScreen view={view} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} exampleSlug={slug} ask={askFacts(view, loadPlanExampleReport(slug).inputs)} />
       </>
     );
   }

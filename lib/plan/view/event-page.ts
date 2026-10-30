@@ -6,6 +6,7 @@
 import type { PlanSource } from "./plan";
 import { capitalizeFirst, distanceText, eventDate, fictionalNotice, timeRange } from "./format";
 import { fullAddress, posterRoute } from "./plan";
+import { gameOf, gameWords } from "../game";
 import { splitRefs } from "../refs";
 
 export interface EventPageView {
@@ -30,7 +31,8 @@ export interface EventPageView {
     music: string | null;
     /** "Snacks and drinks from Maple Corner Cafe, down the street" (a made-up name). */
     snacks: string | null;
-    wheel: { rule: string | null; prizes: string[] } | null;
+    /** The table's game: `play` is "Spin the prize wheel" or "Drop a chip on the drop board". */
+    wheel: { rule: string | null; prizes: string[]; play: string; listLabel: string } | null;
   };
   poster: { src: string; alt: string } | null;
   /** Lane C's 1200 by 630 poster, for link previews. */
@@ -63,7 +65,12 @@ export function eventPageView(source: PlanSource): EventPageView {
     ? `Snacks and drinks from ${snackFrom.map((p) => p.name).join(" and ")}${snackFrom.length === 1 && snackFrom[0]!.distanceM !== null ? `, ${distanceText(snackFrom[0]!.distanceM!)} away` : ""}`
     : null;
   const wheel = plan?.wheel
-    ? { rule: plan.wheel.rules[0]?.split(/(?<=\.)\s/)[0]?.replace(/\.$/, "") ?? null, prizes: plan.wheel.slices.map((s) => named(s.label, names)).filter(Boolean) }
+    ? {
+        rule: plan.wheel.rules[0]?.split(/(?<=\.)\s/)[0]?.replace(/\.$/, "") ?? null,
+        prizes: plan.wheel.slices.map((s) => named(s.label, names)).filter(Boolean),
+        play: gameWords(gameOf(inputs)).play,
+        listLabel: gameOf(inputs) === "drop_board" ? "On the drop board" : "On the wheel",
+      }
     : null;
   const music = kept?.items.some((i) => i.kind === "music") && report.local.city ? `Music ${report.local.city.city} plays` : null;
   return {

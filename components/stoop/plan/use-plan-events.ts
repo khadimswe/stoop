@@ -8,7 +8,8 @@ import { endsRun, parsePlanEvent, readPlanResponse } from "@/lib/plan/view/live"
 export type PlanFeed =
   | { phase: "connecting" }
   | { phase: "streaming" | "ended"; state: PlanState }
-  | { phase: "report"; report: PlanReport }
+  /** `owner`: the plan route said this browser started the plan (anyone else gets the public view). */
+  | { phase: "report"; report: PlanReport; owner: boolean }
   | { phase: "not-found" }
   | { phase: "error"; message: string };
 
@@ -37,9 +38,10 @@ export function usePlanEvents(id: string): PlanFeed {
         const response = await fetch(`/api/plan/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
         if (response.status === 404) return set({ phase: "not-found" });
         if (!response.ok) return set({ phase: "error", message: "This plan could not be loaded right now. Try again in a minute." });
-        const read = readPlanResponse(await response.json());
+        const body: unknown = await response.json();
+        const read = readPlanResponse(body);
         if (!read) return set({ phase: "error", message: "This plan could not be read." });
-        if ("report" in read) return set({ phase: "report", report: read.report });
+        if ("report" in read) return set({ phase: "report", report: read.report, owner: (body as { owner?: unknown } | null)?.owner === true });
         set({ phase: "ended", state: reducePlan(read.events) });
       } catch {
         set({ phase: "error", message: "No connection. Check your signal and reload." });
