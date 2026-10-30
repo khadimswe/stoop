@@ -9,11 +9,11 @@ import { ReceiptLink } from "@/components/stoop/home/receipt-link";
 import { ReserveStores } from "@/components/stoop/home/reserve-stores";
 import { StorePanel } from "@/components/stoop/home/store-panel";
 import { StoreTabs } from "@/components/stoop/home/store-tabs";
-import { StoryBand } from "@/components/stoop/home/story-band";
+import { RealTable, StoryBand } from "@/components/stoop/home/story-band";
 import { metaPostingEnabled } from "@/lib/config";
 import { beforeAfterItems } from "@/lib/marketing/before-after";
 import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
-import { BEFORE_AFTER, DEMO_VIDEO, FOUNDER_STORY, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, TABLE_PHOTO, WHO } from "@/lib/marketing/pilot";
+import { BEFORE_AFTER, DEMO_VIDEO, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { landingCompare } from "@/lib/plan/view/floor";
 import { stampDate } from "@/lib/plan/view/format";
@@ -122,8 +122,9 @@ export default function Home() {
 
         <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
-        {/* The real store leads: what happened at the founder's table, then the example stores. */}
-        <StoryBand story={STORE_STORY} photo={PILOT_COPY ? TABLE_PHOTO : null} />
+        {/* The real store leads: the founder's story, then the first table Stoop planned, then the example stores. */}
+        <StoryBand story={STORE_STORY} />
+        <RealTable title={TABLE_TITLE} photo={PILOT_COPY ? TABLE_PHOTO : null} result={PILOT_COPY ? PILOT_RESULT : null} resultLabel={PILOT_RESULT_LABEL} />
 
         <section id="examples" aria-labelledby="examples-title" className={cn("scroll-mt-20 bg-fl-band", pilotMedia && !STORE_STORY && "mt-16 lg:mt-24")}>
           <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
@@ -132,7 +133,7 @@ export default function Home() {
               <h2 id="examples-title" className={H2}>
                 Same table. Different community.
               </h2>
-              <p className={LEDE}>Three example stores, same kind of deals. Tap an underlined name to see why Qloo picked it.</p>
+              <p className={LEDE}>Three example stores, same kind of deals. Tap an underlined name for Qloo&apos;s reason.</p>
             </div>
             <StoreTabs
               label="Example stores"
@@ -275,19 +276,12 @@ export default function Home() {
           </div>
         </section>
 
-        <section aria-label="Who built it and who it's for" className="mx-auto grid max-w-[1248px] gap-14 px-4 py-16 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:py-24">
-          {FOUNDER_STORY && (
-            <figure className="flex flex-col gap-4">
-              <p className={EYEBROW}>Built on the sales floor</p>
-              <blockquote className="flex flex-col gap-4">
-                <p className="font-serif text-[1.8125rem] leading-[1.2] text-pretty lg:text-[2.25rem] lg:leading-[1.22]">&ldquo;{FOUNDER_STORY.quote}&rdquo;</p>
-                <p className="text-base font-semibold text-pretty">{FOUNDER_STORY.line}</p>
-              </blockquote>
-              <figcaption className="text-sm text-fl-dim">{FOUNDER_STORY.credit}</figcaption>
-            </figure>
-          )}
+        {/* Who it's for beside the Reserve card: the founder's story now opens the page, right after the hero. */}
+        <section aria-labelledby="who-title" className="mx-auto grid max-w-[1248px] gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
           <div className="flex flex-col gap-4">
-            <h2 className={EYEBROW}>Who it&apos;s for</h2>
+            <h2 id="who-title" className={EYEBROW}>
+              Who it&apos;s for
+            </h2>
             <ul className="[&>li+li]:border-t [&>li+li]:border-fl-rule">
               {WHO.map((w) => (
                 <li key={w.title} className="flex flex-col gap-0.5 py-4">
@@ -296,18 +290,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <ReserveStores title={PILOT_CARD.title} line={PILOT_CARD.line} />
-            {PILOT_COPY && PILOT_RESULT && (
-              <p className="flex flex-col gap-0.5 text-sm">
-                <span className="font-semibold">{PILOT_RESULT.line}</span>
-                <span className="text-fl-dim">{PILOT_RESULT_LABEL}</span>
-              </p>
-            )}
-            <Link href="/stores" className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium underline underline-offset-4">
-              See My stores
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
           </div>
+          {/* My stores stays one tap away in the header and the footer. */}
+          <ReserveStores title={PILOT_CARD.title} line={PILOT_CARD.line} />
         </section>
 
         <section aria-labelledby="cta-title" className="floor-dark bg-fl-ink text-fl-dark-bright">

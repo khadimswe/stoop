@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PILOT_COPY, PILOT_MEDIA, STORE_STORY, TABLE_PHOTO, storyLines } from "../lib/marketing/pilot";
+import { PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
 import { andList, recordedNames } from "../lib/testing/recorded-names";
 
 // Qloo's names for the lead example, read from its recording (no test file holds Qloo response data).
@@ -347,10 +347,21 @@ test.describe("the store-events landing", () => {
 
   test("the landing reads plainly: no jargon, no lift claims, never block or your customers", async ({ page }) => {
     await page.goto("/");
-    const text = await page.locator("main").innerText();
+    const main = await page.locator("main").innerText();
+    // The one exception is the first table's own result, read from the day and always labeled as one day,
+    // a first look, not proof. Nothing else on the page says a percent more.
+    const shown = Boolean(PILOT_COPY && TABLE_PHOTO && PILOT_RESULT);
+    const text = shown ? main.replace(PILOT_RESULT!.line, "") : main;
+    if (shown) {
+      expect(main).toContain(PILOT_RESULT!.line);
+      expect(main).toContain(PILOT_RESULT_LABEL);
+      expect(PILOT_RESULT_LABEL).toMatch(/not proof/);
+      // Never phrased as Stoop causing it.
+      expect(PILOT_RESULT!.line).not.toMatch(/stoop|because|thanks to|drove|caused/i);
+    }
     expect(text).not.toMatch(/\bblock\b|your customers|median|checkable|rubric/i);
     expect(text).not.toMatch(/\d+% (lift|more|better|higher)/i);
-    expect(text.includes(String.fromCharCode(0x2014))).toBe(false);
+    expect(main.includes(String.fromCharCode(0x2014))).toBe(false);
   });
 
   test("the H1 is the largest paint", async ({ page }) => {
@@ -393,7 +404,7 @@ test.describe("the store-events landing", () => {
     await expect(page.getByText("From the pilot")).toHaveCount(0);
   });
 
-  test("the real store leads: its story comes before the example stores, with the table photo only once the dealer has agreed", async ({ page }) => {
+  test("the real store leads: the story, then the first table Stoop planned, then the example stores", async ({ page }) => {
     test.skip(!STORE_STORY, "The story band is turned off.");
     await page.goto("/");
     const { headline, body } = storyLines(STORE_STORY!);
@@ -401,20 +412,26 @@ test.describe("the store-events landing", () => {
     await expect(story.getByRole("heading", { level: 2, name: headline })).toBeVisible();
     await expect(story.getByText(body)).toBeVisible();
     await expect(story.getByText(STORE_STORY!.credit)).toBeVisible();
-    const before = await page.evaluate(() => {
-      const s = document.getElementById("story");
-      const e = document.getElementById("examples");
-      return Boolean(s && e && s.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING);
-    });
-    expect(before).toBe(true);
-    const photo = story.getByRole("img");
+    // The story is words only: no photo beside it, so no picture reads as the ice cream event.
+    await expect(story.getByRole("img")).toHaveCount(0);
+    // The old "Built on the sales floor" quote is folded into the story.
+    await expect(page.getByText("Built on the sales floor")).toHaveCount(0);
+    const order = await page.evaluate(() => ["story", "real-table", "examples"].map((id) => document.getElementById(id)).filter(Boolean).map((el) => el!.id));
+    const table = page.getByRole("region", { name: TABLE_TITLE });
     if (PILOT_COPY && TABLE_PHOTO) {
+      expect(order).toEqual(["story", "real-table", "examples"]);
+      const photo = table.getByRole("img", { name: TABLE_PHOTO.alt });
       await expect(photo).toHaveAttribute("loading", "lazy");
       await expect(photo).toHaveAttribute("src", TABLE_PHOTO.src);
-      await expect(story.getByText(TABLE_PHOTO.caption)).toBeVisible();
+      await expect(table.getByText(TABLE_PHOTO.caption)).toBeVisible();
+      // The result shows only once it is set, and always with its label.
+      if (PILOT_RESULT) {
+        await expect(table.getByText(PILOT_RESULT.line)).toBeVisible();
+        await expect(table.getByText(PILOT_RESULT_LABEL)).toBeVisible();
+      } else await expect(table.getByText(PILOT_RESULT_LABEL)).toHaveCount(0);
     } else {
-      // Until the dealer agrees in writing, the band is the words alone.
-      await expect(photo).toHaveCount(0);
+      expect(order).toEqual(["story", "examples"]);
+      await expect(table).toHaveCount(0);
     }
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
