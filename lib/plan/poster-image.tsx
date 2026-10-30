@@ -117,6 +117,8 @@ export interface PortraitLayout {
 }
 
 const PORTRAIT_WIDTH = 960;
+/** The local line's size on the portrait poster. */
+const LOCAL_SIZE = 30;
 const HEADLINE_SIZES = [150, 130, 114, 100, 88];
 const CARD_SIZES = [
   { label: 54, body: 23 },
@@ -133,7 +135,7 @@ function cardsHeight(text: PosterText, shown: number, size: { label: number; bod
   let height = 0;
   for (let row = 0; row < deals.length; row += cols) {
     const cards = deals.slice(row, row + cols);
-    height += Math.max(...cards.map((d) => 44 + linesOf(d.label, size.label, DISPLAY_EM, inner) * size.label * 0.95 + 10 + linesOf(d.text, size.body, SANS_EM, inner) * size.body * 1.25)) + 18;
+    height += Math.max(...cards.map((d) => 44 + linesOf(d.label, size.label, DISPLAY_EM, inner) * size.label * 0.95 + (d.body ? 10 + linesOf(d.body, size.body, SANS_EM, inner) * size.body * 1.25 : 0))) + 18;
   }
   return height + (text.deals.length > shown ? 40 : 0);
 }
@@ -142,7 +144,7 @@ function cardsHeight(text: PosterText, shown: number, size: { label: number; bod
 export function portraitLayout(text: PosterText, hasLogo = false): PortraitLayout {
   const shownMax = Math.min(MAX_DEAL_CARDS, text.deals.length);
   const top = 52 + (hasLogo ? 118 : 0) + 62 + 26;
-  const wheel = text.wheel ? 132 + 26 : 0;
+  const wheel = (text.wheel ? 132 + 26 : 0) + (text.local ? LOCAL_SIZE * 1.3 + 26 : 0);
   const place = where(text);
   const footer = 46 * 1.05 + 8 + linesOf(place.sub, 25, SANS_EM, PORTRAIT_WIDTH) * 25 * 1.3 + (text.disclaimer ? 10 + 18 * 1.35 : 0) + 48;
   const budget = 1350 - top - wheel - footer - 40;
@@ -235,7 +237,7 @@ function DealCards({ text, p, size, layout }: { text: PosterText; p: PosterPalet
             }}
           >
             <div style={{ display: "flex", fontFamily: "Bricolage", fontSize: layout.label, lineHeight: 0.95, textTransform: "uppercase", color: labelColor(p, i) }}>{deal.label}</div>
-            <div style={{ display: "flex", fontSize: layout.body, lineHeight: 1.25, color: p.muted }}>{deal.text}</div>
+            {deal.body && <div style={{ display: "flex", fontSize: layout.body, lineHeight: 1.25, color: p.muted }}>{deal.body}</div>}
           </div>
         ))}
       </div>
@@ -352,6 +354,7 @@ function Portrait({ text, art, logo }: { text: PosterText; art: PosterArt | null
         <DealCards text={text} p={p} size="portrait" layout={layout} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 26 }}>
           <WheelBadge text={text} p={p} size="portrait" />
+          {text.local && <div style={{ display: "flex", fontFamily: "Bricolage", fontSize: LOCAL_SIZE, lineHeight: 1.3, color: p.accent, textAlign: "center" }}>{text.local}</div>}
           <Footer text={text} p={p} size="portrait" />
         </div>
       </div>

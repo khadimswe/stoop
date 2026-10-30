@@ -13,7 +13,7 @@ import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
 import { GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
 import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
-import { textIssues } from "./guard";
+import { blockWord, textIssues } from "./guard";
 import { BRAND_WORDS } from "./poster-prompt";
 import { keptConcept, posterText, refNames } from "./poster-text";
 import { refsIn, renderRefs } from "./refs";
@@ -130,6 +130,8 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
   for (const message of textIssues(text, { offers: report.inputs.offers.map((o) => o.text), budgetUsd: report.inputs.budgetUsd, known: allowedRefs(report) })) add(message.slice(0, 60), message);
   const audience = text.match(AUDIENCE)?.[0];
   if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the community.`);
+  const block = blockWord(text);
+  if (block) add(block, `"${block}": say "the community" (or name the place) instead of "block".`);
   const free = text.match(FREE)?.[0];
   if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the wheel line word for word.`);
   const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(DEAL_WORDS)?.[0];

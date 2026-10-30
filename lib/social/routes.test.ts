@@ -17,6 +17,8 @@ import type { MetaApp } from "./meta";
 import { connectCallback, connectedPages, disconnect, META_POSTS_PER_SESSION_DAILY, postToMeta, posterJpeg, startConnect, type SocialDeps } from "./routes";
 import { loadConnection, META_SESSION_COOKIE, META_STATE_COOKIE, mintSession, mintState, saveConnection, type MetaConnection } from "./session";
 import { readSocialTrail } from "./trail";
+import { reminderCaption, reportReminderFacts } from "./reminders";
+import { postSlots } from "./schedule";
 
 const SECRET = "s".repeat(40);
 const app: MetaApp = { ...FAKE_APP };
@@ -208,13 +210,13 @@ describe("posting a plan", () => {
     const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: "now" }, cookie), RUN, deps());
     expect(response.status).toBe(200);
     const body = JSON.parse(await noTokens(response));
-    expect(body.results).toEqual([{ channel: "facebook", status: "posted", message: "Posted to Facebook at 10:00 am on Wed, Oct 28", link: "https://www.facebook.com/111_900", error: null }]);
+    expect(body.results).toEqual([{ channel: "facebook", status: "posted", message: "Posted to Facebook at 10 am on Wed, Oct 28", link: "https://www.facebook.com/111_900", error: null }]);
     const call = meta.calls.find((c) => c.path === "111/photos")!;
     expect(call.body.caption).toBe(posts.facebook.text);
     expect(call.body.published).toBe("true");
     expect(call.file).toMatchObject({ type: "image/png", size: PNG.length });
     const trail = readSocialTrail(reducePlan(await loadPlanEvents(store, RUN)).report.trace);
-    expect(trail).toEqual([{ channel: "facebook", status: "posted", label: "Posted to Facebook at 10:00 am on Wed, Oct 28" }]);
+    expect(trail).toEqual([{ channel: "facebook", status: "posted", label: "Posted to Facebook at 10 am on Wed, Oct 28" }]);
   });
 
   it("never posts twice on a double tap", async () => {
@@ -233,11 +235,27 @@ describe("posting a plan", () => {
     const when = "2026-11-07T01:00:00.000Z";
     const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook", "instagram"], when }, cookie), RUN, deps());
     const body = await response.json();
-    expect(body.results[0]).toMatchObject({ channel: "facebook", status: "scheduled", message: "Scheduled on Facebook for 7:00 pm on Fri, Nov 6", link: null });
+    expect(body.results[0]).toMatchObject({ channel: "facebook", status: "scheduled", message: "Scheduled on Facebook for 7 pm on Fri, Nov 6", link: null });
     expect(body.results[1]).toMatchObject({ channel: "instagram", status: "skipped", error: "schedule" });
     const call = meta.calls.find((c) => c.path === "111/photos")!;
     expect(call.body).toMatchObject({ published: "false", scheduled_publish_time: String(Date.parse(when) / 1000) });
     expect(meta.calls.some((c) => c.path.includes("/media"))).toBe(false);
+  });
+
+  it("schedules each of the plan's times with that time's own reminder, never the announcement again", async () => {
+    const report = await seedPlan();
+    const cookie = await connect();
+    const facts = reportReminderFacts(report);
+    const captions: string[] = [];
+    for (const slot of postSlots(report)) {
+      const response = await postToMeta(postRequest({ pageId: "111", channels: ["facebook"], when: slot.at }, cookie), RUN, deps());
+      expect((await response.json()).results[0]).toMatchObject({ status: "scheduled" });
+      const call = meta.calls.filter((c) => c.path === "111/photos").at(-1)!;
+      expect(call.body.caption).toBe(reminderCaption(facts, slot.id));
+      captions.push(String(call.body.caption));
+    }
+    expect(new Set(captions).size).toBe(captions.length);
+    expect(captions).not.toContain(posts.facebook.text);
   });
 
   it("refuses a schedule Meta would refuse", async () => {

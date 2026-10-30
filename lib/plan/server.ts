@@ -6,8 +6,13 @@ import { getBotCheck } from "../bot-check";
 import { getQlooClient } from "../qloo/server";
 import { liveModel } from "../runtime/server";
 import { getStore } from "../store";
+import type { TokenVisitorId, VisitorId } from "../store/visitor";
+import { marketingJob } from "./marketing-server";
+import { autoMarketing } from "./posts-run";
+import { storePlanSource } from "./posts-store";
 import type { PlanRouteDeps } from "./routes";
 import { executePlan } from "./runtime";
+import { getPlanMeta } from "./store";
 import { loadExampleReport, PLAN_EXAMPLES, readKnownChains } from "./examples";
 import { repeatedPlaceNames } from "./taste";
 
@@ -25,9 +30,25 @@ function knownChains(): Promise<ReadonlySet<string>> {
   return chains;
 }
 
-/** One live plan, bound to its vendors. Runs inside `after()`. */
+/** POST /api/plan's maxDuration (300 s), less a margin: the plan and its marketing share it. */
+const INVOCATION_MS = 290_000;
+
+/**
+ * One live plan, bound to its vendors. Runs inside `after()`. When the plan finishes, its poster and
+ * posts start right here (lib/plan/posts-run.ts autoMarketing), so nobody has to ask for them.
+ */
 export async function execute(runId: string): Promise<void> {
-  return executePlan({ store: getStore(), client: getQlooClient(), model: liveModel(), knownChains: await knownChains() }, runId);
+  const began = Date.now();
+  const store = getStore();
+  await executePlan({ store, client: getQlooClient(), model: liveModel(), knownChains: await knownChains() }, runId);
+  try {
+    const meta = await getPlanMeta(store, runId);
+    if (!meta || (meta.status !== "done" && meta.status !== "partial")) return;
+    const visitor = meta.visitor ? (meta.visitor as VisitorId | TokenVisitorId) : null;
+    await autoMarketing({ store, source: storePlanSource(store), visitor, remainingMs: began + INVOCATION_MS - Date.now(), job: marketingJob }, runId);
+  } catch (error) {
+    console.error(`[plan ${runId}] marketing did not start: ${error instanceof Error ? error.name : "error"}`);
+  }
 }
 
 export const planRouteDeps = (): PlanRouteDeps => ({

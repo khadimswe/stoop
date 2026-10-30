@@ -5,12 +5,15 @@
 // and checkHashtags): the lines code added (date, place, phone, the manager's offers verbatim, the
 // wheel line, the example line) are set aside, the measured place names are turned back into their
 // "[[id]]" refs, and what is left is the opening as the guard first saw it.
+import { typedTextIssues } from "../plan/guard";
 import { checkHashtags, checkPostText, postFacts } from "../plan/posts";
 import { keptConcept, posterText, refNames } from "../plan/poster-text";
 import type { MarketingReport } from "../plan/posts-store";
 import type { Posts } from "../plan/schema";
 import { instagramCopy } from "../plan/share";
 import type { GuardIssue } from "../guardrails";
+import { reminderCaption, reminderOpening, reportReminderFacts } from "./reminders";
+import type { PostTimeId } from "./schedule";
 import type { SocialChannel } from "./trail";
 
 /** The exact text each channel posts. */
@@ -54,6 +57,24 @@ export function openingOf(text: string, report: MarketingReport): string {
   return names.reduce((rest, [id, name]) => (name.trim() ? rest.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escape(name)}(?![\\p{L}\\p{N}])`, "gu"), `[[${id}]]`) : rest), opening);
 }
 
+/**
+ * The exact text that would go out, code lines included (the store's name and address, the place, the
+ * offers): no links, alcohol or tobacco, implied carrier endorsement or settings aimed at minors, even
+ * in what the manager typed. The plan start refuses such inputs too; this catches a plan that predates it.
+ */
+export function checkPostedText(text: string, path: string): GuardIssue[] {
+  return typedTextIssues(text).map((message) => ({ rule: "fake-proof" as const, match: message.slice(0, 60), message, path }));
+}
+
+/**
+ * A reminder caption checked the same way: its one written sentence (the opening) through the posts
+ * guard, and the whole caption, code lines included, through checkPostedText.
+ */
+export function checkReminder(report: MarketingReport, id: PostTimeId): GuardIssue[] {
+  const facts = reportReminderFacts(report);
+  return [...checkPostText(reminderOpening(facts, id), report, `reminder.${id}`), ...checkPostedText(reminderCaption(facts, id), `reminder.${id}`)];
+}
+
 /** Every rule the approved drafts break now, for the channels about to post. Empty means they may go out. */
 export function checkApprovedPosts(posts: Posts, report: MarketingReport, channels: readonly SocialChannel[]): GuardIssue[] {
   const issues: GuardIssue[] = [];
@@ -61,6 +82,7 @@ export function checkApprovedPosts(posts: Posts, report: MarketingReport, channe
     const text = channel === "facebook" ? posts.facebook.text : posts.instagram.caption;
     if (/\[\[[^\]]*\]\]/.test(text)) issues.push({ rule: "fake-proof", match: "[[", message: "A ref token was never rendered into a name.", path: channel });
     issues.push(...checkPostText(openingOf(text, report), report, channel));
+    issues.push(...checkPostedText(approvedCaption(posts, channel), channel));
     if (channel === "instagram") issues.push(...checkHashtags(posts.instagram.hashtags, report));
   }
   return issues;

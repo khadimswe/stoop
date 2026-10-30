@@ -9,7 +9,7 @@
 import { checkText, childSetting, type GuardRule } from "../guardrails";
 import { refsIn } from "./refs";
 import { genreOrSlang, VOLUME_FRAMING } from "./words";
-import type { ItemKind } from "./schema";
+import type { ItemKind, PlanInputs } from "./schema";
 
 export interface GuardContext {
   /** The manager's offers, as typed. */
@@ -24,6 +24,11 @@ export interface GuardContext {
   notes?: string;
   /** The event's day, for places out of season. */
   date?: string;
+  /**
+   * Claude's plan text (the concepts, the plan, the wheel): "block" as a neighborhood word is sent back
+   * for a rewrite. Off for the manager's own notes and for the generic plan, which is shown as written.
+   */
+  communityWords?: boolean;
 }
 
 const CHECKED_RULES = new Set<GuardRule>(["minor", "ethnicity", "likeness", "health-claim", "fake-proof", "em-dash", "named-reference"]);
@@ -75,6 +80,8 @@ export function textIssues(text: string, ctx: GuardContext): string[] {
   if (alcohol) issues.push(`"${alcohol[0]}": no alcohol or tobacco at a sidewalk table or in giveaways.`);
   const customers = text.match(YOUR_CUSTOMERS);
   if (customers) issues.push(`"${customers[0]}": Stoop measures the city and the places in a community, never a store's customers. Say "your city" or "your community".`);
+  const block = ctx.communityWords ? blockWord(text) : null;
+  if (block) issues.push(`"${block}": say "the community" (or name the place) instead of "block".`);
   const identity = text.match(IDENTITY_THEME);
   if (identity) issues.push(`"${identity[0]}": no theme built on who people are. Build it on the city's music and the community's places.`);
   const carrier = text.match(CARRIER_ENDORSEMENT);
@@ -90,6 +97,67 @@ export function textIssues(text: string, ctx: GuardContext): string[] {
   }
   for (const id of refsIn(text)) if (!ctx.known.has(id)) issues.push(`[[${id}]] is not an artist or place Qloo returned for this store.`);
   return issues;
+}
+
+const BLOCK_WORD = /\b(?:your|our|the|this|that|whole|entire)\s+block\b(?!\s*part(?:y|ies)\b)/gi;
+/** Directions and distances: "down the block", "around the block", "the end of the block" are about a street, not a neighborhood. */
+const BLOCK_DIRECTION = /\b(?:down|up|around|across|along|over|past|end of|corner of|middle of|side of|length of)\s*$/i;
+
+/**
+ * "Block" used as a neighborhood word ("your block", "the block", "on the block", "this block"), which
+ * people read as a label: Stoop says "community", tied to its places. "Block party", plural distances
+ * ("two blocks away") and directions ("down the block") are fine. Null when the text has none.
+ */
+export function blockWord(text: string): string | null {
+  for (const match of text.matchAll(BLOCK_WORD)) {
+    // "the block's own food" is always the neighborhood, whatever comes before it.
+    const owned = /^['’]s\b/.test(text.slice(match.index + match[0].length));
+    if (!owned && BLOCK_DIRECTION.test(text.slice(Math.max(0, match.index - 20), match.index))) continue;
+    return match[0];
+  }
+  return null;
+}
+
+/** A link or a bare web address: posts carry Stoop's own share link only, added by code. */
+export const LINK = /https?:\/\/|\bwww\.|\b[a-z0-9-]{2,}\.(?:com|net|org|io|ly|co|app|link|info|biz|xyz|me|gl|site|online|shop|store|us)\b(?:\/\S*)?/i;
+
+/**
+ * What the manager typed and Stoop prints and posts word for word (the store's name and address, the
+ * event's place, the offers), checked for what no poster or post may carry: links, alcohol or
+ * tobacco, implied carrier endorsement, settings aimed at minors, and "your customers"; an offer is
+ * also never a theme built on who people are. Music words and places are fine here: a venue may be
+ * called anything, and a typed offer is the manager's own words.
+ */
+export function typedTextIssues(text: string): string[] {
+  const issues: string[] = [];
+  const link = text.match(LINK)?.[0];
+  if (link) issues.push(`"${link}" is a link. Stoop adds the event's own link; posts and posters carry no other.`);
+  const alcohol = text.match(ALCOHOL_TOBACCO)?.[0];
+  if (alcohol) issues.push(`"${alcohol}": no alcohol or tobacco at the table, on the poster or in a post.`);
+  const carrier = text.match(CARRIER_ENDORSEMENT)?.[0];
+  if (carrier) issues.push(`"${carrier}": nothing may say or imply the carrier sponsors or endorses the event.`);
+  const minor = childSetting(text) ?? checkText(text).find((i) => i.rule === "minor")?.match ?? null;
+  if (minor) issues.push(`"${minor}" points at kids. The event is for adults passing by.`);
+  const customers = text.match(YOUR_CUSTOMERS)?.[0];
+  if (customers) issues.push(`"${customers}": say "your city" or "your community" instead.`);
+  return issues;
+}
+
+/** The first problem with what the manager typed, naming the field in plain words, or null. */
+export function typedInputsProblem(inputs: Pick<PlanInputs, "store" | "location" | "offers">): string | null {
+  const fields: [string, string][] = [
+    ["The store name", inputs.store.name],
+    ["The store address", inputs.store.address],
+    ...(inputs.location ? [["The event's place", inputs.location.name] as [string, string]] : []),
+    ...inputs.offers.map((o, i): [string, string] => [inputs.offers.length === 1 ? "The offer" : `Offer ${i + 1}`, o.text]),
+  ];
+  for (const [field, text] of fields) {
+    const offer = field.startsWith("Offer") || field === "The offer";
+    const identity = offer ? text.match(IDENTITY_THEME)?.[0] : undefined;
+    const problem = typedTextIssues(text)[0] ?? (identity ? `"${identity}": an offer is never built on who people are.` : undefined);
+    if (problem) return `${field} can't be used: ${problem}`;
+  }
+  return null;
 }
 
 export interface GuardedItem {

@@ -20,8 +20,9 @@ import type { Store } from "../store/types";
 import { visitorId } from "../store/visitor";
 import { META_RETURN_PARAM, socialPagesResponseSchema, socialPostRequestSchema, socialPostResponseSchema, type MetaOutcome, type SocialPostResult } from "./api";
 import { exchangeCode, inScheduleWindow, listPages, longLivedUserToken, META_ERROR_MESSAGES, MetaError, oauthUrl, postPagePhoto, publishInstagramImage, type Fetch, type MetaApp, type MetaCall } from "./meta";
-import { approvedCaption, checkApprovedPosts } from "./posts-guard";
-import { storeTimeZone } from "./schedule";
+import { approvedCaption, checkApprovedPosts, checkReminder } from "./posts-guard";
+import { reminderCaption, reportReminderFacts } from "./reminders";
+import { slotAt, storeTimeZone } from "./schedule";
 import {
   connectionTtlSeconds,
   cookie,
@@ -258,7 +259,7 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
   const source = deps.source(store);
   const state = await source.state(planId);
   const report = state ? reportOf(state) : null;
-  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 7 days).", 404);
+  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 30 days).", 404);
   if (state.status === "failed") return apiError("invalid", "This plan did not finish, so it has nothing to post.", 409);
   if (state.status === "running" || state.status === "idle" || !report.posts || !FINAL_POSTER.has(report.poster.status)) return apiError("busy", "The poster and posts are not ready yet. Make them first, then post.", 409);
   const posts = report.posts;
@@ -267,8 +268,12 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
   const scheduleAt = when === "now" ? null : new Date(when);
   if (scheduleAt && !inScheduleWindow(scheduleAt, now)) return apiError("invalid", META_ERROR_MESSAGES.schedule, 400);
 
+  // A scheduled post at one of the plan's times is that time's own reminder; any other post is the announcement.
+  const reminder = scheduleAt ? slotAt(report, scheduleAt) : null;
+  const facebookCaption = reminder ? reminderCaption(reportReminderFacts(report), reminder.id) : approvedCaption(posts, "facebook");
+
   // The posts guard once more, on exactly what would go out.
-  const issues = checkApprovedPosts(posts, report, channels);
+  const issues = reminder ? checkReminder(report, reminder.id) : checkApprovedPosts(posts, report, channels);
   if (issues.length > 0) return apiError("invalid", `The approved draft no longer passes Stoop's checks, so nothing was posted. ${issues[0]!.message}`, 422);
 
   const results = new Map<SocialChannel, SocialPostResult>();
@@ -318,7 +323,7 @@ export async function postToMeta(request: Request, planId: string, deps: SocialD
       if (channel === "facebook") {
         const png = await deps.poster(planId);
         if (!png) throw new MetaError("image", "The poster image could not be drawn. Try again in a moment.");
-        const photo = await postPagePhoto(call, { id: page.id, token: page.token }, { caption: approvedCaption(posts, "facebook"), image: { bytes: png, contentType: "image/png", filename: "poster.png" }, scheduleAt }, now);
+        const photo = await postPagePhoto(call, { id: page.id, token: page.token }, { caption: facebookCaption, image: { bytes: png, contentType: "image/png", filename: "poster.png" }, scheduleAt }, now);
         results.set(channel, result(channel, scheduleAt ? "scheduled" : "posted", socialLabel(channel, scheduleAt ? "scheduled" : "posted", at, zone), { link: !scheduleAt && photo.postId ? `https://www.facebook.com/${photo.postId}` : null }));
       } else {
         const imageUrl = `${new URL(request.url).origin}/api/plan/${encodeURIComponent(planId)}/social/poster.jpg`;

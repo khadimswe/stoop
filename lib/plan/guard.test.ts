@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { itemIssues, textIssues, type GuardContext } from "./guard";
+import { PLAN_EXAMPLE_INPUTS } from "./example-list";
+import { itemIssues, textIssues, typedInputsProblem, type GuardContext } from "./guard";
 
 const ID = "AFBD8046-1234-4ABC-9DEF-0123456789AB";
 const ctx: GuardContext = {
@@ -71,5 +72,44 @@ describe("origins and giveaways", () => {
   it("keeps giveaways free to enter", () => {
     expect(item({ kind: "giveaway", origin: "creative", evidenceIds: [], text: "Win a speaker with any purchase." }).join(" ")).toMatch(/free to enter/);
     expect(item({ kind: "giveaway", origin: "creative", evidenceIds: [], text: "A free drawing for a speaker, no purchase needed." })).toEqual([]);
+  });
+});
+
+describe("block as a neighborhood word", () => {
+  const plan = { ...ctx, communityWords: true };
+  it("sends Claude's plan text back when it calls the community the block", () => {
+    for (const text of ["Bring your block out for a free spin.", "The best tacos on the block.", "Tell the block the table is out front.", "This block loves a wheel.", "Built around the block's own food."]) {
+      expect(textIssues(text, plan).join(" "), text).toMatch(/say "the community"/);
+    }
+  });
+  it("leaves block parties, distances and directions alone", () => {
+    for (const text of ["A block party table with a free spin.", "The store is two blocks away.", "Cups from the coffeehouse down the block.", "A line around the block.", "At the end of the block, a free spin."]) {
+      expect(textIssues(text, plan), text).toEqual([]);
+    }
+  });
+  it("never applies to the manager's notes or the generic plan", () => {
+    expect(textIssues("Set up on the block by the bus stop.", ctx)).toEqual([]);
+  });
+});
+
+describe("what the manager typed", () => {
+  const base = PLAN_EXAMPLE_INPUTS["chicago-18th-street"];
+  const withOffer = (text: string) => ({ ...base, offers: [...base.offers, { text }] });
+
+  it("passes the example stores' names, addresses and offers, carrier promos included", () => {
+    for (const inputs of Object.values(PLAN_EXAMPLE_INPUTS)) expect(typedInputsProblem(inputs)).toBeNull();
+  });
+
+  it("names the field and the problem in plain words", () => {
+    expect(typedInputsProblem(withOffer("Free beer + vape with every port-in"))).toMatch(/^Offer 4 can't be used: "beer": no alcohol or tobacco/);
+    expect(typedInputsProblem(withOffer("Details at bit.ly/metro-deal"))).toMatch(/^Offer 4 can't be used: "bit\.ly\/metro-deal" is a link/);
+    expect(typedInputsProblem(withOffer("See https://example.com"))).toMatch(/is a link/);
+    expect(typedInputsProblem({ ...base, store: { ...base.store, name: "Official Metro by T-Mobile Event" } })).toMatch(/^The store name can't be used: .*sponsors or endorses/);
+    expect(typedInputsProblem({ ...base, location: { name: "Lincoln Elementary School fair", point: base.store.point } })).toMatch(/^The event's place can't be used: .*kids/);
+    expect(typedInputsProblem(withOffer("Ladies' night: free case"))).toMatch(/never built on who people are/);
+  });
+
+  it("leaves a venue's own name alone when it only sounds like music", () => {
+    expect(typedInputsProblem({ ...base, location: { name: "Soul Food Corner lot", point: base.store.point } })).toBeNull();
   });
 });

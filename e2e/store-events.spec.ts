@@ -67,6 +67,9 @@ test("the five steps link forward and back", async ({ page }) => {
 
   await page.goto(`${EVENT}/poster`);
   await expect(page.getByRole("heading", { level: 1, name: "Poster" })).toBeVisible();
+  // The poster shows as a sized WebP; the full PNG is only for Download.
+  await expect(page.getByRole("img").first()).toHaveAttribute("src", /size=medium/);
+  await expect(page.getByRole("link", { name: "Download" })).toHaveAttribute("href", /marketing\/poster\.png$/);
   await page.getByRole("radio", { name: "Wide 1.91:1" }).click();
   await expect(page.getByRole("img").first()).toHaveAttribute("src", /size=og/);
   await page.getByRole("link", { name: "Promote it" }).click();
@@ -77,6 +80,21 @@ test("the five steps link forward and back", async ({ page }) => {
   // Example stores always share in one tap (posting answers 403 for them).
   await expect(page.getByRole("button", { name: "Share the event" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Accounts" }).getByText("WhatsApp", { exact: true })).toBeVisible();
+  // One timeline, one schedule: the announcement now, then a reminder at each time, each with its own words.
+  const timeline = page.getByRole("group", { name: "Posts and when to share them" });
+  for (const name of ["Now · Announce", "7 pm · Evening before", "9 am · Morning of", "11 am · An hour before"]) await expect(timeline.getByText(name)).toBeVisible();
+  await expect(timeline.getByText("Tomorrow, 12 to 4 pm: our table is out front.")).toBeVisible();
+  await expect(timeline.getByRole("link", { name: /WhatsApp share for the evening before post/ })).toHaveAttribute("href", /^https:\/\/wa\.me\/\?text=Tomorrow/);
+  await expect(timeline.getByText("Ready to share").first()).toBeVisible();
+  // Remind me saves one calendar file with an alert at each post time.
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Remind me at each post time" }).click();
+  expect((await download).suggestedFilename()).toBe("post-reminders.ics");
+  // An edit that empties a post is refused in plain words, and that post can't be copied.
+  await timeline.getByRole("button", { name: "Edit text of the morning of post" }).click();
+  await timeline.getByRole("textbox", { name: "Morning of post text" }).fill("");
+  await expect(timeline.getByRole("alert")).toHaveText("A post can't be empty. Write something, or tap Reset.");
+  await expect(timeline.getByRole("button", { name: "Copy the morning of post" })).toBeDisabled();
 });
 
 test("a filled form starts a plan, and a paused day opens an example with its message", async ({ page }) => {

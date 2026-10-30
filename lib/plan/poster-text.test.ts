@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dealLabel, eventDate, eventTime, keptConcept, posterAlt, posterText, wheelLine } from "./poster-text";
+import { dealBody, dealLabel, eventDate, eventTime, keptConcept, localLine, posterAlt, posterText, wheelLine } from "./poster-text";
 import { samplePlanReport } from "./posts-fixture";
 import type { PlanReport } from "./schema";
 
@@ -124,5 +124,27 @@ describe("dates and times", () => {
     expect(eventTime("18:30", 150)).toBe("6:30 to 9 pm");
     expect(eventTime("09:15", 45)).toBe("9:15 to 10 am");
     expect(eventTime("22:00", 180)).toBe("10 pm to 1 am");
+  });
+});
+
+describe("the poster's cards and its local line", () => {
+  it("prints each offer once: the label, then only the rest of the offer, or nothing when the label is the whole offer", () => {
+    expect(dealBody("$25/mo unlimited", "$25/mo unlimited when you switch, taxes and fees included")).toBe("when you switch, taxes and fees included");
+    expect(dealBody("$30/mo unlimited", "$30/mo unlimited, no annual contract")).toBe("no annual contract");
+    expect(dealBody("Free tablet with a new line", "Free tablet with a new line")).toBe("");
+    // A label that is not the offer's opening (or stops mid-word) keeps the whole offer under it.
+    expect(dealBody("Switch and save", "Free phone when you switch")).toBe("Free phone when you switch");
+    expect(dealBody("Free phone", "Free phones for two lines")).toBe("Free phones for two lines");
+  });
+
+  it("names one place the plan buys treats from, never a prize, never an artist", () => {
+    const report = samplePlanReport();
+    expect(localLine(report)).toMatch(/^Treats from /);
+    const name = localLine(report)!.slice("Treats from ".length);
+    expect(report.local.block?.places.map((p) => p.name)).toContain(name);
+    expect(report.local.city?.artists.map((a) => a.name) ?? []).not.toContain(name);
+    const prizesOnly = { ...report, plan: { ...report.plan!, shopping: report.plan!.shopping.map((s) => ({ ...s, item: `Gift card: ${s.item}` })) } };
+    expect(localLine(prizesOnly)).toBeNull();
+    expect(posterAlt(posterText(report))).toContain(`${localLine(report)}.`);
   });
 });

@@ -25,7 +25,7 @@ import type { PlanSink } from "./env";
 import { createPlanEmitter, planEventSchema, type PlanEvent, type PlanEventInput } from "./events";
 import { examplePlanId, LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES, type PlanExampleSlug } from "./example-list";
 import { guardFor, runPlan } from "./pipeline";
-import { textIssues } from "./guard";
+import { textIssues, typedInputsProblem } from "./guard";
 import { kmBetween, stateOf } from "./locality";
 import { inputsSchema, type PlanInputs } from "./schema";
 import { appendPlanEvents, getPlanMeta, setPlanMeta, type PlanMeta } from "./store";
@@ -108,7 +108,7 @@ export async function startPlan(deps: PlanStartDeps, raw: unknown, ctx: RequestC
   const env = deps.env ?? process.env;
   const { inputs } = planStartRequestSchema.parse(raw);
   if (!isLive(env)) return exampleReply("replay", inputs);
-  const refused = notesProblem(inputs);
+  const refused = notesProblem(inputs) ?? typedInputsProblem(inputs);
   if (refused) throw new ApiFailure("invalid", refused.slice(0, 300), 422);
   const now = deps.now ?? Date.now;
   const { store } = ctx;

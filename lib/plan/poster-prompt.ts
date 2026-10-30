@@ -138,9 +138,16 @@ export interface PosterPrompt {
   input: Record<string, unknown>;
 }
 
-/** The fal input for a prompt: one image, 4:5, at the cheap 1K setting. */
-export function posterFalInput(prompt: string): Record<string, unknown> {
-  return { prompt, num_images: 1, aspect_ratio: POSTER_MODEL.aspectRatio, resolution: POSTER_MODEL.resolution, output_format: "png" };
+/** The most new versions of the art one plan may ask for, after its first poster. */
+export const MAX_POSTER_VERSIONS = 3;
+
+/**
+ * The fal input for a prompt: one image, 4:5, at the cheap 1K setting. A new version (1 and up) adds a
+ * seed, so the same frozen prompt paints a different background under its own hash and cache entry;
+ * version 0 sends no seed, so a plan's first poster keeps the hash it always had.
+ */
+export function posterFalInput(prompt: string, version = 0): Record<string, unknown> {
+  return { prompt, num_images: 1, aspect_ratio: POSTER_MODEL.aspectRatio, resolution: POSTER_MODEL.resolution, output_format: "png", ...(version > 0 ? { seed: version } : {}) };
 }
 
 export function posterPromptHash(input: Record<string, unknown>): string {
@@ -148,7 +155,7 @@ export function posterPromptHash(input: Record<string, unknown>): string {
 }
 
 /** The scene, the theme, the carrier's colors and the music's energy, in that order, then the exclusions. */
-export function buildPosterPrompt(report: Pick<PlanReport, "plan" | "local" | "inputs">): PosterPrompt {
+export function buildPosterPrompt(report: Pick<PlanReport, "plan" | "local" | "inputs">, version = 0): PosterPrompt {
   const feeling = posterFeeling(report);
   const prompt = [
     "An illustrated neon scene in portrait format, made to sit behind type and cards that are added later.",
@@ -160,7 +167,7 @@ export function buildPosterPrompt(report: Pick<PlanReport, "plan" | "local" | "i
     "Composition: the illustration frames the edges and corners; the top fifth, a wide band across the middle and the bottom third stay dark and quiet so type and cards can sit on them.",
     POSTER_EXCLUSIONS,
   ].join(" ");
-  const input = posterFalInput(prompt);
+  const input = posterFalInput(prompt, version);
   return { prompt, promptHash: posterPromptHash(input), input };
 }
 

@@ -118,7 +118,8 @@ export async function runPlan(base: PlanEnv, run: PlanRun, options: { now?: () =
     return stop("block", "Qloo had no signal for this store's city or community, so there is nothing to plan from.");
   }
   const names = [...(city?.artists.map((a) => a.name) ?? []), ...offered.map((a) => a.name), ...(block?.places.map((p) => p.name) ?? [])];
-  const guard = guardFor(inputs, known, names);
+  // Claude's plan text also never calls the community "the block" (the generic plan is shown as written).
+  const guard: GuardContext = { ...guardFor(inputs, known, names), communityWords: true };
 
   // 4. Three concepts, scored; the best is kept.
   const written = await stage(env, "concepts", now, async () => {

@@ -10,7 +10,7 @@ import { reducePlan, createPlanEmitter, type PlanEventInput } from "./events";
 import { posterKeys, type PosterRenderer } from "./poster-art";
 import { POSTER_SIZES } from "./poster-image";
 import { samplePlanReport } from "./posts-fixture";
-import { marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, sniffImage, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
+import { AUTO_MARKETING_MIN_MS, autoMarketing, marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, runRemake, sniffImage, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
 import type { AbTest } from "./schema";
 import { storePlanSource, type PlanSource } from "./posts-store";
 import type { PlanReport } from "./schema";
@@ -173,6 +173,138 @@ describe("runMarketing", () => {
     await store.set(posterKeys.lock(RUN), { at: "now" });
     expect(await runMarketing({ store, source, model: null, art: { storage: null, renderer: null }, origin: "https://stoop.test" }, RUN, null)).toBe(false);
     expect((await source.state(RUN))!.report.posts).toBeNull();
+  });
+});
+
+describe("autoMarketing", () => {
+  const VISITOR = "v_000000000000000000000001" as VisitorId;
+  const realJob = (art = renderer()) => (s: MemoryStore, source: PlanSource, runId: string, visitor: Parameters<typeof runMarketing>[2]) =>
+    runMarketing({ store: s, source, model: model(openings), art: { storage: storage(), renderer: art, framesCap: 10 }, origin: "https://stoop.test" }, runId, visitor);
+
+  it("makes the poster and posts as soon as the plan is done, once, whoever else asks", async () => {
+    const source = await seedRun(samplePlanReport());
+    const art = renderer();
+    const job = realJob(art);
+    const jobs: string[] = [];
+    const deps = { store, source, visitor: VISITOR, remainingMs: 200_000, job: async (s: never, src: PlanSource, id: string, v: Parameters<typeof runMarketing>[2]) => (jobs.push(id), job(store, src, id, v)) };
+    expect(await autoMarketing(deps as never, RUN)).toBe("started");
+    const r = (await source.state(RUN))!.report;
+    expect(r.posts).not.toBeNull();
+    expect(r.poster.status).toBe("ready");
+    // Asked again, by the server or by the page: nothing new is made.
+    expect(await autoMarketing(deps as never, RUN)).toBe("done");
+    const route = routeDeps();
+    expect((await requestMarketing(route, RUN)).body).toMatchObject({ status: "done" });
+    expect(route.scheduled).toHaveLength(0);
+    expect(jobs).toEqual([RUN]);
+    expect(art.calls).toBe(1);
+  });
+
+  it("leaves a job already holding the lock alone, and a second job that races it does nothing", async () => {
+    const source = await seedRun(samplePlanReport());
+    await store.set(posterKeys.lock(RUN), "someone-else");
+    let ran = 0;
+    expect(await autoMarketing({ store, source, visitor: VISITOR, remainingMs: 200_000, job: async () => ran++ }, RUN)).toBe("working");
+    expect(ran).toBe(0);
+    // Even a job that slipped past the check finds the lock and writes nothing.
+    expect(await realJob()(store, source, RUN, null)).toBe(false);
+    expect((await source.state(RUN))!.report.posts).toBeNull();
+  });
+
+  it("waits for a finished plan and never runs for a failed one", async () => {
+    let ran = 0;
+    const job = async () => ran++;
+    const started = await seedRun(samplePlanReport(), "started");
+    expect(await autoMarketing({ store, source: started, visitor: VISITOR, remainingMs: 200_000, job }, RUN)).toBe("not-ready");
+    store = new MemoryStore();
+    const failed = await seedRun(samplePlanReport(), "failed");
+    expect(await autoMarketing({ store, source: failed, visitor: VISITOR, remainingMs: 200_000, job }, RUN)).toBe("not-ready");
+    expect(ran).toBe(0);
+  });
+
+  it("counts against the starter's hourly limit, shared with the route", async () => {
+    const source = await seedRun(samplePlanReport());
+    const route = routeDeps({ perVisitorHour: 1 });
+    // The same salted visitor id the route counts (the IP's), as the plan's meta stores it.
+    const { visitorId } = await import("../store/visitor");
+    const visitor = await visitorId(store, route.headers);
+    await requestMarketing(route, RUN);
+    let ran = 0;
+    expect(await autoMarketing({ store, source, visitor, remainingMs: 200_000, perVisitorHour: 1, job: async () => ran++ }, RUN)).toBe("rate-limited");
+    expect(ran).toBe(0);
+  });
+
+  it("leaves the start to the page when the invocation is nearly out of time", async () => {
+    const source = await seedRun(samplePlanReport());
+    let ran = 0;
+    expect(await autoMarketing({ store, source, visitor: VISITOR, remainingMs: AUTO_MARKETING_MIN_MS - 1, job: async () => ran++ }, RUN)).toBe("no-time");
+    expect(ran).toBe(0);
+  });
+
+  it("passes the art job the starter, so the daily storyboard and frame caps still apply", async () => {
+    const source = await seedRun(samplePlanReport());
+    const art = renderer();
+    // A frame cap of 0: the art is paused for today, and the poster says so on the plain background.
+    const job = (s: MemoryStore, src: PlanSource, id: string, v: Parameters<typeof runMarketing>[2]) =>
+      runMarketing({ store: s, source: src, model: null, art: { storage: storage(), renderer: art, framesCap: 0 }, origin: "https://stoop.test" }, id, v);
+    let seen: unknown = null;
+    expect(await autoMarketing({ store, source, visitor: VISITOR, remainingMs: 200_000, job: async (s, src, id, v) => ((seen = v), job(store, src, id, v)) }, RUN)).toBe("started");
+    expect(seen).toEqual({ id: VISITOR, cookie: null });
+    const r = (await source.state(RUN))!.report;
+    expect(art.calls).toBe(0);
+    expect(r.poster).toMatchObject({ status: "skipped", reason: expect.stringMatching(/paused for today/) });
+  });
+});
+
+describe("a new version of the poster art", () => {
+  const env = (art: PosterRenderer, source: PlanSource) => ({ store, source, model: null, art: { storage: storage(), renderer: art, framesCap: 10 }, origin: "https://stoop.test" });
+
+  it("paints a new background under a new hash, keeps the posts, and is capped per plan", async () => {
+    const source = await seedRun(samplePlanReport());
+    const art = renderer();
+    await runMarketing(env(art, source), RUN, null);
+    const first = (await source.state(RUN))!.report;
+    expect(first.poster.status).toBe("ready");
+    const remakes: number[] = [];
+    const deps = routeDeps({ remake: async (_s, _src, _id, _v, version) => remakes.push(version) });
+    const answer = await requestMarketing(deps, RUN, { remake: "art" });
+    expect(answer).toMatchObject({ status: 202, body: { status: "working" } });
+    expect(remakes).toHaveLength(0);
+    await deps.scheduled[0]!();
+    expect(remakes).toEqual([1]);
+    expect(await runRemake(env(art, source), RUN, null, 1)).toBe(true);
+    const second = (await source.state(RUN))!.report;
+    expect(second.poster.status).toBe("ready");
+    expect(second.poster.promptHash).not.toBe(first.poster.promptHash);
+    expect(second.poster.prompt).toBe(first.poster.prompt);
+    expect(second.posts).toEqual(first.posts);
+    expect(art.calls).toBe(2);
+    expect(second.trace.filter((s) => s.stage === "marketing").map((s) => s.label).slice(-2)).toEqual(["Asked for poster version 2", "Painted a new poster background"]);
+    // Three new versions at most.
+    await requestMarketing(deps, RUN, { remake: "art" });
+    await requestMarketing(deps, RUN, { remake: "art" });
+    expect((await requestMarketing(deps, RUN, { remake: "art" })).status).toBe(429);
+  });
+
+  it("keeps the earlier poster when the new art does not render", async () => {
+    const source = await seedRun(samplePlanReport());
+    await runMarketing(env(renderer(), source), RUN, null);
+    const before = (await source.state(RUN))!.report.poster;
+    const broken: PosterRenderer = { render: async () => Promise.reject(new Error("down")) };
+    await runRemake(env(broken, source), RUN, null, 1);
+    const after = (await source.state(RUN))!.report;
+    expect(after.poster).toEqual(before);
+    expect(after.trace.at(-1)?.label).toBe("Kept the earlier poster");
+  });
+
+  it("is refused while art is not set up, since a new version could not change anything", async () => {
+    const source = await seedRun(samplePlanReport());
+    await runMarketing({ ...env(renderer(), source), art: { storage: null, renderer: null } }, RUN, null);
+    const deps = routeDeps({ remake: async () => true });
+    const answer = await requestMarketing(deps, RUN, { remake: "art" });
+    expect(answer.status).toBe(409);
+    expect(JSON.stringify(answer.body)).toMatch(/not set up/);
+    expect(deps.scheduled).toHaveLength(0);
   });
 });
 

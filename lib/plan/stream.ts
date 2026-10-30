@@ -5,7 +5,17 @@
 // viewer can reconnect. Every event is a PlanEvent, so one reducer (reducePlan) reads them all.
 import type { Store } from "../store/types";
 import type { PlanEvent } from "./events";
+import { posterKeys } from "./marketing-keys";
 import { getPlanMeta, loadPlanEvents, readStoredPlanEvents } from "./store";
+
+/** Whether a plan's poster and posts job is running now (it holds the plan's marketing lock). */
+export async function marketingBusy(store: Store, runId: string): Promise<boolean> {
+  try {
+    return (await store.get(posterKeys.lock(runId))) !== null;
+  } catch {
+    return false;
+  }
+}
 
 export type PlanStreamStatus = { status: "running" | "done" | "partial" | "failed" };
 
@@ -91,8 +101,12 @@ export function streamLivePlan(store: Store, runId: string, options: PlanStreamO
             lastSent = now();
           }
           if (meta.status !== "running") {
-            quietSince ??= now();
-            if (now() - quietSince >= lingerMs) break;
+            // While the poster and posts are being made (their job holds the lock), the stream stays open for them.
+            if (await marketingBusy(store, runId)) quietSince = null;
+            else {
+              quietSince ??= now();
+              if (now() - quietSince >= lingerMs) break;
+            }
           }
           if (now() - lastSent >= heartbeatMs) {
             send(": still here\n\n");

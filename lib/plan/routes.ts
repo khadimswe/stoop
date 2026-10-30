@@ -13,7 +13,7 @@ import { planExampleSlug } from "./example-list";
 import { resultsSchema, type PlanReport } from "./schema";
 import { exampleReply, planStartRequestSchema, startPlan, type PlanStartDeps } from "./runtime";
 import { appendPlanEvents, getPlanMeta, livePlanIdSchema, loadPlanEvents, loadPlanReport, readStoredPlanEvents } from "./store";
-import { lastSeq, SSE_HEADERS, streamExamplePlan, streamLivePlan } from "./stream";
+import { lastSeq, marketingBusy, SSE_HEADERS, streamExamplePlan, streamLivePlan } from "./stream";
 import { createPlanEmitter } from "./events";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -95,7 +95,8 @@ export async function getPlanEvents(request: Request, id: string, deps: PlanRout
     const store = deps.store();
     const meta = await getPlanMeta(store, runId.data);
     if (!meta) throw notFound();
-    if (seen !== null && meta.status !== "running") {
+    // A viewer that has everything gets 204 and stops, unless the poster and posts are still being made.
+    if (seen !== null && meta.status !== "running" && !(await marketingBusy(store, runId.data))) {
       const events = await readStoredPlanEvents(store, runId.data);
       if (events.length && events.at(-1)!.seq === seen) return new Response(null, { status: 204 });
     }

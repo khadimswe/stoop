@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { samplePlanReport } from "../plan/posts-fixture";
 import { inScheduleWindow } from "./meta";
-import { eventStart, localClock, storeTimeZone, suggestPostTimes, zonedInstant } from "./schedule";
+import { eventStart, localClock, postSlots, slotAt, storeTimeZone, suggestPostTimes, zonedInstant } from "./schedule";
 import { readSocialTrail, socialLabel, socialStep } from "./trail";
 
 const report = samplePlanReport();
@@ -38,10 +38,18 @@ describe("wall-clock times", () => {
 describe("suggestPostTimes", () => {
   it("offers the evening before, the morning of and an hour before, in the store's time", () => {
     expect(suggestPostTimes(report, NOW)).toEqual([
-      { id: "evening_before", at: "2026-11-07T01:00:00.000Z", name: "Evening before", label: "Fri, Nov 6, 7:00 pm" },
-      { id: "morning_of", at: "2026-11-07T15:00:00.000Z", name: "Morning of", label: "Sat, Nov 7, 9:00 am" },
-      { id: "hour_before", at: "2026-11-07T17:00:00.000Z", name: "An hour before", label: "Sat, Nov 7, 11:00 am" },
+      { id: "evening_before", at: "2026-11-07T01:00:00.000Z", name: "Evening before", label: "Fri, Nov 6, 7 pm", day: "Fri, Nov 6", clock: "7 pm" },
+      { id: "morning_of", at: "2026-11-07T15:00:00.000Z", name: "Morning of", label: "Sat, Nov 7, 9 am", day: "Sat, Nov 7", clock: "9 am" },
+      { id: "hour_before", at: "2026-11-07T17:00:00.000Z", name: "An hour before", label: "Sat, Nov 7, 11 am", day: "Sat, Nov 7", clock: "11 am" },
     ]);
+  });
+
+  it("is the one schedule: the same slots everywhere, whatever the time now, and found again by their instant", () => {
+    expect(suggestPostTimes(report, NOW)).toEqual(postSlots(report));
+    // Long after, the slots are the same; only what Meta can still schedule shrinks.
+    expect(postSlots(report).map((s) => s.id)).toEqual(["evening_before", "morning_of", "hour_before"]);
+    expect(slotAt(report, new Date("2026-11-07T15:00:00.000Z"))?.id).toBe("morning_of");
+    expect(slotAt(report, new Date("2026-11-07T15:01:00.000Z"))).toBeNull();
   });
 
   it("is deterministic, and every time is one Meta can schedule", () => {

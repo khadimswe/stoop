@@ -109,55 +109,7 @@ export function judgeView(view: PlanView): JudgeView | null {
   return { stats, pairs, lines: c.lines.filter((l) => !used.has(l)).map(noGenre) };
 }
 
-/** The agent's posting plan: now, the evening before, and just before the table opens. */
-export interface AgentPost {
-  id: "announce" | "reminder" | "outside";
-  when: string;
-  title: string;
-  channels: string;
-  text: string;
-}
-
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
-const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-const clock = (m: number) => {
-  const h = Math.floor(m / 60) % 24;
-  const min = m % 60;
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return min === 0 ? `${h12} ${h < 12 ? "am" : "pm"}` : `${h12}:${String(min).padStart(2, "0")}`;
-};
-
-/**
- * Three posts with times in the store's own calendar: "Now" (announce), the evening before at 6 pm
- * (reminder) and 15 minutes before the table opens ("We're outside"). The words are the plan's own
- * drafts and its inputs; nothing is invented.
- */
-export function agentPosts(view: PlanView, inputs: { date: string; startTime: string }): AgentPost[] {
-  const posts = view.marketing.posts;
-  if (!posts) return [];
-  const day = new Date(`${inputs.date}T12:00:00Z`);
-  const before = new Date(day.getTime() - 86_400_000);
-  const start = minutes(inputs.startTime);
-  const title = view.concept?.title ?? view.header.storeName;
-  const where = view.header.venue ?? view.header.storeName;
-  return [
-    { id: "announce", when: "Now", title: "Announce", channels: "Facebook, Instagram", text: posts.facebook },
-    {
-      id: "reminder",
-      when: `${WEEKDAY.format(before)} 6 pm`,
-      title: "Reminder",
-      channels: "Facebook, Instagram",
-      text: `Tomorrow: ${title}. ${view.header.timeText} at ${where}, ${view.header.address}.`,
-    },
-    {
-      id: "outside",
-      when: `${WEEKDAY.format(day)} ${clock(start - 15)}`,
-      title: "We're outside",
-      channels: "Facebook, Instagram",
-      text: `We're setting up now: ${title}, ${view.header.timeText}. Come by ${where}.`,
-    },
-  ];
-}
+// The agent's posting plan (the Promote timeline) lives in lib/plan/view/promote.ts, on the one schedule in lib/social/schedule.ts.
 
 /** The landing's "A generic AI plan could be for any store." rows: the generic plan beside this store's. */
 export function landingCompare(view: PlanView): { row: string; generic: string; stoop: string }[] {

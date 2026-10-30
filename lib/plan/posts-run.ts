@@ -19,11 +19,12 @@ import { PRICES } from "../runtime/cost";
 import { POSTER_MODEL } from "../prompts/models.config";
 import { keys, TTL } from "../store/keys";
 import type { Store } from "../store/types";
-import { visitorId, type CookieVisitorId } from "../store/visitor";
+import { visitorId, type CookieVisitorId, type TokenVisitorId, type VisitorId } from "../store/visitor";
 import type { StoryboardVisitor } from "../media/storyboards";
 import type { PlanEventInput } from "./events";
 import { POSTER_REASONS, posterKeys, queuedPoster, renderPosterArt, type PosterArtEnv } from "./poster-art";
 import { posterImage, type PosterArt, type PosterSize } from "./poster-image";
+import { MAX_POSTER_VERSIONS } from "./poster-prompt";
 import { posterText, variantBConcept, withFrontConcept } from "./poster-text";
 import { generatePosts, type PostsResult } from "./posts";
 import { isExampleId, isLivePlanId, reportOf, type MarketingReport, type PlanSource } from "./posts-store";
@@ -140,7 +141,7 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
     const events: PlanEventInput[] = [
       { type: "posts.ready", posts },
       written.source === "claude"
-        ? step("Wrote the Facebook, Instagram and WhatsApp drafts", "Names come only from this plan's Qloo results; offers, date and address are the manager's words, verbatim. Nothing posts until the manager taps Share.")
+        ? step("Wrote the Facebook, Instagram and WhatsApp drafts", "Names come only from this plan's Qloo results; offers, date and address are the manager's words, verbatim. Nothing posts until the manager approves it.")
         : step("Used the plain post template", written.refusedFor.length ? `The drafts did not pass the checks: ${written.refusedFor[0]}` : "No writer was available, so the posts use the plan's own title and hook."),
       { type: "poster.updated", poster: art.poster },
       art.poster.status === "ready"
@@ -165,6 +166,40 @@ export async function runMarketing(env: MarketingEnv, runId: string, visitor: St
   }
 }
 
+/**
+ * A new version of a finished poster's background art: the same frozen prompt with a new seed
+ * (lib/plan/poster-prompt.ts), so it gets its own hash, its own cache entry and its own render, within
+ * the same caps as the first. The posts stay as they are. If the new art does not render, the poster
+ * goes back to the one it had, with the reason in the trace. Returns false when another job holds the plan.
+ */
+export async function runRemake(env: MarketingEnv, runId: string, visitor: StoryboardVisitor | null, version: number): Promise<boolean> {
+  const now = env.now ?? (() => new Date());
+  const token = crypto.randomUUID();
+  if (!(await env.store.set(posterKeys.lock(runId), token, { ifAbsent: true, ttlSeconds: MARKETING_LOCK_SECONDS }))) return false;
+  try {
+    const state = await env.source.state(runId);
+    const report = state ? reportOf(state) : null;
+    if (!report?.plan || !report.posts || !FINAL.has(report.poster.status)) return true;
+    const previous = report.poster;
+    const queued = queuedPoster(report, version);
+    await env.source.append(runId, [
+      { type: "poster.updated", poster: queued },
+      step(`Asked for poster version ${version + 1}`, "The same frozen art prompt with a new seed, so only the background changes. Every word stays as code set it."),
+    ]);
+    const signal = env.abortSignal ? { abortSignal: env.abortSignal } : {};
+    const art = await renderPosterArt({ ...env.art, store: env.store, now, ...signal }, report, visitor, version).catch(() => ({ poster: { ...queued, status: "failed" as const, reason: POSTER_REASONS.failed }, billed: false }));
+    const events: PlanEventInput[] =
+      art.poster.status === "ready"
+        ? [{ type: "poster.updated", poster: art.poster }, step("Painted a new poster background", `${POSTER_MODEL.displayName}, version ${version + 1}.${art.billed ? "" : " From the art cache, at no cost."}`)]
+        : [{ type: "poster.updated", poster: previous }, step("Kept the earlier poster", art.poster.reason ?? POSTER_REASONS.failed)];
+    if (report.cost && art.billed) events.push({ type: "run.cost", cost: addCost(report.cost, { calls: 0, inputTokens: 0, outputTokens: 0 }, 1) });
+    await env.source.append(runId, events);
+    return true;
+  } finally {
+    await env.store.deleteIfEquals(posterKeys.lock(runId), token);
+  }
+}
+
 // --- POST /api/plan/<id>/marketing -------------------------------------------------------------------
 
 export interface MarketingRouteDeps {
@@ -177,11 +212,42 @@ export interface MarketingRouteDeps {
   now?: () => number;
   schedule: (task: () => Promise<unknown>) => void;
   job: (store: Store, source: PlanSource, runId: string, visitor: StoryboardVisitor) => Promise<unknown>;
+  /** A new version of the art ({ "remake": "art" }); without it, a remake is refused. */
+  remake?: (store: Store, source: PlanSource, runId: string, visitor: StoryboardVisitor, version: number) => Promise<unknown>;
 }
 
 const FINAL = new Set(["ready", "skipped", "failed"]);
 
-export async function requestMarketing(deps: MarketingRouteDeps, id: string): Promise<RouteAnswer<MarketingResponse>> {
+/** POST /api/plan/<id>/marketing's body: nothing (make the poster and posts), or a new version of the art. */
+export const marketingRequestSchema = z.strictObject({ remake: z.literal("art").optional() });
+export type MarketingRequest = z.infer<typeof marketingRequestSchema>;
+
+/** One visitor's marketing requests this hour, counted; true while within the limit. */
+async function withinHourly(store: Store, visitor: VisitorId | TokenVisitorId, now: number, limit: number): Promise<boolean> {
+  const hour = new Date(now).toISOString().slice(0, 13);
+  return (await store.incr(keys.rate("marketing", visitor, hour), { ttlSeconds: 60 * 60 + 60 })) <= limit;
+}
+
+/** The checks for a new version of the art, once the plan is known to be finished. */
+async function admitRemake(deps: MarketingRouteDeps, store: Store, source: PlanSource, id: string, report: MarketingReport): Promise<RouteAnswer<MarketingResponse>> {
+  if (!deps.remake) return apiError("invalid", "New versions of the poster are not available here.", 409);
+  if (!report.posts || !FINAL.has(report.poster.status)) return answer(202, { status: "working", message: "The first poster is still being made." });
+  if (report.poster.status === "skipped") return apiError("invalid", report.poster.reason ?? POSTER_REASONS.noService, 409);
+  if (await store.get(posterKeys.lock(id))) return answer(202, { status: "working", message: null });
+  const ip = await visitorId(store, deps.headers);
+  if (!(await withinHourly(store, ip, deps.now?.() ?? Date.now(), deps.perVisitorHour ?? MARKETING_PER_VISITOR_HOUR))) return apiError("rate_limited", "That is a lot of posters in an hour. Try again later.");
+  const version = await store.incr(posterKeys.version(id), { ttlSeconds: TTL.report });
+  if (version > MAX_POSTER_VERSIONS) {
+    await store.incr(posterKeys.version(id), { by: -1 }).catch(() => undefined);
+    return apiError("rate_limited", `This plan has had ${MAX_POSTER_VERSIONS} new versions of its poster. Keep the one you like best.`);
+  }
+  const visitor: StoryboardVisitor = { id: ip, cookie: deps.cookieVisitor ?? null };
+  const remake = deps.remake;
+  deps.schedule(() => remake(store, source, id, visitor, version));
+  return answer(202, { status: "working", message: "A new background is being painted. Your words stay the same." });
+}
+
+export async function requestMarketing(deps: MarketingRouteDeps, id: string, request: MarketingRequest = {}): Promise<RouteAnswer<MarketingResponse>> {
   if (isExampleId(id)) return answer(200, { status: "done", message: "Examples ship with their poster and posts." });
   if (!deps.live) return apiError("off", "Live runs are off, so posters and posts are not written. The examples show theirs.");
   if (!isLivePlanId(id)) return apiError("invalid", "That is not a plan id.");
@@ -194,18 +260,56 @@ export async function requestMarketing(deps: MarketingRouteDeps, id: string): Pr
   const source = deps.source(store);
   const state = await source.state(id);
   const report = state ? reportOf(state) : null;
-  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 7 days).");
+  if (!state || !report) return apiError("not_found", "No plan with that id (plans are kept for 30 days).");
   if (!report.plan || state.status === "running" || state.status === "idle") return apiError("busy", "The plan is still being written. The poster and posts follow it.");
   if (state.status === "failed") return apiError("invalid", "This plan did not finish, so it has no poster or posts.", 409);
+  if (request.remake === "art") return admitRemake(deps, store, source, id, report);
   if (report.posts && FINAL.has(report.poster.status)) return answer(200, { status: "done", message: null });
   if (await store.get(posterKeys.lock(id))) return answer(202, { status: "working", message: null });
   const ip = await visitorId(store, deps.headers);
-  const hour = new Date(deps.now?.() ?? Date.now()).toISOString().slice(0, 13);
-  const count = await store.incr(keys.rate("marketing", ip, hour), { ttlSeconds: 60 * 60 + 60 });
-  if (count > (deps.perVisitorHour ?? MARKETING_PER_VISITOR_HOUR)) return apiError("rate_limited", "That is a lot of posters in an hour. Try again later.");
+  if (!(await withinHourly(store, ip, deps.now?.() ?? Date.now(), deps.perVisitorHour ?? MARKETING_PER_VISITOR_HOUR))) return apiError("rate_limited", "That is a lot of posters in an hour. Try again later.");
   const visitor: StoryboardVisitor = { id: ip, cookie: deps.cookieVisitor ?? null };
   deps.schedule(() => deps.job(store, source, id, visitor));
   return answer(202, { status: "working", message: null });
+}
+
+// --- The automatic start, right after a live plan finishes ------------------------------------------
+
+/** The marketing job needs about this long (the posts' Claude call and the art run side by side). */
+export const AUTO_MARKETING_MIN_MS = 100_000;
+
+export type AutoMarketingOutcome = "started" | "done" | "working" | "not-ready" | "rate-limited" | "no-time";
+
+export interface AutoMarketingDeps {
+  store: Store;
+  source: PlanSource;
+  /** Who started the plan (its meta's salted id), counted against the same hourly limit as the route. */
+  visitor: VisitorId | TokenVisitorId | null;
+  /** How long the invocation has left; below AUTO_MARKETING_MIN_MS the start is left to the page. */
+  remainingMs: number;
+  perVisitorHour?: number;
+  now?: () => number;
+  job: (store: Store, source: PlanSource, runId: string, visitor: StoryboardVisitor | null, deadlineMs: number) => Promise<unknown>;
+}
+
+/**
+ * Starts a finished live plan's poster and posts on the server, in the same background invocation as
+ * the plan, so they are ready by the time the manager opens the Poster step. The same checks as the
+ * route: a finished plan with no poster and posts yet, the lock (a page that also asks never makes a
+ * second set), and the starter's hourly limit; the art job keeps its own daily caps. When the
+ * invocation has too little time left, nothing starts here and the page asks the route instead.
+ */
+export async function autoMarketing(deps: AutoMarketingDeps, runId: string): Promise<AutoMarketingOutcome> {
+  const { store, source } = deps;
+  const state = await source.state(runId);
+  const report = state ? reportOf(state) : null;
+  if (!state || !report?.plan || (state.status !== "done" && state.status !== "partial")) return "not-ready";
+  if (report.posts && FINAL.has(report.poster.status)) return "done";
+  if (await store.get(posterKeys.lock(runId))) return "working";
+  if (deps.remainingMs < AUTO_MARKETING_MIN_MS) return "no-time";
+  if (deps.visitor && !(await withinHourly(store, deps.visitor, deps.now?.() ?? Date.now(), deps.perVisitorHour ?? MARKETING_PER_VISITOR_HOUR))) return "rate-limited";
+  await deps.job(store, source, runId, deps.visitor ? { id: deps.visitor, cookie: null } : null, deps.remainingMs - 10_000);
+  return "started";
 }
 
 // --- GET /api/plan/<id>/marketing/poster.png ---------------------------------------------------------

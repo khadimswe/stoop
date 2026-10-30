@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { PLAN_EXAMPLES, examplePlanId, type PlanExampleSlug } from "../example-list";
 import { titleGenre } from "../words";
-import { agentPosts, eventStats, judgeView, kindCounts, landingCompare, placeMeta, playView, prizesLine, snacksView } from "./floor";
+import { eventStats, judgeView, kindCounts, landingCompare, placeMeta, playView, prizesLine, snacksView } from "./floor";
 import { noGenre, planView, posterRoute, safeReason, sourceFromReport, stepLabel, type PlanView } from "./plan";
 
 // The floor's selectors, against the recorded example runs (data/plans/<slug>/plan.events.json).
@@ -58,18 +58,6 @@ describe("the floor's selectors on each example", () => {
       for (const pair of judge.pairs) expect(pair.generic).not.toMatch(/\$\d+\/mo|port in|taxes and fees/i);
     });
   }
-});
-
-describe("the agent's posting plan", () => {
-  it("posts now, the evening before at 6 pm and 15 minutes before the table opens", () => {
-    const view = views[0]!.view;
-    const posts = agentPosts(view, { date: "2026-11-07", startTime: "12:00" });
-    expect(posts.map((p) => p.id)).toEqual(["announce", "reminder", "outside"]);
-    expect(posts[0]!.when).toBe("Now");
-    expect(posts[1]!.when).toBe("Fri 6 pm");
-    expect(posts[2]!.when).toBe("Sat 11:45");
-    expect(posts[0]!.text).toBe(view.marketing.posts!.facebook);
-  });
 });
 
 describe("small wording rules", () => {
