@@ -35,6 +35,8 @@ test("landing to an example event to one receipt", async ({ page }) => {
   await why.click();
   const receipt = page.getByRole("dialog", { name: /^Receipt:/ });
   await expect(receipt).toBeVisible();
+  // The dialog (or the phone's sheet) has taken focus once it is ready for Escape.
+  await expect(receipt.getByRole("button", { name: "Close" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(receipt).toBeHidden();
   await expect(why).toBeFocused();

@@ -55,7 +55,7 @@ export function StoresScreen({ stores, nextEvent, note, today }: { stores: reado
           </IconSlot>
         }
         title="My stores"
-        store={{ name: "Stoop", city: "My stores" }}
+        store={{ name: "Stoop" }}
       />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-7 px-4 pt-5 pb-8 lg:max-w-[1200px] lg:px-6 lg:pt-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
