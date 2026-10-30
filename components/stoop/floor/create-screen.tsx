@@ -4,7 +4,9 @@ import { ChevronDown, ChevronLeft, LayoutGrid, Loader2, Minus, Plus, X } from "l
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
-import { capitalizeFirst, SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
+import { GAME_LABELS, settingHasGame } from "@/lib/plan/game";
+import { GAMES } from "@/lib/plan/schema";
+import { AWAY_SETTINGS, capitalizeFirst, SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
 import { parsePlanNotice, sameStore, type PlanNotice } from "@/lib/plan/view/notice";
 import { BUDGET_MIN, DURATIONS, emptyStoreForm, EVENT_DAYS_AHEAD, LIMITS, MAX_OFFERS, nextSaturday, parseStoreForm, PLAN_NOTICE_KEY, type Setting, type StoreField, type StoreFormValues } from "@/lib/plan/view/start-form";
@@ -109,8 +111,8 @@ function loadDraft(key: string): Partial<StoreFormValues> | null {
 function saveDraft(key: string, values: StoreFormValues) {
   try {
     const all = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as Record<string, Partial<StoreFormValues>>;
-    const { offers, ageBands, setting, notes, startTime, durationMinutes, budgetUsd, date } = values;
-    all[key] = { offers, ageBands, setting, notes, startTime, durationMinutes, budgetUsd, date };
+    const { offers, ageBands, setting, game, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon } = values;
+    all[key] = { offers, ageBands, setting, game, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
   } catch {
     // Private browsing: the form still works, it just isn't kept.
@@ -135,9 +137,10 @@ export function CreateScreen({
   stepActions,
   onEditStore,
   draftKey,
+  at,
 }: {
   store: CreateStore;
-  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "notes" | "startTime" | "durationMinutes" | "budgetUsd" | "date" | "venueName" | "venueLat" | "venueLon">>;
+  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "game" | "notes" | "startTime" | "durationMinutes" | "budgetUsd" | "date" | "venueName" | "venueLat" | "venueLon">>;
   backHref: string;
   steps?: Partial<Record<Step, string>>;
   reasons?: Partial<Record<Step, string>>;
@@ -146,6 +149,8 @@ export function CreateScreen({
   onEditStore?: () => void;
   /** Keep what is typed in this tab under this key (client-only screens). */
   draftKey?: string;
+  /** A Qloo place picked on the Community step ("Plan it here"): the event goes there, over the draft and the defaults. */
+  at?: { name: string; lat: number; lon: number };
 }) {
   const router = useRouter();
   const id = useId();
@@ -157,7 +162,7 @@ export function CreateScreen({
     // The recorded day is a default like the rest, but the form shows it only while it is still ahead (below).
     const rest = { ...defaults };
     delete rest.date;
-    const merged = { ...rest, ...draft };
+    const merged = { ...rest, ...draft, ...(at ? { setting: "community_event" as const, venueName: at.name, venueLat: String(at.lat), venueLon: String(at.lon) } : {}) };
     return {
       ...emptyStoreForm(),
       storeName: store.name,
@@ -264,6 +269,8 @@ export function CreateScreen({
   };
 
   const ageText = values.ageBands.length ? values.ageBands.map(ageBandLabel).join(", ") : "Pick at least one";
+  // Away from the store with a place set (a fair, or a place picked with "Plan it here"): said up top, with the way back to the door.
+  const where = AWAY_SETTINGS.includes(values.setting) && values.venueName.trim() ? capitalizeFirst(values.venueName.trim()) : null;
   const offersTyped = values.offers.filter((o) => o.trim()).length;
   const submitButton = (
     <button type="submit" className={PRIMARY} disabled={send.kind === "sending"}>
@@ -298,6 +305,15 @@ export function CreateScreen({
             </button>
           )}
         </li>
+        {where && (
+          <li className="flex min-h-[54px] items-center gap-3 px-4 py-3">
+            <RowLabel>Where</RowLabel>
+            <span className="min-w-0 flex-1 text-[0.9375rem] font-medium text-pretty">{where}</span>
+            <button type="button" onClick={() => setValues((v) => ({ ...v, setting: "sidewalk_table", venueName: "", venueLat: "", venueLon: "" }))} className="shrink-0 text-sm font-medium underline underline-offset-[3px]">
+              Plan at your door
+            </button>
+          </li>
+        )}
         <OpenRow id={`${id}-day`} label="Day" value={dayText(date)} open={open === "day"} onToggle={() => toggle("day")} error={dateError}>
           <input
             type="date"
@@ -455,6 +471,25 @@ export function CreateScreen({
               ))}
             </div>
           </OpenRow>
+          {settingHasGame(values.setting) && (
+            <OpenRow id={`${id}-game`} label="Game" value={GAME_LABELS[values.game]} open={open === "game"} onToggle={() => toggle("game")}>
+              <div role="radiogroup" aria-label="Game" className="flex flex-wrap gap-2">
+                {GAMES.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    role="radio"
+                    aria-checked={values.game === g}
+                    onClick={() => set("game", g)}
+                    className={cn("h-[34px] rounded-[6px] border px-3 text-sm font-medium", values.game === g ? "border-fl-ink bg-fl-ink text-white" : "border-fl-line bg-white")}
+                  >
+                    {GAME_LABELS[g]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-fl-dim">{values.game === "drop_board" ? "Drop a chip, it lands in one of 6 slots: your promos first, plus a gift card from a place in your community." : "Your promos and local gift cards go on the slices."}</p>
+            </OpenRow>
+          )}
           <OpenRow id={`${id}-notes`} label="Notes" value={values.notes || <span className="text-fl-dim">Staff, weather, last time</span>} open={open === "notes"} onToggle={() => toggle("notes")} error={errors.notes}>
             <textarea
               aria-label="Notes"
@@ -487,6 +522,12 @@ export function CreateScreen({
         <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[0.8125rem]">
           <dt className="text-fl-dim">Store</dt>
           <dd>{store.name}</dd>
+          {where && (
+            <>
+              <dt className="text-fl-dim">Where</dt>
+              <dd>{where}</dd>
+            </>
+          )}
           <dt className="text-fl-dim">When</dt>
           <dd>
             {dayText(date)}, {timeRange(values.startTime, Number(values.durationMinutes))}
@@ -496,7 +537,7 @@ export function CreateScreen({
           <dt className="text-fl-dim">Promos</dt>
           <dd>{offersTyped ? `${offersTyped}, word for word` : "None yet"}</dd>
         </dl>
-        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, snacks and prizes from places in your community, a prize wheel and a timeline.</p>
+        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, snacks and prizes from places in your community, {settingHasGame(values.setting) ? `${values.game === "drop_board" ? "a drop board" : "a prize wheel"} and a timeline` : "and a timeline"}.</p>
       </section>
       <p className="text-center text-xs text-fl-dim">{note}</p>
       {submitButton}

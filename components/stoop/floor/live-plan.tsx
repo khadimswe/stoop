@@ -2,7 +2,9 @@
 
 import { Check, ChevronDown, ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useSyncExternalStore } from "react";
+import { Suspense, useMemo, useSyncExternalStore, type ComponentProps } from "react";
+import { askFacts } from "@/lib/plan/ask";
+import { eventSpots } from "@/lib/plan/event-spots";
 import { planningSteps, type PlanningStep } from "@/lib/plan/view/live";
 import { planView, sourceFromReport, sourceFromState, traceRows, type PlanView } from "@/lib/plan/view/plan";
 import type { PlanInputs } from "@/lib/plan/schema";
@@ -13,6 +15,7 @@ import { BlockScreen } from "./block-screen";
 import { CreateScreen } from "./create-screen";
 import { EventScreen } from "./event-screen";
 import { ActionBar, FloorHeader, IconSlot, Notice, PRIMARY, ScreenBody, ScreenTitle, type Step } from "./kit";
+import { CreateAt } from "./plan-here";
 import { PosterScreen } from "./poster-screen";
 import { PromoteScreen } from "./promote-screen";
 
@@ -267,22 +270,27 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
     );
   if (step === "create" && built) {
     const i = built.inputs;
+    const props: ComponentProps<typeof CreateScreen> = {
+      store: { name: i.store.name, address: i.store.address, city: i.store.city, region: i.store.region, lat: i.store.point.lat, lon: i.store.point.lon, carrier: i.store.carrier, phone: i.store.phone, storeNumber: i.store.storeNumber },
+      defaults: {
+        offers: i.offers.map((o) => o.text),
+        ageBands: i.ageBands,
+        setting: i.setting,
+        game: i.game ?? "wheel",
+        notes: i.notes ?? "",
+        startTime: i.startTime,
+        durationMinutes: String(i.durationMinutes),
+        budgetUsd: String(i.budgetUsd),
+      },
+      backHref: hrefs.community,
+      steps: hrefs.steps,
+      reasons,
+    };
+    // "Plan it here" on this plan's Community step lands here with "?at=<place id>".
     return (
-      <CreateScreen
-        store={{ name: i.store.name, address: i.store.address, city: i.store.city, region: i.store.region, lat: i.store.point.lat, lon: i.store.point.lon, carrier: i.store.carrier, phone: i.store.phone, storeNumber: i.store.storeNumber }}
-        defaults={{
-          offers: i.offers.map((o) => o.text),
-          ageBands: i.ageBands,
-          setting: i.setting,
-          notes: i.notes ?? "",
-          startTime: i.startTime,
-          durationMinutes: String(i.durationMinutes),
-          budgetUsd: String(i.budgetUsd),
-        }}
-        backHref={hrefs.community}
-        steps={hrefs.steps}
-        reasons={reasons}
-      />
+      <Suspense fallback={<CreateScreen {...props} />}>
+        <CreateAt {...props} spots={eventSpots(built.view.local.block?.places ?? [])} />
+      </Suspense>
     );
   }
   if (step === "event" && planning) return <PlanningScreen state={state} planId={planId} />;
@@ -291,9 +299,13 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
   if (step === "poster") return <PosterScreen view={built.view} live hrefs={{ back: hrefs.event, promote: hrefs.promote, steps: hrefs.steps }} />;
   if (step === "promote") return <PromoteScreen view={built.view} inputs={built.inputs} hrefs={{ back: hrefs.poster, steps: hrefs.steps }} />;
   const marketing = state ? planningSteps(state)[5] : null;
+  // Only the plan's owner gets its event stream, or the plan route's word for it; anyone else reads
+  // the public view (no budget), and the "Get the OK" drafts carry the budget.
+  const owner = feed.phase === "streaming" || feed.phase === "ended" || (feed.phase === "report" && feed.owner);
   return (
     <EventScreen
       view={built.view}
+      ask={owner ? askFacts(built.view, built.inputs) : null}
       hrefs={{ back: hrefs.community, poster: hrefs.poster, steps: hrefs.steps }}
       top={
         marketing?.status === "current" ? (

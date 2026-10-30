@@ -12,6 +12,7 @@
 // font, so the poster always draws.
 import { ImageResponse } from "next/og";
 import { POSTER_DISPLAY_FONT_BASE64, POSTER_SANS_FONT_BASE64 } from "./poster-fonts";
+import { gameWords } from "./game";
 import type { PosterText } from "./poster-text";
 import type { Store } from "./schema";
 
@@ -265,9 +266,29 @@ function WheelIcon({ p, size }: { p: PosterPalette; size: number }) {
   );
 }
 
+/** A drop board drawn by code: a peg board with staggered pegs, a chip on its way down, and 6 slots along the bottom. */
+function BoardIcon({ p, size }: { p: PosterPalette; size: number }) {
+  const colors = [p.primary, p.accent, p.accent2, p.hot];
+  const pegs: [number, number][] = [];
+  for (let row = 0; row < 4; row++) for (let col = 0; col < (row % 2 ? 4 : 5); col++) pegs.push([(row % 2 ? 26 : 16) + col * 17, 22 + row * 14]);
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <rect x="4" y="4" width="92" height="92" rx="10" fill="#0b0612" stroke="#ffffff" strokeWidth="3" />
+      {pegs.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="2.6" fill="#ffffff" />
+      ))}
+      <circle cx="42" cy="12" r="5" fill={p.accent2} stroke="#ffffff" strokeWidth="1.5" />
+      {Array.from({ length: 6 }, (_, i) => (
+        <rect key={i} x={9 + i * 14} y="76" width="12" height="15" rx="2" fill={colors[i % 4]} />
+      ))}
+    </svg>
+  );
+}
+
 function WheelBadge({ text, p, size }: { text: PosterText; p: PosterPalette; size: PosterSize }) {
   if (!text.wheel) return null;
   const big = size === "portrait";
+  const words = gameWords(text.game);
   return (
     <div
       style={{
@@ -282,11 +303,11 @@ function WheelBadge({ text, p, size }: { text: PosterText; p: PosterPalette; siz
         boxShadow: `0 0 22px ${p.glow}`,
       }}
     >
-      <WheelIcon p={p} size={big ? 96 : 52} />
+      {text.game === "drop_board" ? <BoardIcon p={p} size={big ? 96 : 52} /> : <WheelIcon p={p} size={big ? 96 : 52} />}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ display: "flex", fontFamily: "Bricolage", fontSize: big ? 44 : 24, lineHeight: 1, textTransform: "uppercase", color: p.accent2 }}>Spin the prize wheel</div>
+        <div style={{ display: "flex", fontFamily: "Bricolage", fontSize: big ? 44 : 24, lineHeight: 1, textTransform: "uppercase", color: p.accent2 }}>{words.call}</div>
         {text.wheelWhat && <div style={{ display: "flex", fontSize: big ? 22 : 14, color: p.text }}>{`${text.wheelWhat}.`}</div>}
-        <div style={{ display: "flex", fontSize: big ? 22 : 14, color: p.accent }}>Free to spin, no purchase needed.</div>
+        <div style={{ display: "flex", fontSize: big ? 22 : 14, color: p.accent }}>{words.free}</div>
       </div>
     </div>
   );

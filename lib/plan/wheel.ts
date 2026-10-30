@@ -6,7 +6,13 @@
 //   label names the place from Qloo's answer;
 // - optionally a free snack slice; and a "spin again" slice when the wheel needs four.
 // Spinning is free, one spin per person, and the gift cards count against the budget.
+//
+// A drop board (inputs.game "drop_board") is built the same way into exactly 6 slots: the promos first,
+// but one slot always goes to a gift card when Claude picked one, then the gift cards, the snack, and
+// "Drop again" to fill. Promos that do not fit stay on the poster and in the posts; the trace and the
+// event screen say which ones are not on the board.
 import { z } from "zod";
+import { DROP_BOARD_SLOTS, gameOf, gameWords, settingHasGame, type TableGame } from "./game";
 import { textIssues, type GuardContext } from "./guard";
 import { evidenceFor, toRealRefs, type Aliases } from "./prompt";
 import { refsIn } from "./refs";
@@ -18,10 +24,11 @@ export const GIFT_CARD_MIN_USD = 5;
 export const GIFT_CARD_MAX_USD = 10;
 export const MAX_GIFT_SLICES = 2;
 export const MIN_SLICES = 4;
+export const MAX_SLICES = 12;
 export const MAX_PROMO_SLICES = 8;
 
 /** The wheel goes outside: on the sidewalk table and at a community event booth. */
-export const wheelWanted = (inputs: PlanInputs) => inputs.setting === "sidewalk_table" || inputs.setting === "community_event";
+export const wheelWanted = (inputs: PlanInputs) => settingHasGame(inputs.setting);
 
 export const llmWheel = z
   .object({
@@ -34,7 +41,22 @@ export const llmWheel = z
   .describe("The tabletop prize wheel's slices");
 export type LlmWheel = z.infer<typeof llmWheel>;
 
+/** The drop board's answer: the same shape as the wheel's, described in the board's words. */
+export const llmBoard = z
+  .object({
+    promoLabels: z.array(z.object({ offer: z.number().describe("The offer's number in the offers list"), label: z.string().describe("At most 30 characters, made only of the offer's own words") })),
+    giftCards: z
+      .array(z.object({ place: z.string().describe("The p-key of a block place"), amountUsd: z.number().describe("5 to 10"), cards: z.number().describe("How many cards to buy for this slot") }))
+      .describe("1 or 2 gift-card slots"),
+    snack: z.object({ label: z.string().describe("At most 30 characters"), text: z.string().describe("At most 140 characters") }).nullable(),
+  })
+  .describe("The tabletop drop board's 6 slots");
+
 export const WHEEL_RULES = ["Free to spin, no purchase needed. One spin per person.", "Promo slices show their full terms; staff explain them inside the store."];
+export const DROP_BOARD_RULES = ["Free to play, no purchase needed. One drop per person.", "Promo slots show their full terms; staff explain them inside the store."];
+
+/** The game's fixed rules. */
+export const gameRules = (game: TableGame): string[] => (game === "drop_board" ? DROP_BOARD_RULES : WHEEL_RULES);
 
 const words = (text: string) => normalizeName(text).split(" ").filter(Boolean);
 
@@ -57,20 +79,25 @@ export interface WheelCheck {
   /** Gift cards to buy, for the shopping list. */
   purchases: Plan["shopping"];
   issues: string[];
+  /** A drop board's promos that did not fit its 6 slots, verbatim (always empty for a wheel). */
+  leftOff: string[];
 }
 
 export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Aliases, guard: GuardContext): WheelCheck {
+  const game = gameOf(inputs);
+  const board = game === "drop_board";
+  const words = gameWords(game);
   const issues: string[] = [];
-  if (!raw) return { wheel: null, purchases: [], issues: ["wheel: the event is outside, so plan the tabletop prize wheel's slices."] };
-  const slices: WheelSlice[] = [];
-  const purchases: Plan["shopping"] = [];
+  if (!raw) return { wheel: null, purchases: [], issues: [board ? "wheel: the event is outside, so plan the tabletop drop board's 6 slots." : "wheel: the event is outside, so plan the tabletop prize wheel's slices."], leftOff: [] };
+  const promos: WheelSlice[] = [];
+  const gifts: { slice: WheelSlice; purchase: Plan["shopping"][number] }[] = [];
 
   // One promo slice per manager promo, the promo verbatim.
   inputs.offers.slice(0, MAX_PROMO_SLICES).forEach((offer, i) => {
     const asked = raw.promoLabels.find((p) => p.offer === i + 1)?.label.trim() ?? "";
     const label = asked && asked.length <= 40 && labelFromPromo(asked, offer.text) ? asked : cut(offer.text, 40);
     if (asked && label !== asked) issues.push(`wheel.promoLabels.${i + 1}: a promo label uses only the promo's own words, at most 40 characters ("${cut(offer.text, 30)}").`);
-    slices.push({ label, kind: "promo", text: cut(offer.text, 160), origin: "yours", refs: [], evidenceIds: [] });
+    promos.push({ label, kind: "promo", text: cut(offer.text, 160), origin: "yours", refs: [], evidenceIds: [] });
   });
 
   // Gift-card slices, to places on the block Qloo ranks.
@@ -86,11 +113,14 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     const odd = outOfScope(place, inputs.date);
     if (odd) return issues.push(`${at}: ${place.name} is ${odd}; pick another place.`);
     const evidenceIds = evidenceFor(aliases, [id], []);
-    slices.push({ label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds });
-    purchases.push({ item: `Gift cards for the wheel: ${place.name}`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });
+    gifts.push({
+      slice: { label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds },
+      purchase: { item: `Gift cards for the ${board ? "drop board" : "wheel"}: ${place.name}`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds },
+    });
   });
-  if (raw.giftCards.length === 0) issues.push("wheel.giftCards: add 1 or 2 gift-card slices to places in the community.");
+  if (raw.giftCards.length === 0) issues.push(`wheel.giftCards: add 1 or 2 gift-card ${words.units} to places in the community.`);
 
+  let snack: WheelSlice | null = null;
   if (raw.snack) {
     const text = toRealRefs(raw.snack.text.trim(), aliases);
     const label = raw.snack.label.trim();
@@ -101,17 +131,26 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     else {
       const refs = refsIn(text);
       const evidenceIds = evidenceFor(aliases, refs, []);
-      slices.push({ label, kind: "snack", text, origin: refs.length ? "interpreted" : "creative", refs, evidenceIds });
+      snack = { label, kind: "snack", text, origin: refs.length ? "interpreted" : "creative", refs, evidenceIds };
     }
   }
-  while (slices.length < MIN_SLICES) slices.push({ label: "Spin again", kind: "other", text: "One more free spin.", origin: "creative", refs: [], evidenceIds: [] });
+
+  // A wheel takes every promo. A drop board has 6 slots: promos first, but one slot always goes to a
+  // gift card when there is one, then the gift cards, the snack and "Drop again".
+  const size = board ? DROP_BOARD_SLOTS : MAX_SLICES;
+  const kept = board ? promos.slice(0, size - Math.min(1, gifts.length)) : promos;
+  const keptGifts = board ? gifts.slice(0, size - kept.length) : gifts;
+  const slices: WheelSlice[] = [...kept, ...keptGifts.map((g) => g.slice)];
+  if (snack && slices.length < size) slices.push(snack);
+  while (slices.length < (board ? DROP_BOARD_SLOTS : MIN_SLICES)) slices.push({ label: words.again.label, kind: "other", text: words.again.text, origin: "creative", refs: [], evidenceIds: [] });
+  const leftOff = inputs.offers.slice(kept.length).map((o) => o.text);
 
   const giftSlices = slices.filter((s) => s.kind === "gift_card");
   const rules = [
-    ...WHEEL_RULES,
+    ...gameRules(game),
     giftSlices.length
-      ? "Gift cards are bought ahead (see the shopping list) and handed over at the table; when a slice's cards run out, it pays a free snack instead."
-      : "Gift-card slices pay a free snack when there are no cards left.",
+      ? `Gift cards are bought ahead (see the shopping list) and handed over at the table; when a ${words.unit}'s cards run out, it pays a free snack instead.`
+      : `Gift-card ${words.units} pay a free snack when there are no cards left.`,
   ];
-  return { wheel: slices.length >= MIN_SLICES ? { slices: slices.slice(0, 12), rules } : null, purchases, issues };
+  return { wheel: slices.length >= MIN_SLICES ? { slices: slices.slice(0, size), rules } : null, purchases: keptGifts.map((g) => g.purchase), issues, leftOff };
 }

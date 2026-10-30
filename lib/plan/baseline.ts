@@ -19,6 +19,7 @@ import { pickSearchParams, scoreArtistsParams } from "./requests";
 import { refsIn } from "./refs";
 import { ITEM_KINDS, type Baseline, type Block, type BlockMusic, type CityTaste, type Comparison, type Concept, type Plan, type PlanInputs, type PlanItem } from "./schema";
 import { isChain } from "./taste";
+import { gameOf, type TableGame } from "./game";
 
 export const BASELINE_TIMEOUT_MS = 90_000;
 /** Named picks resolved per plan (PLAN_BUDGET.planResolve). */
@@ -46,8 +47,10 @@ const TASK = [
   "If the manager gave offers, one signage line quotes one of them exactly. If not, no line mentions a price or a deal.",
 ].join("\n");
 
-export function baselineInstructions(): string {
-  return [PLANNER_ROLE, PLAN_RULES, TASK].join("\n\n");
+/** The generic plan's task for the table's game: a drop board swaps the one sentence that names the wheel. */
+export function baselineInstructions(game: TableGame = "wheel"): string {
+  const task = game === "drop_board" ? TASK.replace("Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome.", "Proven tactics (the promo sign, a drop board where people drop a chip into one of 6 prize slots, a free drawing) are welcome.") : TASK;
+  return [PLANNER_ROLE, PLAN_RULES, task].join("\n\n");
 }
 
 /**
@@ -111,7 +114,7 @@ export function checkBaseline(raw: LlmBaseline, guard: GuardContext): { draft: B
 
 /** The generic plan's Claude call, with one repair. Started next to the city stage; it needs no Qloo. Null when nothing usable came back. */
 export async function writeBaseline(env: Pick<PlanEnv, "model" | "abortSignal" | "timeoutMs" | "deadlineAt" | "now">, inputs: PlanInputs, guard: GuardContext): Promise<{ draft: BaselineDraft | null; notes: string[] }> {
-  const instructions = cachedInstructions(baselineInstructions());
+  const instructions = cachedInstructions(baselineInstructions(gameOf(inputs)));
   const prompt = [inputsText(inputs), "Plan the event."].join("\n\n");
   let ask = prompt;
   const notes: string[] = [];

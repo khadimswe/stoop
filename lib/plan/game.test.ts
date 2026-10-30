@@ -1,0 +1,310 @@
+// The table game: a drop board (drop a chip, it lands in one of 6 slots) next to the prize wheel. A
+// drop-board plan is built into exactly 6 slots and says "drop board" everywhere code writes; a wheel
+// plan's prompts and words stay exactly as they were (the recorded examples replay against them).
+import { describe, expect, it } from "vitest";
+import { MemoryStore } from "../store/memory";
+import { baselineInstructions } from "./baseline";
+import { checkPlan, fallbackPlan, planPrompt, prizePurchases } from "./builder";
+import { checkConcepts, conceptsInstructions, conceptsTask } from "./concepts";
+import { PLAN_EXAMPLE_INPUTS } from "./example-list";
+import { DROP_BOARD_SLOTS, gameOf, leftOffNote, offersLeftOff, otherGameWord } from "./game";
+import { guardFor } from "./guard-context";
+import { inputProblemOf } from "./input-errors";
+import { posterAlt, posterText, wheelLineOf } from "./poster-text";
+import { checkPostText, composePosts, fallbackOpenings, postsPrompt } from "./posts";
+import { samplePlanReport } from "./posts-fixture";
+import { buildAliases } from "./prompt";
+import { postPlan, type PlanRouteDeps } from "./routes";
+import { planStartRequestSchema } from "./runtime";
+import { inputsSchema, planReportSchema, type Concept, type PlanInputs, type PlanReport } from "./schema";
+import { eventPageView } from "./view/event-page";
+import { eventStats } from "./view/floor";
+import { planView, sourceFromReport } from "./view/plan";
+import { emptyStoreForm, parseStoreForm } from "./view/start-form";
+import { checkWheel, type LlmWheel } from "./wheel";
+import { reportReminderFacts } from "../social/reminders";
+
+const SPIN_OR_WHEEL = /\b(spin|spins|spinning|wheel)\b/i;
+const OFFERS = ["$25/mo unlimited with a free phone when you switch", "Free screen protector with any accessory", "$10 off any case", "Free SIM with a new line", "Bring your number, get $50 off", "Tablet line for $15 a month", "Free phone wallet with a port-in", "$5 off a charger"];
+
+const report = samplePlanReport();
+const aliases = buildAliases(report.local);
+const key = (id: string) => aliases.keys.get(id) as string;
+const TACO = "place-taqueria";
+const BAKERY = "place-bakery";
+
+function board(offers: readonly string[], raw: LlmWheel, game: PlanInputs["game"] | null = "drop_board") {
+  const inputs: PlanInputs = { ...report.inputs, offers: offers.map((text) => ({ text })), ...(game ? { game } : {}) };
+  return { inputs, ...checkWheel(raw, inputs, aliases, guardFor(inputs, aliases.ids.values())) };
+}
+
+describe("the drop board's slots", () => {
+  it("has exactly 6 slots: promos verbatim, then gift cards with their Qloo receipts, then Drop again", () => {
+    const { wheel, purchases, issues, leftOff } = board(OFFERS.slice(0, 2), { promoLabels: [{ offer: 1, label: "$25/mo unlimited" }], giftCards: [{ place: key(TACO), amountUsd: 10, cards: 2 }, { place: key(BAKERY), amountUsd: 5, cards: 3 }], snack: null });
+    expect(issues).toEqual([]);
+    expect(leftOff).toEqual([]);
+    expect(wheel!.slices).toHaveLength(DROP_BOARD_SLOTS);
+    expect(wheel!.slices.map((s) => s.kind)).toEqual(["promo", "promo", "gift_card", "gift_card", "other", "other"]);
+    expect(wheel!.slices.slice(0, 2).map((s) => [s.text, s.origin])).toEqual([
+      [OFFERS[0], "yours"],
+      [OFFERS[1], "yours"],
+    ]);
+    expect(wheel!.slices[0]!.label).toBe("$25/mo unlimited");
+    expect(wheel!.slices[2]).toMatchObject({ kind: "gift_card", origin: "qloo", refs: [TACO], label: "$10 Taqueria Fixture Grande" });
+    expect(wheel!.slices[2]!.evidenceIds.length).toBeGreaterThan(0);
+    expect(wheel!.slices[3]).toMatchObject({ origin: "qloo", refs: [BAKERY] });
+    expect(wheel!.slices.slice(4).map((s) => [s.label, s.text, s.origin])).toEqual([
+      ["Drop again", "One more free drop.", "creative"],
+      ["Drop again", "One more free drop.", "creative"],
+    ]);
+    expect(wheel!.rules.slice(0, 2)).toEqual(["Free to play, no purchase needed. One drop per person.", "Promo slots show their full terms; staff explain them inside the store."]);
+    expect(purchases.map((p) => [p.item, p.qty, p.from])).toEqual([
+      ["Gift cards for the drop board: Taqueria Fixture Grande", "2 at $10 each", TACO],
+      ["Gift cards for the drop board: Sample Street Bakery", "3 at $5 each", BAKERY],
+    ]);
+    for (const slice of wheel!.slices) expect(`${slice.label} ${slice.text}`).not.toMatch(SPIN_OR_WHEEL);
+    for (const rule of wheel!.rules) expect(rule).not.toMatch(SPIN_OR_WHEEL);
+  });
+
+  it("keeps the first promos when there are more than fit, always saves a slot for a gift card, and says which are left off", () => {
+    const { inputs, wheel, purchases, issues, leftOff } = board(OFFERS, { promoLabels: [], giftCards: [{ place: key(TACO), amountUsd: 10, cards: 2 }, { place: key(BAKERY), amountUsd: 5, cards: 1 }], snack: null });
+    expect(wheel!.slices).toHaveLength(6);
+    expect(wheel!.slices.filter((s) => s.kind === "promo").map((s) => s.text)).toEqual(OFFERS.slice(0, 5));
+    expect(wheel!.slices[5]).toMatchObject({ kind: "gift_card", refs: [TACO] });
+    // Only the gift card on the board is bought; leaving promos off is a note, not an error.
+    expect(purchases.map((p) => p.from)).toEqual([TACO]);
+    expect(issues).toEqual([]);
+    expect(leftOff).toEqual(OFFERS.slice(5));
+    expect(offersLeftOff(inputs.offers, wheel!.slices)).toEqual(OFFERS.slice(5));
+    expect(leftOffNote(leftOff, OFFERS.length)).toBe(
+      `The drop board has 6 slots, so it carries your first 5 promos of 8. Not on the board: "${OFFERS[5]}", "${OFFERS[6]}", "${OFFERS[7]}". Staff can still offer them at the table.`,
+    );
+    expect(leftOffNote([], 3)).toBeNull();
+  });
+
+  it("fills with gift cards, a snack and Drop again when there are no promos", () => {
+    const { wheel } = board([], { promoLabels: [], giftCards: [{ place: key(TACO), amountUsd: 10, cards: 1 }], snack: { label: "Free churro", text: "A churro from the table." } });
+    expect(wheel!.slices.map((s) => s.kind)).toEqual(["gift_card", "snack", "other", "other", "other", "other"]);
+  });
+
+  it("leaves the wheel as it was: every promo, no filler past four, the wheel's own rules", () => {
+    const { wheel, purchases, leftOff } = board(OFFERS, { promoLabels: [], giftCards: [{ place: key(TACO), amountUsd: 10, cards: 2 }], snack: null }, null);
+    expect(wheel!.slices.filter((s) => s.kind === "promo")).toHaveLength(8);
+    expect(wheel!.slices).toHaveLength(9);
+    expect(wheel!.rules[0]).toBe("Free to spin, no purchase needed. One spin per person.");
+    expect(purchases[0]!.item).toBe("Gift cards for the wheel: Taqueria Fixture Grande");
+    expect(leftOff).toEqual([]);
+    const short = board([], { promoLabels: [], giftCards: [], snack: null }, null).wheel!;
+    expect(short.slices.map((s) => s.label)).toEqual(["Spin again", "Spin again", "Spin again", "Spin again"]);
+  });
+
+  it("builds a 6-slot board in the plain plan too", () => {
+    const inputs: PlanInputs = { ...report.inputs, game: "drop_board" };
+    const kept = report.plan!.concepts.find((c) => c.kept) as Concept;
+    const plain = fallbackPlan(inputs, kept, aliases);
+    expect(plain.wheel!.slices).toHaveLength(6);
+    expect(plain.wheel!.rules[0]).toBe("Free to play, no purchase needed. One drop per person.");
+  });
+});
+
+describe("the prompts for a drop board", () => {
+  it("change only the game sentences of the concepts task; the wheel's stay word for word", () => {
+    expect(conceptsInstructions("wheel")).toBe(conceptsInstructions());
+    const wheel = conceptsTask("wheel").split("\n");
+    const drop = conceptsTask("drop_board").split("\n");
+    expect(drop).toHaveLength(wheel.length);
+    const changed = wheel.flatMap((line, i) => (line === drop[i] ? [] : [i]));
+    expect(changed).toHaveLength(3);
+    for (const i of changed) {
+      expect(wheel[i]).toMatch(/wheel/i);
+      expect(drop[i]).toMatch(/drop board/);
+      expect(drop[i]!.replace("never call it a wheel or say spin", "")).not.toMatch(SPIN_OR_WHEEL);
+    }
+    // Everything else in the instructions is the same text.
+    const a = conceptsInstructions("wheel");
+    const b = conceptsInstructions("drop_board");
+    expect(a.replace(conceptsTask("wheel"), "")).toBe(b.replace(conceptsTask("drop_board"), ""));
+  });
+
+  it("change only the game sentence of the generic plan's task", () => {
+    expect(baselineInstructions("wheel")).toBe(baselineInstructions());
+    const wheel = baselineInstructions().split("\n");
+    const drop = baselineInstructions("drop_board").split("\n");
+    const changed = wheel.flatMap((line, i) => (line === drop[i] ? [] : [i]));
+    expect(drop).toHaveLength(wheel.length);
+    expect(changed).toHaveLength(1);
+    expect(drop[changed[0]!]).toContain("a drop board where people drop a chip");
+    expect(baselineInstructions("drop_board")).not.toMatch(SPIN_OR_WHEEL);
+  });
+
+  it("change only the game paragraph of the plan prompt", () => {
+    const kept = report.plan!.concepts.find((c) => c.kept) as Concept;
+    const wheel = planPrompt(report.inputs, kept, aliases).split("\n\n");
+    const drop = planPrompt({ ...report.inputs, game: "drop_board" }, kept, aliases).split("\n\n");
+    expect(drop).toHaveLength(wheel.length);
+    const changed = wheel.flatMap((part, i) => (part === drop[i] ? [] : [i]));
+    expect(changed).toHaveLength(1);
+    expect(wheel[changed[0]!]).toMatch(/^The prize wheel:/);
+    expect(drop[changed[0]!]).toMatch(/^The drop board: .*6 prize slots/);
+    expect(planPrompt({ ...report.inputs, game: "wheel" }, kept, aliases)).toBe(planPrompt(report.inputs, kept, aliases));
+  });
+});
+
+/** The sample report with a drop board on its plan, built by the same code a run uses. */
+function boardReport(offers: readonly string[] = OFFERS.slice(0, 2)): PlanReport {
+  const { inputs, wheel, purchases } = board(offers, { promoLabels: [], giftCards: [{ place: key(TACO), amountUsd: 10, cards: 2 }], snack: null });
+  const plan = { ...report.plan!, wheel: wheel!, shopping: [...report.plan!.shopping, ...purchases] };
+  return planReportSchema.parse({ ...report, inputs, plan: { ...plan, estimatedCostUsd: Math.round(plan.shopping.reduce((sum, s) => sum + (s.estUsd ?? 0), 0)) } });
+}
+
+describe("a drop-board plan's own words", () => {
+  const dropped = boardReport();
+
+  it("puts the drop board on the poster and its alt text, never a spin or a wheel", () => {
+    const text = posterText(dropped);
+    expect(text.game).toBe("drop_board");
+    expect(text.wheel).toBe("Drop a chip on the drop board: store deals and free gift cards. Free to play, no purchase needed.");
+    expect(text.wheel).not.toMatch(SPIN_OR_WHEEL);
+    expect(posterAlt(text)).not.toMatch(SPIN_OR_WHEEL);
+    expect(wheelLineOf(["promo"])).toBe("Spin the prize wheel: store deals. Free to spin, no purchase needed.");
+  });
+
+  it("says drop board in the posts, the posts prompt and the reminders", () => {
+    const posts = composePosts(fallbackOpenings(dropped), dropped);
+    for (const text of [posts.facebook.text, posts.instagram.caption, posts.whatsapp.text]) {
+      expect(text).toContain("Drop a chip on the drop board");
+      expect(text).not.toMatch(SPIN_OR_WHEEL);
+    }
+    const prompt = postsPrompt(dropped);
+    expect(prompt).toContain('You may say "drop a chip on the drop board"');
+    expect(prompt).not.toContain("prize wheel");
+    expect(reportReminderFacts(dropped).wheel).toBe(posterText(dropped).wheel);
+  });
+
+  it("lets a post name the drop board, and still refuses prize talk and the wheel's words", () => {
+    expect(checkPostText("Stop by and drop a chip on the drop board.", dropped, "facebook")).toEqual([]);
+    expect(checkPostText("Stop by and win a prize at the table.", dropped, "facebook").length).toBeGreaterThan(0);
+    expect(checkPostText("Stop by for a free spin.", dropped, "facebook").map((i) => i.match)).toContain("free spin");
+    expect(checkPostText("Stop by for a free spin.", report, "facebook").map((i) => i.match)).not.toContain("free spin");
+  });
+
+  it("sends a drop-board concept that talks about a wheel back to Claude, and leaves a wheel plan's checks as they were", () => {
+    expect(otherGameWord("Spin to win at the Wheel Stop", "drop_board")).toBe("Spin to win");
+    expect(otherGameWord("Spin to win at the Wheel Stop", "wheel")).toBeNull();
+    expect(otherGameWord("Drop a chip on the drop board, spinach dip on the side", "drop_board")).toBeNull();
+    const raw = { concepts: [{ title: "Saturday Wheel Spin", hook: "Drop a chip, grab a taco.", items: [{ kind: "activity" as const, text: "Spin the prize wheel for a gift card.", origin: "creative" as const, styles: [] }], scores: { scrollStop: 3, specificity: 3, productRole: 3, emotionalClarity: 3, insider: 3, walkIn: 3 } as never, noStereotype: true, note: "n" }] };
+    const guard = guardFor(report.inputs, aliases.ids.values());
+    const drop = checkConcepts(raw, aliases, guard, "drop_board").issues.join(" ");
+    expect(drop).toMatch(/concepts\.1\.title or hook: "Wheel Spin": this table has a drop board/);
+    expect(drop).toMatch(/concepts\.1\.items\.1: "Spin the": this table has a drop board/);
+    expect(checkConcepts(raw, aliases, guard).issues.join(" ")).not.toMatch(/drop board/);
+  });
+
+  it("leaves music, place names and the manager's own promos alone", () => {
+    // A DJ spinning is music, not the game.
+    expect(otherGameWord("A DJ spins the city mix while people drop a chip.", "drop_board")).toBeNull();
+    // A Qloo place's name is its name.
+    expect(otherGameWord("Pick up two dozen from the Wheel House Bakery at 11:00.", "drop_board")).toBe("the Wheel");
+    expect(otherGameWord("Pick up two dozen from the Wheel House Bakery at 11:00.", "drop_board", ["Wheel House Bakery"])).toBeNull();
+    // A promo is quoted word for word, so a repair could never change it.
+    const promo = "Free spin class pass with any new line";
+    expect(otherGameWord(`Table sign: "${promo}"`, "drop_board")).toBe("Free spin");
+    expect(otherGameWord(`Table sign: "${promo}"`, "drop_board", [promo])).toBeNull();
+    // The plan's own checks set both aside.
+    const inputs: PlanInputs = { ...report.inputs, game: "drop_board", offers: [{ text: promo }] };
+    const local = { ...report.local, block: { ...report.local.block!, places: report.local.block!.places.map((p) => (p.id === BAKERY ? { ...p, name: "The Wheel House Bakery" } : p)) } };
+    const named = buildAliases(local);
+    const raw = {
+      runOfShow: [
+        { time: "11:00", step: "Set up the table and the drop board." },
+        { time: "12:00", step: `Open: the sign reads "${promo}".` },
+        { time: "14:00", step: "Walk each promo winner inside to see the deal." },
+        { time: "16:00", step: "Wrap and clean up." },
+      ],
+      shopping: [],
+      checks: ["Confirm the tray order with The Wheel House Bakery two days ahead."],
+      wheel: null,
+    };
+    const issues = checkPlan(raw, inputs, named, guardFor(inputs, named.ids.values())).issues.join(" ");
+    expect(issues).not.toMatch(/this table has a drop board/);
+  });
+
+  it("shows the board's slots, its title and the note for promos left off", () => {
+    const view = planView(sourceFromReport(dropped));
+    expect(view.wheel).toMatchObject({ game: "drop_board", title: "Drop board", note: null });
+    expect(view.wheel!.slices).toHaveLength(6);
+    expect(view.tiles.find((t) => t.key === "wheel")).toMatchObject({ label: "Drop board", value: "6 slots", note: "For your drop board" });
+    expect(eventStats(view).at(-1)).toEqual({ value: "Free", label: "to play" });
+    expect(Object.values(view.placeUses).flat()).not.toContain("Prize wheel");
+    const page = eventPageView(sourceFromReport(dropped)).draws.wheel!;
+    expect(page).toMatchObject({ play: "Drop a chip on the drop board", rule: "Free to play, no purchase needed", listLabel: "On the drop board" });
+
+    const full = planView(sourceFromReport(boardReport(OFFERS))).wheel!;
+    expect(full.note).toMatch(/^The drop board has 6 slots, so it carries your first 5 promos of 8\./);
+    const wheel = planView(sourceFromReport(report));
+    expect(wheel.wheel).toBeNull();
+  });
+});
+
+describe("drawing prizes next to a drop board", () => {
+  const kept = (text: string): Concept => ({ id: "c", title: "Saturday Drop Board", hook: "h", items: [{ kind: "giveaway", text, origin: "qloo", refs: [TACO], evidenceIds: ["ev_00000000b10c"] }], scores: [], total: 10, kept: true });
+  const boardCards = { item: "Gift cards for the drop board: Taqueria Fixture Grande", qty: "2 at $10 each", estUsd: 20, from: TACO, origin: "interpreted" as const, evidenceIds: ["ev_00000000b10c"] };
+  const plan = { runOfShow: [], shopping: [boardCards] };
+
+  it("never buys the board's own gift card again as a drawing prize", () => {
+    for (const text of [`Drop a chip to win a $10 gift card to [[${TACO}]].`, `When a chip lands on the gift card slot, hand over a $10 card to [[${TACO}]].`, `Two slots pay a $10 gift card to [[${TACO}]].`]) {
+      expect(prizePurchases(kept(text), plan, aliases, 150, "drop_board")).toEqual([]);
+    }
+  });
+
+  it("still buys a real drawing's gift card, and leaves a wheel plan's rule as it was", () => {
+    const drawing = `A free 3 pm drawing for a $10 gift card to [[${TACO}]].`;
+    expect(prizePurchases(kept(drawing), plan, aliases, 150, "drop_board").map((p) => p.item)).toEqual(["Gift card for the free drawing (Taqueria Fixture Grande)"]);
+    // A wheel plan's "3 pm slot" is a time, not a board slot: its drawing is still bought.
+    const slot = `A free drawing in the 3 pm slot for a $10 gift card to [[${TACO}]].`;
+    expect(prizePurchases(kept(slot), { runOfShow: [], shopping: [] }, aliases, 150)).toHaveLength(1);
+  });
+});
+
+describe("asking for a game", () => {
+  const inputs = PLAN_EXAMPLE_INPUTS["chicago-18th-street"];
+
+  it("accepts the wheel, the drop board or nothing, and nothing else", () => {
+    expect(gameOf(inputs)).toBe("wheel");
+    expect(inputsSchema.safeParse({ ...inputs, game: "drop_board" }).success).toBe(true);
+    expect(inputsSchema.safeParse({ ...inputs, game: "wheel" }).success).toBe(true);
+    const bad = planStartRequestSchema.safeParse({ inputs: { ...inputs, game: "pegboard" } });
+    expect(bad.success).toBe(false);
+    const problem = inputProblemOf(bad.error!);
+    expect([problem.field, problem.message, problem.status]).toEqual(["game", "Pick the game: a prize wheel or a drop board.", 400]);
+  });
+
+  it("answers a bad game with the API's 400 and the field", async () => {
+    const deps = (store: MemoryStore | null): PlanRouteDeps => ({
+      env: { STOOP_LIVE: "true", LIVE_RUNS_DAILY_CAP: "30" },
+      store: () => {
+        if (!store) throw new Error("no store");
+        return store;
+      },
+      start: () => ({ schedule: () => {}, execute: async () => {}, randomHex: () => "0".repeat(24) }),
+    });
+    for (const store of [new MemoryStore(), null]) {
+      const response = await postPlan(new Request("https://stoop.example/api/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ inputs: { ...inputs, game: "spinner" } }) }), deps(store));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: { code: "invalid", message: "Pick the game: a prize wheel or a drop board." }, field: "game" });
+    }
+  });
+
+  it("sends the drop board from the form only for a setting with a game, and never sends the wheel", () => {
+    const form = { ...emptyStoreForm(), storeName: "Corner Wireless", address: "1 Main St", city: "Chicago", region: "IL", lat: "41.85", lon: "-87.65", date: "2026-11-07", offers: ["$25 unlimited"] };
+    const parsed = (values: typeof form) => {
+      const result = parseStoreForm(values, "2026-11-01");
+      if (!result.ok) throw new Error(JSON.stringify(result.errors));
+      return result.inputs;
+    };
+    expect(parsed({ ...form, game: "drop_board" }).game).toBe("drop_board");
+    expect("game" in parsed({ ...form, game: "wheel" })).toBe(false);
+    expect("game" in parsed({ ...form, setting: "in_store", game: "drop_board" })).toBe(false);
+    expect(parsed({ ...form, setting: "community_event", venueName: "Fall fair", venueLat: "41.86", venueLon: "-87.66", game: "drop_board" }).game).toBe("drop_board");
+  });
+});

@@ -74,12 +74,13 @@ export function EventPage({ view }: { view: EventPageView }) {
                 {wheel && (
                   <li className="flex flex-col gap-1.5 px-4 py-3">
                     <span className="text-base leading-snug font-semibold">
-                      Spin the prize wheel{wheel.rule ? <span className="font-normal text-fl-dim">: {wheel.rule.charAt(0).toLowerCase() + wheel.rule.slice(1)}</span> : null}
+                      {wheel.play}
+                      {wheel.rule ? <span className="font-normal text-fl-dim">: {wheel.rule.charAt(0).toLowerCase() + wheel.rule.slice(1)}</span> : null}
                     </span>
                     {wheel.prizes.length > 0 && (
-                      <ul aria-label="On the wheel" className="flex flex-wrap gap-1.5">
-                        {wheel.prizes.map((p) => (
-                          <li key={p} className="rounded-[6px] bg-fl-band px-2 py-1 text-[0.8125rem] font-medium">
+                      <ul aria-label={wheel.listLabel} className="flex flex-wrap gap-1.5">
+                        {wheel.prizes.map((p, i) => (
+                          <li key={`${p}-${i}`} className="rounded-[6px] bg-fl-band px-2 py-1 text-[0.8125rem] font-medium">
                             {p}
                           </li>
                         ))}
