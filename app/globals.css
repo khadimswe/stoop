@@ -85,6 +85,30 @@
   --color-rose-light: #ff7aa2;
   --color-rose-soft: #ffe0ea;
 
+  /* The floor: the store-events app and landing. A quiet work tool, so the neon poster is the only loud
+     thing. Warm grey page, black ink, white surfaces, one lime signal from the poster (never text on light). */
+  --color-fl-page: #f1f0ed;
+  --color-fl-band: #e6e4df;
+  --color-fl-sunk: #f6f5f2;
+  --color-fl-rule: #dedbd4;
+  --color-fl-line: #898680;
+  --color-fl-future: #cfccc5;
+  --color-fl-ink: #111113;
+  --color-fl-muted: #3e3e43;
+  --color-fl-dim: #5f5e64;
+  --color-fl-chev: #77757a;
+  --color-fl-dark: #131315;
+  --color-fl-dark-2: #1e1f22;
+  --color-fl-dark-rule: #34363b;
+  --color-fl-dark-dim: #a8aab1;
+  --color-fl-dark-bright: #f4f4f5;
+  --color-fl-signal: #c8f03c;
+  --color-fl-ok: #1b6b3a;
+  --color-fl-ok-bg: #e4efe7;
+  --color-fl-bad: #b3261e;
+  --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
   --radius-section: 3rem;
   --radius-card: 1.5rem;
   --radius-pill: 999px;
@@ -249,6 +273,29 @@
   :focus-visible {
     outline: 3px solid var(--ring);
     outline-offset: 2px;
+  }
+}
+
+/* The floor's scope: everything under it uses the system UI font, the warm grey page and ink focus rings. */
+@layer base {
+  .floor {
+    font-family: var(--font-ui);
+    background: var(--color-fl-page);
+    color: var(--color-fl-ink);
+    --ring: #111113;
+    -webkit-font-smoothing: antialiased;
+  }
+  .floor ::selection {
+    background: var(--color-fl-signal);
+    color: var(--color-fl-ink);
+  }
+  .floor-dark {
+    --ring: #c8f03c;
+  }
+  /* Keyboard focus never hides under the sticky app bar or the sticky action bar. */
+  html:has(.floor) {
+    scroll-padding-top: 120px;
+    scroll-padding-bottom: 104px;
   }
 }
 

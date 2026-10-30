@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 
 const EM_DASH = String.fromCharCode(0x2014);
 // Recorded Qloo responses and media are third-party data; hand-written files under fixtures/ are still checked.
-const SKIP = [/^package-lock\.json$/, /^pnpm-lock\.yaml$/, /^yarn\.lock$/, /^public\/demo\//, /^fixtures\/raw\//, /^fixtures\/[^/]+\.json$/];
+const SKIP = [/^package-lock\.json$/, /^pnpm-lock\.yaml$/, /^yarn\.lock$/, /^public\/demo\//, /^public\/maplibre\//, /^fixtures\/raw\//, /^fixtures\/[^/]+\.json$/];
 // The CI workflow lists the local-only filenames on purpose, to block them from commits.
 const NAMES_ALLOWED_IN = new Set([".github/workflows/checks.yml"]);
 // Built from parts, so this file never matches itself.

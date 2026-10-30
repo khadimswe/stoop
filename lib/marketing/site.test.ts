@@ -25,7 +25,7 @@ describe("siteOrigin and codeUrl", () => {
   });
 
   it("links the public repository, the one place its address is set", () => {
-    expect(REPO_URL).toBe("https://github.com/khadimswe/stoop-public");
-    expect(codeUrl("LICENSE")).toBe("https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
+    expect(REPO_URL).toBe("https://github.com/khadimswe/stoop");
+    expect(codeUrl("LICENSE")).toBe("https://github.com/khadimswe/stoop/blob/main/LICENSE");
   });
 });

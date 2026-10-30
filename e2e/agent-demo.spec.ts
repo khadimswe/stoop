@@ -6,7 +6,7 @@ import type { Report } from "../lib/report/schema";
 // (it runs on requestAnimationFrame), so a whole loop takes no real time and nothing is test-only in
 // the player.
 
-const DEMO_PATH = "/";
+const DEMO_PATH = "/ads";
 const report = JSON.parse(readFileSync("data/runs/food-hot-sauce/run.report.json", "utf8")) as Report;
 const measured = report.audience.gap!.lines.find((line) => line.kind === "measured")!.text;
 

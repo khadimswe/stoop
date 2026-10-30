@@ -27,7 +27,8 @@ export const RUN_BUDGET = {
   resolve: 4, // /search for the LLM-only brief's named references
   searchReserve: 2, // retries of ambiguous resolutions
 } as const;
-export type BudgetRow = keyof typeof RUN_BUDGET;
+/** A row of any budget table: a run's, or a store-event plan's (PLAN_BUDGET, below). */
+export type BudgetRow = keyof typeof RUN_BUDGET | keyof typeof PLAN_BUDGET;
 
 export const PLANNED_CALLS = Object.values(RUN_BUDGET).reduce((sum, calls) => sum + calls, 0);
 
@@ -61,3 +62,22 @@ export const SCORE_BRIEF_BUDGET = {
 
 /** Hard cap for one score_brief: the planned rows plus two retries. */
 export const SCORE_BRIEF_CAP = Object.values(SCORE_BRIEF_BUDGET).reduce((sum, calls) => sum + calls, 0) + 2;
+
+/**
+ * Planned live calls for one store-event plan (lib/plan). A plan run passes these rows as its context's
+ * rowCaps, so each stage can spend only its own row; retries draw on the slack under PLAN_CAP.
+ */
+export const PLAN_BUDGET = {
+  planCity: 2, // the city's artists and music styles, by city name
+  planLocate: 3, // retries of the city's artists when Qloo reads the name in another state ("<city>, GA", "<city>, Georgia", the nearest major city)
+  planBlock: 4, // places near the store: food, treats, venues, parks
+  planBlockMusic: 1, // artists people who love the block's top independents play (a tested option)
+  planResolve: 3, // /search for the generic plan's named artists
+  planScoring: 1, // one filter.results.entities call scoring the generic plan's artists with Qloo's own
+} as const;
+export type PlanBudgetRow = keyof typeof PLAN_BUDGET;
+
+export const PLAN_PLANNED_CALLS = Object.values(PLAN_BUDGET).reduce((sum, calls) => sum + calls, 0);
+
+/** Hard cap for one plan run: the planned rows plus room for retries. */
+export const PLAN_CAP = 20;

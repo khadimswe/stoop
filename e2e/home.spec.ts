@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { andList, recordedNames } from "../lib/testing/recorded-names";
+
+// Qloo's names for the lead example, read from its recording (no test file holds Qloo response data).
+const qloo = recordedNames("chicago-18th-street");
 
 /** Console errors and uncaught exceptions, collected for the whole test. */
 function watchErrors(page: Page): string[] {
@@ -16,7 +20,7 @@ async function horizontalOverflow(page: Page): Promise<number> {
 
 test("the hero leads with the lead example's Reality Check until the hero clips are approved", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
   await expect(page.getByText("Data, not stereotypes.").first()).toBeVisible();
   await expect(page.getByText("Ads are free to make now. Knowing who they're for isn't.")).toBeVisible();
@@ -42,7 +46,7 @@ test("the hero leads with the lead example's Reality Check until the hero clips 
 });
 
 test("the H1 is the largest paint", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   const lcp = await page.evaluate(
     () =>
@@ -58,7 +62,7 @@ test("the H1 is the largest paint", async ({ page }) => {
 });
 
 test("each concept world's cues switch the open receipt, and the full receipt opens in a drawer", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const screening = page.getByRole("region", { name: "Same product. Same video model. Only the brief changed." });
   // Until clips are approved, every screen shows its concept preview (never an empty "clip coming"
   // player), and the Control's says it is not from Qloo.
@@ -90,7 +94,7 @@ test("each concept world's cues switch the open receipt, and the full receipt op
 });
 
 test("the shelf shows the three examples with their recorded Reality Check lines", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const shelf = page.getByRole("region", { name: "Three brands. Three taste neighborhoods." });
   for (const [brand, slug] of [
     ["Porchlight Pepper Co.", "food-hot-sauce"],
@@ -117,11 +121,11 @@ test("the shelf shows the three examples with their recorded Reality Check lines
 });
 
 test("the three ways row sits below the shelf, one line each", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const row = page.getByRole("region", { name: "Three ways to use it" });
   await expect(row.getByRole("heading", { level: 3 })).toHaveText(["In the browser", "In your Claude", "Export to your video tool"]);
   await expect(row.getByRole("link", { name: /Set it up/ })).toHaveAttribute("href", "/mcp");
-  await expect(row.getByRole("link", { name: /Try it free/ })).toHaveAttribute("href", "/start");
+  await expect(row.getByRole("link", { name: /Try it free/ })).toHaveAttribute("href", "/ads/start");
   const [shelfBottom, rowTop] = await Promise.all([
     page.getByRole("region", { name: "Example reports" }).evaluate((n) => n.getBoundingClientRect().bottom + window.scrollY),
     row.evaluate((n) => n.getBoundingClientRect().top + window.scrollY),
@@ -130,7 +134,7 @@ test("the three ways row sits below the shelf, one line each", async ({ page }) 
 });
 
 test("how it works is four numbered steps, with the lead example's real age skews", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const how = page.getByRole("region", { name: "From your link to the test, in four steps." });
   await expect(how.getByRole("heading", { level: 3 })).toHaveText([
     "Step 1: Read your site",
@@ -149,7 +153,7 @@ test("how it works is four numbered steps, with the lead example's real age skew
 });
 
 test("the agent demo sits right under the hero and replays the recorded run in a screen that never changes size", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await expect(page.locator("main > section").nth(1)).toHaveAttribute("id", "agent-demo");
   const slot = page.getByRole("region", { name: "The agent at work · Porchlight Pepper Co." });
   await expect(slot.getByText("Replay of a recorded run · real Qloo data · Oct 16")).toBeVisible();
@@ -172,7 +176,7 @@ const FIGURES = ["55+", "#319 of 321", "0 of 19", "18 to 24"];
 
 test("the proof stats count up once to the recorded values, without moving the layout, and open their receipts", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   const proof = page.getByRole("region", { name: "Founders guess. AI briefs guess. Qloo measures." });
   const figures = proof.locator("[data-count-up]");
   await expect(figures).toHaveCount(4);
@@ -205,7 +209,7 @@ test("the proof stats count up once to the recorded values, without moving the l
 });
 
 test("below-the-fold sections rise in once as they scroll into view", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   const cards = page.getByRole("region", { name: "From your link to the test, in four steps." }).locator("ol > li");
   await expect(cards.first()).toHaveAttribute("data-reveal", "pending");
   await cards.first().scrollIntoViewIfNeeded();
@@ -219,7 +223,7 @@ test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("every number shows its recorded value and nothing is hidden or moving", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/ads");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForTimeout(500);
     await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
@@ -231,7 +235,7 @@ test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
   test("the landing reads in full: the H1, the replay's frame, every number and every section", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/ads");
     await expect(page.getByRole("heading", { level: 1, name: "Stop making ads for nobody." })).toBeVisible();
     await expect(page.getByText("Replay of a recorded run")).toBeVisible();
     await expect(page.locator("[data-count-up-live]")).toHaveText(FIGURES);
@@ -242,7 +246,7 @@ test.describe("without JavaScript", () => {
 
 test("the whole landing scrolls without layout shift, sideways overflow or console errors", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
+  await page.goto("/ads");
   await page.evaluate(() => {
     const w = window as unknown as { __cls: number };
     w.__cls = 0;
@@ -267,7 +271,7 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
     body = route.request().postDataJSON();
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ position: 7 }) });
   });
-  await page.goto("/");
+  await page.goto("/ads");
   const pricing = page.getByRole("region", { name: "Free in beta. $49 per campaign after." });
   for (const plan of ["Free", "Campaign", "Founder", "Studio"]) await expect(pricing.getByRole("heading", { name: plan, exact: true })).toBeVisible();
   await expect(pricing.getByText("$399")).toBeVisible();
@@ -287,19 +291,257 @@ test("pricing's Reserve opens the waitlist and tags the plan", async ({ page }) 
   await dialog.getByRole("checkbox").check();
   await submit.click();
   await expect(dialog.getByText("You're #7.")).toBeVisible();
-  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true, sourceReport: "home" });
+  expect(body).toMatchObject({ email: "reserve@stoop-test.example", plan: "campaign", consent: true });
 });
 
 test("nothing pops up on its own, and the footer says what Stoop measures", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/ads");
   await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(1500);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const footer = page.getByRole("contentinfo");
-  await expect(footer.getByText("Without store data, Stoop measures your product's taste neighborhood. Precision mode (roadmap) adds real order data.")).toBeVisible();
-  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop-public/blob/main/LICENSE");
+  await expect(footer.getByText(/Stoop reads your city and the places in your community through Qloo/)).toBeVisible();
+  await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop/blob/main/LICENSE");
   await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
-  await expect(footer.getByRole("link", { name: "Use Stoop in Claude" })).toHaveAttribute("href", "/mcp");
+  await expect(footer.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
+});
+
+// --- The store-events landing at "/": recorded example stores only ------------------------------------
+
+const LEAD_EVENT = "/plan/ex-chicago-18th-street";
+
+/** Page errors, leaving out the map's tile host (offline in CI) and its failed loads. */
+function watchLandingErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && !/openfreemap|maplibre|Failed to load resource/i.test(message.text())) errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  return errors;
+}
+
+test.describe("the store-events landing", () => {
+  test("one solid header, the H1 and the hero's two ways in", async ({ page }) => {
+    const errors = watchLandingErrors(page);
+    await page.goto("/");
+    await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(1);
+    await expect(page.locator("header").first()).toHaveCSS("background-color", "rgb(241, 240, 237)");
+    await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
+    const hero = page.locator("#hero");
+    await expect(hero.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
+    await expect(hero.getByRole("link", { name: "See a real plan" })).toHaveAttribute("href", LEAD_EVENT);
+    // The sub says Qloo picks, at every width (phones get a shorter line that still names Qloo and the three draws).
+    const sub = hero.getByText(/Stoop uses Qloo's taste data to plan yours/).filter({ visible: true });
+    await expect(sub).toHaveCount(1);
+    for (const draw of [/music your city plays/, /snacks .*from spots/, /prize wheel/]) await expect(sub).toContainText(draw);
+    const trust = ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"];
+    for (const line of trust) await expect(hero.getByText(line)).toBeVisible();
+    // A tidy list: every bullet starts at the same left edge in its column, never centered line by line.
+    const lefts = await hero.locator("ul > li").evaluateAll((items) => items.map((li) => Math.round(li.getBoundingClientRect().left)));
+    expect(new Set(lefts).size).toBeLessThanOrEqual(2);
+    if (page.viewportSize()!.width < 640) expect(new Set(lefts).size).toBe(1);
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("the landing reads plainly: no jargon, no lift claims, never block or your customers", async ({ page }) => {
+    await page.goto("/");
+    const text = await page.locator("main").innerText();
+    expect(text).not.toMatch(/\bblock\b|your customers|median|checkable|rubric/i);
+    expect(text).not.toMatch(/\d+% (lift|more|better|higher)/i);
+    expect(text.includes(String.fromCharCode(0x2014))).toBe(false);
+  });
+
+  test("the H1 is the largest paint", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const lcp = await page.evaluate(
+      () =>
+        new Promise<string | null>((resolve) => {
+          let last: string | null = null;
+          new PerformanceObserver((list) => {
+            for (const entry of list.getEntries() as (PerformanceEntry & { element?: Element | null })[]) last = entry.element?.tagName ?? null;
+          }).observe({ type: "largest-contentful-paint", buffered: true });
+          setTimeout(() => resolve(last), 800);
+        }),
+    );
+    expect(lcp).toBe("H1");
+  });
+
+  test("until the founder's video is in, the band shows the lead example's real plan with its receipts", async ({ page }) => {
+    await page.goto("/");
+    const band = page.getByRole("region", { name: "A real plan: Warm Cup Wheel Stop" });
+    await expect(band.getByText("What Stoop picked for this table")).toBeVisible();
+    await expect(band.getByText(andList(qloo.artists.slice(0, 3)))).toBeVisible();
+    await expect(band.getByRole("img", { name: /^Event poster/ })).toBeVisible();
+    await band.getByRole("link", { name: "Why Qloo picked this: Snacks" }).click();
+    const receipt = page.getByRole("dialog", { name: /^Receipt:/ });
+    await expect(receipt).toBeVisible();
+    // The raw Qloo query sits one tap away, under Technical details.
+    await receipt.getByText("Technical details").click();
+    await expect(receipt.getByText("Endpoint")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(receipt).toBeHidden();
+    await expect(page).toHaveURL(/\/$/);
+    // No before and after slot until the founder has the photos.
+    await expect(page.getByText("From the pilot")).toHaveCount(0);
+  });
+
+  test("three example stores as tabs: arrow keys move, the panel follows, a pick opens its receipt", async ({ page }) => {
+    await page.goto("/");
+    const tabs = page.getByRole("tablist", { name: "Example stores" }).getByRole("tab");
+    await expect(tabs).toHaveCount(3);
+    await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel")).toHaveCount(1);
+    // The band above already shows the lead store's plan, so the tabs open on another community, and
+    // the same poster or plan never shows twice in a row.
+    await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
+    const bandPoster = await page.getByRole("region", { name: "A real plan: Warm Cup Wheel Stop" }).getByRole("img", { name: /^Event poster/ }).getAttribute("alt");
+    expect(await page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ }).getAttribute("alt")).not.toBe(bandPoster);
+
+    await tabs.nth(0).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(0)).toHaveAttribute("tabindex", "-1");
+    await expect(page.getByRole("tabpanel").getByText(/^Pre-Thanksgiving Chips and Dip Booth:/)).toBeVisible();
+    await page.keyboard.press("Home");
+    await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel").getByText(/^Warm Cup Wheel Stop:/)).toBeVisible();
+
+    const panel = page.getByRole("tabpanel");
+    await expect(panel.getByText("The day")).toBeVisible();
+    await expect(panel.getByText(/^24 places from Qloo, within about 1 mile$/)).toBeVisible();
+    await expect(panel.getByText(/Qloo calls\.$/).first()).toBeVisible();
+    await panel.getByRole("link", { name: `${qloo.snackPlace}: why Qloo picked this` }).click();
+    await expect(page.getByRole("dialog", { name: /^Receipt:/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("the generic AI plan is compared fairly, with both labels on every row", async ({ page }) => {
+    await page.goto("/");
+    const compare = page.getByRole("table", { name: /The generic AI plan and Stoop's plan/ });
+    const music = compare.getByRole("row", { name: /^Music/ });
+    await expect(music).toContainText(`${andList(qloo.genericArtists)}: famous, but none of the 3 make Qloo's own top 20 for Chicago adults 25 to 34`);
+    await expect(music).toContainText(`${andList(qloo.artists.slice(0, 3))}: Qloo's #1, #2 and #3 for Chicago adults 25 to 34`);
+    await expect(compare.getByRole("row", { name: /^Places/ })).toContainText("24 places within about 1 mile, from Qloo");
+    await expect(compare).not.toContainText(/No local signal|None in this community|checkable|median/);
+    // Stacked on phones, each row still says which plan is which.
+    const width = page.viewportSize()!.width;
+    if (width < 768) {
+      await expect(music.getByText("Generic AI plan", { exact: true })).toBeVisible();
+      await expect(music.getByText("Stoop", { exact: true })).toBeVisible();
+    } else {
+      await expect(compare.getByRole("columnheader", { name: "Generic AI plan, no Qloo" })).toBeVisible();
+    }
+    await music.getByRole("link", { name: /Qloo's check of the generic plan's music/ }).click();
+    await expect(page.getByRole("dialog", { name: /^Receipt:/ })).toBeVisible();
+  });
+
+  test("the promote section never promises posting that is off", async ({ page }) => {
+    await page.goto("/");
+    const off = page.getByRole("heading", { level: 2, name: "Posts written for your channels, ready in one tap." });
+    if ((await off.count()) > 0) {
+      const section = page.locator("section", { has: off });
+      await expect(section.getByText("Posting straight to your Facebook Page turns on once Meta approves the app.")).toBeVisible();
+      // Every post says it is ready to share, as a plain label: nothing in the timeline looks like a button.
+      await expect(section.getByText("Ready to share")).toHaveCount(4);
+      await expect(section.getByText("Copy", { exact: true })).toHaveCount(0);
+      await expect(section.getByRole("button")).toHaveCount(0);
+      await expect(section.getByText("Scheduled")).toHaveCount(0);
+    } else {
+      await expect(page.getByRole("heading", { level: 2, name: "Approve once. Stoop lines up the posts." })).toBeVisible();
+    }
+  });
+
+  test("nothing pops up, the pilot card opens in place, and the footer says what Stoop reads", async ({ page }) => {
+    await page.goto("/");
+    await page.mouse.wheel(0, 3000);
+    await page.waitForTimeout(1000);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByText("Free while we pilot.").click();
+    await expect(page.getByLabel("Work email")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reserve my stores" })).toBeEnabled();
+    const footer = page.getByRole("contentinfo");
+    await expect(footer.getByText(/Stoop reads your city and the places in your community through Qloo's aggregate taste data; it never sees a shopper\./)).toBeVisible();
+    await expect(footer.getByText(/isn't affiliated with or endorsed by any of them/)).toBeVisible();
+    await expect(footer.getByRole("link", { name: "MIT license" })).toHaveAttribute("href", "https://github.com/khadimswe/stoop/blob/main/LICENSE");
+    await expect(footer.getByRole("link", { name: "For judges" })).toHaveAttribute("href", "/judges");
+    await expect(footer.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
+  });
+
+  test("reserving without the consent box says why in plain words, then goes through once it's ticked", async ({ page }) => {
+    let body: unknown = null;
+    await page.route("**/api/waitlist", async (route) => {
+      body = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ position: 7 }) });
+    });
+    await page.goto("/");
+    await page.getByText("Free while we pilot.").click();
+    await page.getByLabel("Work email").fill("manager@stoop-test.example");
+    const reserve = page.getByRole("button", { name: "Reserve my stores" });
+    await reserve.click();
+    const why = page.getByText("Tick the box so we can email you about the pilot.");
+    await expect(why).toBeVisible();
+    const box = page.getByRole("checkbox", { name: /Email me about the store pilot/ });
+    await expect(box).toBeFocused();
+    await expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(body).toBeNull();
+    await box.check();
+    await expect(why).toHaveCount(0);
+    await reserve.click();
+    await expect(page.getByText("You're #7.")).toBeVisible();
+    expect(body).toMatchObject({ email: "manager@stoop-test.example", consent: true, sourceReport: "store-pilot" });
+  });
+
+  test("the phone menu closes on Escape and gives focus back to its button", async ({ page }) => {
+    await page.goto("/");
+    const button = page.getByRole("button", { name: "Open menu" });
+    test.skip(!(await button.isVisible()), "The menu is folded only on phones.");
+    await button.click();
+    await expect(page.locator("#home-menu").getByRole("link", { name: "My stores" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#home-menu")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
+  });
+
+  test("the whole landing scrolls without sideways overflow, layout shift or page errors", async ({ page }) => {
+    const errors = watchLandingErrors(page);
+    await page.goto("/");
+    await page.evaluate(() => {
+      const w = window as unknown as { __cls: number };
+      w.__cls = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[]) if (!entry.hadRecentInput) w.__cls += entry.value;
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y < height; y += 700) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      await page.waitForTimeout(120);
+    }
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    expect(await page.evaluate(() => (window as unknown as { __cls: number }).__cls)).toBeLessThan(0.05);
+    expect(errors).toEqual([]);
+  });
+
+  test.describe("without JavaScript", () => {
+    test.use({ javaScriptEnabled: false });
+
+    test("the landing reads in full: the H1, the first store, its drawn map and the comparison", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
+      await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
+      await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Map of the 21 places Qloo found/ }).last()).toBeVisible();
+      // A pick is a plain link to its place on the example's community page.
+      await expect(page.getByRole("tabpanel").getByRole("link", { name: /: why Qloo picked this$/ }).first()).toHaveAttribute("href", /^\/s\/atlanta-west-end#place-/);
+      await expect(page.getByRole("table", { name: /The generic AI plan and Stoop's plan/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Plan this Saturday's table." })).toBeVisible();
+    });
+  });
 });
 
 test("the PWA manifest and icons are served", async ({ request }) => {

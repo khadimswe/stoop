@@ -20,5 +20,8 @@ export default defineConfig({
     // Several test files replay the recorded Qloo fixtures (about 45 MB of JSON, parsed once per
     // worker). On a heavily loaded machine (load average above 20) that has taken over 20 s.
     testTimeout: 60_000,
+    // Setup hooks that load those fixtures (lib/stages/revise.test.ts) hit the 10 s default under the
+    // same load, so they get the same room.
+    hookTimeout: 60_000,
   },
 });

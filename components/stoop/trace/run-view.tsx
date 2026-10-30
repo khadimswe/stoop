@@ -250,7 +250,7 @@ export function RunView({ runId, why }: { runId: string; why: ReplayReason | nul
           )}
           <p>The examples show a full run: the Reality Check, the concept worlds and the Campaign Kit.</p>
           <ExampleLinks />
-          <Link href="/start" className="self-start font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
+          <Link href="/ads/start" className="self-start font-semibold underline decoration-2 underline-offset-4 hover:decoration-brick">
             Start a new run
           </Link>
         </div>

@@ -14,10 +14,11 @@ describe("the site-wide policy", () => {
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline'",
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
+        "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://tiles.openfreemap.org",
         "media-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
         "font-src 'self'",
-        "connect-src 'self'",
+        "connect-src 'self' https://tiles.openfreemap.org",
+        "worker-src 'self' blob:",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -31,7 +32,7 @@ describe("the site-wide policy", () => {
     expect(sitePolicy({}, PROD)).not.toContain("unsafe-eval");
     const preview = directives(sitePolicy({}, { dev: false, preview: true }));
     expect(preview.get("script-src")).toContain("https://vercel.live");
-    expect(preview.get("connect-src")).toEqual(["'self'", "https://vercel.live", "wss://ws-us3.pusher.com"]);
+    expect(preview.get("connect-src")).toEqual(["'self'", "https://tiles.openfreemap.org", "https://vercel.live", "wss://ws-us3.pusher.com"]);
     expect(preview.get("frame-src")).toEqual(["https://vercel.live"]);
     expect(sitePolicy({}, PROD)).not.toContain("vercel.live");
     expect(sitePolicy({ NODE_ENV: "development", VERCEL_ENV: "preview" })).toContain("'unsafe-eval'");
@@ -49,9 +50,20 @@ describe("the site-wide policy", () => {
     expect(headers).toMatchObject({
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
       "Strict-Transport-Security": "max-age=63072000",
     });
+  });
+});
+
+describe("the block map's sources", () => {
+  it("allow only OpenFreeMap's one origin for the map, and MapLibre's worker from self or a blob", () => {
+    const policy = directives(sitePolicy({}, PROD));
+    expect(policy.get("connect-src")).toEqual(["'self'", "https://tiles.openfreemap.org"]);
+    expect(policy.get("img-src")).toContain("https://tiles.openfreemap.org");
+    expect(policy.get("worker-src")).toEqual(["'self'", "blob:"]);
+    // Nothing else opens up: no script, style, font or frame source for the map.
+    for (const name of ["script-src", "style-src", "font-src", "default-src"]) expect(policy.get(name)?.some((s) => s.includes("openfreemap"))).toBe(false);
   });
 });
 
@@ -123,7 +135,7 @@ describe("the header rules in next.config.ts", () => {
     expect(byok.headers.get("cross-origin-opener-policy")).toBe("same-origin");
     expect(byok.headers.get("referrer-policy")).toBe("no-referrer");
     const home = await unstable_getResponseFromNextConfig({ url: "https://stoop.example/examples/food-hot-sauce", nextConfig });
-    expect(home.headers.get("content-security-policy")).toContain("connect-src 'self';");
+    expect(home.headers.get("content-security-policy")).toContain("connect-src 'self' https://tiles.openfreemap.org;");
     expect(home.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");
     expect(home.headers.get("cross-origin-opener-policy")).toBeNull();
   });

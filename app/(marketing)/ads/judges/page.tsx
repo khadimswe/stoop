@@ -43,7 +43,7 @@ const PATH = [
   {
     title: "Try it free",
     line: "Paste a product link, or describe the product, and watch the agent work.",
-    href: "/start",
+    href: "/ads/start",
     cta: "Try it free",
   },
 ] as const;

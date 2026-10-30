@@ -129,7 +129,7 @@ test("an unknown run says it has expired and points to the examples, never a bla
   // The trace is kept for fewer days than the report, so the report may still be there.
   await expect(page.getByText(/Live reports are kept for 30 days/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the report" })).toHaveAttribute("href", `/report/run_${"0".repeat(24)}`);
-  await expect(page.getByRole("link", { name: "Start a new run" })).toHaveAttribute("href", "/start");
+  await expect(page.getByRole("link", { name: "Start a new run" })).toHaveAttribute("href", "/ads/start");
   await expect(page.getByRole("link", { name: "Lowlight Candle Co. example report" })).toBeVisible();
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);

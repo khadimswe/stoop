@@ -1,4 +1,5 @@
-// HMAC signing for the small values Stoop hands to browsers: the judge pass and the visitor cookie.
+// HMAC signing for the small values Stoop hands to browsers: the judge pass, the visitor cookie and the
+// Meta connection (its OAuth state and session cookie; its stored tokens are encrypted under a subkey).
 // One secret, STOOP_SIGNING_SECRET (32 or more characters), with a subkey per purpose, so a value
 // signed for one purpose never verifies for another. Server only (node:crypto); proxy.ts runs on Node.
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -7,7 +8,9 @@ type Env = Readonly<Record<string, string | undefined>>;
 
 export const SIGNING_SECRET_MIN = 32;
 
-export type SigningPurpose = "judge-pass" | "judge-code" | "visitor";
+export type SigningPurpose = "judge-pass" | "judge-code" | "visitor" | "meta-state" | "meta-session";
+/** Keys that only encrypt, never sign: sign() and verifySignature() do not take them. */
+export type KeyPurpose = "meta-token";
 
 /** The signing secret, or null when it is unset or too short (signed features then stay off). */
 export function signingSecret(env: Env = process.env): string | null {
@@ -15,7 +18,8 @@ export function signingSecret(env: Env = process.env): string | null {
   return secret && secret.length >= SIGNING_SECRET_MIN ? secret : null;
 }
 
-function subkey(secret: string, purpose: SigningPurpose): Buffer {
+/** The purpose's own 32-byte key. "meta-token" is the AES key for stored Meta tokens (lib/social/session.ts). */
+export function subkey(secret: string, purpose: SigningPurpose | KeyPurpose): Buffer {
   return createHmac("sha256", secret).update(`stoop:${purpose}`).digest();
 }
 

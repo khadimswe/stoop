@@ -10,6 +10,12 @@ export const TTL = {
   runEvents: 7 * DAY_SECONDS,
   /** A finished live report. */
   report: 30 * DAY_SECONDS,
+  /**
+   * Every key of a live store-event plan, refreshed together on each write (lib/plan/store.ts). An event
+   * may be up to 28 days ahead (lib/plan/runtime.ts MAX_EVENT_DAYS_AHEAD), so this leaves the manager
+   * more than two weeks after the event to log its results.
+   */
+  plan: 45 * DAY_SECONDS,
   /** An intake (product, reading, proposed and searched seeds) waiting for /start's confirmation. */
   intake: DAY_SECONDS,
   /** A rendered storyboard frame's URL, by prompt hash. */
@@ -31,7 +37,7 @@ export const TTL = {
 export const dayOf = (now: number = Date.now()) => new Date(now).toISOString().slice(0, 10);
 
 /** Names of the global daily caps (live runs, frames, fresh Qloo calls, renders and MCP), plus per-visitor limits. */
-export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes" | "mcp-calls" | "mcp-tokens";
+export type DailyCap = "live-runs" | "frames" | "qloo" | "renders" | "intakes" | "mcp-calls" | "mcp-tokens" | "meta-posts";
 
 export const keys = {
   run: {
@@ -114,5 +120,33 @@ export const keys = {
   votes: {
     count: (example: string, choice: string) => `votes:${example}:${choice}`,
     visitor: (example: string, visitor: VisitorId) => `votes:${example}:by:${visitor}`,
+  },
+  // Store-event plans (lib/plan). A plan id is a live run id ("plan_" plus 24 hex) or an example's
+  // "ex-<slug>"; an example keeps only events added after its recording here (the poster, for one).
+  /** A plan's events, in write order; every writer takes its seqs from planSeq. */
+  planEvents: (planId: string) => `plan:${planId}:events`,
+  planSeq: (planId: string) => `plan:${planId}:seq`,
+  /** A live plan's status, input hash, starter and owner (lib/plan/owner.ts). */
+  planMeta: (planId: string) => `plan:${planId}:meta`,
+  /** What a live plan was started with, read by its background run. */
+  planInput: (planId: string) => `plan:${planId}:input`,
+  /** An A/B test's variant B poster and posts (lib/plan/posts-run.ts variantKey), kept with the plan. */
+  planVariantB: (planId: string) => `plan:${planId}:marketing:b`,
+  /** Idempotent starts: the hash of the inputs and who sent them points at the plan already started for it. */
+  planClaim: (claimHash: string) => `plan:claim:${claimHash}`,
+  /** Plan event streams open at once, per viewer: a plan's owner by their cookie, anyone else by IP (lib/plan/routes.ts). */
+  planStreams: (visitor: VisitorId | CookieVisitorId) => `leases:plan-streams:${visitor}`,
+  /** Live plan admission leases. */
+  planLeases: "leases:live-plans",
+  // Facebook and Instagram posting (lib/social). Tokens live only in metaSession, encrypted.
+  social: {
+    /** One browser's Meta connection: its user and Page tokens, AES-GCM encrypted, by the id in its signed cookie. */
+    metaSession: (sessionId: string) => `social:meta:session:${sessionId}`,
+    /** Channel posts one connection made on one day. */
+    metaSessionPosts: (sessionId: string, day: string = dayOf()) => `social:meta:session:${sessionId}:posts:${day}`,
+    /** Channel posts to one Page on one day, across every connection to it. */
+    metaPagePosts: (pageId: string, day: string = dayOf()) => `social:meta:page:${pageId}:posts:${day}`,
+    /** Held once a plan's poster went to one Page channel at one time, so a double tap never posts twice. */
+    metaPosted: (planId: string, pageId: string, channel: string, when: string) => `social:meta:posted:${planId}:${pageId}:${channel}:${when}`,
   },
 } as const;

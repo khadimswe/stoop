@@ -29,6 +29,11 @@ fixtures/llm/
 regex:^fixtures/recipes/(?!(smoke|probe-search|pool-resolve|pool-refresh-2)\.json$)
 # The stored example runs: reports and event traces built from Qloo answers.
 data/runs/
+# The stored example store plans: the same, for store events.
+data/plans/
+# The proof lab: plans for real store locations, the Qloo and Claude answers behind them, and the
+# store points (real locations, never published; write-ups name areas only).
+data/proof/
 # The frozen reference panels: Qloo entity and tag ids, names and popularity.
 data/culture/
 # Reference audiences for city ranking: per-cell sums of Qloo heatmap percentiles.
@@ -58,6 +63,10 @@ allow-name: West Virginia
 allow-name: Hong Kong
 allow-name: Washoe County
 allow-name: East Baton Rouge Parish
+# Store events: a holiday and the example store's area, both common words.
+allow-name: Mother's Day
+allow-name: West End
+allow-name: San José
 allow-name: Flint Charter Township
 allow-name: Genesee County
 
@@ -126,3 +135,30 @@ blob:12e80a019c35c2234c26fc970fc7cee610d0b4a7 lib/stages/culture.ts
 blob:38e39245093fde3501e49d89a9fe1bf0267b6dc0 lib/stages/culture.ts
 blob:d80e066cb0f4c4cc019e022aeb8cc97a397a6112 lib/stages/culture.ts
 blob:3e36a52f6ade873e6751d5aa84ea460958b7bfd2 lib/stages/revise.test.ts
+blob:5e989fece4569913bc9fe06428c795f8b6b06d46 scripts/proof-measure.ts
+# Store events: early versions of the plan tests held recorded Qloo ids and names (now made up).
+blob:086f71de29220b9fa4ffa8f8a1a95cc588ee70ae lib/plan/baseline.test.ts
+blob:9daaa74c83d559be67dab132f75005c1d5c4f65d lib/plan/guard.test.ts
+blob:d0f621fa81c4d3dce7ffa2fff6670249acedb6cf lib/plan/month.test.ts
+blob:9831a49a4fc8ac57a3e4e681649161ba59ea9017 lib/plan/rubric.test.ts
+blob:6d40c20bf9fb1fa3b4e974629a84e35635acc199 lib/plan/taste.test.ts
+blob:425199557fb8dd2094a724ac841dc23a07f0d109 e2e/home.spec.ts
+blob:ea4523b2662474e9dfadcc80b2867a9f3b1507b6 e2e/home.spec.ts
+blob:e48b6fde61eb613b631b4e3c17d420aa7a47dd6c e2e/store-events.spec.ts
+blob:64a34fc9f2d0185f172d39689595373e517c8d6a lib/marketing/landing-stores.test.ts
+blob:b73c2b22083bfd1a7759d7db166d68e25648f222 lib/plan/poster-text.ts
+blob:7536590ed57b90058dd5ec1b4c79fe93453187ef lib/plan/view/event-page.ts
+blob:4bee99e8c2d3aea6f156077ced49ffdc052e673a lib/plan/view/plan.test.ts
+blob:5c99395a38098c72c1985db78a337ae0539bb97c e2e/home.spec.ts
+blob:899f42eddead56138b28e35ac7176b7cc3b9e48a e2e/store-events.spec.ts
+blob:99f617f24c8663408a2f7cfc81a7f83e93c994e9 lib/marketing/landing-stores.test.ts
+blob:deb9a9be3dfabc21c86053fa73268c176c9add27 lib/plan/view/plan.test.ts
+blob:d29a8603edcf7f1415e579d4ef401d216b971b44 e2e/home.spec.ts
+blob:c9bfa5fa01fb7fd3a8d9d3214bdd8e4ecc26b765 lib/marketing/landing-stores.test.ts
+blob:dbb6fe33daf5aa971cd018e7dcee27ebd4e53717 e2e/home.spec.ts
+blob:72bb87cb74229680aa94ed1e20ee9705cca09ecb e2e/home.spec.ts
+blob:08b450940eef508607792bf36718ff6934e7d0a4 e2e/home.spec.ts
+blob:bc8b19389ad4fa8b8a1baea0f6c98a54a052dd9b e2e/home.spec.ts
+blob:94a058b3d01b79a5b31f95e55c7ace44321ee071 e2e/home.spec.ts
+blob:af231688036868fa064f5e86ea8cf9bbee8b41ca e2e/home.spec.ts
+blob:5e7c13181ce81290e8a75f66ee59aa42a9a1ee3a lib/marketing/landing-stores.test.ts

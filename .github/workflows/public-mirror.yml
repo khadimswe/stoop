@@ -13,7 +13,7 @@ name: public mirror
 #
 # Setup (MIRROR.md in the working repository): the secret PUBLIC_MIRROR_DEPLOY_KEY (the private half
 # of a deploy key with write access on the mirror) and the variable PUBLIC_MIRROR_REPO (its SSH URL,
-# for example git@github.com:khadimswe/stoop-public.git). Without either, nothing runs past the check.
+# for example git@github.com:khadimswe/stoop.git). Without either, nothing runs past the check.
 
 on:
   push:

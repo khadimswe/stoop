@@ -16,7 +16,7 @@ const WAYS: Way[] = [
   {
     title: "In the browser",
     line: "Paste a product link. Get the Reality Check, concept worlds and a Campaign Kit.",
-    href: "/start",
+    href: "/ads/start",
     linkLabel: "Try it free",
     icon: MousePointerClick,
   },

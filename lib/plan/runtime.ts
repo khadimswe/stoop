@@ -1,0 +1,341 @@
+// Starting and running a live plan, with the same safety as Stoop's runs (lib/runtime/start.ts): the
+// live switch, the manager's notes through the guard, an event date close enough that the plan outlives
+// it, an idempotent start on the inputs and who sent them (a repeat from the same browser joins the plan
+// already going), the visitor's hourly limit and their network's daily limit, today's live-run cap
+// (shared with every live run), and admission (a few plans at once, as leases that expire if an
+// instance dies). Anything refused becomes an example replay with a one-line reason, never an error
+// screen. The plan itself runs in the background (`after()` in the route) and writes its events to the
+// store as it goes. The browser that started it is its owner (lib/plan/owner.ts).
+import type { LanguageModel } from "ai";
+import { after } from "next/server";
+import { z } from "zod";
+import { failureForLog, plainFailure } from "../agent/failure";
+import { dailyCaps, isLive } from "../config";
+import { hashOf } from "../hash";
+import { MONTHLY_FLOOR, PLAN_BUDGET, PLAN_CAP } from "../qloo/budget";
+import type { QlooClient } from "../qloo/client";
+import { createRunContext } from "../qloo/context";
+import { lastMonthRemaining } from "../qloo/shared";
+import { hourOf } from "../runtime/errors";
+import { randomHex } from "../runtime/intake";
+import { estimateUsd } from "../runtime/cost";
+import { emptyTally, memoizedModel } from "../runtime/memo";
+import type { RequestContext } from "../runtime/types";
+import { DAY_SECONDS, dayOf, keys, TTL } from "../store/keys";
+import type { Store } from "../store/types";
+import type { VisitorId } from "../store/visitor";
+import type { PlanSink } from "./env";
+import { createPlanEmitter, planEventSchema, type PlanEvent, type PlanEventInput } from "./events";
+import { examplePlanId, LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES, type PlanExampleSlug } from "./example-list";
+import { InputProblem, type InputField } from "./input-errors";
+import { guardFor, runPlan } from "./pipeline";
+import { textIssues, typedInputsProblem } from "./guard";
+import { kmBetween, stateOf } from "./locality";
+import { inputsSchema, type PlanInputs } from "./schema";
+import { appendPlanEvents, getPlanMeta, setPlanMeta, type PlanMeta } from "./store";
+
+/** Plans at once (admission: more than this replays an example, with no queue). */
+export const MAX_LIVE_PLANS = 3;
+/** A lease outlives the longest plan (maxDuration 300 s) a little, so a crashed plan frees its slot. */
+export const PLAN_LEASE_MS = 320_000;
+export const PLANS_PER_HOUR = 6;
+/**
+ * Plans one network may start in a UTC day (an IPv4 address, or an IPv6 /48: lib/store/visitor.ts
+ * networkVisitorId), so one visitor cannot spend LIVE_RUNS_DAILY_CAP for everyone. MCP callers count
+ * per token instead (their own daily caps, lib/mcp/caps.ts).
+ */
+export const PLANS_PER_NETWORK_DAILY = 10;
+/** How far ahead an event may be: a live plan's keys last TTL.plan from its last write, well past the event. */
+export const MAX_EVENT_DAYS_AHEAD = 28;
+/** Every Claude call fits before this, and a stage with no time left uses its plain fallback. */
+export const PLAN_DEADLINE_MS = 240_000;
+/** The last resort: the run is stopped here, leaving the function (maxDuration 300 s) time to write what it has. */
+export const PLAN_HARD_STOP_MS = 265_000;
+/** A claim with no meta this old belongs to a start that crashed midway; it is replaced. */
+export const STALE_CLAIM_MS = 30_000;
+
+/** POST /api/plan's body: the inputs, as /start collects them. */
+export const planStartRequestSchema = z.strictObject({ inputs: inputsSchema });
+export type PlanStartRequest = z.infer<typeof planStartRequestSchema>;
+
+export const PLAN_REPLAY_REASONS = ["replay", "busy", "daily-cap", "rate-limited"] as const;
+export type PlanReplayReason = (typeof PLAN_REPLAY_REASONS)[number];
+
+const REPLAY_MESSAGES: Record<PlanReplayReason, string> = {
+  replay: "Live plans are off right now. Here is a full example plan instead.",
+  busy: "A few live plans are running right now. Here is a full example while you wait.",
+  "daily-cap": "Today's live plans are used up. Here is a full example plan.",
+  "rate-limited": "That is a lot of plans in an hour. Here is a full example plan.",
+};
+
+const NETWORK_DAILY_MESSAGE = "That is a lot of plans from here today. Here is a full example plan; yours work again tomorrow.";
+
+export type PlanStartResponse =
+  | { mode: "live"; id: string; eventsUrl: string; planUrl: string; joined: boolean }
+  | { mode: "example"; slug: PlanExampleSlug; id: string; planUrl: string; reason: PlanReplayReason; message: string };
+
+/**
+ * The example closest to what was asked for: the same city, else the same state (a Georgia store gets
+ * Atlanta), else the nearest example store by distance, else the lead.
+ */
+export function exampleFor(inputs: PlanInputs | null): PlanExampleSlug {
+  if (!inputs) return LEAD_PLAN_EXAMPLE.slug;
+  const city = inputs.store.city.trim().toLowerCase();
+  const sameCity = PLAN_EXAMPLES.find((e) => PLAN_EXAMPLE_INPUTS[e.slug].store.city.toLowerCase() === city);
+  if (sameCity) return sameCity.slug;
+  const state = stateOf(inputs.store.region)?.abbr;
+  const sameState = state ? PLAN_EXAMPLES.find((e) => stateOf(PLAN_EXAMPLE_INPUTS[e.slug].store.region)?.abbr === state) : undefined;
+  if (sameState) return sameState.slug;
+  const nearest = [...PLAN_EXAMPLES].sort((a, b) => kmBetween(inputs.store.point, PLAN_EXAMPLE_INPUTS[a.slug].store.point) - kmBetween(inputs.store.point, PLAN_EXAMPLE_INPUTS[b.slug].store.point))[0];
+  return nearest?.slug ?? LEAD_PLAN_EXAMPLE.slug;
+}
+
+export function exampleReply(reason: PlanReplayReason, inputs: PlanInputs | null = null, message: string = REPLAY_MESSAGES[reason]): PlanStartResponse {
+  const slug = exampleFor(inputs);
+  return { mode: "example", slug, id: examplePlanId(slug), planUrl: `/examples/stores/${slug}`, reason, message };
+}
+
+const liveReply = (id: string, joined: boolean): PlanStartResponse => ({ mode: "live", id, eventsUrl: `/api/plan/${id}/events`, planUrl: `/plan/${id}`, joined });
+
+export interface PlanStartDeps {
+  env?: Readonly<Record<string, string | undefined>>;
+  now?: () => number;
+  randomHex?: (bytes: number) => string;
+  /** Runs the plan in the background. Defaults to next/server `after()`. */
+  schedule?: (task: () => Promise<void>) => void;
+  execute: (runId: string) => Promise<void>;
+}
+
+interface Claim {
+  runId: string;
+  at: number;
+}
+
+/**
+ * What starts a plan: the request's context plus, from the web, the network it came from (an IPv6
+ * visitor's /48) for the daily limit. The owner is ctx.cookieVisitor, the signed visitor cookie.
+ */
+export interface PlanStartContext extends RequestContext {
+  network?: VisitorId;
+}
+
+/** The event day may be at most MAX_EVENT_DAYS_AHEAD days ahead (store time, compared loosely with the UTC day). */
+export function eventDateProblem(inputs: PlanInputs, now: number): string | null {
+  return inputs.date > dayOf(now + MAX_EVENT_DAYS_AHEAD * DAY_SECONDS * 1000) ? "Pick an event date in the next 4 weeks." : null;
+}
+
+/** Which form field a typedInputsProblem message is about, from the plain words it starts with. */
+function typedField(message: string): InputField {
+  if (message.startsWith("The store name")) return "name";
+  if (message.startsWith("The store address")) return "address";
+  if (message.startsWith("The event's place")) return "location";
+  return "offers";
+}
+
+/** The manager's notes pass the same guard as generated text before anything starts. */
+export function notesProblem(inputs: PlanInputs): string | null {
+  if (!inputs.notes) return null;
+  const problems = textIssues(inputs.notes, guardFor(inputs));
+  return problems.length ? `Your notes can't be used: ${problems[0]}` : null;
+}
+
+export async function startPlan(deps: PlanStartDeps, raw: unknown, ctx: PlanStartContext): Promise<PlanStartResponse> {
+  const env = deps.env ?? process.env;
+  const { inputs } = planStartRequestSchema.parse(raw);
+  const now = deps.now ?? Date.now;
+  const tooFar = eventDateProblem(inputs, now());
+  if (tooFar) throw new InputProblem(tooFar, "date");
+  if (!isLive(env)) return exampleReply("replay", inputs);
+  const notes = notesProblem(inputs);
+  if (notes) throw new InputProblem(notes.slice(0, 300), "notes", 422);
+  const typed = typedInputsProblem(inputs);
+  if (typed) throw new InputProblem(typed.slice(0, 300), typedField(typed), 422);
+  const { store } = ctx;
+  const owner = ctx.cookieVisitor ?? null;
+
+  // Idempotent on what the plan would measure and who asked: the same inputs from the same browser (or
+  // MCP token) join the plan already started for them. Someone else's identical inputs start their own
+  // plan, so a join never hands one person another's plan.
+  const inputHash = hashOf(inputs);
+  const claimKey = keys.planClaim(hashOf({ inputHash, by: owner ?? ctx.visitor }));
+  const claimed = await store.get<Claim>(claimKey);
+  if (claimed) {
+    const meta = await getPlanMeta(store, claimed.runId);
+    if (meta && meta.status !== "failed") return liveReply(claimed.runId, true);
+    if (!meta && now() - claimed.at <= STALE_CLAIM_MS) return exampleReply("busy", inputs);
+  }
+
+  if ((await store.incr(keys.rate("plan", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > PLANS_PER_HOUR) return exampleReply("rate-limited", inputs);
+  // The network's day counts only plans that start: a later refusal (today's cap, busy) gives it back.
+  const networkKey = ctx.network ? keys.rate("plan-daily", ctx.network, dayOf(now())) : null;
+  if (networkKey && (await store.incr(networkKey, { ttlSeconds: TTL.daily })) > PLANS_PER_NETWORK_DAILY) {
+    return exampleReply("rate-limited", inputs, NETWORK_DAILY_MESSAGE);
+  }
+  const giveBackNetwork = () => (networkKey ? store.incr(networkKey, { by: -1 }).catch(() => undefined) : Promise.resolve());
+  const dailyKey = keys.daily("live-runs");
+  if ((await store.incr(dailyKey, { ttlSeconds: TTL.daily })) > dailyCaps(env).liveRuns) {
+    await Promise.all([store.incr(dailyKey, { by: -1 }).catch(() => undefined), giveBackNetwork()]);
+    return exampleReply("daily-cap", inputs);
+  }
+
+  const runId = `plan_${(deps.randomHex ?? randomHex)(12)}`;
+  const claimedAt = now();
+  let leased = false;
+  let ours = false;
+  let scheduled = false;
+  try {
+    leased = await store.leaseAcquire(keys.planLeases, runId, { max: MAX_LIVE_PLANS, ttlMs: PLAN_LEASE_MS, now: now() });
+    if (!leased) return exampleReply("busy", inputs);
+    if (claimed) await store.deleteIfEquals(claimKey, claimed);
+    ours = await store.set(claimKey, { runId, at: claimedAt } satisfies Claim, { ifAbsent: true, ttlSeconds: TTL.plan });
+    if (!ours) {
+      const other = await store.get<Claim>(claimKey);
+      return other ? liveReply(other.runId, true) : exampleReply("busy", inputs);
+    }
+    const at = new Date(now()).toISOString();
+    await store.set(keys.planInput(runId), inputs, { ttlSeconds: TTL.plan });
+    const visitor = /^[vt]_[0-9a-f]{24}$/.test(ctx.visitor) ? { visitor: ctx.visitor } : {};
+    await setPlanMeta(store, { runId, status: "running", inputHash, createdAt: at, updatedAt: at, ...visitor, ...(owner ? { owner } : {}) });
+    (deps.schedule ?? after)(() => deps.execute(runId));
+    scheduled = true;
+    return liveReply(runId, false);
+  } finally {
+    if (!scheduled) {
+      await Promise.allSettled([
+        leased ? store.leaseRelease(keys.planLeases, runId) : Promise.resolve(),
+        store.incr(dailyKey, { by: -1 }),
+        giveBackNetwork(),
+        ours ? store.deleteIfEquals(claimKey, { runId, at: claimedAt }) : Promise.resolve(),
+      ]);
+    }
+  }
+}
+
+/** Emitted events go to the store in small batches; each is checked when emitted, so a bad event fails its stage. */
+export const FLUSH_MS = 150;
+
+export interface StorePlanSink extends PlanSink {
+  events: PlanEvent[];
+  flush(): Promise<void>;
+}
+
+export function storePlanSink(store: Store, runId: string, options: { now?: () => Date; onFailure?: (error: unknown) => void } = {}): StorePlanSink {
+  const stamp = createPlanEmitter(options.now);
+  const events: PlanEvent[] = [];
+  let pending: PlanEvent[] = [];
+  let chain: Promise<void> = Promise.resolve();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let failure: unknown = null;
+  const write = () => {
+    timer = null;
+    const batch = pending;
+    pending = [];
+    if (batch.length === 0) return chain;
+    chain = chain.then(async () => {
+      if (failure) return;
+      for (let tries = 0; ; tries++) {
+        try {
+          events.push(...(await appendPlanEvents(store, runId, batch)));
+          return;
+        } catch (error) {
+          if (tries >= 2) {
+            failure = error;
+            options.onFailure?.(error);
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200 * 4 ** tries));
+        }
+      }
+    });
+    return chain;
+  };
+  return {
+    events,
+    emit(input: PlanEventInput) {
+      const event = stamp(input);
+      pending.push(event);
+      timer ??= setTimeout(write, FLUSH_MS);
+      return event;
+    },
+    async flush() {
+      if (timer) clearTimeout(timer);
+      await write();
+      if (failure) throw failure;
+    },
+  };
+}
+
+export interface PlanExecuteDeps {
+  store: Store;
+  client: QlooClient;
+  model: LanguageModel & { modelId: string };
+  /** Names the recorded runs found on more than one store's block (lib/plan/taste.ts repeatedPlaceNames). */
+  knownChains?: ReadonlySet<string>;
+  now?: () => number;
+  deadlineMs?: number;
+}
+
+class PlanDeadlineError extends Error {
+  override name = "TimeoutError";
+  constructor() {
+    super("The plan reached its time limit.");
+  }
+}
+
+/** One live plan, end to end, in the background. Its meta's last word and its lease are always settled. */
+export async function executePlan(deps: PlanExecuteDeps, runId: string): Promise<void> {
+  const { store } = deps;
+  const now = deps.now ?? Date.now;
+  const meta = await getPlanMeta(store, runId);
+  if (!meta || meta.status !== "running") return;
+  let status: PlanMeta["status"] = "failed";
+  try {
+    const inputs = inputsSchema.parse(await store.get<unknown>(keys.planInput(runId)));
+    const stop = new AbortController();
+    const sink = storePlanSink(store, runId, { onFailure: () => stop.abort(new Error("store down")) });
+    const tally = emptyTally();
+    const model = memoizedModel(deps.model, store, runId, tally);
+    const monthRemaining = await lastMonthRemaining(store, now());
+    const ctx = createRunContext({ runId, cap: PLAN_CAP, rowCaps: PLAN_BUDGET, monthlyFloor: MONTHLY_FLOOR, ...(monthRemaining === undefined ? {} : { monthRemaining }) });
+    const started = now();
+    const deadlineMs = deps.deadlineMs ?? PLAN_DEADLINE_MS;
+    const timer = setTimeout(() => stop.abort(new PlanDeadlineError()), deadlineMs + (PLAN_HARD_STOP_MS - PLAN_DEADLINE_MS));
+    try {
+      const env = { client: deps.client, ctx, sink, model, abortSignal: stop.signal, deadlineAt: started + deadlineMs, now, ...(deps.knownChains ? { knownChains: deps.knownChains } : {}) };
+      const outcome = await runPlan(env, { runId, kind: "live", inputs }, { now });
+      status = outcome.status;
+      sink.emit({
+        type: "run.cost",
+        cost: {
+          durationMs: now() - started,
+          qloo: { live: ctx.liveCalls, cached: ctx.cachedCalls },
+          claude: { calls: tally.calls, inputTokens: tally.inputTokens, outputTokens: tally.outputTokens, cachedInputTokens: tally.cachedInputTokens },
+          frames: 0,
+          estimateUsd: estimateUsd(tally),
+        },
+      });
+      sink.emit({ type: "run.done" });
+    } catch (error) {
+      status = "failed";
+      const cause = stop.signal.reason instanceof Error ? stop.signal.reason : error;
+      console.error(`[plan ${runId}] failed: ${failureForLog(cause)}`);
+      sink.emit({ type: "run.failed", stage: null, message: plainFailure(cause) });
+    } finally {
+      clearTimeout(timer);
+    }
+    try {
+      await sink.flush();
+    } catch {
+      status = "failed";
+    }
+  } catch (error) {
+    console.error(`[plan ${runId}] could not run: ${failureForLog(error)}`);
+    status = "failed";
+  } finally {
+    await setPlanMeta(store, { ...meta, status, updatedAt: new Date(now()).toISOString() }).catch(() => undefined);
+    await store.leaseRelease(keys.planLeases, runId).catch(() => undefined);
+  }
+}
+
+/** Checks an event before it reaches a list (used by writers outside the pipeline, such as results). */
+export const checkEvent = (event: PlanEvent) => planEventSchema.parse(event);

@@ -4,7 +4,7 @@
  * The public repository: every code link on the site (/judges, the footer's license) comes from here.
  * It is the public mirror of the code, which leaves out Qloo response data. Change the address here only.
  */
-export const REPO_URL = "https://github.com/khadimswe/stoop-public";
+export const REPO_URL = "https://github.com/khadimswe/stoop";
 
 /** A link to one file in the repository, for the "What Qloo decides" map. */
 export const codeUrl = (path: string) => `${REPO_URL}/blob/main/${path}`;

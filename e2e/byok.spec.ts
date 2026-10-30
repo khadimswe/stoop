@@ -26,7 +26,8 @@ test("/byok carries its own strict policy, once, and the rest of the site never 
     expect(policies(response.headersArray()), path).toHaveLength(1);
   }
   const home = policies((await request.get("/")).headersArray())[0];
-  expect(home).toContain("connect-src 'self';");
+  // The block map's tiles are the one other host the site connects to.
+  expect(home).toContain("connect-src 'self' https://tiles.openfreemap.org;");
   expect(home).not.toContain("queue.fal.run");
 });
 

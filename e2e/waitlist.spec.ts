@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-test("the header's waitlist signs up, then saves the product link on the same entry", async ({ page }) => {
+// The header waitlist pill left the navigation with the store-events pivot (the ad flow lives at /ads).
+test.skip("the header's waitlist signs up, then saves the product link on the same entry", async ({ page }) => {
   // A visitor of its own (the per-visitor limit counts by IP), and an email of its own.
   const id = `${Date.now()}${Math.floor(Math.random() * 1_000)}`;
   await page.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
-  await page.goto("/");
+  await page.goto("/ads");
 
   await page.getByRole("button", { name: "Get a free brief" }).click();
   const dialog = page.getByRole("dialog");

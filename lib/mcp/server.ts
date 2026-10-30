@@ -1,9 +1,12 @@
-// Stoop's MCP server (/api/mcp): two tools for other agents.
+// Stoop's MCP server (/api/mcp): tools for other agents.
 // - score_brief (sync): Qloo only, no LLM, no frames. Scores creative choices for an audience.
 // - culture_brief (async): reads a product like /start does, then starts a run through the same
 //   RunIntake and StartRun the web flow uses, so it gets the same caps, admission and guardrails (and
 //   counts against LIVE_RUNS_DAILY_CAP inside StartRun). Returns the run id and where to follow it,
 //   or an example replay and why.
+// - plan_store_event (async): starts a store-event plan through the same start as POST /api/plan
+//   (lib/plan/runtime.ts), with its caps, admission and guard. Returns the plan id and links, or an
+//   example plan and why. Registered only when the runtime passes startPlan.
 // Listing tools is open; calling one needs a valid MCP token (lib/mcp/auth.ts), and each call takes its
 // share of the token's and the day's caps right before it spends anything (lib/mcp/caps.ts).
 // Everything is injected, so tests run both tools with fakes and the recorded Qloo fixtures.
@@ -26,6 +29,7 @@ import { DEFAULT_DIRECTION } from "../types";
 import { callerOf, tokenRefusal, type Caller } from "./auth";
 import { capRefusal, liveRunShareCounter, reserveCall } from "./caps";
 import { scoreBrief, scoreBriefInputSchema, scoreBriefResultSchema, scoreBriefText } from "./score-brief";
+import { exampleReply, planStartRequestSchema, type PlanStartResponse } from "../plan/runtime";
 
 export const MCP_SERVER_INFO = { name: "stoop", version: "0.1.0" } as const;
 
@@ -49,6 +53,8 @@ export interface McpDeps {
   qloo: () => QlooClient;
   runIntake: RunIntake;
   startRun: StartRun;
+  /** Starts a store-event plan (lib/plan/runtime.ts startPlan, bound to its vendors). */
+  startPlan?: (input: unknown, ctx: RequestContext) => Promise<PlanStartResponse>;
   env?: Readonly<Record<string, string | undefined>>;
   now?: () => number;
 }
@@ -209,6 +215,7 @@ export async function cultureBrief(input: IntakeRequest, deps: McpDeps, request?
 }
 
 const AGENT_SHARE_MESSAGE = "Today's live runs for MCP agents are used up, so the rest stay open for people on the site. Here's an example report; agent runs open again tomorrow (UTC).";
+const AGENT_SHARE_PLAN_MESSAGE = "Today's live plans for MCP agents are used up, so the rest stay open for people on the site. Here is an example plan; agent plans open again tomorrow (UTC).";
 
 function cultureBriefText(output: CultureBriefOutput): string {
   if (output.mode === "live") {
@@ -240,7 +247,12 @@ const SCORE_DESCRIPTION =
 const CULTURE_DESCRIPTION =
   "Starts a Stoop culture brief for a product: give a product or store link, or a description. Stoop reads the page, proposes seeds Qloo can match, and starts a run that maps the audience around the product, builds a Culture Brief per concept world and writes a production pack. Returns right away with the run id and links to follow it, or an example report when live runs are off, busy or used up for the day. Needs a free Stoop MCP token (from the /mcp page); each token can use up to 3 briefs a day.";
 
-/** Registers both tools. Pass it to createMcpHandler; it is called once per request. */
+const PLAN_DESCRIPTION =
+  "Plans a tailored event for a prepaid wireless store (Metro by T-Mobile, Cricket, Boost): a table outside the store or a booth at a community event. Give the store (name, carrier, address, city, region and its point), the date and time, the setting, the budget, the manager's promos exactly as written, adult age bands and optional notes. Qloo measures the city's music and the places in the store's community; the plan comes back with a run of show, a shopping list inside the budget, a prize wheel, a checklist and a side by side with a generic AI plan. Returns right away with the plan id and links to follow it, or an example plan when live plans are off, busy or used up for the day. Needs a free Stoop MCP token (from the /mcp page).";
+
+const planStoreEventOutputSchema = z.looseObject({ mode: z.enum(["live", "example", "capped"]), id: z.string().optional(), planUrl: z.string().optional(), eventsUrl: z.string().optional(), message: z.string().optional() });
+
+/** Registers the tools. Pass it to createMcpHandler; it is called once per request. */
 export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
   return (server) => {
     server.registerTool(
@@ -302,5 +314,46 @@ export function buildMcpServer(deps: McpDeps): (server: McpServer) => void {
         return { content: [{ type: "text", text: cultureBriefText(output) }], structuredContent: output, ...(output.mode === "no_seeds" || output.mode === "capped" ? { isError: true } : {}) };
       },
     );
+    const startPlan = deps.startPlan;
+    if (startPlan) {
+      server.registerTool(
+        "plan_store_event",
+        { title: "Plan a store event with Qloo", description: PLAN_DESCRIPTION, inputSchema: planStartRequestSchema, outputSchema: planStoreEventOutputSchema, annotations: { readOnlyHint: false, openWorldHint: true } },
+        async (input, ctx): Promise<ToolResult> => {
+          const auth = authorize(ctx);
+          if (!auth.ok) return auth.result;
+          const caps = mcpCaps(deps.env);
+          const reserved = await reserveCall(deps.store(), auth.caller.hash, "plan_store_event", caps, deps.now?.() ?? Date.now());
+          if (!reserved.ok) return { ...text(capRefusal(reserved.full, caps), true), structuredContent: { mode: "capped", message: capRefusal(reserved.full, caps) } };
+          const origin = originOf(ctx.http?.req);
+          const rc = await requestContext(deps, ctx.http?.req, tokenVisitorId(auth.caller.hash));
+          // A live plan takes from the agents' daily share of live runs, like culture_brief, so agents can
+          // never spend the day's runs for people on the site. Given back when no new plan started.
+          const shared = await reserveEach(rc.store, [liveRunShareCounter(caps, deps.now?.())]);
+          if (!shared.ok) {
+            await reserved.reservation.release();
+            const paused = exampleReply("daily-cap", input.inputs, AGENT_SHARE_PLAN_MESSAGE);
+            const pausedOutput = { ...paused, planUrl: `${origin}${paused.planUrl}` };
+            return { content: [{ type: "text", text: `${AGENT_SHARE_PLAN_MESSAGE}\nExample plan: ${pausedOutput.planUrl}` }], structuredContent: pausedOutput };
+          }
+          let reply: PlanStartResponse;
+          try {
+            reply = await startPlan(input, rc);
+          } catch (error) {
+            await shared.reservation.release().catch(() => undefined);
+            throw error;
+          }
+          if (reply.mode === "example" || reply.joined) await shared.reservation.release();
+          if (reply.mode === "example") await reserved.reservation.release();
+          const output = { ...reply, planUrl: `${origin}${reply.planUrl}`, ...(reply.mode === "live" ? { eventsUrl: `${origin}${reply.eventsUrl}` } : {}) };
+          // The plan's full report and events answer only its owner: here, this token (lib/plan/owner.ts).
+          const message =
+            reply.mode === "live"
+              ? `Started plan ${reply.id}${reply.joined ? " (joined a plan with the same inputs)" : ""}.\nPlan: ${output.planUrl}\nEvents: ${output.eventsUrl}\nRead the plan (${origin}/api/plan/${reply.id}) and its events with this same token as "Authorization: Bearer"; without it they show only the public event page's details.`
+              : `${reply.message}\nExample plan: ${output.planUrl}`;
+          return { content: [{ type: "text", text: message }], structuredContent: output };
+        },
+      );
+    }
   };
 }

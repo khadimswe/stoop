@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byokEnabled, dailyCaps, isLive, judgingEndsAt, mcpCaps, renderLimits, videoSwitches } from "./config";
+import { byokEnabled, dailyCaps, isLive, judgingEndsAt, mcpCaps, metaPostingEndsAt, renderLimits, videoSwitches } from "./config";
 
 describe("runtime config", () => {
   it("stays in replay unless STOOP_LIVE is true (any case, trimmed)", () => {
@@ -50,5 +50,12 @@ describe("runtime config", () => {
     expect(mcpCaps({ MCP_LIVE_RUNS_DAILY_SHARE: "25", LIVE_RUNS_DAILY_CAP: "12" }).liveRunsShare).toBe(12);
     expect(mcpCaps({ MCP_LIVE_RUNS_DAILY_SHARE: "0" }).liveRunsShare).toBe(0);
     expect(mcpCaps({ MCP_TOKEN_EMAILS_DAILY: "5" }).tokenEmailsDaily).toBe(5);
+  });
+
+  it("lets Meta posting run past judging unless META_POSTING_ENDS_AT says otherwise", () => {
+    expect(metaPostingEndsAt({ JUDGING_ENDS_AT: "2026-11-17T08:00:00Z" })).toBe(Number.POSITIVE_INFINITY);
+    expect(metaPostingEndsAt({ META_POSTING_ENDS_AT: " " })).toBe(Number.POSITIVE_INFINITY);
+    expect(metaPostingEndsAt({ META_POSTING_ENDS_AT: "2027-01-31T00:00:00Z" })).toBe(Date.parse("2027-01-31T00:00:00Z"));
+    expect(() => metaPostingEndsAt({ META_POSTING_ENDS_AT: "soon" })).toThrow(/META_POSTING_ENDS_AT/);
   });
 });
