@@ -6,8 +6,9 @@
 //   kept on the plan's meta as `owner`. The cookie is HttpOnly, SameSite=Lax and lasts 180 days, so the
 //   phone or computer that made the plan keeps it; another device gets the public view;
 // - an agent: the MCP token that started it (plan_store_event), sent as "Authorization: Bearer".
-// Without STOOP_SIGNING_SECRET there are no signed cookies (local dev only): the starter's salted IP
-// stands in, which is weaker (anyone on the same network) and never used where the secret is set.
+// Without STOOP_SIGNING_SECRET there are no signed cookies: in local dev only (never in a production
+// build or on Vercel) the starter's salted IP stands in, which is weaker (anyone on the same network).
+// A deploy without the secret has no owners: live plans there read and stay public-view only.
 // Example plans ("ex-<slug>") stay public and read-only for everyone. Server-side jobs (the marketing
 // job, started when a plan finishes) never come through here: they call the lib functions directly.
 import { cookieVisitorOf } from "../http";
@@ -42,8 +43,16 @@ export async function isOwnerOf(request: Request, meta: PlanMeta, store: Store, 
     const cookie = cookieVisitorOf(request, secret);
     return cookie !== null && meta.owner !== undefined && safeEqual(cookie, meta.owner);
   }
-  // No signing secret, so no signed cookies (local dev): the starter's salted IP stands in.
+  // No signing secret, so no signed cookies: in local dev only, the starter's salted IP stands in. A
+  // deploy (or `next start`) without the secret has no owners at all, so a shared carrier NAT or store
+  // Wi-Fi never opens someone else's plan.
+  if (!ipFallbackAllowed(env)) return false;
   return meta.visitor?.startsWith("v_") === true && (await visitorId(store, request.headers)) === meta.visitor;
+}
+
+/** The salted-IP stand-in is for local development only: never in a production build or on Vercel. */
+export function ipFallbackAllowed(env: Env): boolean {
+  return env.NODE_ENV !== "production" && !env.VERCEL && !env.VERCEL_ENV;
 }
 
 export type OwnerCheck = { kind: "example" } | { kind: "owner"; meta: PlanMeta } | { kind: "stranger"; meta: PlanMeta } | { kind: "missing" };

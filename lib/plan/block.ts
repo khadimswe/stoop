@@ -94,14 +94,14 @@ export async function postBlock(request: Request, deps: BlockDeps): Promise<Resp
   const cached = await store.get<BlockAnswer>(cacheKey);
   if (cached) return json(cached);
 
+  // A lookup starts only when all of it still fits under today's cap (read only: the client counts each call).
+  const used = (await store.get<number>(keys.daily("qloo", dayOf(now())))) ?? 0;
+  if (used + BLOCK_CALLS > dailyCaps(deps.env).qloo) return example("Stoop has used today's Qloo calls. Here's an example community; your own works tomorrow.");
   // Only fresh lookups spend Qloo calls, so only they count against the network's day.
   const network = await networkVisitorId(store, request.headers);
   if ((await store.incr(keys.rate("plan-block-daily", network, dayOf(now())), { ttlSeconds: TTL.daily })) > BLOCKS_PER_NETWORK_DAILY) {
     return example("That is a lot of new stores from here today. Here's an example community; yours works again tomorrow.");
   }
-  // A lookup starts only when all of it still fits under today's cap (read only: the client counts each call).
-  const used = (await store.get<number>(keys.daily("qloo", dayOf(now())))) ?? 0;
-  if (used + BLOCK_CALLS > dailyCaps(deps.env).qloo) return example("Stoop has used today's Qloo calls. Here's an example community; your own works tomorrow.");
 
   const events: PlanEvent[] = [];
   const emit = createPlanEmitter();

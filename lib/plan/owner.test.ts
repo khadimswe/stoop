@@ -138,6 +138,10 @@ describe("who owns a plan", () => {
     expect(await isOwnerOf(request("/", { "x-forwarded-for": "198.51.100.9" }), meta({ visitor: starter }), store, { env: {} })).toBe(false);
     // With a secret, the same IP is not enough.
     expect(await isOwnerOf(request("/", here), meta({ visitor: starter }), store, { env: { STOOP_SIGNING_SECRET: SECRET } })).toBe(false);
+    // A production build or a Vercel deploy without the secret has no owners: never the IP.
+    for (const env of [{ NODE_ENV: "production" }, { VERCEL: "1" }, { VERCEL_ENV: "preview" }]) {
+      expect(await isOwnerOf(request("/", here), meta({ visitor: starter }), store, { env })).toBe(false);
+    }
   });
 });
 
@@ -257,5 +261,14 @@ describe("starting a plan from the browser", () => {
     const ctx: PlanStartContext = { store, visitor: network, source: "web", network };
     const reply = await startPlan({ env, execute: async () => {}, schedule: () => {} }, { inputs }, ctx);
     expect(reply).toMatchObject({ mode: "example", reason: "rate-limited", message: expect.stringContaining("today") });
+  });
+
+  it("gives the network's count back when a later check refuses the plan", async () => {
+    const store = new MemoryStore();
+    const network = await visitorId(store, new Headers({ "x-forwarded-for": "198.51.100.4" }));
+    const ctx: PlanStartContext = { store, visitor: network, source: "web", network };
+    const reply = await startPlan({ env: { ...env, LIVE_RUNS_DAILY_CAP: "0" }, execute: async () => {}, schedule: () => {} }, { inputs }, ctx);
+    expect(reply).toMatchObject({ mode: "example", reason: "daily-cap" });
+    expect(await store.get(keys.rate("plan-daily", network, dayOf()))).toBe(0);
   });
 });

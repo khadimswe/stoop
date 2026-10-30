@@ -8,7 +8,7 @@
 import { z } from "zod";
 import { stripEmDashes } from "../guardrails";
 import { allowAll, type BotCheck } from "../bot-check";
-import { BodyError, readJson, visitorCookie } from "../http";
+import { BodyError, cookieVisitorOf, readJson, visitorCookie } from "../http";
 import { browserOnly } from "../routes/guard";
 import { ApiFailure, hourOf } from "../runtime/errors";
 import { contextFor, errorResponse, json } from "../runtime/respond";
@@ -129,12 +129,14 @@ const STREAM_LEASE_MS = PLAN_STREAM_MAX_MS + 30_000;
 const tooManyStreams = () => Response.json({ error: { code: "rate_limited", message: "This plan is already open in a few places. Close a tab and reload." } }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "30" } });
 
 /**
- * Takes a lease per open stream (per visitor, and per visitor and plan): a release to call when the
- * stream ends, or null when the visitor already holds too many. No store (examples only): no limit.
+ * Takes a lease per open stream (per viewer, and per viewer and plan): a release to call when the
+ * stream ends, or null when the viewer already holds too many. A live plan's owner counts by their
+ * signed cookie, so other people's example streams on a shared network never crowd them out; anyone
+ * else counts by IP. No store (examples only): no limit.
  */
-async function streamLease(store: Store | null, request: Request, planId: string, live: boolean, now: number): Promise<(() => Promise<void>) | null | "none"> {
+async function streamLease(store: Store | null, request: Request, planId: string, live: boolean, now: number, env: Env): Promise<(() => Promise<void>) | null | "none"> {
   if (!store) return "none";
-  const visitor = await visitorId(store, request.headers);
+  const visitor = (live ? cookieVisitorOf(request, signingSecret(env)) : null) ?? (await visitorId(store, request.headers));
   const member = `${planId}:${crypto.randomUUID()}`;
   const sets = [{ key: keys.planStreams(visitor), max: PLAN_STREAMS_PER_VISITOR }, ...(live ? [{ key: `${keys.planStreams(visitor)}:${planId}`, max: PLAN_STREAMS_PER_PLAN }] : [])];
   const taken: string[] = [];
@@ -164,7 +166,7 @@ export async function getPlanEvents(request: Request, id: string, deps: PlanRout
       const store = storeOrNull(deps);
       const events = await loadPlanEvents(store, id);
       if (seen !== null && seen >= Math.max(...events.map((e) => e.seq))) return new Response(null, { status: 204 });
-      const release = await streamLease(store, request, id, false, now()).catch(() => "none" as const);
+      const release = await streamLease(store, request, id, false, now(), envOf(deps)).catch(() => "none" as const);
       if (release === null) return tooManyStreams();
       return new Response(streamExamplePlan(events, { lastEventId, signal: request.signal, ...(release === "none" ? {} : { onClose: release }) }), { headers: SSE_HEADERS });
     }
@@ -178,7 +180,7 @@ export async function getPlanEvents(request: Request, id: string, deps: PlanRout
       const events = await readStoredPlanEvents(store, runId.data);
       if (events.length && events.at(-1)!.seq === seen) return new Response(null, { status: 204 });
     }
-    const release = await streamLease(store, request, runId.data, true, now());
+    const release = await streamLease(store, request, runId.data, true, now(), envOf(deps));
     if (release === null) return tooManyStreams();
     return new Response(streamLivePlan(store, runId.data, { lastEventId, signal: request.signal, ...(release === "none" ? {} : { onClose: release }) }), { headers: SSE_HEADERS });
   } catch (error) {

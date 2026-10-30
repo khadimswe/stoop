@@ -134,8 +134,8 @@ export const keys = {
   planVariantB: (planId: string) => `plan:${planId}:marketing:b`,
   /** Idempotent starts: the hash of the inputs and who sent them points at the plan already started for it. */
   planClaim: (claimHash: string) => `plan:claim:${claimHash}`,
-  /** Live plan event streams open at once, per visitor (lib/plan/stream.ts). */
-  planStreams: (visitor: VisitorId | TokenVisitorId) => `leases:plan-streams:${visitor}`,
+  /** Plan event streams open at once, per viewer: a plan's owner by their cookie, anyone else by IP (lib/plan/routes.ts). */
+  planStreams: (visitor: VisitorId | CookieVisitorId) => `leases:plan-streams:${visitor}`,
   /** Live plan admission leases. */
   planLeases: "leases:live-plans",
   // Facebook and Instagram posting (lib/social). Tokens live only in metaSession, encrypted.

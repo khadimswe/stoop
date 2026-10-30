@@ -156,12 +156,15 @@ export async function startPlan(deps: PlanStartDeps, raw: unknown, ctx: PlanStar
   }
 
   if ((await store.incr(keys.rate("plan", ctx.visitor, hourOf(now())), { ttlSeconds: 60 * 60 })) > PLANS_PER_HOUR) return exampleReply("rate-limited", inputs);
-  if (ctx.network && (await store.incr(keys.rate("plan-daily", ctx.network, dayOf(now())), { ttlSeconds: TTL.daily })) > PLANS_PER_NETWORK_DAILY) {
+  // The network's day counts only plans that start: a later refusal (today's cap, busy) gives it back.
+  const networkKey = ctx.network ? keys.rate("plan-daily", ctx.network, dayOf(now())) : null;
+  if (networkKey && (await store.incr(networkKey, { ttlSeconds: TTL.daily })) > PLANS_PER_NETWORK_DAILY) {
     return exampleReply("rate-limited", inputs, NETWORK_DAILY_MESSAGE);
   }
+  const giveBackNetwork = () => (networkKey ? store.incr(networkKey, { by: -1 }).catch(() => undefined) : Promise.resolve());
   const dailyKey = keys.daily("live-runs");
   if ((await store.incr(dailyKey, { ttlSeconds: TTL.daily })) > dailyCaps(env).liveRuns) {
-    await store.incr(dailyKey, { by: -1 }).catch(() => undefined);
+    await Promise.all([store.incr(dailyKey, { by: -1 }).catch(() => undefined), giveBackNetwork()]);
     return exampleReply("daily-cap", inputs);
   }
 
@@ -191,6 +194,7 @@ export async function startPlan(deps: PlanStartDeps, raw: unknown, ctx: PlanStar
       await Promise.allSettled([
         leased ? store.leaseRelease(keys.planLeases, runId) : Promise.resolve(),
         store.incr(dailyKey, { by: -1 }),
+        giveBackNetwork(),
         ours ? store.deleteIfEquals(claimKey, { runId, at: claimedAt }) : Promise.resolve(),
       ]);
     }

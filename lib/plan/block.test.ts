@@ -61,6 +61,9 @@ describe("POST /api/plan/block", () => {
     const body = (await (await postBlock(ask({ store: example.store }), deps(store))).json()) as BlockAnswer;
     expect(body).toMatchObject({ mode: "example" });
     expect(await store.get(keys.daily("qloo", dayOf()))).toBe(500 - BLOCK_CALLS + 1);
+    // A lookup refused for the day's cap does not use up the network's day either.
+    const network = await networkVisitorId(store, new Headers({ "x-forwarded-for": "203.0.113.7" }));
+    expect(await store.get(keys.rate("plan-block-daily", network, dayOf()))).toBeNull();
   });
 
   it("caps one network's fresh lookups per day (an IPv6 /48)", async () => {
