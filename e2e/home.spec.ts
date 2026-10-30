@@ -330,7 +330,7 @@ test.describe("the store-events landing", () => {
     const hero = page.locator("#hero");
     await expect(hero.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
     await expect(hero.getByRole("link", { name: "See a real plan" })).toHaveAttribute("href", LEAD_EVENT);
-    // The sub says Qloo picks, at every width (phones get a shorter line that still names Qloo and the three draws).
+    // The sub says Qloo picks, at every width (on phones each sentence is its own block).
     const sub = hero.getByText(/Stoop uses Qloo's taste data to plan yours/).filter({ visible: true });
     await expect(sub).toHaveCount(1);
     for (const draw of [/music your city plays/, /snacks .*from spots/, /prize wheel/]) await expect(sub).toContainText(draw);
@@ -384,7 +384,8 @@ test.describe("the store-events landing", () => {
       await expect(video).toHaveAttribute("preload", "none");
       await expect(video).toHaveAttribute("poster", /\.(jpe?g|webp|png)$/);
       expect(await video.evaluate((v: HTMLVideoElement) => v.muted && v.playsInline && v.loop)).toBe(true);
-      await expect(band.getByRole("button", { name: /Pause the video|Play the video/ })).toBeVisible();
+      // The corner button (under reduced motion a second play button also sits in the middle).
+      await expect(band.getByRole("button", { name: /Pause the video|Play the video/ }).last()).toBeVisible();
     }
     // No before and after slot until the founder has the photos.
     await expect(page.getByText("From the pilot")).toHaveCount(0);

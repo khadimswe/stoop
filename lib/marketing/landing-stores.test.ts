@@ -69,7 +69,7 @@ describeRecorded("each example store's showcase", () => {
       expect(show.meta).toContain("Free to spin, no purchase needed");
       expect(show.map!.chip).toBe(`${view.local.block!.places.length} places from Qloo, within about 1 mile`);
       expect(show.map!.pins.map((p) => p.name)).toEqual(view.local.block!.places.map((p) => p.name));
-      expect(show.poster.src).toBe(view.marketing.poster.thumb);
+      expect(show.poster.src).toBe(view.marketing.poster.medium);
       expect(show.fictional).toBe("Fictional store. Not affiliated with or endorsed by T-Mobile.");
     });
 

@@ -39,7 +39,7 @@ export interface StoreShowcase {
     chip: string;
     label: string;
   } | null;
-  /** The approved poster as a small WebP (360 wide), for the tab's thumbnail. */
+  /** The approved poster as a WebP 720 wide (sharp at the tab's 240 px on 2x screens), lazy-loaded. */
   poster: { src: string | null; alt: string };
   hrefs: { event: string; block: string; poster: string; promote: string };
   fictional: string | null;
@@ -148,7 +148,7 @@ export function storeShowcase(view: PlanView, slug: string, city: string): Store
           label: `Map of the ${block.places.length} places Qloo found within ${usRadius(block.radiusM)} of ${view.header.venue ? "the event" : view.header.storeName}. Filled pins are the ones the plan uses.`,
         }
       : null,
-    poster: { src: view.marketing.poster.thumb, alt: view.marketing.poster.alt },
+    poster: { src: view.marketing.poster.medium, alt: view.marketing.poster.alt },
     hrefs: { event: hrefs.event, block: hrefs.block, poster: hrefs.poster, promote: hrefs.promote },
     fictional: view.header.fictional,
   };

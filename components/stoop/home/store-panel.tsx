@@ -66,7 +66,7 @@ export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: 
           <div className="flex items-center gap-4 md:flex-col md:items-stretch md:gap-3">
             {show.poster.src && (
               <Link href={show.hrefs.poster} className="block w-24 shrink-0 rounded-[10px] md:w-full">
-                <Image src={show.poster.src} alt={show.poster.alt} width={360} height={450} unoptimized loading="lazy" className="aspect-[4/5] h-auto w-full rounded-[10px] bg-fl-dark object-cover" />
+                <Image src={show.poster.src} alt={show.poster.alt} width={720} height={900} unoptimized loading="lazy" className="aspect-[4/5] h-auto w-full rounded-[10px] bg-fl-dark object-cover" />
               </Link>
             )}
             <div className="flex min-w-0 flex-col gap-1">

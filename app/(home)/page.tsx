@@ -9,6 +9,7 @@ import { ReserveStores } from "@/components/stoop/home/reserve-stores";
 import { StorePanel } from "@/components/stoop/home/store-panel";
 import { StoreTabs } from "@/components/stoop/home/store-tabs";
 import { metaPostingEnabled } from "@/lib/config";
+import { beforeAfterItems } from "@/lib/marketing/before-after";
 import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
 import { BEFORE_AFTER, DEMO_VIDEO, FOUNDER_STORY, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
@@ -37,8 +38,8 @@ const STEPS = [
 function PostStatus({ post }: { post: TimelinePost }) {
   const Icon = post.status === "scheduled" ? Clock : Check;
   return (
-    <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium whitespace-nowrap text-fl-dark-dim">
-      <Icon aria-hidden="true" className="size-3.5 text-fl-signal" />
+    <span className="inline-flex items-start gap-1.5 text-[0.8125rem] font-medium text-fl-dark-dim">
+      <Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-fl-signal" />
       {post.statusText}
     </span>
   );
@@ -67,7 +68,7 @@ export default function Home() {
   const mixedStatus = new Set(posts.map((p) => p.statusText)).size > 1;
   const cityName = leadView.local.city?.name ?? leadStore.show.city;
   const bandMedia = PILOT_COPY ? PILOT_MEDIA : null;
-  const pilotMedia = Boolean(bandMedia) || Boolean(PILOT_COPY && BEFORE_AFTER);
+  const pilotMedia = Boolean(bandMedia) || beforeAfterItems(PILOT_COPY ? BEFORE_AFTER : null).length > 0;
   // The comparison below is the lead store's, so the tabs open on another community and the lead store comes last.
   const tabStores = [...stores.filter((s) => s.slug !== lead), leadStore];
 
@@ -243,10 +244,11 @@ export default function Home() {
               <p className="text-lg leading-[1.5] text-pretty text-fl-dark-dim">{postCopy.body}</p>
               <p className="text-sm text-fl-dark-dim">{postCopy.note}</p>
             </div>
-            {/* The example's send times, in its own calendar: the announcement, then the reminders. */}
-            <ol aria-label="When the posts go out" className="grid grid-cols-2 gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule sm:grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))]">
+            {/* The example's send times, in its own calendar: the announcement, then the reminders. Cells grow
+                to fill each row, so 4 or 5 posts never leave an empty slot. */}
+            <ol aria-label="When the posts go out" className="flex flex-wrap gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule">
               {posts.map((p) => (
-                <li key={p.title} className="flex flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
+                <li key={p.title} className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
                   <span className="text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
                   <span className="text-[0.8125rem] text-fl-dark-dim">{p.title}</span>
                   {mixedStatus && <PostStatus post={p} />}
