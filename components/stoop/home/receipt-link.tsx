@@ -3,8 +3,13 @@
 import type { MouseEvent, ReactNode } from "react";
 import { ReceiptTrigger } from "@/components/stoop/floor/receipts";
 
-/** Stops the link's own navigation once the receipt trigger (inside) has opened the dialog. */
-const stay = (event: MouseEvent) => event.preventDefault();
+/**
+ * Stops the link's own navigation once the receipt trigger (inside) has opened the dialog. A click
+ * with a modifier (open in a new tab or window) keeps the browser's own behavior.
+ */
+const stay = (event: MouseEvent) => {
+  if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) event.preventDefault();
+};
 
 /**
  * A Qloo pick as a link that opens its receipt. Without JavaScript it is a plain link to the same

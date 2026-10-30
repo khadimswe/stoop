@@ -1,11 +1,13 @@
 // The landing's words, and the switches for anything about real stores.
 //
-// - PILOT_COPY: any pilot or dealer line. OFF until the founder has the dealer's written permission;
-//   flipping it to true is the only change needed.
+// - PILOT_COPY: anything from a real store's pilot: the pilot line, the table video (PILOT_MEDIA), the
+//   before and after photos (BEFORE_AFTER) and the result (PILOT_RESULT). OFF until the founder has the
+//   dealer's written permission; each of those also needs its own constant set before it shows.
 // - PILOT_MEDIA: the founder's landscape video of a real table, under the hero. Null until he drops the
 //   files in public/pilot/ (public/pilot/README.md says which) and sets it; until then the band shows
 //   the lead example store's real plan as a still.
-// - DEMO_VIDEO: a longer walkthrough in "How it works", click to play. Null renders nothing.
+// - DEMO_VIDEO: a longer walkthrough of the product in "How it works", click to play. Null renders
+//   nothing. Not gated: it shows the app, not a store.
 // - FOUNDER_STORY: the founder's own story, ON. It names streets he worked on, never a store or dealer.
 // - PILOT_RESULT: the first real event's result. Null renders nothing; fill it in after the event.
 export const PILOT_COPY = false;
@@ -21,7 +23,7 @@ export const HERO = {
   sub: "Every prepaid store sets up the same table outside. Stoop plans yours for the community around it: music your city plays, snacks and gift cards from spots down the street, and a prize wheel built from your deals. Then it makes the poster and lines up the posts.",
   /** The phone's shorter line: the same promise in two sentences. */
   subShort: "Every prepaid store sets up the same table. Stoop plans yours for the community around it, then makes the poster and lines up the posts.",
-  trust: ["Built by a sales rep on a Metro floor", "Every pick has a Qloo receipt", "Nothing posts until you approve"],
+  trust: ["Built by a sales rep on a Metro floor", "Every pick has a Qloo receipt", "Nothing posts until you approve", "Independent, not affiliated with any carrier"],
 } as const;
 
 /** A self-hosted video: an H.264 mp4 (and an optional WebM), its first frame as a JPEG, optional captions. */

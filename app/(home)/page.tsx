@@ -99,7 +99,7 @@ export default function Home() {
         </section>
 
         <MediaBand
-          media={PILOT_MEDIA}
+          media={PILOT_COPY ? PILOT_MEDIA : null}
           still={{
             title: leadStore.show.title,
             line: `${leadView.header.storeName} · ${leadStore.show.city} · ${leadView.header.dateShort}, ${leadView.header.timeText}`,
@@ -111,7 +111,7 @@ export default function Home() {
           }}
         />
 
-        <BeforeAfter config={BEFORE_AFTER} />
+        <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
         <section id="examples" aria-labelledby="examples-title" className="mt-16 scroll-mt-20 bg-fl-band lg:mt-24">
           <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
@@ -183,7 +183,7 @@ export default function Home() {
                         {r.stoopReceipt && (
                           <>
                             {" "}
-                            <ReceiptLink receiptKey={r.stoopReceipt} href={leadHrefs.event} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Why Qloo picked this: ${r.row.toLowerCase()}`}>
+                            <ReceiptLink receiptKey={r.stoopReceipt} href={leadHrefs.event} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Receipt: why Qloo picked the ${r.row.toLowerCase()}`}>
                               Receipt
                             </ReceiptLink>
                           </>
@@ -283,7 +283,7 @@ export default function Home() {
               ))}
             </ul>
             <ReserveStores title={PILOT_CARD.title} line={PILOT_CARD.line} />
-            {PILOT_RESULT && (
+            {PILOT_COPY && PILOT_RESULT && (
               <p className="flex flex-col gap-0.5 text-sm">
                 <span className="font-semibold">{PILOT_RESULT.line}</span>
                 <span className="text-fl-dim">{PILOT_RESULT_LABEL}</span>

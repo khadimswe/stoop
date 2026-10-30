@@ -1,8 +1,10 @@
 # Pilot media for the landing
 
 Everything in this folder is served as is, at `/pilot/<file>`. Nothing shows on the landing until you
-set its constant in `lib/marketing/pilot.ts`. Until then the landing shows the lead example store's real
-plan in the video band, and the before and after slot renders nothing.
+set its constant in `lib/marketing/pilot.ts`, and the table video and the before and after photos also
+need `PILOT_COPY = true`, which you set only once the dealer has agreed in writing (they show a real
+store). Until then the landing shows the lead example store's real plan in the video band, and the
+before and after slot renders nothing.
 
 ## 1. The table video (the band under the hero)
 
@@ -51,8 +53,9 @@ What you hear in the first few seconds.
 
 Then, in `lib/marketing/pilot.ts`:
 
-1. Set `PILOT_VIDEO_CAPTION` to your line (for example "Kennesaw, GA · the first table Stoop planned").
-2. Set `PILOT_MEDIA`:
+1. Set `PILOT_COPY = true`, once the dealer has agreed in writing.
+2. Set `PILOT_VIDEO_CAPTION` to your line (for example "Kennesaw, GA · the first table Stoop planned").
+3. Set `PILOT_MEDIA`:
 
 ```ts
 export const PILOT_MEDIA: PilotMedia | null = {
@@ -105,7 +108,8 @@ npx tsx scripts/pilot-photo.ts ~/Desktop/IMG_1240.HEIC public/pilot/after.jpg
 
 (If your version of sharp can't read HEIC, export the photo as JPEG from Photos first.)
 
-Then set `BEFORE_AFTER` in `lib/marketing/pilot.ts`, with alt text that says what is in each photo:
+Then set `BEFORE_AFTER` in `lib/marketing/pilot.ts` (with `PILOT_COPY = true`, as for the video), with
+alt text that says what is in each photo:
 
 ```ts
 export const BEFORE_AFTER: BeforeAfter | null = {
