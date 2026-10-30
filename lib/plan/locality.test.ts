@@ -10,7 +10,7 @@ import { namedPlaces, qlooDecided } from "./baseline";
 import { judgeBlockMusic, signalPlaces } from "./block-music";
 import type { PlanEnv } from "./env";
 import type { PlanEvent } from "./events";
-import { readCity } from "./local";
+import { ageRangeText, readCity } from "./local";
 import { cityQueries, inState, localityMiss, nearestMajorCity, signalLocality, stateOf } from "./locality";
 import type { Block, CityTaste, Concept, PlanInputs } from "./schema";
 import { musicStyles, repeatedPlaceNames } from "./taste";
@@ -171,5 +171,17 @@ describe("what Qloo decided", () => {
   });
   it("counts the generic plan's named places that are chains or on the block", () => {
     expect(namedPlaces(["Place 2", "costco", "Somewhere Else"], block)).toEqual({ named: 3, chains: 1, onBlock: 1 });
+  });
+});
+
+describe("the age bands in a trace label", () => {
+  it("joins bands that touch into one range, and lists the rest", () => {
+    expect(ageRangeText(["25_to_29", "30_to_34"])).toBe("25 to 34");
+    expect(ageRangeText(["30_to_34", "25_to_29"])).toBe("25 to 34");
+    expect(ageRangeText(["24_and_younger", "25_to_29"])).toBe("18 to 29");
+    expect(ageRangeText(["24_and_younger", "35_to_44"])).toBe("18 to 24 and 35 to 44");
+    expect(ageRangeText(["45_to_54", "55_and_older"])).toBe("45 and older");
+    expect(ageRangeText(["24_and_younger", "30_to_34", "45_to_54"])).toBe("18 to 24, 30 to 34 and 45 to 54");
+    expect(ageRangeText(["35_to_44"])).toBe("35 to 44");
   });
 });
