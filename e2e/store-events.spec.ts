@@ -341,10 +341,12 @@ test("a new store round-trips through a stand-in example: Back, the way back and
   await page.getByLabel("Street address, city and state").fill("1100 Ponce de Leon Ave NE, Atlanta, GA");
   await page.getByRole("button", { name: "Find" }).click();
   await page.getByRole("list", { name: "Matches" }).getByRole("button").first().click();
+  // The picked address shows (with Change) before the next tap, so a slow runner never taps too early.
+  await expect(page.getByRole("button", { name: "Change" })).toBeVisible();
   await page.getByRole("button", { name: "See my community" }).first().click();
 
   // The Community step with live maps off: the store's own spot, the note once, the nearest example.
-  await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("group", { name: /^Map of where Corner Wireless is/ })).toBeVisible();
   await expect(page.getByText("Live maps are off right now.")).toHaveCount(1);
   await expect(page.getByRole("link", { name: /See West End Wireless's community/ })).toHaveAttribute("href", "/s/atlanta-west-end");
