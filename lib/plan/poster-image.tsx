@@ -292,6 +292,14 @@ function WheelBadge({ text, p, size }: { text: PosterText; p: PosterPalette; siz
   );
 }
 
+/**
+ * How far the art is drawn past each edge of the poster, as a share of its size. Rendered art can
+ * carry its own border (a torn-paper edge, a frame) that would show as a light strip down a side,
+ * brightest on the wide poster where the scrim fades out on the right; drawn past the canvas, that
+ * border is cropped away and the art covers the full width and height.
+ */
+export const ART_BLEED = 0.06;
+
 function Ground({ art, p, size }: { art: PosterArt | null; p: PosterPalette; size: PosterSize }) {
   const { width, height } = POSTER_SIZES[size];
   if (art) {
@@ -299,10 +307,12 @@ function Ground({ art, p, size }: { art: PosterArt | null; p: PosterPalette; siz
       size === "portrait"
         ? "linear-gradient(180deg, rgba(5,3,10,0.78) 0%, rgba(5,3,10,0.35) 22%, rgba(5,3,10,0.45) 38%, rgba(5,3,10,0.7) 55%, rgba(5,3,10,0.82) 75%, rgba(5,3,10,0.92) 100%)"
         : "linear-gradient(90deg, rgba(5,3,10,0.94) 0%, rgba(5,3,10,0.82) 55%, rgba(5,3,10,0.3) 100%)";
+    const artWidth = Math.round(width * (1 + 2 * ART_BLEED));
+    const artHeight = Math.round(height * (1 + 2 * ART_BLEED));
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
-        <img src={art.dataUri} width={width} height={height} style={{ position: "absolute", top: 0, left: 0, width, height, objectFit: "cover" }} />
+        <img src={art.dataUri} width={artWidth} height={artHeight} style={{ position: "absolute", top: -Math.round(height * ART_BLEED), left: -Math.round(width * ART_BLEED), width: artWidth, height: artHeight, objectFit: "cover" }} />
         <div style={{ position: "absolute", top: 0, left: 0, width, height, display: "flex", backgroundImage: scrim }} />
       </>
     );

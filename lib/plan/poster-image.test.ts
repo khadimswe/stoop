@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { AA, contrastRatio } from "../design/contrast";
 import { CARRIER_PALETTES, fitHeadline, MAX_DEAL_CARDS, portraitLayout, posterImage, POSTER_SIZES, where } from "./poster-image";
@@ -88,6 +89,24 @@ describe("posterImage", () => {
       const t = text({ carrier, phone: "(312) 555-0142", location: carrier === "boost" ? "East End Fair" : null, wheel: "Spin the prize wheel: store deals. Free to spin, no purchase needed.", wheelWhat: "Store deals" });
       expect(await pngSize(posterImage(t, null, "portrait", {}, carrier === "metro" ? logo : null))).toEqual(POSTER_SIZES.portrait);
       expect(await pngSize(posterImage(t, null, "og"))).toEqual(POSTER_SIZES.og);
+    }
+  });
+
+  it("draws the art past every edge, so a border painted into the art never shows as a strip", async () => {
+    // Art with its own bright border (like a torn-paper edge), 30 px wide, around a black middle.
+    const art = await sharp({ create: { width: 928, height: 1152, channels: 3, background: "#ffffff" } })
+      .composite([{ input: await sharp({ create: { width: 868, height: 1092, channels: 3, background: "#000000" } }).png().toBuffer(), left: 30, top: 30 }])
+      .png()
+      .toBuffer();
+    const dataUri = `data:image/png;base64,${art.toString("base64")}`;
+    for (const size of ["og", "portrait"] as const) {
+      const png = Buffer.from(await posterImage(text(), { dataUri }, size).arrayBuffer());
+      const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      const at = (x: number, y: number) => Math.max(...[0, 1, 2].map((c) => data[(y * info.width + x) * info.channels + c]!));
+      const edges: number[] = [];
+      for (let y = 0; y < info.height; y += 5) edges.push(at(0, y), at(info.width - 1, y));
+      for (let x = 0; x < info.width; x += 5) edges.push(at(x, 0), at(x, info.height - 1));
+      expect(Math.max(...edges), `${size}: the art's border shows at an edge`).toBeLessThan(40);
     }
   });
 });
