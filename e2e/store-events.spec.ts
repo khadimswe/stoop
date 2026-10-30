@@ -24,6 +24,7 @@ test("landing to an example event to one receipt", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
+  // His name closes the story band right after the hero.
   await expect(page.getByText("Khadim, sales floor, Metro by T-Mobile")).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await page.getByRole("link", { name: "See a real plan" }).click();

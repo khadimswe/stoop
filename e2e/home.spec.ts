@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
 import { andList, recordedNames } from "../lib/testing/recorded-names";
 
 // Qloo's names for the lead example, read from its recording (no test file holds Qloo response data).
@@ -346,10 +347,21 @@ test.describe("the store-events landing", () => {
 
   test("the landing reads plainly: no jargon, no lift claims, never block or your customers", async ({ page }) => {
     await page.goto("/");
-    const text = await page.locator("main").innerText();
+    const main = await page.locator("main").innerText();
+    // The one exception is the first table's own result, read from the day and always labeled as one day,
+    // a first look, not proof. Nothing else on the page says a percent more.
+    const shown = Boolean(PILOT_COPY && TABLE_PHOTO && PILOT_RESULT);
+    const text = shown ? main.replace(PILOT_RESULT!.line, "") : main;
+    if (shown) {
+      expect(main).toContain(PILOT_RESULT!.line);
+      expect(main).toContain(PILOT_RESULT_LABEL);
+      expect(PILOT_RESULT_LABEL).toMatch(/not proof/);
+      // Never phrased as Stoop causing it.
+      expect(PILOT_RESULT!.line).not.toMatch(/stoop|because|thanks to|drove|caused/i);
+    }
     expect(text).not.toMatch(/\bblock\b|your customers|median|checkable|rubric/i);
     expect(text).not.toMatch(/\d+% (lift|more|better|higher)/i);
-    expect(text.includes(String.fromCharCode(0x2014))).toBe(false);
+    expect(main.includes(String.fromCharCode(0x2014))).toBe(false);
   });
 
   test("the H1 is the largest paint", async ({ page }) => {
@@ -372,9 +384,10 @@ test.describe("the store-events landing", () => {
     await page.goto("/");
     const band = page.getByRole("region", { name: "A real table" });
     const next = await page.locator("#hero").evaluate((hero) => hero.nextElementSibling?.getAttribute("aria-label") ?? hero.nextElementSibling?.id ?? null);
-    if ((await band.count()) === 0) {
-      // No video yet: the example stores follow the hero, with no empty band and no stand-in card.
-      expect(next).toBe("examples");
+    if (!(PILOT_COPY && PILOT_MEDIA)) {
+      // No video yet: the story band (or, without it, the example stores) follows the hero, with no empty band and no stand-in card.
+      expect(next).toBe(STORE_STORY ? "story" : "examples");
+      await expect(band).toHaveCount(0);
       await expect(page.getByText("What Stoop picked for this table")).toHaveCount(0);
       await expect(page.locator("video")).toHaveCount(0);
     } else {
@@ -391,6 +404,38 @@ test.describe("the store-events landing", () => {
     await expect(page.getByText("From the pilot")).toHaveCount(0);
   });
 
+  test("the real store leads: the story, then the first table Stoop planned, then the example stores", async ({ page }) => {
+    test.skip(!STORE_STORY, "The story band is turned off.");
+    await page.goto("/");
+    const { headline, body } = storyLines(STORE_STORY!);
+    const story = page.getByRole("region", { name: headline });
+    await expect(story.getByRole("heading", { level: 2, name: headline })).toBeVisible();
+    await expect(story.getByText(body)).toBeVisible();
+    await expect(story.getByText(STORE_STORY!.credit)).toBeVisible();
+    // The story is words only: no photo beside it, so no picture reads as the ice cream event.
+    await expect(story.getByRole("img")).toHaveCount(0);
+    // The old "Built on the sales floor" quote is folded into the story.
+    await expect(page.getByText("Built on the sales floor")).toHaveCount(0);
+    const order = await page.evaluate(() => ["story", "real-table", "examples"].map((id) => document.getElementById(id)).filter(Boolean).map((el) => el!.id));
+    const table = page.getByRole("region", { name: TABLE_TITLE });
+    if (PILOT_COPY && TABLE_PHOTO) {
+      expect(order).toEqual(["story", "real-table", "examples"]);
+      const photo = table.getByRole("img", { name: TABLE_PHOTO.alt });
+      await expect(photo).toHaveAttribute("loading", "lazy");
+      await expect(photo).toHaveAttribute("src", TABLE_PHOTO.src);
+      await expect(table.getByText(TABLE_PHOTO.caption)).toBeVisible();
+      // The result shows only once it is set, and always with its label.
+      if (PILOT_RESULT) {
+        await expect(table.getByText(PILOT_RESULT.line)).toBeVisible();
+        await expect(table.getByText(PILOT_RESULT_LABEL)).toBeVisible();
+      } else await expect(table.getByText(PILOT_RESULT_LABEL)).toHaveCount(0);
+    } else {
+      expect(order).toEqual(["story", "examples"]);
+      await expect(table).toHaveCount(0);
+    }
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
   test("three example stores as tabs: arrow keys move, the panel follows, a pick opens its receipt", async ({ page }) => {
     await page.goto("/");
     const tabs = page.getByRole("tablist", { name: "Example stores" }).getByRole("tab");
@@ -399,7 +444,8 @@ test.describe("the store-events landing", () => {
     await expect(page.getByRole("tabpanel")).toHaveCount(1);
     // The comparison below is the lead store's, so the tabs open on another community.
     await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
-    await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ })).toBeVisible();
+    // Posters live in one place (Promote), never in the tabs.
+    await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ })).toHaveCount(0);
 
     await tabs.nth(0).focus();
     await page.keyboard.press("ArrowRight");
@@ -418,7 +464,6 @@ test.describe("the store-events landing", () => {
     await expect(panel.getByText(/^24 places from Qloo, within about 1 mile$/)).toBeVisible();
     await expect(panel.getByText("Free to spin, no purchase needed")).toBeVisible();
     await expect(panel.getByText("Fictional store. Not affiliated with or endorsed by T-Mobile.")).toBeVisible();
-    await expect(panel.getByRole("img", { name: /^Event poster/ })).toBeVisible();
     await expect(panel.getByRole("link", { name: "Open the plan for 18th Street Wireless" })).toHaveAttribute("href", LEAD_EVENT);
     await expect(panel.getByText("The day")).toHaveCount(0);
     await expect(panel.getByText(/Qloo calls/)).toHaveCount(0);
@@ -456,6 +501,12 @@ test.describe("the store-events landing", () => {
 
   test("the promote section never promises posting that is off", async ({ page }) => {
     await page.goto("/");
+    // The page's one example poster sits here, small, with what it comes with.
+    const posters = page.getByRole("img", { name: /^Event poster/ });
+    await expect(posters).toHaveCount(1);
+    const promote = page.locator("section", { has: page.locator("#posts-title") });
+    await expect(promote.getByRole("img", { name: /^Event poster/ })).toBeVisible();
+    await expect(promote.getByText("Every plan comes with a poster and the posts.")).toBeVisible();
     const off = page.getByRole("heading", { level: 2, name: "Posts written for your channels, ready in one tap." });
     if ((await off.count()) > 0) {
       const section = page.locator("section", { has: off });

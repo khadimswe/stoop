@@ -1,16 +1,19 @@
 // The landing's words, and the switches for anything about real stores.
 //
 // - PILOT_COPY: anything from a real store's pilot: the pilot line, the table video (PILOT_MEDIA), the
-//   before and after photos (BEFORE_AFTER) and the result (PILOT_RESULT). OFF until the founder has the
-//   dealer's written permission; each of those also needs its own constant set before it shows.
+//   real table section (TABLE_PHOTO and PILOT_RESULT) and the before and after photos (BEFORE_AFTER).
+//   ON since Oct 30: the founder confirmed in writing that his manager, his coworkers and everyone
+//   pictured agreed. Each of those also needs its own constant set before it shows.
 // - PILOT_MEDIA: the founder's landscape video of a real table, right under the hero. Null until he
 //   drops the files in public/pilot/ and sets it (public/pilot/README.md has the steps); until then
 //   nothing renders there and the example stores follow the hero.
 // - DEMO_VIDEO: a longer walkthrough of the product in "How it works", click to play. Null renders
 //   nothing. Not gated: it shows the app, not a store.
-// - FOUNDER_STORY: the founder's own story, ON. It names streets he worked on, never a store or dealer.
-// - PILOT_RESULT: the first real event's result. Null renders nothing; fill it in after the event.
-export const PILOT_COPY = false;
+// - STORE_STORY: the founder's story, the band right after the hero ("Going outside works. Guessing
+//   doesn't."), ON. It names no store or dealer, and never carries a photo.
+// - TABLE_PHOTO: the real table section after the story, "The first table Stoop planned", with
+//   PILOT_RESULT and its label under it (null renders nothing).
+export const PILOT_COPY = true;
 
 /** One line about the pilot, shown only with PILOT_COPY on. Empty until the dealer's written permission. */
 export const PILOT_LINE = "";
@@ -24,7 +27,7 @@ export const HERO = {
    * Qloo is named as what picks the music and the places, in the hero's first read. One line at every
    * width: on phones each sentence is its own block, so none paints larger than the H1 (the LCP element).
    */
-  sub: ["Every prepaid store sets up the same table outside.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals.", "Then it makes the poster and the posts."],
+  sub: ["Every prepaid store sets up the same table outside.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals."],
   /** The Qloo line leads and says what Qloo is. */
   trust: ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"],
 } as const;
@@ -96,13 +99,58 @@ export interface BeforeAfter {
 }
 export const BEFORE_AFTER: BeforeAfter | null = null;
 
-/** His words, as the "Built on the sales floor" quote. Set to null to take it down. */
-export const FOUNDER_STORY: { quote: string; line: string; credit: string } | null = {
-  quote:
-    "At my first Metro store, on Tara Boulevard, a table outside with music and snacks brought in big traffic. When I moved to Kennesaw and set up the same table, people walked right past it.",
-  line: "Same table, different community. Stoop plans for the community you're in.",
+/**
+ * The story band right after the hero (after the video, when one is set): the founder's story, in his
+ * words. ON: it names no store or dealer. It never carries a photo, so no picture reads as the event it
+ * tells. The numbers are fields, so a correction is one edit (storyLines puts the sentence together).
+ * Set to null to take it down.
+ */
+export interface StoreStory {
+  headline: string;
+  /** The story up to the numbers, ending "..., and". */
+  before: string;
+  /** How many treats the store bought: 100. */
+  bought: number;
+  /** What it bought, plural: "ice creams". */
+  item: string;
+  /** How many people came, as said out loud: "about 5". */
+  came: string;
+  /** The rest of the story, after the numbers. */
+  after: string;
+  credit: string;
+}
+export const STORE_STORY: StoreStory | null = {
+  headline: "Going outside works. Guessing doesn't.",
+  before:
+    "Selling phones at a prepaid store is hard. A table outside helps, but only when it fits the community. At my first store I knew my regulars, and it worked. In Kennesaw the same table got walked past, and",
+  bought: 100,
+  item: "ice creams",
+  came: "about 5",
+  after: "The budget wasn't the problem. Knowing the community was.",
   credit: "Khadim, sales floor, Metro by T-Mobile",
 };
+
+/** The story's big line and its text, the numbers filled in: "..., and 100 ice creams drew about 5 people." */
+export function storyLines(story: StoreStory): { headline: string; body: string } {
+  return { headline: story.headline, body: `${story.before} ${story.bought} ${story.item} drew ${story.came} people. ${story.after}` };
+}
+
+/**
+ * The real table section after the story, "The first table Stoop planned", shown only with PILOT_COPY
+ * on (it shows a real store). Taken Oct 30 at the table Stoop planned, never the ice cream event. Made
+ * from the founder's photo: the neighbor's window cropped off the left and its last two panes frosted
+ * (beer signs), then upright, 1600 px wide, JPEG quality 80 and no metadata, as scripts/pilot-photo.ts does.
+ */
+export const TABLE_PHOTO: (PilotPhoto & { width: number; height: number }) | null = {
+  src: "/pilot/table.jpg",
+  width: 1600,
+  height: 1435,
+  alt: "Our table outside the store: a purple canopy over a table with treats and a speaker, a sales rep behind it, and a drop board numbered 1 to 6 in front.",
+  caption: "Kennesaw, GA, Oct 30, 2026: the table Stoop planned, outside our store. Stoop is independent and isn't affiliated with T-Mobile.",
+};
+
+/** The real table section's heading. */
+export const TABLE_TITLE = "The first table Stoop planned.";
 
 /**
  * The promote section, true in both modes of ENABLE_META_POSTING (lib/config.ts metaPostingEnabled).
@@ -116,7 +164,7 @@ export const POSTING_COPY = {
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "An announcement and reminders for Facebook, Instagram and WhatsApp. You share each one when it's time.",
+    body: "An announcement and reminders for Facebook, Instagram and WhatsApp. You share each one.",
     note: "Posting straight to your Facebook Page turns on once Meta approves the app.",
   },
 } as const;
@@ -124,7 +172,7 @@ export const POSTING_COPY = {
 /** Who it's for, one line each. */
 export const WHO = [
   { title: "Store managers", line: "This Saturday's table, poster and posts, done before your shift." },
-  { title: "Multi-store managers", line: "A different plan for each store, because each one sits in a different community." },
+  { title: "Multi-store managers", line: "A different plan for each store, fit to its community." },
   { title: "District managers and dealer owners", line: "Every store's next event on one page." },
 ] as const;
 
@@ -136,10 +184,13 @@ export const FOOTER_NOTICE =
   "Metro by T-Mobile, Cricket Wireless and Boost Mobile are trademarks of their owners. Stoop is independent and isn't affiliated with or endorsed by any of them. Example stores are fictional. Stoop reads your city and the places in your community through Qloo's aggregate taste data; it never sees a shopper.";
 
 /**
- * The first pilot's result, once it has run: for example "First pilot: X walk-ins in 3 hours, vs a
- * usual Y". Null renders nothing. Never filled in before a real event.
+ * The first table's result, under its photo in the real table section (PILOT_COPY only), as the founder
+ * confirmed it on Oct 30: percentages only, no device counts. What was seen that day, never phrased as
+ * Stoop causing it, and always beside PILOT_RESULT_LABEL. Null renders nothing.
  */
-export const PILOT_RESULT: { line: string } | null = null;
+export const PILOT_RESULT: { line: string } | null = {
+  line: "About 30% more walk-ins than a usual Friday, across the whole day, and about twice the usual device sales.",
+};
 
 /** Always said next to a pilot result. */
-export const PILOT_RESULT_LABEL = "One Friday. A first look, not proof.";
+export const PILOT_RESULT_LABEL = "Oct 30, the day before Halloween. One day: a first look, not proof.";

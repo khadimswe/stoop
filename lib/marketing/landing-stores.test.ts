@@ -65,11 +65,10 @@ describeRecorded("each example store's showcase", () => {
       expect(titleGenre(verdictText(show.verdict))).toBeNull();
     });
 
-    it(`${slug}: the tab keeps the free-to-spin line, the community map from Qloo and the poster's small image`, () => {
+    it(`${slug}: the tab keeps the free-to-spin line, the community map from Qloo and the fictional-store line`, () => {
       expect(show.meta).toContain("Free to spin, no purchase needed");
       expect(show.map!.chip).toBe(`${view.local.block!.places.length} places from Qloo, within about 1 mile`);
       expect(show.map!.pins.map((p) => p.name)).toEqual(view.local.block!.places.map((p) => p.name));
-      expect(show.poster.src).toBe(view.marketing.poster.medium);
       expect(show.fictional).toBe("Fictional store. Not affiliated with or endorsed by T-Mobile.");
     });
 
