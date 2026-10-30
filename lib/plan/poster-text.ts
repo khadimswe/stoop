@@ -33,6 +33,8 @@ export interface PosterText {
   wheel: string | null;
   /** What the wheel carries, for the poster's badge ("Store deals and free gift cards"), or null. */
   wheelWhat: string | null;
+  /** One local line from the plan's own shopping list, a place Qloo returned, by name: "Treats from Maple Corner Cafe" (made up). */
+  local: string | null;
   /** The carrier, for the poster's palette only (colors, never a logo). */
   carrier: Store["carrier"];
   /** Example stores only: they are fictional and not affiliated with the carrier. */
@@ -44,17 +46,30 @@ export interface PosterText {
  * gift cards when it carries gift-card slices. Spinning is always free and needs no purchase.
  */
 export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
-  const what = wheelWhat(plan);
+  return wheelLineOf(plan?.wheel?.slices.map((s) => s.kind) ?? null);
+}
+
+/** The wheel's line from its slices' kinds alone (the screens have the kinds, not the plan), or null without a wheel. */
+export function wheelLineOf(kinds: readonly string[] | null): string | null {
+  const what = wheelWhatOf(kinds);
   return what ? `Spin the prize wheel: ${what}. Free to spin, no purchase needed.` : null;
 }
 
 /** What the wheel carries, in lower case, or null without a wheel. */
 export function wheelWhat(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
-  const slices = plan?.wheel?.slices;
-  if (!slices?.length) return null;
-  const deals = slices.some((s) => s.kind === "promo");
-  const cards = slices.some((s) => s.kind === "gift_card");
+  return wheelWhatOf(plan?.wheel?.slices.map((s) => s.kind) ?? null);
+}
+
+function wheelWhatOf(kinds: readonly string[] | null): string | null {
+  if (!kinds?.length) return null;
+  const deals = kinds.includes("promo");
+  const cards = kinds.includes("gift_card");
   return deals && cards ? "store deals and free gift cards" : deals ? "store deals" : cards ? "free gift cards" : "small treats from the table";
+}
+
+/** The fictional-store line for an example plan (by its id), or null for a real store. */
+export function disclaimerFor(meta: Pick<PlanReport["meta"], "kind" | "id">, carrier: Store["carrier"]): string | null {
+  return fictionalExample(meta) ? CARRIER_NOTES[carrier] : null;
 }
 
 export interface Deal {
@@ -62,6 +77,23 @@ export interface Deal {
   label: string;
   /** The offer, verbatim. */
   text: string;
+  /**
+   * What prints under the label: the rest of the offer when the label is its opening words (so no
+   * words repeat and the card still reads as the whole offer, in order), nothing when the label is the
+   * whole offer, and the whole offer when the label is not its opening.
+   */
+  body: string;
+}
+
+/** The part of an offer a card prints under its label. */
+export function dealBody(label: string, offer: string): string {
+  const text = offer.trim();
+  const head = label.trim();
+  if (!head || text.slice(0, head.length).toLowerCase() !== head.toLowerCase()) return text;
+  const rest = text.slice(head.length);
+  // The label must end on a word boundary of the offer ("Free phone" is not the opening of "Free phones").
+  if (rest && /^[\p{L}\p{N}]/u.test(rest)) return text;
+  return rest.replace(/^[\s,;:.-]+/, "").trim();
 }
 
 const LABEL_MAX = 22;
@@ -174,6 +206,20 @@ export function withFrontConcept<T extends Pick<PlanReport, "plan">>(report: T, 
 
 const tidy = (text: string) => text.replace(/\s+/g, " ").trim();
 
+const PRIZE = /gift ?cards?|drawing|raffle|prize/i;
+
+/**
+ * The poster's one local line: where the table's treats come from, from the plan's own shopping list
+ * (the first thing bought from a community place Qloo returned that is not a prize), named from this
+ * run's results. Never an artist, never invented; null when the plan buys nothing nearby.
+ */
+export function localLine(report: Pick<PlanReport, "plan" | "local">): string | null {
+  const places = new Map((report.local.block?.places ?? []).map((p) => [p.id, p]));
+  const pick = (report.plan?.shopping ?? []).find((s) => s.from && places.has(s.from) && !PRIZE.test(s.item));
+  const name = pick?.from ? places.get(pick.from)?.name.trim() : null;
+  return name ? `Treats from ${name}` : null;
+}
+
 export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" | "meta">): PosterText {
   const { inputs } = report;
   const concept = keptConcept(report);
@@ -190,9 +236,13 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
     // A place typed in lower case ("a fall community fair on ...") still reads as a heading.
     location: inputs.location?.name.trim().replace(/^\p{Ll}/u, (c) => c.toUpperCase()) || null,
     offers,
-    deals: offers.map((text) => ({ label: dealLabel(text, slices), text })),
+    deals: offers.map((text) => {
+      const label = dealLabel(text, slices);
+      return { label, text, body: dealBody(label, text) };
+    }),
     wheel: wheelLine(report.plan),
     wheelWhat: what ? what.charAt(0).toUpperCase() + what.slice(1) : null,
+    local: localLine(report),
     carrier: inputs.store.carrier,
     disclaimer: fictionalExample(report.meta) ? CARRIER_NOTES[inputs.store.carrier] : null,
   };
@@ -202,5 +252,5 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
 export function posterAlt(text: PosterText): string {
   const offers = text.offers.length ? ` Offers: ${text.offers.join("; ")}.` : "";
   const where = `${text.location ? `${text.location}, hosted by ${text.store}` : `${text.store}, ${text.address}`}${text.phone ? `, ${text.phone}` : ""}`;
-  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}${text.wheel ? ` ${text.wheel}` : ""}`;
+  return `Event poster: ${text.title}. ${text.date}, ${text.time} at ${where}.${offers}${text.wheel ? ` ${text.wheel}` : ""}${text.local ? ` ${text.local}.` : ""}`;
 }

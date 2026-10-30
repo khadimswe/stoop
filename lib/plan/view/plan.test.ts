@@ -3,9 +3,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { PLAN_EXAMPLES, examplePlanId } from "../example-list";
+import { recordedNames } from "../../testing/recorded-names";
 import { planReportSchema } from "../schema";
 import { planningSteps, railRows, readPlanResponse } from "./live";
-import { clicheKind, compareRows, planView, shareLinks, sourceFromReport, sourceFromState, type PlanView, type TextPart } from "./plan";
+import { clicheKind, compareRows, ordinal, planView, searchOf, shareLinks, sourceFromReport, sourceFromState, type PlanView, type TextPart } from "./plan";
 
 // Built from the recorded example runs (data/plans/<slug>/plan.events.json), the way the pages build them.
 function events(slug: string) {
@@ -78,6 +79,42 @@ describe("the plan view of each recorded example", () => {
     expect(withPlace.places[0]!.why).toBeTruthy();
     expect(withPlace.places[0]!.distanceText).toMatch(/ ft$| mi$/);
     expect(view.partnerIds.length).toBeGreaterThan(0);
+  });
+
+  it("labels a place's receipt plainly: Qloo's description, Qloo's own rank (never a pin number), the distance from the store", () => {
+    const view = views["chicago-18th-street"]!;
+    const snackPlace = recordedNames("chicago-18th-street").snackPlace;
+    const place = view.local.block!.places.find((p) => p.name === snackPlace)!;
+    const rows = Object.fromEntries(view.receipts[place.receipt!]!.rows.filter((r) => !r.mono).map((r) => [r.label, r.value]));
+    expect(rows["Qloo pick"]).toBe(`${snackPlace} (food spot)`);
+    expect(rows["Qloo's rank"]).toMatch(/^\d+(st|nd|rd|th) in its answer for /);
+    expect(rows["Qloo's description"]).toBe(place.why);
+    expect(rows.Why).toBeUndefined();
+    expect(rows.Distance).toMatch(/ from the store$/);
+    expect(Object.values(rows).join(" ")).not.toMatch(/in its response|#\d/);
+    expect(view.local.block!.from).toBe("the store");
+    expect(view.local.block!.store).toBeNull();
+  });
+
+  it("measures from the event when the community was read around the event's place, and pins the store on its own", () => {
+    const view = views["houston-east-end"]!;
+    const block = view.local.block!;
+    expect(block.from).toBe("the event");
+    expect(block.center.label).toBe("The event");
+    expect(block.store).toMatchObject({ label: "Your store" });
+    expect(block.eventName).toBe("A fall community fair on Navigation Blvd");
+    const rows = view.receipts[block.places[0]!.receipt!]!.rows;
+    expect(rows.find((r) => r.label === "Distance")?.value).toMatch(/ from the event$/);
+    expect(rows.find((r) => r.label === "Found by")?.value).toBe("Qloo's places near the event, sorted by Qloo's own tags");
+  });
+});
+
+describe("receipt words", () => {
+  it("says ranks as ordinals and names the search from the call's own label", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st"]);
+    expect(searchOf("Finding food spots within 1.5 km of the store")).toBe("food spots");
+    expect(searchOf("Reading the city")).toBeNull();
+    expect(searchOf(undefined)).toBeNull();
   });
 });
 

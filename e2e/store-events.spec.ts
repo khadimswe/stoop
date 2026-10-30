@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { andList, recordedNames } from "../lib/testing/recorded-names";
 
 // The store-events floor against the recorded example stores (data/plans): the landing, the five
 // steps (Community, Create, Event, Poster, Promote), a receipt, the judges' fold, My stores, the public
@@ -261,7 +262,13 @@ test("a filled form starts a plan, and a paused day opens an example that says s
 test("the judges' fold opens from a link, and never prints identity or genre tags", async ({ page }) => {
   await page.goto(`${EVENT}#compare`);
   await expect(page.locator("details#compare")).toHaveAttribute("open", "");
-  await expect(page.getByText("lines cite Qloo")).toBeVisible();
+  const compare = page.locator("details#compare");
+  await expect(compare.getByText("Stoop plan lines with a Qloo receipt")).toBeVisible();
+  // The landing's own rows: what the generic plan picked, by name, and the landing's wording for Qloo's check.
+  const generic = andList(recordedNames("chicago-18th-street").genericArtists);
+  await expect(compare.getByText(`${generic}: famous, but none of the 3 make Qloo's own top 20`, { exact: false }).first()).toBeVisible();
+  await expect(compare.getByText("Cinnamon sugar pastries from “a nearby bakery”")).toBeVisible();
+  await expect(compare.getByText(/median/)).toHaveCount(0);
   const made = page.locator("details#how-it-was-made");
   await made.locator(":scope > summary").click();
   await expect(made.getByRole("list", { name: "Agent steps" })).toBeVisible();
@@ -315,6 +322,113 @@ test("a new store needs its name, a picked address and a real phone number befor
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("Find the store's address first.");
   // Never raw coordinates: the address is searched, or the browser's location is used.
   await expect(page.getByLabel(/latitude|longitude/i)).toHaveCount(0);
+});
+
+test("a new store round-trips through a stand-in example: Back, the way back and a reload all find the store and the form ready", async ({ page }) => {
+  const errors = watchErrors(page);
+  // Live maps and plans are off: the block and the plan answer with the nearest example (Atlanta).
+  await page.route("**/api/geocode?**", (route) =>
+    route.fulfill({ json: { hits: [{ address: "1100 Ponce de Leon Ave NE", city: "Atlanta", region: "GA", lat: 33.7745, lon: -84.3533, label: "1100 Ponce de Leon Ave NE, Atlanta, GA" }] } }),
+  );
+  await page.route("**/api/plan/block", (route) => route.fulfill({ json: { mode: "example", slug: "atlanta-west-end", message: "Live maps are off right now. Here's an example community to look around." } }));
+  await page.route("**/api/plan", (route) => route.fulfill({ json: { mode: "example", slug: "atlanta-west-end", message: "Live plans are off right now. Here is a full example plan instead." } }));
+  const promo = "Free phone when you switch (select models)";
+  const plan = page.getByRole("button", { name: "Plan my event" }).first();
+  const steps = page.getByRole("navigation", { name: "Steps" }).filter({ visible: true });
+
+  await page.goto("/start");
+  await page.getByLabel("Name").fill("Corner Wireless");
+  await page.getByLabel("Street address, city and state").fill("1100 Ponce de Leon Ave NE, Atlanta, GA");
+  await page.getByRole("button", { name: "Find" }).click();
+  await page.getByRole("list", { name: "Matches" }).getByRole("button").first().click();
+  await page.getByRole("button", { name: "See my community" }).first().click();
+
+  // The Community step with live maps off: the store's own spot, the note once, the nearest example.
+  await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /^Map of where Corner Wireless is/ })).toBeVisible();
+  await expect(page.getByText("Live maps are off right now.")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: /See West End Wireless's community/ })).toHaveAttribute("href", "/s/atlanta-west-end");
+  await steps.getByRole("button", { name: /Create/ }).click();
+
+  await expect(page.getByRole("heading", { level: 1, name: "New event" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Promo 1" }).fill(promo);
+  await plan.click();
+
+  // The stand-in says whose plan it is, and that the steps above are the example store's.
+  await expect(page).toHaveURL(/\/plan\/ex-atlanta-west-end$/);
+  const note = page.getByRole("status").filter({ hasText: "Live plans are off right now." });
+  await expect(note).toContainText("It was not planned for Corner Wireless.");
+  await expect(note).toContainText("The steps above (Community, Create, Poster and Promote) open West End Wireless's pages.");
+  await note.getByRole("link", { name: "Back to your store" }).click();
+
+  // The way back finds the form as it was, ready to send again.
+  await expect(page).toHaveURL(/\/start\?resume=1$/);
+  await expect(page.getByRole("heading", { level: 1, name: "New event" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Promo 1" })).toHaveValue(promo);
+  await expect(plan).toBeEnabled();
+  await expect(plan).toHaveText("Plan my event");
+
+  // Again, then dismiss the note: a quiet bar keeps the way back on every page of the example store.
+  await plan.click();
+  await expect(page).toHaveURL(/\/plan\/ex-atlanta-west-end$/);
+  await page.getByRole("button", { name: "Dismiss this note" }).click();
+  // A phone keeps a bar over the page; from 1024 px the way back sits in the sticky header.
+  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+  const back = wide ? page.getByRole("banner").getByRole("link", { name: /Back to your store/ }) : page.getByRole("region", { name: "Example store" }).getByRole("link", { name: "Back to your store" });
+  if (wide) await expect(back).toHaveAttribute("title", "West End Wireless is an example store. Your store: Corner Wireless.");
+  else await expect(page.getByRole("region", { name: "Example store" })).toContainText("West End Wireless is an example store. Your store: Corner Wireless.");
+  await steps.getByRole("link", { name: /Community/ }).click();
+  await expect(page).toHaveURL(/\/s\/atlanta-west-end$/);
+  await expect(back).toHaveAttribute("href", "/start?resume=1");
+
+  // The browser's Back, twice: the form is ready, never stuck on "Planning...".
+  await page.goBack();
+  await expect(page).toHaveURL(/\/plan\/ex-atlanta-west-end$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/start\?resume=1$/);
+  await expect(page.getByRole("heading", { level: 1, name: "New event" })).toBeVisible();
+  await expect(plan).toBeEnabled();
+  await expect(plan).toHaveText("Plan my event");
+
+  // A reload keeps the store and the draft.
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "New event" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Corner Wireless").first()).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Promo 1" })).toHaveValue(promo);
+  await expect(plan).toBeEnabled();
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stoop:start") ?? "null") as { name: string; place: { city: string } | null });
+  expect(saved).toMatchObject({ name: "Corner Wireless", place: { city: "Atlanta" } });
+
+  // The done Community step opens in place, without asking again.
+  await steps.getByRole("button", { name: /Community/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /See West End Wireless's community/ })).toBeVisible();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  expect(errors).toEqual([]);
+});
+
+test("an example store's form starts from what its plan was recorded with, the day included", async ({ page }) => {
+  let sent: { date: string; budgetUsd: number; setting: string; location?: { name: string } } | null = null;
+  await page.route("**/api/plan", async (route) => {
+    sent = (route.request().postDataJSON() as { inputs: NonNullable<typeof sent> }).inputs;
+    await route.fulfill({ json: { mode: "example", slug: "houston-east-end", message: "Live plans are off right now. Here is a full example plan instead." } });
+  });
+  await page.goto("/s/houston-east-end/new");
+  // Recorded Nov 21; while that day is ahead the form shows it, else the next Saturday.
+  const recordedAhead = await page.evaluate(() => {
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    d.setDate(d.getDate() + 28);
+    const last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return "2026-11-21" >= today && "2026-11-21" <= last;
+  });
+  if (recordedAhead) await expect(page.getByRole("button", { name: /^Day/ })).toContainText("Sat, Nov 21");
+  await expect(page.getByLabel("Budget in dollars")).toHaveValue("50");
+  await expect(page.getByRole("button", { name: /^Setup/ })).toContainText("A fall community fair on Navigation Blvd");
+  await page.getByRole("button", { name: "Plan my event" }).first().click();
+  await expect(page).toHaveURL(/\/plan\/ex-houston-east-end$/);
+  expect(sent).toMatchObject({ budgetUsd: 50, setting: "community_event", location: { name: "a fall community fair on Navigation Blvd" } });
+  if (recordedAhead) expect(sent!.date).toBe("2026-11-21");
 });
 
 test("the judges' guide links to a receipt and the comparison", async ({ page }) => {
