@@ -2,42 +2,27 @@
 
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import { noticeCopy, parsePlanNotice } from "@/lib/plan/view/notice";
-import { PLAN_NOTICE_KEY } from "@/lib/plan/view/start-form";
+import { noticeCopy } from "@/lib/plan/view/notice";
 import { cn } from "cn";
 import { TEXT_LINK } from "./kit";
-
-const listeners = new Set<() => void>();
-const subscribe = (onChange: () => void) => {
-  listeners.add(onChange);
-  return () => listeners.delete(onChange);
-};
-const read = () => {
-  try {
-    return sessionStorage.getItem(PLAN_NOTICE_KEY);
-  } catch {
-    return null;
-  }
-};
+import { leaveStandIn, useNotice, writeNotice } from "./stand-in";
 
 /**
  * When "Plan my event" opened this example instead of a live plan (live plans off, busy or used up),
- * the example's pages say so at the top, in the server's words, with whose plan this is and the way
- * back. Read from what the Create step left in sessionStorage; it stays until dismissed.
+ * the example's Event page says so at the top, in the server's words, with whose plan this is and the
+ * way back. Read from what the Create step left in sessionStorage. Dismissing it leaves the quiet ways
+ * back (./stand-in.tsx) that every page of the example store keeps.
  */
 export function ExampleNotice({ slug, storeName, cityLine, className }: { slug: string; storeName: string; cityLine: string; className?: string }) {
-  const raw = useSyncExternalStore(subscribe, read, () => null);
-  const notice = parsePlanNotice(raw);
-  if (!notice || (notice.slug !== null && notice.slug !== slug)) return null;
+  const { raw, notice } = useNotice();
+  if (!notice || notice.dismissed || (notice.slug !== null && notice.slug !== slug)) return null;
   const { title, body } = noticeCopy(notice, { storeName, cityLine });
   const dismiss = () => {
     try {
-      sessionStorage.removeItem(PLAN_NOTICE_KEY);
+      writeNotice(JSON.stringify({ ...(JSON.parse(raw ?? "{}") as object), dismissed: true }));
     } catch {
-      // Private browsing: nothing was kept.
+      writeNotice(null);
     }
-    for (const l of listeners) l();
   };
   return (
     <div role="status" className={cn("flex items-start gap-3 rounded-[20px] border border-fl-ink bg-white px-4 py-3.5", className)}>
@@ -45,7 +30,7 @@ export function ExampleNotice({ slug, storeName, cityLine, className }: { slug: 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-[0.9375rem] font-semibold">{title}</p>
         <p className="text-sm text-pretty text-fl-muted">{body}</p>
-        <Link href={notice.back} onClick={dismiss} className={cn(TEXT_LINK, "mt-1 self-start text-sm")}>
+        <Link href={notice.back} onClick={leaveStandIn} className={cn(TEXT_LINK, "mt-1 self-start text-sm")}>
           Back to your store
         </Link>
       </div>

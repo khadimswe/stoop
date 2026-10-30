@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { StandInBar } from "@/components/stoop/floor/stand-in";
 import { EventScreen } from "@/components/stoop/floor/event-screen";
 import { LiveStep } from "@/components/stoop/floor/live-plan";
 import { PlanLoading } from "@/components/stoop/floor/plan-loading";
@@ -31,7 +32,13 @@ async function Step({ params }: { params: PageProps<"/plan/[id]">["params"] }) {
   const slug = planExampleSlug(id);
   if (slug && isRecordedPlanSlug(slug)) {
     const h = exampleHrefs(slug);
-    return <EventScreen view={loadPlanExampleView(slug)} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} exampleSlug={slug} />;
+    const view = loadPlanExampleView(slug);
+    return (
+      <>
+        <StandInBar slug={slug} storeName={view.header.storeName} withNote />
+        <EventScreen view={view} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} exampleSlug={slug} />
+      </>
+    );
   }
   if (!LIVE_PLAN_ID.test(id)) notFound();
   return <LiveStep planId={id} step="event" />;

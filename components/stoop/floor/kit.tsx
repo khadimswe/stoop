@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "cn";
+import { StandInLink } from "./stand-in";
 
 /** The 5 steps of the flow, in order. */
 export const STEPS = ["Community", "Create", "Event", "Poster", "Promote"] as const;
@@ -94,8 +95,10 @@ export function FloorHeader({
             {side && <span className="truncate text-[0.9375rem] text-fl-dim">{side}</span>}
           </Link>
           {step ? <Stepper variant="bar" current={step} hrefs={hrefs} reasons={reasons} actions={actions} /> : <span />}
-          <div className="flex justify-end">
-            <Link href={storesHref} className="rounded-[8px] px-2 py-1.5 text-sm font-medium text-fl-muted hover:text-fl-ink hover:underline">
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            {/* An example store standing in for someone's own: the way back stays in the sticky bar. */}
+            <StandInLink storeName={store?.name} />
+            <Link href={storesHref} className="shrink-0 rounded-[8px] px-2 py-1.5 text-sm font-medium text-fl-muted hover:text-fl-ink hover:underline">
               My stores
             </Link>
           </div>
