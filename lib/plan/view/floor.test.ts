@@ -6,15 +6,16 @@ import { PLAN_EXAMPLES, examplePlanId, type PlanExampleSlug } from "../example-l
 import { titleGenre } from "../words";
 import { about, budgetView, eventStats, judgeView, kindCounts, landingCompare, placeMeta, playView, prizesLine, prizesView, snackGroups, snacksView, venueLine } from "./floor";
 import { noGenre, planView, posterRoute, safeReason, sourceFromReport, stepLabel, type PlanView } from "./plan";
+import { describeRecorded, ifRecorded } from "../../testing/recorded";
 
 // The floor's selectors, against the recorded example runs (data/plans/<slug>/plan.events.json).
 function viewOf(slug: PlanExampleSlug): PlanView {
   const events = planEventSchema.array().parse(JSON.parse(readFileSync(path.join("data", "plans", slug, "plan.events.json"), "utf8")));
   return planView(sourceFromReport(toPlanReport(reducePlan(events), "recorded"), examplePlanId(slug)));
 }
-const views = PLAN_EXAMPLES.map(({ slug }) => ({ slug, view: viewOf(slug) }));
+const views = ifRecorded(() => PLAN_EXAMPLES.map(({ slug }) => ({ slug, view: viewOf(slug) })));
 
-describe("the floor's selectors on each example", () => {
+describeRecorded("the floor's selectors on each example", () => {
   for (const { slug, view } of views) {
     it(`${slug}: the block's kind chips add up and leave out empty kinds`, () => {
       const places = view.local.block?.places ?? [];
@@ -69,7 +70,7 @@ describe("the floor's selectors on each example", () => {
   }
 });
 
-describe("the event page's groups", () => {
+describeRecorded("the event page's groups", () => {
   for (const { slug, view } of views) {
     it(`${slug}: snacks sit under their place once, prizes and snacks add up to the spend`, () => {
       const groups = snackGroups(view);

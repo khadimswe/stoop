@@ -1,14 +1,15 @@
 // The reminder captions: one per scheduled time, each its own words, written by code from the inputs,
 // with the manager's offers word for word, and every one passing the posts guard.
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { PLAN_EXAMPLES } from "../plan/example-list";
 import { loadExampleReport } from "../plan/examples";
 import { samplePlanReport } from "../plan/posts-fixture";
 import { checkReminder } from "./posts-guard";
 import { reminderCaption, reminderLines, reminderOpening, reportReminderFacts } from "./reminders";
 import { POST_TIME_IDS, postSlots } from "./schedule";
+import { describeRecorded } from "../testing/recorded";
 
-describe("reminder captions", () => {
+describeRecorded("reminder captions", () => {
   it.each(PLAN_EXAMPLES.map((e) => e.slug))("the %s example gets a distinct, guard-checked caption at each of its times", async (slug) => {
     const report = await loadExampleReport(slug);
     const facts = reportReminderFacts(report);

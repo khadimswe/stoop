@@ -1,11 +1,12 @@
 // The Promote timeline on the one schedule: the announcement now, then each reminder at its own time,
 // grouped by the store's day, each with its own caption; and the calendar file of reminders.
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { loadExampleReport } from "../examples";
 import { PLAN_EXAMPLE_INPUTS } from "../example-list";
 import { instagramCopy } from "../share";
 import { planView, sourceFromReport } from "./plan";
 import { channelDraft, channelMessage, facebookShareUrl, postNoun, promoteScreenView, promoteTimeline, remindersCalendar, SHARE_CHANNELS, timelineRows, whatsappShareUrl, type TimelineId } from "./promote";
+import { describeRecorded } from "../../testing/recorded";
 
 async function chicago() {
   const report = await loadExampleReport("chicago-18th-street");
@@ -13,7 +14,7 @@ async function chicago() {
   return { report, view, inputs: PLAN_EXAMPLE_INPUTS["chicago-18th-street"] };
 }
 
-describe("the Promote timeline", () => {
+describeRecorded("the Promote timeline", () => {
   it("announces now, then the evening before, the morning of and an hour before, by day, in one clock format", async () => {
     const { view, inputs } = await chicago();
     const days = promoteTimeline(promoteScreenView(view), inputs);
@@ -53,7 +54,7 @@ describe("the Promote timeline", () => {
   });
 });
 
-describe("what each channel sends", () => {
+describeRecorded("what each channel sends", () => {
   const url = "https://stoop.test/e/ex-chicago-18th-street";
 
   it("gives each channel its own words: Facebook's caption, Instagram's with its hashtags as posted, WhatsApp's message", async () => {
@@ -81,7 +82,7 @@ describe("what each channel sends", () => {
   });
 });
 
-describe("the calendar file of reminders", () => {
+describeRecorded("the calendar file of reminders", () => {
   it("has one event with an alert at each reminder's time, its caption and the event link, folded and escaped", async () => {
     const { view, inputs } = await chicago();
     const rows = timelineRows(promoteTimeline(promoteScreenView(view), inputs));

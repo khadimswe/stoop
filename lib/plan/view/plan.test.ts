@@ -7,19 +7,20 @@ import { recordedNames } from "../../testing/recorded-names";
 import { planReportSchema } from "../schema";
 import { planningSteps, railRows, readPlanResponse } from "./live";
 import { clicheKind, compareRows, ordinal, planView, searchOf, shareLinks, sourceFromReport, sourceFromState, type PlanView, type TextPart } from "./plan";
+import { describeRecorded, ifRecorded } from "../../testing/recorded";
 
 // Built from the recorded example runs (data/plans/<slug>/plan.events.json), the way the pages build them.
 function events(slug: string) {
   return planEventSchema.array().parse(JSON.parse(readFileSync(path.join("data", "plans", slug, "plan.events.json"), "utf8")));
 }
-const views = Object.fromEntries(PLAN_EXAMPLES.map(({ slug }) => [slug, planView(sourceFromReport(toPlanReport(reducePlan(events(slug)), "recorded"), examplePlanId(slug)))])) as Record<
+const views = ifRecorded(() => Object.fromEntries(PLAN_EXAMPLES.map(({ slug }) => [slug, planView(sourceFromReport(toPlanReport(reducePlan(events(slug)), "recorded"), examplePlanId(slug)))]))) as Record<
   string,
   PlanView
 >;
 
 const keysIn = (parts: readonly TextPart[]) => parts.flatMap((p) => (p.kind === "ref" && p.receipt ? [p.receipt] : []));
 
-describe("the plan view of each recorded example", () => {
+describeRecorded("the plan view of each recorded example", () => {
   for (const { slug } of PLAN_EXAMPLES) {
     const view = views[slug]!;
 
@@ -118,7 +119,7 @@ describe("receipt words", () => {
   });
 });
 
-describe("live plans", () => {
+describeRecorded("live plans", () => {
   it("rebuilds the same view from the live reducer state as from the report", () => {
     const slug = PLAN_EXAMPLES[0].slug;
     const state = reducePlan(events(slug));
@@ -163,7 +164,7 @@ describe("live plans", () => {
   });
 });
 
-describe("the prize wheel", () => {
+describeRecorded("the prize wheel", () => {
   it("quotes promo slices exactly and names gift-card places from Qloo, with receipts", () => {
     const report = toPlanReport(reducePlan(events("chicago-18th-street")));
     const place = report.local.block!.places[0]!;
@@ -193,7 +194,7 @@ describe("the prize wheel", () => {
   });
 });
 
-describe("share links and rows", () => {
+describeRecorded("share links and rows", () => {
   it("adds the event page to the WhatsApp text once, and shares the page on Facebook", () => {
     const links = shareLinks("https://stoop.example/e/ex-x", "Saturday at noon, see you there");
     expect(decodeURIComponent(links.whatsapp.split("text=")[1]!)).toBe("Saturday at noon, see you there\nhttps://stoop.example/e/ex-x");
