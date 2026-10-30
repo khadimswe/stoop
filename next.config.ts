@@ -19,6 +19,12 @@ if (process.argv.slice(2).find((arg) => !arg.startsWith("-")) === "build") {
 // serverless function's size limit, so that mode is for local builds.
 const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.json", "./data/runs/**/*.json", "./data/plans/**/*.json"];
 
+// Next's own server setup, which every function loads at boot (its error inspection requires
+// server/lib/source-maps and the helpers below). Vercel groups API routes by their maxDuration, and a
+// group with no page in it got a trace without these files, so it crashed on boot ("Cannot find module
+// './lib/source-maps'") before any handler ran. Every API function carries them.
+const NEXT_SETUP = ["server/lib", "shared/lib", "lib", "client/components", "client/lib"].map((dir) => `./node_modules/next/dist/${dir}/**/*.js`);
+
 const fixtureMode = process.env.QLOO_MODE?.trim() === "fixtures";
 const fixtures = fixtureMode ? ["./fixtures/**/*.json"] : [];
 // Code is bundled, so its sources never ship; the file readers above make the tracer reach for the
@@ -36,7 +42,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   outputFileTracingIncludes: {
-    "/api/**": [...API_DATA, ...fixtures],
+    "/api/**": [...API_DATA, ...fixtures, ...NEXT_SETUP],
     // The poster route draws an example over the background the founder approved, read from its
     // marketing folder (lib/plan/poster-approval.ts); public/ is not in the function bundle.
     "/api/plan/**": ["./data/plans/*/marketing/poster-bg-*.png"],
