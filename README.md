@@ -156,8 +156,7 @@ GitHub Actions runs a secret scan, the em dash scan, `npm run check` and the Qlo
 
 ## Roadmap
 
-- Results from both pilot stores, then a whole dealer.
-- Measuring each event in Poppy, the founder's sales app for prepaid dealers, which already logs walk-ins.
+- More events at both pilot stores, then a whole dealer.
 - Posting straight to Facebook Pages and Instagram once Meta approves the app.
 - "Picture your table": snap the current table and see a labeled setup preview built from the plan's picks.
 - Accounts, so multi-store and district managers see every store's next event.
