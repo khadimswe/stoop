@@ -2,7 +2,7 @@
 // city is read by name (its artists and music styles for the store's adult age bands); the block is
 // the places within a radius of the store, one category per call. Anything Qloo has no signal for is
 // said plainly as a gap, never filled in.
-import { ENDPOINTS } from "../qloo/constants";
+import { AGE_BUCKETS, ENDPOINTS, type AgeBucket } from "../qloo/constants";
 import { QlooBudgetError, QlooConfigError, QlooHttpError, QlooShapeError } from "../qloo/errors";
 import type { QlooResult } from "../qloo/client";
 import { insightsTagsResponse, slimEntitiesBody, type QlooEntity } from "../qloo/types";
@@ -16,7 +16,29 @@ import { BLOCK_CATEGORIES, BLOCK_ORDER, identityTag, musicStyles, placeLeftOut, 
 export const MAX_PLACES_PER_CATEGORY = { food: 10, treats: 6, venues: 6, parks: 4 } as const satisfies Record<BlockCategory, number>;
 
 export const ageLabel = (band: string) => (band === "24_and_younger" ? "18 to 24" : band.replace("_and_older", " and older").replace(/_to_/, " to "));
-const agesText = (inputs: PlanInputs) => inputs.ageBands.map(ageLabel).join(", ");
+
+/** Each band's ages: adults only, so the youngest band starts at 18. */
+const BAND_AGES: Readonly<Record<AgeBucket, { from: number; to: number | null }>> = {
+  "24_and_younger": { from: 18, to: 24 },
+  "25_to_29": { from: 25, to: 29 },
+  "30_to_34": { from: 30, to: 34 },
+  "35_to_44": { from: 35, to: 44 },
+  "45_to_54": { from: 45, to: 54 },
+  "55_and_older": { from: 55, to: null },
+};
+
+/** The bands as ranges, touching bands joined: "25 to 34", "18 to 24 and 35 to 44", "45 and older". */
+export function ageRangeText(bands: readonly AgeBucket[]): string {
+  const spans: { from: number; to: number | null }[] = [];
+  for (const band of [...new Set(bands)].sort((a, b) => AGE_BUCKETS.indexOf(a) - AGE_BUCKETS.indexOf(b))) {
+    const ages = BAND_AGES[band];
+    const last = spans.at(-1);
+    if (last && last.to !== null && ages.from === last.to + 1) last.to = ages.to;
+    else spans.push({ ...ages });
+  }
+  const words = spans.map((s) => (s.to === null ? `${s.from} and older` : `${s.from} to ${s.to}`));
+  return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
+}
 
 /** A Qloo failure a stage can live with: it becomes a gap and the plan goes on with what arrived. */
 export function recoverable(error: unknown): boolean {
@@ -118,7 +140,7 @@ export async function readCity(env: PlanEnv, inputs: PlanInputs): Promise<CityRe
 }
 
 function fetchArtists(env: PlanEnv, inputs: PlanInputs, query: string, budgetRow: "planCity" | "planLocate"): Promise<ArtistsResult> {
-  return planQloo(env, "city", `Asking Qloo which artists adults ${agesText(inputs)} in ${query} love`, {
+  return planQloo(env, "city", `Asking Qloo which artists ${query} adults ${ageRangeText(inputs.ageBands)} love`, {
     endpoint: ENDPOINTS.insights,
     params: cityArtistsParams(inputs, query),
     schema: artistsWithLocality,
@@ -128,7 +150,7 @@ function fetchArtists(env: PlanEnv, inputs: PlanInputs, query: string, budgetRow
 }
 
 function fetchStyles(env: PlanEnv, inputs: PlanInputs, query: string) {
-  return planQloo(env, "city", `Reading the music styles adults ${agesText(inputs)} in ${query} lean toward`, {
+  return planQloo(env, "city", `Reading the music styles ${query} adults ${ageRangeText(inputs.ageBands)} lean toward`, {
     endpoint: ENDPOINTS.insights,
     params: cityStylesParams(inputs, query),
     schema: insightsTagsResponse,

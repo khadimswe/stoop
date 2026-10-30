@@ -180,7 +180,7 @@ export async function checkPicks(env: PlanEnv, inputs: PlanInputs, city: CityTas
   }
   let scored;
   try {
-    scored = await planQloo(env, "baseline", `Scoring the generic plan's artists against ${inputs.store.city} with Qloo's own`, { endpoint: ENDPOINTS.insights, params: scoreArtistsParams(inputs, [...own, ...resolved.map((r) => r.id)], cityQuery), schema: insightsEntitiesResponse, slim: slimEntitiesBody, budgetRow: "planScoring" }, "One call, one signal: the only fair way to compare affinities.");
+    scored = await planQloo(env, "baseline", `Checking the generic plan's artists against Qloo's picks for ${inputs.store.city}`, { endpoint: ENDPOINTS.insights, params: scoreArtistsParams(inputs, [...own, ...resolved.map((r) => r.id)], cityQuery), schema: insightsEntitiesResponse, slim: slimEntitiesBody, budgetRow: "planScoring" }, "One call, one signal: the only fair way to compare affinities.");
   } catch (error) {
     if (!recoverable(error)) throw error;
     env.sink.emit({ type: "local.gap", text: gapText(error, "the generic plan's artists") });

@@ -66,6 +66,12 @@ describe("the plan view of each recorded example", () => {
     });
   }
 
+  it("leads Qloo's check of the generic plan with what it found, then each whole call", () => {
+    const check = views["chicago-18th-street"]!.receipts["generic-check"]!;
+    expect(check.rows[0]).toEqual({ label: "Result", value: "None of the 3 make Qloo's own top 20 for Chicago adults 25 to 34." });
+    expect(check.rows.find((r) => r.label === "Call 4 of 4")?.value).toBe("Checking the generic plan's artists against Qloo's picks for Chicago");
+  });
+
   it("puts the Chicago partner's distance and Qloo's own why under the line that names it", () => {
     const view = views["chicago-18th-street"]!;
     const withPlace = view.concept!.items.find((i) => i.places.length > 0)!;

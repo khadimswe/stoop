@@ -87,7 +87,7 @@ export function checkWheel(raw: LlmWheel | null, inputs: PlanInputs, aliases: Al
     if (odd) return issues.push(`${at}: ${place.name} is ${odd}; pick another place.`);
     const evidenceIds = evidenceFor(aliases, [id], []);
     slices.push({ label: cut(`$${amount} ${place.name}`, 40), kind: "gift_card", text: `A $${amount} gift card to [[${id}]].`, origin: "qloo", refs: [id], evidenceIds });
-    purchases.push({ item: `Gift cards for the wheel's ${place.name} slice`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });
+    purchases.push({ item: `Gift cards for the wheel: ${place.name}`.slice(0, 120), qty: `${cards} at $${amount} each`, estUsd: cards * amount, from: id, origin: "interpreted", evidenceIds });
   });
   if (raw.giftCards.length === 0) issues.push("wheel.giftCards: add 1 or 2 gift-card slices to places in the community.");
 

@@ -1,11 +1,13 @@
 "use client";
 
 // The Promote step's shared pieces: the accounts card, the day-grouped timeline of posts (the same rows
-// in share mode and when posting from Stoop), the clock the timeline reads, the two-column desktop
-// layout, and the calendar file of reminders.
+// in share mode and when posting from Stoop), the channel switch that shows each channel's own words,
+// the clock the timeline reads, the two-column desktop layout, and the calendar file of reminders.
+import { Check } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
+import { FacebookGlyph, InstagramGlyph, WhatsAppGlyph } from "@/components/stoop/floor/glyphs";
 import { StatusPill } from "@/components/stoop/floor/kit";
-import { remindersCalendar, type TimelineDay, type TimelineRow } from "@/lib/plan/view/promote";
+import { CHANNEL_NAMES, remindersCalendar, type ShareChannel, type TimelineDay, type TimelineRow } from "@/lib/plan/view/promote";
 import { cn } from "cn";
 
 // --- The time, to the minute, once the browser knows it ----------------------------------------------
@@ -38,6 +40,11 @@ export function AccountRow({ glyph, on, title, sub, trail }: { glyph: ReactNode;
   );
 }
 
+/** An account row's trailing words when there is nothing to tap: plain text, never styled as a button. */
+export function AccountNote({ children }: { children: ReactNode }) {
+  return <span className="shrink-0 text-[0.8125rem] text-fl-dim">{children}</span>;
+}
+
 export function AccountsCard({ children }: { children: ReactNode }) {
   return (
     <ul aria-label="Accounts" className="overflow-hidden rounded-[20px] bg-white [&>li+li]:border-t [&>li+li]:border-fl-rule">
@@ -66,12 +73,46 @@ export function Timeline({ days, label, renderRow }: { days: readonly TimelineDa
   );
 }
 
-/** A row's small action buttons: compact enough that five fit in two lines on a phone. */
+/** A row's small action buttons: compact enough that three fit on one line on a phone. */
 export const ROW_BUTTON =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-[12px] border border-fl-line bg-white px-2.5 text-[0.8125rem] font-semibold text-fl-ink hover:bg-fl-sunk disabled:opacity-60 [&_svg]:size-4";
 
-/** One post: its time and name, a status chip, the channels, then its caption and whatever the mode adds, and its actions across the row. */
-export function PostRow({ row, channels, chip, lead, media, children, actions }: { row: TimelineRow; channels: string; chip: ReactNode; lead?: ReactNode; media?: ReactNode; children?: ReactNode; actions?: ReactNode }) {
+const CHANNEL_GLYPHS: Readonly<Record<ShareChannel, ReactNode>> = { facebook: <FacebookGlyph />, instagram: <InstagramGlyph />, whatsapp: <WhatsAppGlyph /> };
+export const channelGlyph = (channel: ShareChannel): ReactNode => CHANNEL_GLYPHS[channel];
+
+/**
+ * Which channel's words a post shows: one button per channel, the shown one pressed. A channel the
+ * manager already used carries a check ("copied" or "shared", said to screen readers too).
+ */
+export function ChannelSwitch({ label, channels, value, onChange, used }: { label: string; channels: readonly ShareChannel[]; value: ShareChannel; onChange: (channel: ShareChannel) => void; used?: Partial<Record<ShareChannel, "copied" | "shared">> }) {
+  return (
+    <div role="group" aria-label={label} className="flex w-full gap-0.5 self-start rounded-[12px] bg-fl-band p-0.5 sm:w-auto">
+      {channels.map((channel) => (
+        <button
+          key={channel}
+          type="button"
+          aria-pressed={channel === value}
+          aria-label={used?.[channel] ? `${CHANNEL_NAMES[channel]}, ${used[channel]}` : undefined}
+          onClick={() => onChange(channel)}
+          className={cn(
+            "inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-[0.8125rem] font-semibold whitespace-nowrap sm:flex-none [&_svg]:size-3.5",
+            channel === value ? "bg-white text-fl-ink ring-1 ring-fl-line" : "text-fl-muted hover:bg-fl-sunk",
+          )}
+        >
+          {channelGlyph(channel)}
+          {CHANNEL_NAMES[channel]}
+          {used?.[channel] && <Check aria-hidden="true" className="text-fl-ok" />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One post: its time and name, a status chip, the channels (or a full-width `bar`, the channel switch),
+ * then its caption and whatever the mode adds, and its actions across the row.
+ */
+export function PostRow({ row, channels, chip, lead, bar, media, children, actions }: { row: TimelineRow; channels?: string; chip: ReactNode; lead?: ReactNode; bar?: ReactNode; media?: ReactNode; children?: ReactNode; actions?: ReactNode }) {
   return (
     <li className="flex flex-col gap-3 rounded-[20px] bg-white px-4 py-3.5">
       <div className="flex items-start gap-3">
@@ -80,10 +121,11 @@ export function PostRow({ row, channels, chip, lead, media, children, actions }:
           <p className="text-[0.9375rem] leading-5 font-semibold">
             <span className="tabular-nums">{row.clock}</span> · {row.name}
           </p>
-          <p className="text-[0.8125rem] text-fl-dim">{channels}</p>
+          {channels && <p className="text-[0.8125rem] text-fl-dim">{channels}</p>}
         </div>
         <div className="shrink-0">{chip}</div>
       </div>
+      {bar}
       <div className={cn("grid items-start gap-3", media ? "grid-cols-[64px_minmax(0,1fr)]" : "grid-cols-1")}>
         {media}
         <div className="flex min-w-0 flex-col gap-2">{children}</div>

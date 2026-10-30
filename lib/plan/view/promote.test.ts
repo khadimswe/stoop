@@ -3,8 +3,9 @@
 import { describe, expect, it } from "vitest";
 import { loadExampleReport } from "../examples";
 import { PLAN_EXAMPLE_INPUTS } from "../example-list";
+import { instagramCopy } from "../share";
 import { planView, sourceFromReport } from "./plan";
-import { promoteScreenView, promoteTimeline, remindersCalendar, timelineRows } from "./promote";
+import { channelDraft, channelMessage, facebookShareUrl, postNoun, promoteScreenView, promoteTimeline, remindersCalendar, SHARE_CHANNELS, timelineRows, whatsappShareUrl, type TimelineId } from "./promote";
 
 async function chicago() {
   const report = await loadExampleReport("chicago-18th-street");
@@ -52,6 +53,34 @@ describe("the Promote timeline", () => {
   });
 });
 
+describe("what each channel sends", () => {
+  const url = "https://stoop.test/e/ex-chicago-18th-street";
+
+  it("gives each channel its own words: Facebook's caption, Instagram's with its hashtags as posted, WhatsApp's message", async () => {
+    const { report, view, inputs } = await chicago();
+    const [announce, evening] = timelineRows(promoteTimeline(promoteScreenView(view), inputs));
+    expect(channelDraft(announce!, "facebook")).toBe(report.posts!.facebook.text);
+    expect(channelDraft(announce!, "instagram")).toBe(instagramCopy(report.posts!));
+    expect(channelDraft(announce!, "whatsapp")).toBe(report.posts!.whatsapp.text);
+    for (const channel of SHARE_CHANNELS) expect(channelDraft(evening!, channel)).toContain("Tomorrow, 12 to 4 pm: our table is out front.");
+    expect(channelDraft(evening!, "instagram")).toMatch(/\n\n#Chicago /);
+  });
+
+  it("sends exactly the words shown: WhatsApp's with the event link as its own last line, the others as they are", () => {
+    expect(channelMessage("whatsapp", "Come by.\n", url)).toBe(`Come by.\n${url}`);
+    expect(channelMessage("whatsapp", `Come by. ${url}`, url)).toBe(`Come by. ${url}`);
+    expect(channelMessage("facebook", "Come by.", url)).toBe("Come by.");
+    expect(channelMessage("instagram", "Come by.\n\n#Chicago", url)).toBe("Come by.\n\n#Chicago");
+    const message = channelMessage("whatsapp", "Hi neighbor! ☕ 50% off & more", url);
+    expect(new URL(whatsappShareUrl(message)).searchParams.get("text")).toBe(message);
+    expect(facebookShareUrl(url)).toBe(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+  });
+
+  it("names each post as a sentence says it", () => {
+    expect(["announce", "evening_before", "morning_of", "hour_before"].map((id) => postNoun({ id: id as TimelineId }))).toEqual(["announcement", "evening-before reminder", "morning-of reminder", "hour-before reminder"]);
+  });
+});
+
 describe("the calendar file of reminders", () => {
   it("has one event with an alert at each reminder's time, its caption and the event link, folded and escaped", async () => {
     const { view, inputs } = await chicago();
@@ -67,6 +96,16 @@ describe("the calendar file of reminders", () => {
     expect(unfolded).toContain("Event page: https://stoop.test/e/ex-chicago-18th-street");
     expect(unfolded).toContain("Tomorrow\\, 12 to 4 pm: our table is out front.\\n");
     expect(unfolded).not.toMatch(/https?:\/\/(?!stoop\.test)/);
+  });
+
+  it("names each reminder in plain words", async () => {
+    const { view, inputs } = await chicago();
+    const rows = timelineRows(promoteTimeline(promoteScreenView(view), inputs));
+    const ics = remindersCalendar(rows, { planId: view.id, storeName: "18th Street Wireless", eventUrl: "https://stoop.test/e/x", stamp: new Date("2026-10-29T12:00:00Z") })!.replace(/\r\n /g, "");
+    expect(ics).toContain("SUMMARY:Post the evening-before reminder for 18th Street Wireless");
+    expect(ics).toContain("SUMMARY:Post the hour-before reminder for 18th Street Wireless");
+    expect(ics).toContain("DESCRIPTION:Time to post the morning-of reminder");
+    expect(ics).not.toMatch(/the an hour|Post the (evening|morning|an hour) (before|of) reminder/);
   });
 
   it("is null when every reminder has passed", () => {
