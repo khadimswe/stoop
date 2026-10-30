@@ -61,6 +61,10 @@ export default function Home() {
   const postCopy = POSTING_COPY[posting ? "on" : "off"];
   const posts = postTimeline(PLAN_EXAMPLE_INPUTS[lead], posting);
   const cityName = leadView.local.city?.name ?? leadStore.show.city;
+  const bandMedia = PILOT_COPY ? PILOT_MEDIA : null;
+  // The band above shows the lead store's plan and poster, so the tabs open on another store (a different
+  // community right away, never the same plan twice in a row) and the lead store comes last.
+  const tabStores = bandMedia ? stores : [...stores.filter((s) => s.slug !== lead), leadStore];
 
   return (
     <>
@@ -107,7 +111,7 @@ export default function Home() {
         </section>
 
         <MediaBand
-          media={PILOT_COPY ? PILOT_MEDIA : null}
+          media={bandMedia}
           still={{
             title: leadStore.show.title,
             line: `${leadView.header.storeName} · ${leadStore.show.city} · ${leadView.header.dateShort}, ${leadView.header.timeText}`,
@@ -132,8 +136,8 @@ export default function Home() {
             </div>
             <StoreTabs
               label="Example stores"
-              tabs={stores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city, title: s.show.title }))}
-              panels={stores.map((s) => (
+              tabs={tabStores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city, title: s.show.title }))}
+              panels={tabStores.map((s) => (
                 <StorePanel key={s.slug} show={s.show} receipts={s.receipts} />
               ))}
             />
