@@ -239,7 +239,7 @@ export function landingCompare(view: PlanView): LandingCompareRow[] {
   const rows: LandingCompareRow[] = [
     { row: "Music", generic: genericMusic, stoop: stoopMusic, genericReceipt: g.check?.receipt ?? null, stoopReceipt: play.receipt },
     {
-      row: "Snacks",
+      row: "Food",
       generic: genericSnack,
       stoop: snack?.from ? `${snack.item.split(",")[0]} from ${snack.from.name}${snackM != null ? `, ${usDistance(snackM)} from ${from}` : ""}` : "Nothing on this line",
       genericReceipt: null,

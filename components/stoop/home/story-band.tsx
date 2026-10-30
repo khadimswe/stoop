@@ -27,28 +27,30 @@ export function StoryBand({ story }: { story: StoreStory | null }) {
 }
 
 /**
- * The real table, after the story: its heading, the photo with its caption, and the first result under
- * it once there is one (always with its label). Only once the store has agreed (PILOT_COPY); null renders
- * nothing. The photo is below the fold and lazy, so the hero's H1 stays the largest paint.
+ * The real table: the photo with its caption beside its heading and the first result (always with its
+ * label). Only once the store has agreed (PILOT_COPY); null renders nothing. The photo is below the fold
+ * and lazy, so the hero's H1 stays the largest paint.
  */
 export function RealTable({ title, photo, result, resultLabel }: { title: string; photo: (PilotPhoto & { width: number; height: number }) | null; result: { line: string } | null; resultLabel: string }) {
   if (!photo) return null;
   return (
-    <section id="real-table" aria-labelledby="real-table-title" className="mx-auto w-full max-w-[1248px] px-4 pb-16 sm:px-8 lg:pb-24">
-      <div className="flex max-w-[800px] flex-col gap-5">
-        <h2 id="real-table-title" className="font-serif text-[clamp(1.75rem,1.2rem+2vw,2.75rem)] leading-[1.1] font-normal text-balance">
-          {title}
-        </h2>
-        <figure className="flex flex-col gap-2.5">
+    <section id="real-table" aria-labelledby="real-table-title" className="scroll-mt-20 border-t border-fl-rule">
+      <div className="mx-auto grid max-w-[1248px] gap-8 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
+        <figure className="flex flex-col gap-2.5 lg:order-1">
           <Image src={photo.src} alt={photo.alt} width={photo.width} height={photo.height} unoptimized loading="lazy" className="h-auto w-full rounded-[20px] bg-fl-band" />
           <figcaption className="text-[0.8125rem] text-pretty text-fl-dim">{photo.caption}</figcaption>
         </figure>
-        {result && (
-          <p className="flex flex-col gap-0.5 text-base">
-            <span className="font-semibold">{result.line}</span>
-            <span className="text-sm text-fl-dim">{resultLabel}</span>
-          </p>
-        )}
+        <div className="flex flex-col gap-5 lg:order-2">
+          <h2 id="real-table-title" className="font-serif text-[clamp(1.875rem,1.3rem+2.5vw,3.375rem)] leading-[1.06] font-normal tracking-[-0.01em] text-balance">
+            {title}
+          </h2>
+          {result && (
+            <p className="flex flex-col gap-2">
+              <span className="text-xl leading-[1.4] font-semibold text-pretty lg:text-2xl">{result.line}</span>
+              <span className="text-sm text-fl-dim">{resultLabel}</span>
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );

@@ -65,8 +65,20 @@ describeRecorded("each example store's showcase", () => {
       expect(titleGenre(verdictText(show.verdict))).toBeNull();
     });
 
-    it(`${slug}: the tab keeps the free-to-spin line, the community map from Qloo and the fictional-store line`, () => {
-      expect(show.meta).toContain("Free to spin, no purchase needed");
+    it(`${slug}: three pick cards from the plan, Music, Food and Prize game, each with a receipt and never "snacks"`, () => {
+      expect(show.picks.map((p) => p.title)).toEqual(["Music", "Food", "Prize game"]);
+      for (const p of show.picks) {
+        expect(p.receipt && view.receipts[p.receipt]).toBeTruthy();
+        expect(p.href).toMatch(/^\/(s|plan)\//);
+        expect(`${p.value} ${p.note}`).not.toMatch(/snack/i);
+      }
+      // The food card names a place Qloo found near the store.
+      expect(view.local.block!.places.map((p) => p.name)).toContain(show.picks[1]!.value);
+      expect(show.picks[0]!.note).toMatch(/^Qloo's #\d+(, #\d+)*( and #\d+)? for .+, adults \d+ (to \d+|and older)/);
+    });
+
+    it(`${slug}: the tab keeps the free-to-play line, the community map from Qloo and the fictional-store line`, () => {
+      expect(show.meta).toContain("Free to play, no purchase needed");
       expect(show.map!.chip).toBe(`${view.local.block!.places.length} places from Qloo, within about 1 mile`);
       expect(show.map!.pins.map((p) => p.name)).toEqual(view.local.block!.places.map((p) => p.name));
       expect(show.fictional).toBe("Fictional store. Not affiliated with or endorsed by T-Mobile.");
@@ -74,7 +86,7 @@ describeRecorded("each example store's showcase", () => {
 
     it(`${slug}: the comparison names the generic plan's own picks and never a genre`, () => {
       const rows = landingCompare(view);
-      expect(rows.map((r) => r.row)).toEqual(["Music", "Snacks", "Prizes", "Places"]);
+      expect(rows.map((r) => r.row)).toEqual(["Music", "Food", "Prizes", "Places"]);
       for (const r of rows) for (const text of [r.generic, r.stoop]) expect(titleGenre(text)).toBeNull();
       const music = rows[0]!;
       expect(music.generic).toMatch(/: famous, but .+ (make Qloo's own top \d+|makes Qloo's own top \d+|in the bottom half of its own list) for .+ adults \d+ to \d+/);
@@ -93,7 +105,7 @@ describeRecorded("each example store's showcase", () => {
     expect(verdictText(show.verdict)).toBe(
       `Warm Cup Wheel Stop: hot coffee to-go box from ${q.snackPlace}, 0.3 miles away, a playlist of artists Qloo ranks for Chicago, and gift cards to ${q.giftCardPlace}.`,
     );
-    expect(show.meta).toEqual(["$49 of a $50 budget", "Free to spin, no purchase needed", "Sat, Nov 7, 12 to 4 pm"]);
+    expect(show.meta).toEqual(["$49 of a $50 budget", "Free to play, no purchase needed"]);
     const rows = landingCompare(chicago.view);
     // The first generic artist has no measurable affinity and the other two beat none of Qloo's 20: none makes the top 20.
     expect(rows[0]!.generic).toBe(`${andList(q.genericArtists)}: famous, but none of the 3 make Qloo's own top 20 for Chicago adults 25 to 34`);

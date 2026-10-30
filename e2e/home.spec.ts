@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
+import { HERO, PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
 import { andList, recordedNames } from "../lib/testing/recorded-names";
 
 // Qloo's names for the lead example, read from its recording (no test file holds Qloo response data).
@@ -310,6 +310,8 @@ test("nothing pops up on its own, and the footer says what Stoop measures", asyn
 // --- The store-events landing at "/": recorded example stores only ------------------------------------
 
 const LEAD_EVENT = "/plan/ex-chicago-18th-street";
+/** The hero's H1, its three sentences in order (each line keeps its last two words together). */
+const H1 = /^The music they\s+love\.\s*The food down the\s+street\.\s*A table they stop\s+for\.$/;
 
 /** Page errors, leaving out the map's tile host (offline in CI) and its failed loads. */
 function watchLandingErrors(page: Page): string[] {
@@ -327,19 +329,21 @@ test.describe("the store-events landing", () => {
     await page.goto("/");
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(1);
     await expect(page.locator("header").first()).toHaveCSS("background-color", "rgb(241, 240, 237)");
-    await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: H1 })).toBeVisible();
     const hero = page.locator("#hero");
+    await expect(hero.getByText("For Metro by T-Mobile, Cricket and Boost stores")).toBeVisible();
     await expect(hero.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
     await expect(hero.getByRole("link", { name: "See a real plan" })).toHaveAttribute("href", LEAD_EVENT);
-    // The sub says Qloo picks, at every width (on phones each sentence is its own block).
-    const sub = hero.getByText(/Stoop uses Qloo's taste data to plan yours/).filter({ visible: true });
-    await expect(sub).toHaveCount(1);
-    for (const draw of [/music your city plays/, /snacks .*from spots/, /prize wheel/]) await expect(sub).toContainText(draw);
-    const trust = ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"];
-    for (const line of trust) await expect(hero.getByText(line)).toBeVisible();
-    // A tidy list: every bullet starts at the same left edge in its column, never centered line by line.
-    const lefts = await hero.locator("ul > li").evaluateAll((items) => items.map((li) => Math.round(li.getBoundingClientRect().left)));
-    expect(new Set(lefts).size).toBeLessThanOrEqual(2);
+    // One sentence: Qloo reads the community, Stoop plans and makes the poster and the posts.
+    await expect(hero.getByText(HERO.sub)).toBeVisible();
+    // One trust row, just under the first screen (the hero is the words, the buttons and the table).
+    const trust = page.getByRole("list", { name: "Why stores trust it" });
+    for (const line of HERO.trust) await expect(trust.getByText(line)).toBeVisible();
+    expect(await hero.getByRole("list").count()).toBe(0);
+    // Food from spots nearby, never "snacks", anywhere on the landing.
+    expect(await page.locator("main").innerText()).not.toMatch(/snack/i);
+    // A tidy list: on phones every bullet starts at the same left edge, never centered line by line.
+    const lefts = await trust.locator("li").evaluateAll((items) => items.map((li) => Math.round(li.getBoundingClientRect().left)));
     if (page.viewportSize()!.width < 640) expect(new Set(lefts).size).toBe(1);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
     expect(errors).toEqual([]);
@@ -380,31 +384,33 @@ test.describe("the store-events landing", () => {
     expect(lcp).toBe("H1");
   });
 
-  test("the founder's video sits right under the hero once it's set, and nothing stands in for it before", async ({ page }) => {
+  test("the founder's video plays in the hero, and the story follows the hero with no band between", async ({ page }) => {
     await page.goto("/");
-    const band = page.getByRole("region", { name: "A real table" });
-    const next = await page.locator("#hero").evaluate((hero) => hero.nextElementSibling?.getAttribute("aria-label") ?? hero.nextElementSibling?.id ?? null);
+    const hero = page.locator("#hero");
+    const next = await hero.evaluate((el) => el.nextElementSibling?.id ?? null);
+    expect(next).toBe(STORE_STORY ? "story" : "examples");
+    await expect(page.getByText("What Stoop picked for this table")).toHaveCount(0);
     if (!(PILOT_COPY && PILOT_MEDIA)) {
-      // No video yet: the story band (or, without it, the example stores) follows the hero, with no empty band and no stand-in card.
-      expect(next).toBe(STORE_STORY ? "story" : "examples");
-      await expect(band).toHaveCount(0);
-      await expect(page.getByText("What Stoop picked for this table")).toHaveCount(0);
       await expect(page.locator("video")).toHaveCount(0);
     } else {
       // The video loads after the H1: nothing until it is in view, muted, inline, its poster frame first.
-      expect(next).toBe("A real table");
-      const video = band.locator("video");
+      const figure = hero.getByRole("figure", { name: PILOT_MEDIA.caption });
+      const video = figure.locator("video");
       await expect(video).toHaveAttribute("preload", "none");
       await expect(video).toHaveAttribute("poster", /\.(jpe?g|webp|png)$/);
       expect(await video.evaluate((v: HTMLVideoElement) => v.muted && v.playsInline && v.loop)).toBe(true);
       // The corner button (under reduced motion a second play button also sits in the middle).
-      await expect(band.getByRole("button", { name: /Pause the video|Play the video/ }).last()).toBeVisible();
+      await expect(figure.getByRole("button", { name: /Pause the video|Play the video/ }).last()).toBeVisible();
+      await expect(figure.getByText(PILOT_MEDIA.caption)).toBeVisible();
+      if (TABLE_PHOTO) await expect(figure.getByRole("link", { name: "How it went" })).toHaveAttribute("href", "#real-table");
+      // Only one video on the page: the separate band under the hero is gone.
+      await expect(page.locator("video")).toHaveCount(1);
     }
     // No before and after slot until the founder has the photos.
     await expect(page.getByText("From the pilot")).toHaveCount(0);
   });
 
-  test("the real store leads: the story, then the first table Stoop planned, then the example stores", async ({ page }) => {
+  test("one story in order: the problem (the story), proof in a real store, how Qloo decides, then why Qloo", async ({ page }) => {
     test.skip(!STORE_STORY, "The story band is turned off.");
     await page.goto("/");
     const { headline, body } = storyLines(STORE_STORY!);
@@ -416,10 +422,13 @@ test.describe("the store-events landing", () => {
     await expect(story.getByRole("img")).toHaveCount(0);
     // The old "Built on the sales floor" quote is folded into the story.
     await expect(page.getByText("Built on the sales floor")).toHaveCount(0);
-    const order = await page.evaluate(() => ["story", "real-table", "examples"].map((id) => document.getElementById(id)).filter(Boolean).map((el) => el!.id));
+    // In page order, whatever the ids are asked in.
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("main > section[id]")].map((el) => el.id).filter((id) => ["story", "real-table", "examples", "generic", "how"].includes(id)),
+    );
     const table = page.getByRole("region", { name: TABLE_TITLE });
     if (PILOT_COPY && TABLE_PHOTO) {
-      expect(order).toEqual(["story", "real-table", "examples"]);
+      expect(order).toEqual(["story", "real-table", "examples", "generic", "how"]);
       const photo = table.getByRole("img", { name: TABLE_PHOTO.alt });
       await expect(photo).toHaveAttribute("loading", "lazy");
       await expect(photo).toHaveAttribute("src", TABLE_PHOTO.src);
@@ -430,7 +439,7 @@ test.describe("the store-events landing", () => {
         await expect(table.getByText(PILOT_RESULT_LABEL)).toBeVisible();
       } else await expect(table.getByText(PILOT_RESULT_LABEL)).toHaveCount(0);
     } else {
-      expect(order).toEqual(["story", "examples"]);
+      expect(order).toEqual(["story", "examples", "generic", "how"]);
       await expect(table).toHaveCount(0);
     }
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
@@ -443,7 +452,7 @@ test.describe("the store-events landing", () => {
     await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tabpanel")).toHaveCount(1);
     // The comparison below is the lead store's, so the tabs open on another community.
-    await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel$/)).toBeVisible();
     // Posters live in one place (Promote), never in the tabs.
     await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ })).toHaveCount(0);
 
@@ -452,22 +461,31 @@ test.describe("the store-events landing", () => {
     await expect(tabs.nth(1)).toBeFocused();
     await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
     await expect(tabs.nth(0)).toHaveAttribute("tabindex", "-1");
-    await expect(page.getByRole("tabpanel").getByText(/^Pre-Thanksgiving Chips and Dip Booth:/)).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByText(/^Pre-Thanksgiving Chips and Dip Booth$/)).toBeVisible();
     await page.keyboard.press("Home");
     await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("End");
     await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("tabpanel").getByText(/^Warm Cup Wheel Stop:/)).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByText(/^Warm Cup Wheel Stop$/)).toBeVisible();
 
-    // Each tab is short: the sentence with its Qloo picks, the map, the poster and a way into the plan.
+    // The picks as three cards, every name and number from the recording, beside the map.
     const panel = page.getByRole("tabpanel");
+    const picks = panel.getByRole("list", { name: "What Qloo picked for 18th Street Wireless" }).getByRole("listitem");
+    await expect(picks).toHaveCount(3);
+    await expect(picks.nth(0)).toContainText("Music");
+    await expect(picks.nth(0)).toContainText(andList(qloo.artists.slice(0, 3)));
+    await expect(picks.nth(0)).toContainText("Qloo's #1, #2 and #3 for Chicago, adults 25 to 34");
+    await expect(picks.nth(1)).toContainText("Food");
+    await expect(picks.nth(1)).toContainText(qloo.snackPlace);
+    await expect(picks.nth(2)).toContainText("Prize game");
+    await expect(picks.nth(2)).toContainText(qloo.giftCardPlace);
     await expect(panel.getByText(/^24 places from Qloo, within about 1 mile$/)).toBeVisible();
-    await expect(panel.getByText("Free to spin, no purchase needed")).toBeVisible();
+    await expect(panel.getByText("Free to play, no purchase needed")).toBeVisible();
     await expect(panel.getByText("Fictional store. Not affiliated with or endorsed by T-Mobile.")).toBeVisible();
     await expect(panel.getByRole("link", { name: "Open the plan for 18th Street Wireless" })).toHaveAttribute("href", LEAD_EVENT);
     await expect(panel.getByText("The day")).toHaveCount(0);
     await expect(panel.getByText(/Qloo calls/)).toHaveCount(0);
-    await panel.getByRole("link", { name: `${qloo.snackPlace}: why Qloo picked this` }).click();
+    await panel.getByRole("link", { name: "Why Qloo picked this: Food" }).click();
     const receipt = page.getByRole("dialog", { name: /^Receipt:/ });
     await expect(receipt).toBeVisible();
     // The raw Qloo query sits one tap away, under Technical details.
@@ -510,7 +528,7 @@ test.describe("the store-events landing", () => {
     const off = page.getByRole("heading", { level: 2, name: "Posts written for your channels, ready in one tap." });
     if ((await off.count()) > 0) {
       const section = page.locator("section", { has: off });
-      await expect(section.getByText("Posting straight to your Facebook Page turns on once Meta approves the app.")).toBeVisible();
+      await expect(section.getByText("Posting straight to Facebook turns on once Meta approves the app.")).toBeVisible();
       // One line names the channels once; the four send times sit in a compact row, as plain text.
       await expect(section.getByText(/Facebook, Instagram and WhatsApp/)).toHaveCount(1);
       const times = section.getByRole("list", { name: "When the posts go out" }).getByRole("listitem");
@@ -600,11 +618,11 @@ test.describe("the store-events landing", () => {
 
     test("the landing reads in full: the H1, the first store, its drawn map and the comparison", async ({ page }) => {
       await page.goto("/");
-      await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
-      await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: H1 })).toBeVisible();
+      await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel$/)).toBeVisible();
       await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Map of the 21 places Qloo found/ }).last()).toBeVisible();
       // A pick is a plain link to its place on the example's community page.
-      await expect(page.getByRole("tabpanel").getByRole("link", { name: /: why Qloo picked this$/ }).first()).toHaveAttribute("href", /^\/s\/atlanta-west-end#place-/);
+      await expect(page.getByRole("tabpanel").getByRole("link", { name: "Why Qloo picked this: Food" })).toHaveAttribute("href", /^\/s\/atlanta-west-end#place-/);
       await expect(page.getByRole("table", { name: /The generic AI plan and Stoop's plan/ })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Plan this Saturday's table." })).toBeVisible();
     });

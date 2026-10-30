@@ -7,32 +7,17 @@ import type { ReceiptView } from "@/lib/report/view/types";
 import { CommunityPlot } from "./community-plot";
 import { ReceiptLink } from "./receipt-link";
 
-/** A Qloo pick in the dark verdict: underlined in the poster's lime, opening its receipt. */
-export const PICK_LINK =
-  "rounded-[4px] underline decoration-fl-signal decoration-[3px] underline-offset-[6px] hover:decoration-[5px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-fl-signal";
-
 /**
- * One example store's tab, kept short: the verdict (its title and its Qloo-backed picks, each opening
- * a receipt), the budget and date line and its community map, then a way into the whole plan. The
- * day's timeline and the proof live on the plan itself and in the comparison below; the page's one
- * example poster sits in Promote.
+ * One example store's tab: the event's title with its budget, free-to-play and date line, then its three
+ * picks as cards (Music, Food, Prize game, every name and number from the recorded plan, each with its
+ * "Why Qloo picked this" receipt) beside the map of the places Qloo found, and a way into the whole plan.
  */
 export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: Readonly<Record<string, ReceiptView>> }) {
   return (
     <FloorReceipts receipts={receipts}>
       <article aria-label={`${show.storeName}, ${show.city}`} className="flex flex-col gap-4">
         <div className="floor-dark rounded-[20px] bg-fl-dark px-5 py-5 text-fl-dark-bright sm:px-7 sm:py-6">
-          <p className="font-serif text-[1.375rem] leading-[1.3] text-pretty sm:text-[1.75rem] lg:text-[2.125rem] lg:leading-[1.25]">
-            {show.verdict.map((part, i) =>
-              part.kind === "text" ? (
-                <span key={i}>{part.text}</span>
-              ) : (
-                <ReceiptLink key={i} receiptKey={part.receipt} href={part.href} className={PICK_LINK} label={`${part.text}: why Qloo picked this`}>
-                  {part.text}
-                </ReceiptLink>
-              ),
-            )}
-          </p>
+          <p className="font-serif text-[1.5rem] leading-[1.2] text-balance sm:text-[1.875rem] lg:text-[2.25rem]">{show.title}</p>
           <ul className="mt-3 flex flex-col gap-0.5 text-sm text-fl-dark-dim tabular-nums sm:flex-row sm:flex-wrap sm:gap-x-2">
             {show.meta.map((m, i) => (
               <li key={m} className="flex gap-2">
@@ -47,20 +32,36 @@ export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: 
           </ul>
         </div>
 
-        {show.map && (
-          <div className="relative h-[280px] overflow-hidden rounded-[20px] md:h-[340px] lg:h-[380px]">
-            <BlockMap center={show.map.center} radiusM={show.map.radiusM} places={show.map.pins} interactive={false} label={show.map.label} className="h-full" />
-            <noscript>
-              <div className="absolute inset-0 z-10">
-                <CommunityPlot center={show.map.center} radiusM={show.map.radiusM} pins={show.map.pins} label={show.map.label} />
-              </div>
-            </noscript>
-            <p className="pointer-events-none absolute top-3 left-3 z-20 inline-flex h-7 items-center gap-2 rounded-full border border-fl-line bg-white px-3 text-xs font-medium">
-              <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
-              {show.map.chip}
-            </p>
-          </div>
-        )}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <ul aria-label={`What Qloo picked for ${show.storeName}`} className="flex flex-col gap-3">
+            {show.picks.map((p) => (
+              <li key={p.title} className="flex flex-col gap-1 rounded-[16px] bg-white px-5 py-4">
+                <p className="text-xs font-semibold tracking-[0.06em] text-fl-dim uppercase">{p.title}</p>
+                {/* The pick itself opens its receipt: why Qloo picked this, with the exact request one tap further. */}
+                <p className="text-[1.0625rem] leading-[1.35] font-semibold text-pretty">
+                  <ReceiptLink receiptKey={p.receipt} href={p.href} label={`Why Qloo picked this: ${p.title}`} className="rounded-[4px] underline decoration-fl-signal decoration-[3px] underline-offset-[5px] hover:decoration-[5px]">
+                    {p.value}
+                  </ReceiptLink>
+                </p>
+                <p className="font-mono text-[0.8125rem] leading-[1.45] text-pretty text-fl-dim">{p.note}</p>
+              </li>
+            ))}
+          </ul>
+          {show.map && (
+            <div className="relative h-[280px] overflow-hidden rounded-[20px] md:h-[360px] lg:h-auto lg:min-h-[420px]">
+              <BlockMap center={show.map.center} radiusM={show.map.radiusM} places={show.map.pins} interactive={false} label={show.map.label} className="h-full" />
+              <noscript>
+                <div className="absolute inset-0 z-10">
+                  <CommunityPlot center={show.map.center} radiusM={show.map.radiusM} pins={show.map.pins} label={show.map.label} />
+                </div>
+              </noscript>
+              <p className="pointer-events-none absolute top-3 left-3 z-20 inline-flex h-7 items-center gap-2 rounded-full border border-fl-line bg-white px-3 text-xs font-medium">
+                <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
+                {show.map.chip}
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
           <Link

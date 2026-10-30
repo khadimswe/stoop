@@ -23,7 +23,7 @@ const overflow = (page: Page) => page.evaluate(() => document.documentElement.sc
 test("landing to an example event to one receipt", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Give your community a reason to stop." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^The music they\s+love\./ })).toBeVisible();
   // His name closes the story band right after the hero.
   await expect(page.getByText("Khadim, sales floor, Metro by T-Mobile")).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);

@@ -111,7 +111,7 @@ export function emptyStoreForm(): StoreFormValues {
     venueName: "",
     venueLat: "",
     venueLon: "",
-    budgetUsd: "50",
+    budgetUsd: "100",
     offers: ["", "", ""],
     ageBands: ["25_to_29", "30_to_34"],
     notes: "",
