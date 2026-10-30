@@ -162,3 +162,5 @@ blob:bc8b19389ad4fa8b8a1baea0f6c98a54a052dd9b e2e/home.spec.ts
 blob:94a058b3d01b79a5b31f95e55c7ace44321ee071 e2e/home.spec.ts
 blob:af231688036868fa064f5e86ea8cf9bbee8b41ca e2e/home.spec.ts
 blob:5e7c13181ce81290e8a75f66ee59aa42a9a1ee3a lib/marketing/landing-stores.test.ts
+blob:8fbc76ffe3fc20f1bdf5b882cd900a4e7425d948 lib/plan/ask.test.ts
+blob:f3e773c01e8b1155ca471e760d4afac657f290d7 lib/plan/ask.ts
