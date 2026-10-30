@@ -15,7 +15,8 @@ import { clock, endTime, evidenceFor, inputsText, PLAN_RULES, PLANNER_ROLE, REF_
 import { refsIn, renderRefs } from "./refs";
 import { outOfScope } from "./taste";
 import { clicheIn } from "./baseline";
-import { checkWheel, GIFT_CARD_MAX_USD, llmWheel, wheelWanted, WHEEL_RULES } from "./wheel";
+import { checkWheel, gameRules, GIFT_CARD_MAX_USD, llmBoard, llmWheel, wheelWanted } from "./wheel";
+import { gameOf, leftOffNote, offersLeftOff, type TableGame } from "./game";
 import type { Concept, Plan, PlanInputs } from "./schema";
 
 export const PLAN_TIMEOUT_MS = 90_000;
@@ -59,6 +60,10 @@ const llmPlan = z.object({
   wheel: llmWheel.nullable().describe("The tabletop prize wheel's slices when the event is outside, else null"),
 });
 type LlmPlan = z.infer<typeof llmPlan>;
+/** The same answer for a drop board: only the game's descriptions differ. */
+const llmPlanBoard = llmPlan.extend({ wheel: llmBoard.nullable().describe("The tabletop drop board's 6 slots when the event is outside, else null") });
+/** What Claude answers for the plan, in the words of the table's game. */
+export const llmPlanFor = (game: TableGame) => (game === "drop_board" ? llmPlanBoard : llmPlan);
 
 const TASK = [
   "Task:",
@@ -79,6 +84,21 @@ const WHEEL_TASK = [
   "- snack: optionally a free snack slice from what the table serves, or null.",
   "The run of show turns a promo win into a walk-in: winners of a promo slice walk in with a staffer to see it.",
 ].join("\n");
+
+const BOARD_TASK = [
+  "The drop board: the store has a tabletop drop board (people drop a chip at the top, it bounces off pegs and lands in one of 6 prize slots along the bottom), and this event is outside, so plan its slots in the wheel field.",
+  "- promoLabels: a short label for each of the manager's offers (by its number), made only of that offer's own words. The slot itself quotes the offer in full. The board has 6 slots: promos fill them first, and one always goes to a gift card.",
+  `- giftCards: 1 or 2 gift-card slots to places on the block ($5 to $${GIFT_CARD_MAX_USD} each), with how many cards to buy. They count against the budget; do not list them again in shopping.`,
+  "- snack: optionally a free snack slot from what the table serves, or null.",
+  "The run of show turns a promo win into a walk-in: people whose chip lands on a promo slot walk in with a staffer to see it. Say \"drop board\" and \"drop a chip\"; never call it a wheel or say spin.",
+].join("\n");
+
+/** The plan prompt's game paragraph: the wheel's or the drop board's, or that there is none. */
+function gameTask(inputs: PlanInputs): string {
+  const board = gameOf(inputs) === "drop_board";
+  if (!wheelWanted(inputs)) return board ? "There is no drop board at this event: set wheel to null." : "There is no prize wheel at this event: set wheel to null.";
+  return board ? BOARD_TASK : WHEEL_TASK;
+}
 
 /** Words that mark a place as a snack or dessert spot: one tray or dozen there beats grocery chips. */
 export const SNACK_SPOT = /\b(bakery|bakeries|dessert|ice cream|donuts?|doughnuts?|cookies?|pastr(y|ies)|panader[ií]a|paleter[ií]a|cupcakes?|churros?|cafe|coffee|juice|smoothies?|tea|snacks?)\b/i;
@@ -103,7 +123,7 @@ export function planPrompt(inputs: PlanInputs, concept: Concept, aliases: Aliase
     snacks.length
       ? `Snack spots on the block Qloo ranks:\n${snacks.join("\n")}\nIf one tray or dozen from one of them fits the budget with everything else, buy the snacks there (set from, show the math in qty) instead of grocery chips. If it does not fit, chips are fine.`
       : "No snack spot on the block is close enough: store-bought snacks are fine.",
-    wheelWanted(inputs) ? WHEEL_TASK : "There is no prize wheel at this event: set wheel to null.",
+    gameTask(inputs),
     "Write the plan.",
   ].join("\n\n");
 }
@@ -236,7 +256,7 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
 }
 
 const GIFT = /gift ?cards?/i;
-const WHEEL = /\b(wheel|spins?)\b/i;
+const WHEEL = /\b(wheel|spins?|drop ?boards?)\b/i;
 const AMOUNT = /\$\s?(\d+)\s+(?:e-?)?gift ?cards?/i;
 
 /**
@@ -254,7 +274,7 @@ export function prizePurchases(kept: Concept, plan: Pick<Plan, "runOfShow" | "sh
   };
   for (const item of kept.items) if (item.kind === "giveaway" || item.kind === "activity" || item.kind === "timing") note(item.text, item.refs);
   for (const step of plan.runOfShow) note(step.step, refsIn(step.step));
-  const bought = new Set(plan.shopping.filter((s) => s.from && GIFT.test(s.item) && !/\bwheel\b/i.test(s.item)).map((s) => s.from as string));
+  const bought = new Set(plan.shopping.filter((s) => s.from && GIFT.test(s.item) && !/\b(wheel|drop board)\b/i.test(s.item)).map((s) => s.from as string));
   return [...amounts].filter(([id]) => !bought.has(id)).map(([id, amount]) => ({
     item: `Gift card for the free drawing (${aliases.names.get(id) ?? "a community place"})`.slice(0, 120),
     qty: `1 at $${amount} each`,
@@ -285,7 +305,8 @@ export function fallbackPlan(inputs: PlanInputs, concept: Concept, aliases?: Ali
   const built = checkWheel(raw, inputs, aliases, guardFor(inputs, aliases.ids.values()));
   if (!built.wheel) return plain;
   const cost = built.purchases.reduce((sum, s) => sum + (s.estUsd ?? 0), 0);
-  return { ...plain, shopping: built.purchases, estimatedCostUsd: cost, wheel: { ...built.wheel, rules: [...WHEEL_RULES, ...built.wheel.rules.slice(WHEEL_RULES.length)] } };
+  const rules = gameRules(gameOf(inputs));
+  return { ...plain, shopping: built.purchases, estimatedCostUsd: cost, wheel: { ...built.wheel, rules: [...rules, ...built.wheel.rules.slice(rules.length)] } };
 }
 
 function repairPrompt(prompt: string, previous: unknown, issues: readonly string[]): string {
@@ -299,14 +320,15 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
   const prompt = planPrompt(inputs, kept, aliases);
   let ask = prompt;
   let built: PlanCheck["plan"] = null;
+  const schema = llmPlanFor(gameOf(inputs));
   for (let attempt = 1; attempt <= 2 && !built; attempt++) {
     const timeoutMs = claudeTimeout(env, PLAN_TIMEOUT_MS);
     if (timeoutMs === null) {
       planDecide(env, "plan", "Skipped another call to Claude for the plan", "Not enough time was left in the run; the plain plan stands in.");
       break;
     }
-    const reply = await askOnce(env.model, { instructions, prompt: ask, schema: llmPlan, name: "event_plan", description: "The run of show, shopping list and checks.", timeoutMs, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
-    const parsed = reply.failure ? null : llmPlan.safeParse(reply.output);
+    const reply = await askOnce(env.model, { instructions, prompt: ask, schema, name: "event_plan", description: "The run of show, shopping list and checks.", timeoutMs, ...(env.abortSignal ? { abortSignal: env.abortSignal } : {}) });
+    const parsed = reply.failure ? null : schema.safeParse(reply.output);
     if (!parsed?.success) {
       planDecide(env, "plan", attempt === 1 ? "Asked Claude again for the plan" : "Claude's plan did not come back usable", reply.failure ?? "The answer did not match the plan format.");
       continue;
@@ -340,6 +362,10 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
     planDecide(env, "plan", `Added ${prizes.length} drawing ${prizes.length === 1 ? "prize" : "prizes"} to the shopping list`, `${prizes.map((p) => p.item).join("; ")}${fitted?.cut.length ? `; cut to stay within the $${inputs.budgetUsd} budget: ${fitted.cut.join("; ")}` : ""}.`);
     if (fitted) built = { ...fitted.plan, checklist: built.checklist };
   }
+  // A drop board's 6 slots can leave promos off: the trace says which, plainly (they stay on the poster and in the posts).
+  const leftOff = gameOf(inputs) === "drop_board" && built.wheel ? offersLeftOff(inputs.offers, built.wheel.slices) : [];
+  const note = leftOffNote(leftOff, inputs.offers.length);
+  if (note) planDecide(env, "plan", `Put ${inputs.offers.length - leftOff.length} of your ${inputs.offers.length} promos on the drop board`, note);
   const partners = built.shopping.filter((s) => s.from).length;
   planDecide(env, "plan", `Planned the day: ${built.runOfShow.length} steps, ${built.shopping.length} things to buy`, `About $${built.estimatedCostUsd} of the $${inputs.budgetUsd} budget${partners ? `, ${partners} bought from community partners` : ""}.`);
   return { conceptId: kept.id, concepts, ...built };

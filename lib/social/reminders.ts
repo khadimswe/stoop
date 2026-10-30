@@ -6,6 +6,7 @@
 // is the plan's own approved draft (lib/plan/posts.ts); these follow it. The same captions are copied
 // in the share timeline and posted from Stoop, where the posts guard checks them once more
 // (lib/social/posts-guard.ts checkReminder). A plain module: the screens import it.
+import { gameOf } from "../plan/game";
 import { disclaimerFor, eventTime, wheelLineOf } from "../plan/poster-text";
 import type { PlanInputs, PlanReport } from "../plan/schema";
 import type { PostTimeId } from "./schedule";
@@ -42,7 +43,7 @@ export function reminderFacts(inputs: PlanInputs, wheelKinds: readonly string[] 
     phone: inputs.store.phone?.trim() || null,
     time: eventTime(inputs.startTime, inputs.durationMinutes),
     start: startClock(inputs.startTime),
-    wheel: wheelLineOf(wheelKinds),
+    wheel: wheelLineOf(wheelKinds, gameOf(inputs)),
     offers: inputs.offers.map((o) => o.text),
     disclaimer: disclaimerFor(meta, inputs.store.carrier),
   };

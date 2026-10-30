@@ -17,6 +17,7 @@ import { dayContext } from "./calendar";
 import { titleGenre } from "./words";
 import { outOfScope } from "./taste";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
+import { gameOf, type TableGame } from "./game";
 
 export const CONCEPT_COUNT = 3;
 export const CONCEPTS_TIMEOUT_MS = 120_000;
@@ -65,8 +66,35 @@ const TASK = [
   "Then score each concept with the rubric below and say its main weakness in one sentence.",
 ].join("\n");
 
-export function conceptsInstructions(): string {
-  return [PLANNER_ROLE, PLAN_RULES, REF_RULES, TASK, PLAN_RUBRIC_TEXT].join("\n\n");
+/**
+ * The task's game sentences for a drop board, by the wheel sentence each one replaces. A wheel plan's
+ * task stays exactly as written above: the recorded examples replay against it word for word.
+ */
+const BOARD_LINES: ReadonlyMap<string, string> = new Map([
+  [
+    "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a prize wheel, a free drawing) are welcome; what matters is that the details are local.",
+    "Giveaways: small gift cards to the block's places are a good, Qloo-backed giveaway (\"a $10 gift card to [[p3]]\"), handed out in a free drawing. Proven tactics (the promo sign, a drop board, a free drawing) are welcome; what matters is that the details are local.",
+  ],
+  [
+    "Titles and hooks come from the occasion (a holiday near the date), the activity (the wheel), the food or the place. They never name a music genre or use slang tied to a community, for example \"Halloween Friday Wheel Spin\".",
+    "Titles and hooks come from the occasion (a holiday near the date), the activity (the drop board), the food or the place. They never name a music genre or use slang tied to a community, for example \"Halloween Friday Drop Board\".",
+  ],
+  [
+    "The store owns a tabletop prize wheel; for an outdoor event the plan adds it (promo slices and a gift-card slice), so a concept may lean on it.",
+    "The store has a tabletop drop board (people drop a chip at the top, it bounces off pegs and lands in one of 6 prize slots); for an outdoor event the plan adds it (promo slots and a gift-card slot), so a concept may lean on it. Say \"drop board\" and \"drop a chip\"; never call it a wheel or say spin.",
+  ],
+]);
+
+/** The concepts task for the table's game: the wheel's as written, or the same with the drop board's sentences. */
+export function conceptsTask(game: TableGame = "wheel"): string {
+  if (game === "wheel") return TASK;
+  return TASK.split("\n")
+    .map((line) => BOARD_LINES.get(line) ?? line)
+    .join("\n");
+}
+
+export function conceptsInstructions(game: TableGame = "wheel"): string {
+  return [PLANNER_ROLE, PLAN_RULES, REF_RULES, conceptsTask(game), PLAN_RUBRIC_TEXT].join("\n\n");
 }
 
 export function conceptsPrompt(inputs: PlanInputs, local: Local, aliases: Aliases): string {
@@ -105,7 +133,8 @@ export function notesMissing(notes: string, items: readonly Pick<PlanItem, "text
 }
 
 /** Maps one answer to plan items with real refs and receipts, and lists every problem. Lines with problems are left out. */
-export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardContext): ConceptCheck {
+export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardContext, game: TableGame = "wheel"): ConceptCheck {
+  const activity = game === "drop_board" ? "the drop board" : "the wheel";
   const issues: string[] = [];
   const concepts: CheckedConcept[] = [];
   const answer = stripEmDashes(raw);
@@ -120,7 +149,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       issues.push(`${at}.title or hook: ${problem}`);
     }
     const genre = titleGenre(`${title} ${hook}`);
-    if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (the wheel), the food or the place, never the music.`);
+    if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (${activity}), the food or the place, never the music.`);
     const items: PlanItem[] = [];
     const used = new Set<string>();
     concept.items.forEach((item, i) => {
@@ -231,7 +260,8 @@ export function defaultMusicLine(local: Local, aliases: Aliases): PlanItem | nul
  * manager's first offer on the sign, and the walk-in beat. Scored in the middle of the rubric.
  */
 export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases, guard: GuardContext): CheckedConcept | null {
-  const items: PlanItem[] = [{ kind: "theme", text: "A free spin, something to eat and the store's own deals, right outside the door.", origin: "creative", refs: [], evidenceIds: [] }];
+  const board = gameOf(inputs) === "drop_board";
+  const items: PlanItem[] = [{ kind: "theme", text: plainHook(inputs), origin: "creative", refs: [], evidenceIds: [] }];
   const music = defaultMusicLine(local, aliases);
   if (music) items.push(music);
   const spot = (local.block?.places ?? []).filter((p) => p.kind === "food" && !p.chain && !outOfScope(p, inputs.date)).sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9))[0];
@@ -242,7 +272,7 @@ export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases,
   }
   const offer = inputs.offers[0]?.text;
   if (offer) items.push({ kind: "signage", text: `Table sign: "${offer}"`, origin: "yours", refs: [], evidenceIds: [] });
-  items.push({ kind: "timing", text: "At the busiest hour, one person walks each spin winner inside to hear the deal.", origin: "creative", refs: [], evidenceIds: [] });
+  items.push({ kind: "timing", text: board ? "At the busiest hour, one person walks each drop board winner inside to hear the deal." : "At the busiest hour, one person walks each spin winner inside to hear the deal.", origin: "creative", refs: [], evidenceIds: [] });
   const passing = items.filter((item) => itemIssues(item, guard).length === 0);
   if (passing.length < MIN_CONCEPT_ITEMS) return null;
   const safe = safeTitle(inputs, 0);
@@ -251,6 +281,11 @@ export function plainConcept(inputs: PlanInputs, local: Local, aliases: Aliases,
 }
 
 const ANCHORS = ["Wheel Spin", "Snack Stop", "Community Table"] as const;
+const BOARD_ANCHORS = ["Drop Board", "Snack Stop", "Community Table"] as const;
+
+/** The plain hook: a free try at the table's game, something to eat and the store's deals. */
+const plainHook = (inputs: PlanInputs) =>
+  gameOf(inputs) === "drop_board" ? "A free chip drop, something to eat and the store's own deals, right outside the door." : "A free spin, something to eat and the store's own deals, right outside the door.";
 
 /**
  * A safe title and hook when Claude's still name a genre or break a rule after the repair: the day's
@@ -260,10 +295,11 @@ export function safeTitle(inputs: PlanInputs, index: number): { title: string; h
   const day = dayContext(inputs.date);
   const holiday = /^It is (.+)\.$/.exec(day.notes.find((n) => /^It is [A-Z]/.test(n) && !/season|winter|summer/.test(n)) ?? "")?.[1]?.replace(/^the /, "") ?? null;
   const weekday = day.label.split(",")[0] as string;
-  const anchor = ANCHORS[index % ANCHORS.length] as string;
+  const anchors = gameOf(inputs) === "drop_board" ? BOARD_ANCHORS : ANCHORS;
+  const anchor = anchors[index % anchors.length] as string;
   return {
     title: `${holiday ? `${holiday} ` : ""}${weekday} ${anchor}`.replace(/^(\w)/, (c) => c.toUpperCase()).slice(0, 60),
-    hook: "A free spin, something to eat and the store's own deals, right outside the door.",
+    hook: plainHook(inputs),
   };
 }
 
@@ -275,7 +311,8 @@ export interface ConceptsOutcome {
 /** One concept call, plus one repair when lines fail. Null when nothing usable came back. */
 export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Local, guard: GuardContext): Promise<ConceptsOutcome | null> {
   const aliases = buildAliases(local);
-  const instructions = cachedInstructions(conceptsInstructions());
+  const game = gameOf(inputs);
+  const instructions = cachedInstructions(conceptsInstructions(game));
   const prompt = conceptsPrompt(inputs, local, aliases);
   let ask = prompt;
   let best: ConceptCheck | null = null;
@@ -292,7 +329,7 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
       if (attempt === 1) continue;
       break;
     }
-    const check = checkConcepts(parsed.data, aliases, guard);
+    const check = checkConcepts(parsed.data, aliases, guard, game);
     best = check;
     if (check.issues.length === 0) break;
     if (attempt === 1) {

@@ -9,6 +9,7 @@
 // drawn: a real store adds its official assets itself. Artists are never named on a poster.
 // A plain module (no server imports), so the UI can show the same lines as text.
 import { PLAN_EXAMPLES, planExampleSlug } from "./example-list";
+import { gameOf, gameWords, type TableGame } from "./game";
 import { renderRefs } from "./refs";
 import type { PlanReport, Store } from "./schema";
 
@@ -33,6 +34,8 @@ export interface PosterText {
   wheel: string | null;
   /** What the wheel carries, for the poster's badge ("Store deals and free gift cards"), or null. */
   wheelWhat: string | null;
+  /** The table's game (absent means the prize wheel): the badge says "Spin the prize wheel" or "Drop a chip". */
+  game?: TableGame;
   /** One local line from the plan's own shopping list, a place Qloo returned, by name: "Treats from Maple Corner Cafe" (made up). */
   local: string | null;
   /** The carrier, for the poster's palette only (colors, never a logo). */
@@ -45,14 +48,15 @@ export interface PosterText {
  * The prize wheel's one line, from what its slices are: deals when it carries the store's promos, free
  * gift cards when it carries gift-card slices. Spinning is always free and needs no purchase.
  */
-export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null): string | null {
-  return wheelLineOf(plan?.wheel?.slices.map((s) => s.kind) ?? null);
+export function wheelLine(plan: Pick<NonNullable<PlanReport["plan"]>, "wheel"> | null, game: TableGame = "wheel"): string | null {
+  return wheelLineOf(plan?.wheel?.slices.map((s) => s.kind) ?? null, game);
 }
 
 /** The wheel's line from its slices' kinds alone (the screens have the kinds, not the plan), or null without a wheel. */
-export function wheelLineOf(kinds: readonly string[] | null): string | null {
+export function wheelLineOf(kinds: readonly string[] | null, game: TableGame = "wheel"): string | null {
   const what = wheelWhatOf(kinds);
-  return what ? `Spin the prize wheel: ${what}. Free to spin, no purchase needed.` : null;
+  const words = gameWords(game);
+  return what ? `${words.play}: ${what}. ${words.free}` : null;
 }
 
 /** What the wheel carries, in lower case, or null without a wheel. */
@@ -240,8 +244,9 @@ export function posterText(report: Pick<PlanReport, "inputs" | "plan" | "local" 
       const label = dealLabel(text, slices);
       return { label, text, body: dealBody(label, text) };
     }),
-    wheel: wheelLine(report.plan),
+    wheel: wheelLine(report.plan, gameOf(inputs)),
     wheelWhat: what ? what.charAt(0).toUpperCase() + what.slice(1) : null,
+    game: gameOf(inputs),
     local: localLine(report),
     carrier: inputs.store.carrier,
     disclaimer: fictionalExample(report.meta) ? CARRIER_NOTES[inputs.store.carrier] : null,

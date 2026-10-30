@@ -106,7 +106,7 @@ export function planningSteps(state: Pick<PlanState, "status" | "current" | "rep
       key: "fit",
       title: stages.plan ? `Fit the day into ${budget}` : `Fitting the day into ${budget}`,
       source: "Claude",
-      detail: stages.plan && plan ? `${plan.runOfShow.length} timeline steps, ${plan.shopping.length} things to buy, about $${Math.round(plan.estimatedCostUsd)}` : "The shopping list, the wheel, the timeline",
+      detail: stages.plan && plan ? `${plan.runOfShow.length} timeline steps, ${plan.shopping.length} things to buy, about $${Math.round(plan.estimatedCostUsd)}` : r.inputs?.game === "drop_board" ? "The shopping list, the drop board, the timeline" : "The shopping list, the wheel, the timeline",
       status: status("plan"),
       timeText: seconds(stages.plan?.durationMs),
     },

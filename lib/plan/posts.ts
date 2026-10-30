@@ -13,6 +13,7 @@ import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
 import { GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
 import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
+import { gameOf, gameWords, type TableGame } from "./game";
 import { blockWord, textIssues } from "./guard";
 import { BRAND_WORDS } from "./poster-prompt";
 import { keptConcept, posterText, refNames } from "./poster-text";
@@ -43,6 +44,9 @@ const FREE = /\bfree\b|\bon us\b|\bno charge\b|\bcomplimentary\b/i;
 const DEAL_WORDS = /\b(?:deals?|sales?|save|savings|giveaways?|prizes?|raffles?|win|wins|winners?|winning|gift ?cards?|promos?|promotions?|specials?)\b/i;
 /** The prize wheel, as the plan names it: a post may say there is one when the plan has one. */
 const WHEEL = /\bprize wheel\b|\bspin the wheel\b/gi;
+/** The drop board, as the plan names it: a post may say there is one when the plan has one. */
+const DROP_BOARD = /\bdrop board\b|\bdrop a chip\b/gi;
+const GAME_NAMES: Readonly<Record<TableGame, RegExp>> = { wheel: WHEEL, drop_board: DROP_BOARD };
 /** Settings aimed at minors that the shared term list leaves out. */
 const MINOR_SETTING = /\bback[- ]?to[- ]?school\b|\bschools?\b|\bcampus\b/i;
 const AUDIENCE = /\b(?:your|our)\s+(?:customers?|clients?|shoppers?|buyers?)\b/i;
@@ -132,10 +136,12 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
   if (audience) add(audience, `"${audience}" claims to know who shops here. Speak to the city and the community.`);
   const block = blockWord(text);
   if (block) add(block, `"${block}": say "the community" (or name the place) instead of "block".`);
+  const game = gameOf(report.inputs);
+  const named = game === "drop_board" ? "drop board" : "wheel";
   const free = text.match(FREE)?.[0];
-  if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the wheel line word for word.`);
-  const deal = (report.plan?.wheel ? text.replace(WHEEL, " ") : text).match(DEAL_WORDS)?.[0];
-  if (deal) add(deal, `"${deal}" is deal or prize talk. Code adds the offers word for word, and a post never says what the wheel pays out.`);
+  if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the ${named} line word for word.`);
+  const deal = (report.plan?.wheel ? text.replace(GAME_NAMES[game], " ") : text).match(DEAL_WORDS)?.[0];
+  if (deal) add(deal, `"${deal}" is deal or prize talk. Code adds the offers word for word, and a post never says what the ${named} pays out.`);
   const minor = text.match(MINOR_SETTING)?.[0];
   if (minor) add(minor, `"${minor}" points at students. The event is for adults passing by.`);
   const claim = text.match(CLAIMS)?.[0];
@@ -313,6 +319,13 @@ const SETTING_WORDS: Record<PlanReport["inputs"]["setting"], string> = {
   community_event: "a booth at a fair or community event",
 };
 
+/** The posts prompt's one line about the table's game. */
+function gameLine(game: TableGame): string {
+  if (game === "wheel") return "The table has a prize wheel, free to spin with no purchase needed. You may say \"spin the prize wheel\"; never list, describe or promise a prize.";
+  const w = gameWords(game);
+  return `The table has a ${w.noun} (people drop a chip and it lands in a prize slot), free to play with no purchase needed. You may say "drop a chip on the ${w.noun}"; never call it a wheel, never say spin, and never list, describe or promise a prize.`;
+}
+
 export function postsPrompt(report: Report): string {
   const concept = keptConcept(report);
   const f = postFacts(report);
@@ -327,7 +340,7 @@ export function postsPrompt(report: Report): string {
     `The event: ${f.title}, on ${f.when}, ${SETTING_WORDS[report.inputs.setting]}, ${report.inputs.location ? `at ${report.inputs.location.name}, hosted by ${report.inputs.store.name}` : `at ${report.inputs.store.name}`} in ${report.inputs.store.city}.`,
     concept ? `Why someone stops: ${concept.hook}` : "",
     report.inputs.offers.length ? `The manager has ${report.inputs.offers.length} offer${report.inputs.offers.length === 1 ? "" : "s"} at the table; code adds ${report.inputs.offers.length === 1 ? "it" : "them"} word for word below your lines.` : "There are no offers.",
-    ...(report.plan?.wheel ? ["The table has a prize wheel, free to spin with no purchase needed. You may say \"spin the prize wheel\"; never list, describe or promise a prize."] : []),
+    ...(report.plan?.wheel ? [gameLine(gameOf(report.inputs))] : []),
     `Tokens you may use (write the token, never the name):\n${tokens.length ? tokens.join("\n") : "(none)"}`,
     `The plan's lines:\n${lines.join("\n")}`,
     ...(report.inputs.notes ? [quoted("manager notes", report.inputs.notes)] : []),
