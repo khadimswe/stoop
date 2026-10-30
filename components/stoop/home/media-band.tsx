@@ -80,7 +80,7 @@ export function MediaBand({ media, still }: { media: PilotMedia | null; still: L
             )}
             <div className="flex min-w-0 flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <p className="text-sm text-fl-dark-dim">A real plan Stoop made, recorded for an example store</p>
+                <p className="text-sm text-fl-dark-dim">A real plan Stoop made for an example store</p>
                 <p className="font-serif text-[1.75rem] leading-[1.1] text-balance lg:text-[2.5rem]">{still.title}</p>
                 <p className="text-sm text-fl-dark-dim tabular-nums">{still.line}</p>
               </div>

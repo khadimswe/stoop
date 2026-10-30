@@ -68,6 +68,8 @@ test("the store-events guide walks the new landing in four steps and links each 
   await expect(path.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
   // It says plainly what happens when live plans are off.
   await expect(path.getByText(/When live plans are off, Stoop says so plainly and opens the closest example store instead/)).toBeVisible();
+  // The comparison step says what Qloo found, from the recorded run, in plain words.
+  await expect(path.getByText(/none of its 3 artists make Qloo's own top 20 for Chicago adults 25 to 34\.$/)).toBeVisible();
 
   const decides = page.getByRole("region", { name: "What Qloo decides" });
   for (const file of ["requests", "taste", "block-music", "baseline"]) {
@@ -82,6 +84,7 @@ test("the store-events guide never says block, claims a lift or shows a judge co
   // Code paths (lib/plan/block-music.ts) are file names, not words people read.
   const text = (await page.locator("main").innerText()).replace(/lib\/plan\/[a-z-]+\.ts/g, "");
   expect(text).not.toMatch(/\bblock\b/i);
+  expect(text).not.toMatch(/median|checkable|rubric/i);
   expect(text).not.toMatch(/your customers/i);
   expect(text).not.toMatch(/\d+% (lift|more|better|higher)/i);
   expect(await page.content()).not.toMatch(/judge=/i);
