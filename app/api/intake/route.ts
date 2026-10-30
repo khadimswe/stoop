@@ -3,9 +3,6 @@
 import { postIntake } from "@/lib/runtime/routes";
 import { routeDeps } from "@/lib/runtime/server";
 
-// Two readings, then the seeds, each with its own Claude timeout.
-export const maxDuration = 120;
-
 export function POST(request: Request) {
   return postIntake(request, routeDeps());
 }

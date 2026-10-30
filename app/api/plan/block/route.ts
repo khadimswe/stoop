@@ -7,8 +7,6 @@ import { getQlooClient } from "@/lib/qloo/server";
 import { failSafe } from "@/lib/routes/guard";
 import { getStore } from "@/lib/store";
 
-export const maxDuration = 60;
-
 export type { BlockAnswer } from "@/lib/plan/block";
 
 export function POST(request: Request) {

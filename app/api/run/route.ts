@@ -3,8 +3,6 @@
 import { postRun } from "@/lib/runtime/routes";
 import { routeDeps } from "@/lib/runtime/server";
 
-export const maxDuration = 300;
-
 export function POST(request: Request) {
   return postRun(request, routeDeps());
 }

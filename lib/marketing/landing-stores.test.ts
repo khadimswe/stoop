@@ -10,6 +10,7 @@ import { titleGenre } from "../plan/words";
 import { ageSpan, keyDaySteps, listOf, pickReceipts, postTimeline, storeShowcase, tablePicks, verdictText } from "./landing-stores";
 import { genericCheckWords, usDistance, usRadius } from "./plain-words";
 import { andList, recordedNames } from "../testing/recorded-names";
+import { describeRecorded, ifRecorded } from "../testing/recorded";
 
 // The landing's store showcase, against the recorded example runs (data/plans/<slug>/plan.events.json).
 function load(slug: PlanExampleSlug): { view: PlanView; report: PlanReport } {
@@ -17,9 +18,9 @@ function load(slug: PlanExampleSlug): { view: PlanView; report: PlanReport } {
   const report = toPlanReport(reducePlan(events), "recorded");
   return { view: planView(sourceFromReport(report, examplePlanId(slug))), report };
 }
-const stores = PLAN_EXAMPLES.map(({ slug, city }) => ({ slug, city, ...load(slug) }));
-const chicago = stores.find((s) => s.slug === "chicago-18th-street")!;
-const houston = stores.find((s) => s.slug === "houston-east-end")!;
+const stores = ifRecorded(() => PLAN_EXAMPLES.map(({ slug, city }) => ({ slug, city, ...load(slug) })));
+const chicago = ifRecorded(() => stores.find((s) => s.slug === "chicago-18th-street")!);
+const houston = ifRecorded(() => stores.find((s) => s.slug === "houston-east-end")!);
 
 describe("small wording helpers", () => {
   it("merges age bands that run on, and leaves the rest", () => {
@@ -47,7 +48,7 @@ describe("small wording helpers", () => {
   });
 });
 
-describe("each example store's showcase", () => {
+describeRecorded("each example store's showcase", () => {
   for (const { slug, city, view, report } of stores) {
     const show = storeShowcase(view, report, slug, city);
 
@@ -183,7 +184,7 @@ describe("the posting timeline", () => {
   });
 });
 
-describe("receipts", () => {
+describeRecorded("receipts", () => {
   it("sends only the receipts a page shows", () => {
     const keys = Object.keys(chicago.view.receipts).slice(0, 2);
     expect(Object.keys(pickReceipts(chicago.view.receipts, [...keys, null, "nope"]))).toEqual(keys);

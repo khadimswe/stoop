@@ -4,9 +4,6 @@
 import { connection } from "next/server";
 import { mcpEndpoint } from "@/lib/mcp/endpoint";
 
-/** culture_brief answers before its run, but the run goes on in `after()` inside this function, so it gets a run's time. */
-export const maxDuration = 300;
-
 export async function POST(request: Request): Promise<Response> {
   return mcpEndpoint.post(request);
 }

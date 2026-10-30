@@ -4,8 +4,6 @@ import { connection } from "next/server";
 import { getEvents } from "@/lib/runtime/routes";
 import { routeDeps } from "@/lib/runtime/server";
 
-export const maxDuration = 300;
-
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   await connection();
   return getEvents(request, (await params).id, routeDeps());

@@ -4,8 +4,6 @@ import { connection } from "next/server";
 import { getPlanEvents } from "@/lib/plan/routes";
 import { planRouteDeps } from "@/lib/plan/server";
 
-export const maxDuration = 300;
-
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   await connection();
   return getPlanEvents(request, (await params).id, planRouteDeps());

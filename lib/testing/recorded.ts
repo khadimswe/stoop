@@ -6,7 +6,7 @@ import { describe, it } from "vitest";
 import { E2E_DATA_FILES, missingFiles } from "../recorded-data";
 
 /** Files that only exist with the recordings: everything the build and e2e need, plus the analyses. */
-const RECORDED_FILES = [...E2E_DATA_FILES, "fixtures/smoke.json", "fixtures/llm/food-hot-sauce.json", "data/data-check/summary.json"];
+const RECORDED_FILES = [...E2E_DATA_FILES, "fixtures/smoke.json", "fixtures/llm/food-hot-sauce.json", "data/data-check/summary.json", "data/plans/chicago-18th-street/plan.events.json"];
 
 /** True when the recorded Qloo data is present (the working repository), false in the public mirror. */
 export const HAS_RECORDED_DATA = missingFiles(RECORDED_FILES).length === 0;

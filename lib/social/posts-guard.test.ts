@@ -7,6 +7,7 @@ import { loadExampleReport } from "../plan/examples";
 import { PLAN_EXAMPLES } from "../plan/example-list";
 import { instagramCopy } from "../plan/share";
 import { approvedCaption, checkApprovedPosts, openingOf } from "./posts-guard";
+import { describeRecorded } from "../testing/recorded";
 
 const openings = {
   facebook: "We're out front this Saturday with tacos from [[place-taqueria]]. Come say hi.",
@@ -52,7 +53,7 @@ describe("approved captions", () => {
   });
 });
 
-describe("the examples' approved posts", () => {
+describeRecorded("the examples' approved posts", () => {
   it.each(PLAN_EXAMPLES.map((e) => e.slug))("%s passes the posts guard again", async (slug) => {
     const report = await loadExampleReport(slug);
     expect(report.posts).not.toBeNull();
