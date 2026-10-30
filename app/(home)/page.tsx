@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, Clock } from "lucide-react";
 import Link from "next/link";
 import { FloorReceipts } from "@/components/stoop/floor/receipts";
 import { BeforeAfter } from "@/components/stoop/home/before-after";
@@ -33,12 +33,16 @@ const STEPS = [
   { name: "Promote", line: "Posts written for Facebook, Instagram and WhatsApp. Nothing goes out without you.", href: "promote" },
 ] as const;
 
-const CHIP: Record<"ok" | "lime" | "plain", string> = {
-  ok: "bg-fl-ok-bg text-fl-ok",
-  lime: "bg-fl-signal text-fl-ink",
-  plain: "bg-fl-band text-fl-muted",
-};
-const chipTone = (p: TimelinePost) => (p.status === "now" || p.statusText === "Ready to share" ? "ok" : p.status === "scheduled" ? "lime" : "plain");
+/** Each post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
+function PostStatus({ post }: { post: TimelinePost }) {
+  const Icon = post.status === "scheduled" ? Clock : Check;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-[0.8125rem] font-medium whitespace-nowrap text-fl-dark-dim">
+      <Icon aria-hidden="true" className="size-3.5 text-fl-signal" />
+      {post.statusText}
+    </span>
+  );
+}
 
 export default function Home() {
   const slugs = recordedPlanSlugs();
@@ -262,7 +266,7 @@ export default function Home() {
                       <span className="block text-[0.9375rem] font-semibold">{p.title}</span>
                       <span className="block text-[0.8125rem] text-fl-dark-dim">{p.channels}</span>
                     </span>
-                    <span className={cn("inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap", CHIP[chipTone(p)])}>{p.statusText}</span>
+                    <PostStatus post={p} />
                   </li>
                 ))}
               </ol>

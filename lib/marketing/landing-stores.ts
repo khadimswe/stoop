@@ -361,7 +361,7 @@ export function postTimeline(inputs: Pick<PlanReport["inputs"], "date" | "startT
   if (!posting) {
     return [
       { when: "Now", title: "Announce", channels: "Facebook, Instagram, WhatsApp", status: "share", statusText: "Ready to share" },
-      ...reminders.map((r) => ({ ...r, channels: "Facebook, Instagram, WhatsApp", status: "share" as const, statusText: "Copy" })),
+      ...reminders.map((r) => ({ ...r, channels: "Facebook, Instagram, WhatsApp", status: "share" as const, statusText: "Ready to share" })),
     ];
   }
   return [

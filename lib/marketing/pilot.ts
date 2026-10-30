@@ -117,7 +117,7 @@ export const POSTING_COPY = {
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "Stoop writes the announcement and the reminders for the evening before, the morning of and an hour before, for Facebook, Instagram and WhatsApp. Each one is ready to copy or share in one tap, and nothing goes out without you.",
+    body: "Stoop writes the announcement and the reminders for the evening before, the morning of and an hour before, for Facebook, Instagram and WhatsApp. You copy or share each one when it's time; nothing goes out without you.",
     note: "Posting straight to your Facebook Page turns on once Meta approves the app.",
   },
 } as const;
