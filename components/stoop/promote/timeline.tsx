@@ -103,7 +103,7 @@ export function PostRow({ row, channels, chip, lead, media, children, actions }:
 export function TwoColumns({ header, side, main }: { header: ReactNode; side: ReactNode; main: ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pt-5 pb-8 lg:max-w-[1200px] lg:px-8">
-      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-x-10 lg:gap-y-6">
+      <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-10 lg:gap-y-6">
         <div className="lg:col-start-1 lg:row-start-1">{header}</div>
         <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1">{side}</aside>
         <div className="flex min-w-0 flex-col gap-7 lg:col-start-1 lg:row-start-2">{main}</div>
