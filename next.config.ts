@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import type { NextConfig } from "next";
 import { BUILD_DATA_FILES, missingDataMessage, missingFiles } from "./lib/recorded-data";
 import { securityHeaderRules } from "./lib/security/csp";
@@ -20,10 +22,32 @@ if (process.argv.slice(2).find((arg) => !arg.startsWith("-")) === "build") {
 const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.json", "./data/runs/**/*.json", "./data/plans/**/*.json"];
 
 // Next's own server setup, which every function loads at boot (its error inspection requires
-// server/lib/source-maps and the helpers below). Vercel groups API routes by their maxDuration, and a
-// group with no page in it got a trace without these files, so it crashed on boot ("Cannot find module
-// './lib/source-maps'") before any handler ran. Every API function carries them.
-const NEXT_SETUP = ["server/lib", "shared/lib", "lib", "client/components", "client/lib"].map((dir) => `./node_modules/next/dist/${dir}/**/*.js`);
+// server/lib/source-maps, compiled/stacktrace-parser and more). Vercel groups API routes by their
+// maxDuration, and a group with no page in it got a trace without these files, so it crashed on boot
+// ("Cannot find module './lib/source-maps'") before any handler ran. Every API function carries every
+// file that setup reaches through require(), found here so a Next upgrade keeps the list right, plus
+// the folders those files live in.
+function nextSetupFiles(): string[] {
+  const root = process.cwd();
+  const modules = path.join(root, "node_modules");
+  const asFile = (base: string): string | null => {
+    for (const candidate of [base, `${base}.js`, path.join(base, "index.js")]) if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+    const manifest = path.join(base, "package.json");
+    return existsSync(manifest) ? asFile(path.join(base, (JSON.parse(readFileSync(manifest, "utf8")) as { main?: string }).main ?? "index.js")) : null;
+  };
+  const seen = new Set<string>();
+  const walk = (file: string | null) => {
+    if (!file || seen.has(file)) return;
+    seen.add(file);
+    for (const [, , spec] of readFileSync(file, "utf8").matchAll(/require\((["'])([^"']+)\1\)/g)) {
+      if (spec!.startsWith(".")) walk(asFile(path.resolve(path.dirname(file), spec!)));
+      else if (spec!.startsWith("next/")) walk(asFile(path.join(modules, spec!)));
+    }
+  };
+  walk(asFile(path.join(modules, "next/dist/server/node-environment.js")));
+  return [...seen].map((file) => `./${path.relative(root, file)}`);
+}
+const NEXT_SETUP = [...nextSetupFiles(), ...["server/lib", "shared/lib", "lib", "client/components", "client/lib"].map((dir) => `./node_modules/next/dist/${dir}/**/*.js`)];
 
 const fixtureMode = process.env.QLOO_MODE?.trim() === "fixtures";
 const fixtures = fixtureMode ? ["./fixtures/**/*.json"] : [];
