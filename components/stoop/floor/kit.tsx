@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "cn";
+import { StandInLink } from "./stand-in";
 
 /** The 5 steps of the flow, in order. */
 export const STEPS = ["Community", "Create", "Event", "Poster", "Promote"] as const;
@@ -61,6 +62,7 @@ export function FloorHeader({
   step,
   hrefs,
   reasons,
+  actions,
   storesHref = "/stores",
 }: {
   /** The phone bar's centered title. */
@@ -75,13 +77,15 @@ export function FloorHeader({
   hrefs?: Partial<Record<Step, string>>;
   /** Why a step can't be opened from here, said on the step itself. */
   reasons?: Partial<Record<Step, string>>;
+  /** Steps that open in place (the /start flow's own screens) instead of by a link. */
+  actions?: Partial<Record<Step, () => void>>;
   storesHref?: string;
 }) {
   const side = store ? store.city : subtitle;
   return (
     <>
       <AppBar className="lg:hidden" left={left} title={title} subtitle={subtitle} right={right} />
-      {step && <Stepper className="lg:hidden" current={step} hrefs={hrefs} reasons={reasons} />}
+      {step && <Stepper className="lg:hidden" current={step} hrefs={hrefs} reasons={reasons} actions={actions} />}
       <header className="sticky top-0 z-30 hidden h-14 border-b border-fl-rule bg-white lg:block">
         <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-6">
           <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start rounded-[8px] outline-offset-4">
@@ -90,9 +94,11 @@ export function FloorHeader({
             <span className="truncate text-[0.9375rem] font-semibold">{store?.name ?? title}</span>
             {side && <span className="truncate text-[0.9375rem] text-fl-dim">{side}</span>}
           </Link>
-          {step ? <Stepper variant="bar" current={step} hrefs={hrefs} reasons={reasons} /> : <span />}
-          <div className="flex justify-end">
-            <Link href={storesHref} className="rounded-[8px] px-2 py-1.5 text-sm font-medium text-fl-muted hover:text-fl-ink hover:underline">
+          {step ? <Stepper variant="bar" current={step} hrefs={hrefs} reasons={reasons} actions={actions} /> : <span />}
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            {/* An example store standing in for someone's own: the way back stays in the sticky bar. */}
+            <StandInLink storeName={store?.name} />
+            <Link href={storesHref} className="shrink-0 rounded-[8px] px-2 py-1.5 text-sm font-medium text-fl-muted hover:text-fl-ink hover:underline">
               My stores
             </Link>
           </div>
@@ -115,19 +121,22 @@ export function IconSlot({ href, label, children }: { href: string; label: strin
  * The stepper: Community, Create, Event, Poster, Promote. A step with an href is a link (an example
  * store links all five; a live plan links the ones that exist), the current one is bold with a 3 px
  * ink bar, done ones keep an ink bar, later ones are dim. `reasons` says why a step without a link
- * can't be opened. On a phone it is five columns under the app bar with room between the labels (the
- * first never shrinks below "Community"); in the desktop bar (`variant="bar"`) the steps are tabs.
+ * can't be opened. `actions` opens a step in place (a button), for screens that share one page. On a
+ * phone it is five columns under the app bar with room between the labels (the first never shrinks
+ * below "Community"); in the desktop bar (`variant="bar"`) the steps are tabs.
  */
 export function Stepper({
   current,
   hrefs = {},
   reasons = {},
+  actions = {},
   variant = "phone",
   className,
 }: {
   current: Step;
   hrefs?: Partial<Record<Step, string>>;
   reasons?: Partial<Record<Step, string>>;
+  actions?: Partial<Record<Step, () => void>>;
   variant?: "phone" | "bar";
   className?: string;
 }) {
@@ -139,14 +148,15 @@ export function Stepper({
         {STEPS.map((step, i) => {
           const state = i < at ? "done" : i === at ? "now" : "next";
           const href = state === "now" ? undefined : hrefs[step];
-          const reason = href ? undefined : reasons[step];
+          const action = state === "now" || href ? undefined : actions[step];
+          const reason = href || action ? undefined : reasons[step];
           const label = (
             <span
               className={cn(
                 bar ? "flex h-full items-center border-t-2 px-3 text-sm leading-5 whitespace-nowrap" : "block truncate border-t-2 pt-2 text-xs leading-4",
                 state === "done" && "border-fl-ink text-fl-ink",
                 state === "now" && (bar ? "border-t-[3px] border-fl-ink font-bold text-fl-ink" : "border-t-[3px] border-fl-ink pt-[7px] font-bold text-fl-ink"),
-                state === "next" && (href ? "border-fl-future text-fl-muted" : "border-fl-future text-fl-dim"),
+                state === "next" && (href || action ? "border-fl-future text-fl-muted" : "border-fl-future text-fl-dim"),
               )}
             >
               {bar && <span className="mr-1.5 tabular-nums">{i + 1}</span>}
@@ -160,6 +170,10 @@ export function Stepper({
                 <Link href={href} className={cn("hover:[&>span]:underline", bar ? "flex h-full" : "block min-h-11")}>
                   {label}
                 </Link>
+              ) : action ? (
+                <button type="button" onClick={action} className={cn("w-full text-left hover:[&>span]:underline", bar ? "flex h-full" : "flex min-h-11 flex-col justify-start")}>
+                  {label}
+                </button>
               ) : (
                 <span title={reason} className={cn(bar ? "flex h-full" : "block min-h-11", reason && "cursor-not-allowed")}>
                   {label}

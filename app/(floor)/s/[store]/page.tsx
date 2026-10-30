@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { StandInBar } from "@/components/stoop/floor/stand-in";
 import { BlockScreen } from "@/components/stoop/floor/block-screen";
 import { PlanLoading } from "@/components/stoop/floor/plan-loading";
 import { exampleHrefs } from "@/lib/plan/view/hrefs";
@@ -25,18 +26,21 @@ async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) 
   const view = loadPlanExampleView(store);
   const h = exampleHrefs(store);
   return (
-    <BlockScreen
-      storeName={view.header.storeName}
-      cityLine={view.header.cityLine}
-      address={view.header.address}
-      local={view.local}
-      uses={view.placeUses}
-      receipts={view.receipts}
-      createHref={h.create}
-      eventHref={h.event}
-      steps={h.steps}
-      fictional={view.header.fictional}
-    />
+    <>
+      <StandInBar slug={store} storeName={view.header.storeName} />
+      <BlockScreen
+        storeName={view.header.storeName}
+        cityLine={view.header.cityLine}
+        address={view.header.address}
+        local={view.local}
+        uses={view.placeUses}
+        receipts={view.receipts}
+        createHref={h.create}
+        eventHref={h.event}
+        steps={h.steps}
+        fictional={view.header.fictional}
+      />
+    </>
   );
 }
 

@@ -142,13 +142,17 @@ function popupOffset([dx, dy]: [number, number]) {
  * The community on a real map (MapLibre GL, OpenFreeMap tiles), loaded only when it is on screen. It
  * fits the store and every place shown, with the same numbers the list uses (by distance): no place is
  * folded away or clustered, and pins that would land on each other are nudged apart. The store (or
- * the event's place) is an ink pill with the lime signal, always on top. Pins the plan uses are ink
+ * the event's place) is an ink pill with the lime signal, always on top; when it is the event's place,
+ * the store gets its own quieter white pill (`store`), set away from the event's. With no places, the
+ * map shows the ring around the store. `insetTop` keeps pins below a badge laid over the map's top.
+ * Pins the plan uses are ink
  * and carry their names. The picked place grows with a lime ring and a callout (its kind, distance
  * and Qloo's description); tapping a pin calls `onPick`. If the map can't load, it says so and the
  * list beside it still works.
  */
 export function BlockMap({
   center,
+  store = null,
   radiusM,
   places,
   picked,
@@ -156,10 +160,13 @@ export function BlockMap({
   interactive = true,
   labels = "used",
   controls = false,
+  insetTop = 0,
   className,
   label,
 }: {
   center: { lat: number; lon: number; label: string };
+  /** The store's own spot, when the map is centered on the event's place. */
+  store?: { lat: number; lon: number; label: string } | null;
   radiusM: number;
   /** The places to pin; the map fits them and the store. */
   places: readonly MapPlace[];
@@ -170,6 +177,8 @@ export function BlockMap({
   labels?: "used" | "all" | "none";
   /** Zoom buttons and room at the bottom for the page's buttons (the desktop community map). */
   controls?: boolean;
+  /** Where a badge laid over the map's top ends, in pixels: pins and names stay below it. */
+  insetTop?: number;
   className?: string;
   label: string;
 }) {
@@ -188,6 +197,7 @@ export function BlockMap({
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const reduced = usePrefersReducedMotion();
   const placesKey = places.map((p) => `${p.id}:${p.used ? 1 : 0}`).join(",");
+  const shop = store;
 
   useEffect(() => {
     pickRef.current = onPick;
@@ -267,6 +277,29 @@ export function BlockMap({
         new lib.Marker({ element: store, anchor: "left", offset: [-14, 0] }).setLngLat([center.lon, center.lat]).addTo(map);
         store.style.zIndex = "5";
         storeRef.current = store;
+        if (shop) {
+          // The store, when the map is the event's: an ink square on the store's own spot, its name in a
+          // quieter white tag hanging off the side away from the event's pill (below left when the store
+          // is to the south west), so the two never sit on each other.
+          const west = shop.lon <= center.lon;
+          const south = shop.lat <= center.lat;
+          const el = document.createElement("div");
+          el.className = "relative size-3";
+          el.dataset.storePin = shop.label;
+          const mark = document.createElement("i");
+          mark.className = "block size-3 rounded-[3px] bg-fl-ink shadow-[0_0_0_2px_#fff]";
+          const tag = document.createElement("span");
+          tag.className = cn(
+            "pointer-events-none absolute rounded-[5px] border-[1.5px] border-fl-ink bg-white px-1.5 py-px text-[11px] leading-4 font-semibold whitespace-nowrap text-fl-ink",
+            west ? "right-[calc(100%-2px)]" : "left-[calc(100%-2px)]",
+            south ? "top-[calc(100%+2px)]" : "bottom-[calc(100%+2px)]",
+            UI_FONT,
+          );
+          tag.textContent = shop.label;
+          el.append(mark, tag);
+          el.style.zIndex = "3";
+          new lib.Marker({ element: el, anchor: "center" }).setLngLat([shop.lon, shop.lat]).addTo(map);
+        }
         setState("ready");
       });
     })();
@@ -320,7 +353,7 @@ export function BlockMap({
           name?.classList.toggle("hidden", !show);
           return { ...p, width: show && name ? name.offsetWidth : 0 };
         }),
-        { avoid, frame: { x0: 4, y0: 4, x1: (box.current?.clientWidth ?? 400) - 4, y1: (box.current?.clientHeight ?? 340) - 4 } },
+        { avoid, frame: { x0: 4, y0: Math.max(4, insetTop + 2), x1: (box.current?.clientWidth ?? 400) - 4, y1: (box.current?.clientHeight ?? 340) - 4 } },
       );
       list.forEach((m, i) => {
         m.offset = nudges[i]!;
@@ -336,10 +369,14 @@ export function BlockMap({
       if (open && popupRef.current) popupRef.current.setOffset(popupOffset(open.offset));
     };
     layoutRef.current = layout;
-    const bounds = boundsOf([{ lat: center.lat, lon: center.lon }, ...pinned.map((p) => p.point!)]);
+    // No places yet (a new store with live maps off): show the ring Stoop maps around it.
+    const fitTo = pinned.length ? [{ lat: center.lat, lon: center.lon }, ...(shop ? [shop] : []), ...pinned.map((p) => p.point!)] : ring(center, radiusM).map(([lon, lat]) => ({ lat, lon }));
+    const bounds = boundsOf(fitTo);
     if (bounds) {
       const width = box.current?.clientWidth ?? 400;
-      const pad = controls ? { top: 64, right: 72, bottom: 104, left: 56 } : width < 480 ? { top: 44, right: 40, bottom: 32, left: 28 } : { top: 44, right: 56, bottom: 40, left: 40 };
+      const base = controls ? { top: 64, right: 72, bottom: 104, left: 56 } : width < 480 ? { top: 44, right: 40, bottom: 32, left: 28 } : { top: 44, right: 56, bottom: 40, left: 40 };
+      // A pin's top edge stays 8 px under a badge laid over the map.
+      const pad = { ...base, top: Math.max(base.top, insetTop ? insetTop + PIN_PX / 2 + 8 : 0) };
       const fit = (more = 0) => map.fitBounds(bounds, { padding: { ...pad, right: pad.right + more }, maxZoom: 16, duration: 0 });
       fit();
       // The store's pill reads to the right of its point: when it would run off the map, fit again with room for it.
@@ -357,7 +394,7 @@ export function BlockMap({
     };
     // placesKey stands for `places`; a new array with the same places keeps the pins.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, placesKey, labels, interactive, center.lat, center.lon]);
+  }, [state, placesKey, labels, interactive, center.lat, center.lon, insetTop]);
 
   /** Marks the picked pin (bigger, a lime ring) and opens its callout; brings it into view if it is off screen. */
   function applyPicked() {

@@ -2,13 +2,13 @@ import { ArrowRight, ChevronDown, ChevronLeft, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { about, budgetView, eventStats, foldMeta, judgeView, playView, prizesView, snackGroups, venueLine } from "@/lib/plan/view/floor";
+import { about, awayText, budgetView, eventStats, foldMeta, judgeView, playView, prizesView, snackGroups, venueLine } from "@/lib/plan/view/floor";
 import type { PlanView, TextPart } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { BlockMap, type MapPlace } from "./block-map";
 import { ExampleNotice } from "./example-notice";
 import { ActionBar, Fine, FloorHeader, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, StatStrip, TwoColumn, type Step } from "./kit";
-import { FloorReceipts, OpenOnHash, OriginTag } from "./receipts";
+import { FloorReceipts, OpenOnHash, OriginTag, ReceiptTrigger } from "./receipts";
 
 /** Plan text with measured names in plain ink (their receipt is on the line's own tag). */
 function Text({ parts }: { parts: readonly TextPart[] }) {
@@ -42,6 +42,15 @@ const JUMPS = [
   { id: "timeline", label: "Timeline" },
 ] as const;
 
+/** The wheel's mark for a slice that is not a community place (a promo, a creative prize): a plain dot, never a number. */
+function SliceBullet() {
+  return (
+    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center">
+      <i className="block size-1.5 rounded-full bg-fl-dim" />
+    </span>
+  );
+}
+
 /** The places the plan uses, for the mini map: fitted with the store, each with its name. */
 function usedPlaces(view: PlanView): MapPlace[] {
   return (view.local.block?.places ?? [])
@@ -56,6 +65,7 @@ function MiniMap({ view, className }: { view: PlanView; className: string }) {
   return (
     <BlockMap
       center={block.center}
+      store={block.store}
       radiusM={block.radiusM}
       places={places}
       interactive={false}
@@ -155,7 +165,7 @@ export function EventScreen({
                       <p className="mt-px flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] leading-[18px] text-fl-dim">
                         {g.place ? (
                           <>
-                            {g.place.distanceText && <span>{g.place.distanceText} away</span>}
+                            {g.place.distanceText && <span>{awayText(g.place.distanceText, view)}</span>}
                             <OriginTag origin="qloo" receiptKey={g.place.receipt} context={g.place.name} />
                           </>
                         ) : (
@@ -189,7 +199,7 @@ export function EventScreen({
             {view.wheel.slices.map((s) => (
               <Row
                 key={s.n}
-                lead={<NumBadge n={s.n} on={s.origin === "qloo" || s.origin === "interpreted"} dashed={s.origin === "creative"} label={`Slice ${s.n}`} />}
+                lead={s.place ? <NumBadge n={s.place.n} on label={`Pin ${s.place.n}`} /> : <SliceBullet />}
                 title={s.label}
                 sub={
                   <span className="flex flex-col gap-1">
@@ -198,12 +208,13 @@ export function EventScreen({
                         <Text parts={s.parts} />
                       </span>
                     )}
-                    <OriginTag origin={s.origin} receiptKey={s.receipt} extra={s.place ? `pin ${s.place.n}${s.place.distanceText ? `, ${s.place.distanceText}` : ""}` : undefined} context={s.label} />
+                    <OriginTag origin={s.origin} receiptKey={s.receipt} extra={s.place ? (awayText(s.place.distanceText, view) ?? undefined) : undefined} context={s.label} />
                   </span>
                 }
               />
             ))}
           </RowGroup>
+          <Fine>Slices in order, clockwise from the top. A numbered pin is that place on the Community map.</Fine>
           {prizes && (
             <div className="flex flex-col gap-1 px-1">
               <p className="flex items-baseline justify-between gap-3 text-[0.8125rem] font-semibold">
@@ -280,37 +291,63 @@ export function EventScreen({
         <p className="ml-0.5 text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase">For judges</p>
         <div className="overflow-hidden rounded-[20px] bg-white [&>details+details]:border-t [&>details+details]:border-fl-rule">
           {judge && (
-            <Fold title="Compare with a generic AI plan" id="compare">
+            <Fold title="Compare with a generic AI plan" meta="Same budget and promos, no Qloo" id="compare">
               <div className="-mx-4 -mt-3 flex flex-col">
                 <dl className="grid grid-cols-3 border-b border-fl-rule">
                   {judge.stats.map((s, i) => (
-                    <div key={i} className={cn("flex flex-col-reverse px-4 py-3", i > 0 && "border-l border-fl-rule")}>
-                      <dt className="text-[0.8125rem] text-fl-dim">{s.label}</dt>
+                    <div key={i} className={cn("flex flex-col-reverse justify-end gap-0.5 px-3 py-3 sm:px-4", i > 0 && "border-l border-fl-rule")}>
+                      <dt className="text-[0.8125rem] leading-[18px] text-pretty text-fl-dim">{s.label}</dt>
                       <dd className="text-[1.375rem] leading-[26px] font-medium tabular-nums">{s.value}</dd>
                     </div>
                   ))}
                 </dl>
-                <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-3 text-sm leading-5">
-                  {judge.pairs.map((pair, i) => (
-                    <div key={i} className="contents">
-                      <dt className="text-fl-dim">Generic</dt>
-                      <dd className="text-fl-dim">{pair.generic}</dd>
-                      {pair.stoop && (
-                        <>
-                          <dt className="font-semibold">Stoop</dt>
-                          <dd className="mb-2">{pair.stoop}</dd>
-                        </>
-                      )}
-                    </div>
+                <ul aria-label="The generic AI plan and this plan, line by line" className="[&>li+li]:border-t [&>li+li]:border-fl-rule">
+                  {judge.rows.map((r) => (
+                    <li key={r.row} className="flex flex-col gap-2 px-4 py-3 text-sm leading-5">
+                      <p className="font-semibold">{r.row}</p>
+                      <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2">
+                        <p className="text-fl-dim">Generic</p>
+                        <p className="text-pretty text-fl-muted">
+                          {r.generic}
+                          {r.genericReceipt && (
+                            <>
+                              {" "}
+                              <ReceiptTrigger receiptKey={r.genericReceipt}>
+                                <button type="button" className="font-medium whitespace-nowrap text-fl-ink underline decoration-fl-line underline-offset-[3px] hover:decoration-fl-ink">
+                                  Qloo&apos;s check<span className="sr-only"> of the generic plan&apos;s {r.row.toLowerCase()}</span>
+                                </button>
+                              </ReceiptTrigger>
+                            </>
+                          )}
+                        </p>
+                        <p className="font-semibold">Stoop</p>
+                        <p className="text-pretty">
+                          {r.stoop}
+                          {r.stoopReceipt && (
+                            <>
+                              {" "}
+                              <ReceiptTrigger receiptKey={r.stoopReceipt}>
+                                <button type="button" className="font-medium whitespace-nowrap underline decoration-fl-line underline-offset-[3px] hover:decoration-fl-ink">
+                                  Receipt<span className="sr-only">: why Qloo picked the {r.row.toLowerCase()}</span>
+                                </button>
+                              </ReceiptTrigger>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </li>
                   ))}
-                </dl>
-                {judge.lines.length > 0 && (
-                  <ul className="flex flex-col gap-1 border-t border-fl-rule px-4 py-3 text-[0.8125rem] text-fl-muted">
-                    {judge.lines.map((l) => (
-                      <li key={l}>{l}</li>
-                    ))}
-                  </ul>
-                )}
+                </ul>
+                <div className="flex flex-col gap-1 border-t border-fl-rule px-4 py-3 text-[0.8125rem] text-fl-muted">
+                  {judge.lines.length > 0 && (
+                    <ul className="flex flex-col gap-1">
+                      {judge.lines.map((l) => (
+                        <li key={l}>{l}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-fl-dim">Both plans had the same inputs; only Qloo was left out.</p>
+                </div>
               </div>
             </Fold>
           )}

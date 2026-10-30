@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { StandInBar } from "@/components/stoop/floor/stand-in";
 import { LiveStep } from "@/components/stoop/floor/live-plan";
 import { PlanLoading } from "@/components/stoop/floor/plan-loading";
 import { PromoteScreen } from "@/components/stoop/floor/promote-screen";
@@ -22,7 +23,12 @@ async function Step({ params }: { params: PageProps<"/plan/[id]/promote">["param
   if (slug && isRecordedPlanSlug(slug)) {
     const h = exampleHrefs(slug);
     const { inputs } = loadPlanExampleReport(slug);
-    return <PromoteScreen view={promoteScreenView(loadPlanExampleView(slug))} inputs={inputs} hrefs={{ back: h.poster, steps: h.steps }} />;
+    return (
+      <>
+        <StandInBar slug={slug} storeName={inputs.store.name} />
+        <PromoteScreen view={promoteScreenView(loadPlanExampleView(slug))} inputs={inputs} hrefs={{ back: h.poster, steps: h.steps }} />
+      </>
+    );
   }
   if (!/^plan_[0-9a-f]{24}$/.test(id)) notFound();
   return <LiveStep planId={id} step="promote" />;
