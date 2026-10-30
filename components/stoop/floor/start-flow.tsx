@@ -10,6 +10,7 @@ import { splitMessage } from "@/lib/plan/view/notice";
 import { planView, type PlanView } from "@/lib/plan/view/plan";
 import { phoneProblem, storeSlug } from "@/lib/plan/view/start-form";
 import type { Evidence } from "@/lib/evidence";
+import type { EventSpot } from "@/lib/plan/event-spots";
 import type { Local } from "@/lib/plan/schema";
 import { cn } from "cn";
 import { BlockMap } from "./block-map";
@@ -100,6 +101,7 @@ export function StartFlow() {
 function StartSteps({ saved, persist }: { saved: Saved | null; persist: boolean }) {
   const [phase, setPhase] = useState<Phase>(saved?.create && saved.place && saved.name ? { kind: "create" } : { kind: "store" });
   const [block, setBlock] = useState<BlockAnswer | null>(saved?.block ?? null);
+  const [at, setAt] = useState<EventSpot | null>(null);
   const [name, setName] = useState(saved?.name ?? "");
   const [carrier, setCarrier] = useState<CreateStore["carrier"]>(saved?.carrier ?? "metro");
   const [phone, setPhone] = useState(saved?.phone ?? "");
@@ -216,14 +218,32 @@ function StartSteps({ saved, persist }: { saved: Saved | null; persist: boolean 
   };
 
   const draftKey = store ? storeSlug(store.name, store.city) : undefined;
-  const create = () => setPhase({ kind: "create" });
+  const create = () => {
+    setAt(null);
+    setPhase({ kind: "create" });
+  };
+  // "Plan it here" on a place in the community: the form, set to that place.
+  const planAt = (spot: EventSpot) => {
+    setAt(spot);
+    setPhase({ kind: "create" });
+  };
   // The Community step, from the form: the community this store already got, else ask again.
   const community = () => (block ? setPhase({ kind: "block" }) : void seeBlock());
   if (phase.kind === "create" && store)
-    return <CreateScreen store={store} backHref="/start?resume=1" onEditStore={() => setPhase({ kind: "store" })} draftKey={draftKey} stepActions={{ Community: community }} />;
+    return (
+      <CreateScreen
+        key={at?.id ?? "door"}
+        store={store}
+        backHref="/start?resume=1"
+        onEditStore={() => setPhase({ kind: "store" })}
+        draftKey={draftKey}
+        stepActions={{ Community: community }}
+        at={at ? { name: at.name, lat: at.lat, lon: at.lon } : undefined}
+      />
+    );
 
   if (phase.kind === "block" && store && block) {
-    if (block.mode === "live") return <LiveBlock store={store} answer={block} onCreate={create} />;
+    if (block.mode === "live") return <LiveBlock store={store} answer={block} onCreate={create} onPlanAt={planAt} />;
     return <ExampleBlock store={store} answer={block} onBack={() => setPhase({ kind: "store" })} onCreate={create} />;
   }
 
@@ -427,7 +447,7 @@ function StartSteps({ saved, persist }: { saved: Saved | null; persist: boolean 
 }
 
 /** The store's own community (live maps on), with its receipts. */
-function LiveBlock({ store, answer, onCreate }: { store: CreateStore; answer: Extract<BlockAnswer, { mode: "live" }>; onCreate: () => void }) {
+function LiveBlock({ store, answer, onCreate, onPlanAt }: { store: CreateStore; answer: Extract<BlockAnswer, { mode: "live" }>; onCreate: () => void; onPlanAt: (spot: EventSpot) => void }) {
   const view = useMemo(() => blockView(store, answer.local, answer.ledger), [store, answer]);
   return (
     <BlockScreen
@@ -438,6 +458,7 @@ function LiveBlock({ store, answer, onCreate }: { store: CreateStore; answer: Ex
       uses={{}}
       receipts={view.receipts}
       onCreate={onCreate}
+      onPlanAt={onPlanAt}
       stepActions={{ Create: onCreate }}
       backHref="/start"
       fictional={null}

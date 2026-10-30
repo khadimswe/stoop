@@ -4,21 +4,60 @@ import { ArrowRight, ChevronLeft, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ReceiptView } from "@/lib/report/view/types";
+import { eventSpots, planHereHref, type EventSpot } from "@/lib/plan/event-spots";
 import { kindCounts, placeMeta } from "@/lib/plan/view/floor";
 import type { LocalView, PlaceView } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { BlockMap, type MapPlace } from "./block-map";
-import { ActionBar, BUTTON2, Fine, FloorHeader, FloorMark, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, TEXT_LINK, type Step } from "./kit";
+import { ActionBar, BUTTON2, BUTTON2_SM, Fine, FloorHeader, FloorMark, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, TEXT_LINK, type Step } from "./kit";
 import { FloorReceipts, OriginTag, ReceiptTrigger } from "./receipts";
 
 const FIRST = 5;
 /** The map's "24 places from Qloo" badge ends this far from the map's top: pins are fitted below it. */
 const BADGE_BOTTOM = 36;
 
-function PlaceRow({ p, uses, picked, onPick, from }: { p: PlaceView; uses: readonly string[] | undefined; picked: boolean; onPick: (id: string) => void; from: "the store" | "the event" }) {
+/** "Plan it here" on a venue or park: the Create step, set to this place (a link, or in place on /start). */
+function PlanHere({ p, createHref, onPlanAt }: { p: PlaceView; createHref?: string; onPlanAt?: (spot: EventSpot) => void }) {
+  const spot = eventSpots([p])[0];
+  if (!spot) return null;
+  const label = (
+    <>
+      Plan it here<span className="sr-only">: {p.name}</span>
+    </>
+  );
+  const className = cn(BUTTON2_SM, "relative z-10 shrink-0");
+  if (onPlanAt)
+    return (
+      <button type="button" onClick={() => onPlanAt(spot)} className={className}>
+        {label}
+      </button>
+    );
+  return createHref ? (
+    <Link href={planHereHref(createHref, p.id)} className={className}>
+      {label}
+    </Link>
+  ) : null;
+}
+
+function PlaceRow({
+  p,
+  uses,
+  picked,
+  onPick,
+  from,
+  planHere,
+}: {
+  p: PlaceView;
+  uses: readonly string[] | undefined;
+  picked: boolean;
+  onPick: (id: string) => void;
+  from: "the store" | "the event";
+  planHere?: React.ReactNode;
+}) {
   const used = Boolean(uses?.length);
   return (
     <Row
+      trail={planHere}
       id={`place-${p.id}`}
       className={cn("scroll-mt-32 transition-colors motion-reduce:transition-none lg:scroll-mt-20", picked && "bg-fl-sunk shadow-[inset_3px_0_0_var(--color-fl-ink)]")}
       lead={<NumBadge n={p.n} on={used} label={`Pin ${p.n}${used ? ", in the plan" : ""}`} />}
@@ -60,6 +99,7 @@ export function BlockScreen({
   receipts,
   createHref,
   onCreate,
+  onPlanAt,
   eventHref,
   steps,
   reasons,
@@ -78,6 +118,8 @@ export function BlockScreen({
   createHref?: string;
   /** In the /start flow: go on to the form in place instead of a link. */
   onCreate?: () => void;
+  /** In the /start flow: "Plan it here" opens the form in place, set to that place. */
+  onPlanAt?: (spot: EventSpot) => void;
   /** An example store's (or a live plan's) event, one tap from its community. */
   eventHref?: string;
   steps?: Partial<Record<Step, string>>;
@@ -111,6 +153,8 @@ export function BlockScreen({
     requestAnimationFrame(() => document.getElementById(`place-${id}`)?.scrollIntoView({ block: "nearest" }));
   };
   const street = address.split(",")[0];
+  // "Plan it here" needs somewhere to go: the form's link, or the /start flow's form in place.
+  const canPlanHere = Boolean(onPlanAt || createHref) && list.some((p) => p.eventSpot);
   // An event away from the store: the community was read around the event's own place.
   const from = block?.from ?? "the store";
   const mapLabel = block ? `Map of ${shown.length} places within ${block.radiusText} of ${from}, numbered by distance` : "";
@@ -227,9 +271,18 @@ export function BlockScreen({
                 )
               }
             >
+              {canPlanHere && <p className="-mt-1 text-[0.8125rem] text-pretty text-fl-dim">Plan at your door, or take the table to one of these.</p>}
               <RowGroup label="Places in your community" className="[&>li]:relative">
                 {list.map((p) => (
-                  <PlaceRow key={p.id} p={p} uses={uses[p.id]} picked={picked === p.id} onPick={pick} from={from} />
+                  <PlaceRow
+                    key={p.id}
+                    p={p}
+                    uses={uses[p.id]}
+                    picked={picked === p.id}
+                    onPick={pick}
+                    from={from}
+                    planHere={canPlanHere && p.eventSpot ? <PlanHere p={p} createHref={createHref} onPlanAt={onPlanAt} /> : null}
+                  />
                 ))}
               </RowGroup>
               <Fine>Pin numbers on the map match this list, nearest {from === "the event" ? "the event" : "the store"} first. Ink pins are places the plan uses.</Fine>

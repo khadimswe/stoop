@@ -7,6 +7,7 @@ import { genericCheckWords } from "../../marketing/plain-words";
 import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
+import { canPlanAt } from "../event-spots";
 import { splitRefs } from "../refs";
 import { PLAN_MAX_TOTAL } from "../rubric";
 import { titleGenre } from "../words";
@@ -208,6 +209,11 @@ export interface PlaceView {
   /** Qloo's own explainability, shown as is. */
   why: string | null;
   receipt: string | null;
+  /** Qloo's own order in the one call that found it (never its pin number), and that call's search ("parks"). */
+  rank: number;
+  search: string | null;
+  /** A venue or park the table can go to ("Plan it here"): no chain, nothing for alcohol or minors (lib/plan/event-spots.ts). */
+  eventSpot: boolean;
 }
 
 export interface LocalView {
@@ -617,6 +623,9 @@ export function planView(source: PlanSource): PlanView {
             distanceText: p.distanceM === null ? null : distanceText(p.distanceM),
             why: p.why,
             receipt: placeReceipt(p),
+            rank: p.rank,
+            search: searchOf(ledger.get(p.evidenceIds[0] ?? "")?.label),
+            eventSpot: canPlanAt(p),
           })),
         }
       : null,
