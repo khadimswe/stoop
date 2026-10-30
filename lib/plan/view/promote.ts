@@ -60,7 +60,8 @@ export function promoteTimeline(view: Pick<PlanView, "id" | "marketing"> & { whe
   const posts = view.marketing.posts;
   if (!posts) return [];
   const hashtags = posts.hashtags.join(" ");
-  const withTags = (caption: string) => (hashtags ? `${caption}\n\n${hashtags}` : caption);
+  // As Instagram is posted (lib/plan/share.ts instagramCopy): the caption trimmed, then its hashtags.
+  const withTags = (caption: string) => (hashtags ? `${caption.trim()}\n\n${hashtags}` : caption.trim());
   const facts = reminderFacts(inputs, view.wheel?.slices.map((s) => s.kind) ?? null, { kind: planExampleSlug(view.id) ? "example" : "live", id: view.id });
   const days: TimelineDay[] = [{ label: "Now", rows: [{ id: "announce", name: "Announce", clock: "Now", at: null, text: posts.facebook, instagram: withTags(posts.instagram), whatsapp: posts.whatsapp }] }];
   for (const slot of postSlots({ inputs })) {
@@ -76,10 +77,42 @@ export function promoteTimeline(view: Pick<PlanView, "id" | "marketing"> & { whe
 
 export const timelineRows = (days: readonly TimelineDay[]) => days.flatMap((d) => d.rows);
 
-/** One row's share links: Facebook's share dialog for the event page, and WhatsApp with this row's words and the link. */
-export function rowShareLinks(row: TimelineRow, eventUrl: string) {
-  return shareLinks(eventUrl, row.whatsapp);
+const POST_NOUNS: Readonly<Record<TimelineId, string>> = {
+  announce: "announcement",
+  evening_before: "evening-before reminder",
+  morning_of: "morning-of reminder",
+  hour_before: "hour-before reminder",
+};
+
+/** A post as a sentence names it: "announcement", "hour-before reminder" (after "the"). */
+export const postNoun = (row: Pick<TimelineRow, "id">): string => POST_NOUNS[row.id];
+
+// --- What each channel sends -------------------------------------------------------------------------
+
+export const SHARE_CHANNELS = ["facebook", "instagram", "whatsapp"] as const;
+export type ShareChannel = (typeof SHARE_CHANNELS)[number];
+export const CHANNEL_NAMES: Readonly<Record<ShareChannel, string>> = { facebook: "Facebook", instagram: "Instagram", whatsapp: "WhatsApp" };
+
+/** A channel's own words for a post, before any edit: Facebook's caption, Instagram's with its hashtags, WhatsApp's message. */
+export function channelDraft(row: TimelineRow, channel: ShareChannel): string {
+  return channel === "facebook" ? row.text : channel === "instagram" ? row.instagram : row.whatsapp;
 }
+
+/**
+ * Exactly what a channel sends from the words shown: WhatsApp's message ends with the event link on
+ * its own line (shown under the words and never edited, so the posts guard reads only the words);
+ * Facebook and Instagram send the words as they are.
+ */
+export function channelMessage(channel: ShareChannel, words: string, eventUrl: string): string {
+  if (channel !== "whatsapp" || !eventUrl || words.includes(eventUrl)) return words;
+  return `${words.trimEnd()}\n${eventUrl}`;
+}
+
+/** Facebook's share dialog for the event page. It takes the link only, so the words are copied to paste. */
+export const facebookShareUrl = (eventUrl: string): string => shareLinks(eventUrl, "").facebook;
+
+/** WhatsApp's share sheet with exactly this message, nothing added. */
+export const whatsappShareUrl = (message: string): string => `https://wa.me/?text=${encodeURIComponent(message)}`;
 
 // --- The calendar file of reminders -----------------------------------------------------------------
 
@@ -119,12 +152,12 @@ export function remindersCalendar(rows: readonly TimelineRow[], options: { planI
       `DTSTAMP:${icsStamp(options.stamp)}`,
       `DTSTART:${icsStamp(new Date(row.at))}`,
       "DURATION:PT15M",
-      `SUMMARY:${icsText(`Post the ${row.name.toLowerCase()} reminder for ${options.storeName}`)}`,
+      `SUMMARY:${icsText(`Post the ${postNoun(row)} for ${options.storeName}`)}`,
       `DESCRIPTION:${icsText(`${row.text}\n\nEvent page: ${options.eventUrl}`)}`,
       `URL:${options.eventUrl}`,
       "BEGIN:VALARM",
       "ACTION:DISPLAY",
-      `DESCRIPTION:${icsText(`Time to post: ${row.name}`)}`,
+      `DESCRIPTION:${icsText(`Time to post the ${postNoun(row)}`)}`,
       "TRIGGER:PT0M",
       "END:VALARM",
       "END:VEVENT",

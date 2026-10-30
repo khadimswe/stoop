@@ -60,7 +60,7 @@ export function PromoteScreen({ view, inputs, hrefs }: { view: PromoteScreenView
         {example ? (
           share
         ) : (
-          <MetaConnect planId={view.id} inputs={inputs} days={days} marketing={m.marketing} making={making} storeName={view.header.storeName} header={header} fallback={share} />
+          <MetaConnect planId={view.id} inputs={inputs} days={days} marketing={m.marketing} making={making} storeName={view.header.storeName} eventUrl={eventUrl} header={header} fallback={share} />
         )}
       </main>
     </>

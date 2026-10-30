@@ -6,8 +6,10 @@
 // and one "Approve N posts". Every approval asks once more before anything goes. After it, each post
 // says what happened: Posted (with its link when Meta gives one), Scheduled for its time, or Skipped
 // and why. Instagram can't be scheduled through Meta's API, so it posts only with the announcement at
-// approval time, and WhatsApp is the share sheet only; the screen says so. While posting is off on this
-// server (the routes answer 404), and while that is being checked, it shows `fallback`: share mode.
+// approval time, and WhatsApp is the share sheet only; the screen says so. The announcement shows each
+// channel's own words (what Facebook and Instagram post, and WhatsApp's message with its event link),
+// switched like share mode, read-only: what is shown is exactly what goes. While posting is off on
+// this server (the routes answer 404), and while that is being checked, it shows `fallback`: share mode.
 import { Check, ExternalLink } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ActionBar, BUTTON2_SM, Fine, Notice, PRIMARY } from "@/components/stoop/floor/kit";
@@ -15,12 +17,12 @@ import { FacebookGlyph, InstagramGlyph, WhatsAppGlyph } from "@/components/stoop
 import type { PlanReport } from "@/lib/plan/schema";
 import { apiMessageOf } from "@/lib/plan/view/live";
 import type { MarketingView } from "@/lib/plan/view/plan";
-import { timelineRows, type TimelineDay, type TimelineId, type TimelineRow } from "@/lib/plan/view/promote";
+import { channelDraft, channelMessage, timelineRows, whatsappShareUrl, type ShareChannel, type TimelineDay, type TimelineId, type TimelineRow } from "@/lib/plan/view/promote";
 import { META_OUTCOMES, META_RETURN_PARAM, SOCIAL_ROUTES, socialPagesResponseSchema, socialPostResponseSchema, type MetaOutcome, type SocialPagesResponse, type SocialPostResult } from "@/lib/social/api";
 import { suggestPostTimes } from "@/lib/social/schedule";
 import type { SocialChannel } from "@/lib/social/trail";
 import { cn } from "cn";
-import { AccountRow, AccountsCard, Chip, PostRow, Timeline, TwoColumns, useMinuteNow } from "./timeline";
+import { AccountNote, AccountRow, AccountsCard, ChannelSwitch, Chip, PostRow, ROW_BUTTON, Timeline, TwoColumns, useMinuteNow } from "./timeline";
 
 type Page = SocialPagesResponse["pages"][number];
 type Connection = { kind: "loading" } | { kind: "off" } | { kind: "error"; message: string } | { kind: "disconnected" } | { kind: "connected"; pages: Page[] };
@@ -42,6 +44,8 @@ export interface MetaConnectProps {
   /** The poster and posts are still being made. */
   making: boolean;
   storeName: string;
+  /** The public event page, the last line of the WhatsApp message. */
+  eventUrl: string;
   header: ReactNode;
   /** Where Facebook sends the manager back; defaults to this page. */
   returnTo?: string;
@@ -87,8 +91,9 @@ function resultChip(results: readonly SocialPostResult[] | undefined, row: Timel
   return <Chip tone="draft">Skipped</Chip>;
 }
 
-export function MetaConnect({ planId, inputs, days, marketing, making, storeName, header, returnTo, fallback = null }: MetaConnectProps) {
+export function MetaConnect({ planId, inputs, days, marketing, making, storeName, eventUrl, header, returnTo, fallback = null }: MetaConnectProps) {
   const [connection, setConnection] = useState<Connection>({ kind: "loading" });
+  const [announceShows, setAnnounceShows] = useState<ShareChannel>("facebook");
   const [outcome, setOutcome] = useState<MetaOutcome | null>(null);
   const [pageId, setPageId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Partial<Record<TimelineId, boolean>>>({});
@@ -240,21 +245,7 @@ export function MetaConnect({ planId, inputs, days, marketing, making, storeName
             ) : null
           }
         />
-        <AccountRow
-          glyph={<WhatsAppGlyph />}
-          on={false}
-          title="WhatsApp"
-          sub="Share sheet only: you pick the chats"
-          trail={
-            marketing.posts?.share.whatsapp ? (
-              <a href={marketing.posts.share.whatsapp} target="_blank" rel="noopener noreferrer" className={BUTTON2_SM}>
-                Share<span className="sr-only"> on WhatsApp (opens in a new tab)</span>
-              </a>
-            ) : (
-              <Chip tone="draft">Share sheet</Chip>
-            )
-          }
-        />
+        <AccountRow glyph={<WhatsAppGlyph />} on={false} title="WhatsApp" sub="Share sheet only: you pick the chats" trail={<AccountNote>From the announcement</AccountNote>} />
       </AccountsCard>
       {connection.kind === "connected" && connection.pages.length > 1 && (
         <label className="flex items-center gap-3 text-sm">
@@ -295,11 +286,17 @@ export function MetaConnect({ planId, inputs, days, marketing, making, storeName
           const done = results[row.id];
           const go = canGo(row);
           const chip = resultChip(done, row) ?? (go ? <Chip tone={isOn(row) ? "ok" : "draft"}>{isOn(row) ? (row.at === null ? "Posts on approve" : "Scheduled on approve") : "Not included"}</Chip> : <Chip tone="draft">Too soon to schedule</Chip>);
+          // The announcement shows each channel's own words; a reminder goes to the Facebook Page only.
+          const announcement = row.at === null;
+          const channels: ShareChannel[] = announcement ? ["facebook", ...(page?.instagram ? (["instagram"] as const) : []), "whatsapp"] : ["facebook"];
+          const shows = channels.includes(announceShows) && announcement ? announceShows : "facebook";
+          const message = channelMessage(shows, channelDraft(row, shows), eventUrl);
           return (
             <PostRow
               key={row.id}
               row={row}
-              channels={row.at === null && page?.instagram ? "Facebook, Instagram" : "Facebook"}
+              channels={announcement ? undefined : "Facebook"}
+              bar={announcement ? <ChannelSwitch label="Channel for the announcement" channels={channels} value={shows} onChange={setAnnounceShows} /> : undefined}
               chip={chip}
               lead={
                 <input
@@ -312,7 +309,18 @@ export function MetaConnect({ planId, inputs, days, marketing, making, storeName
                 />
               }
             >
-              <p className="text-[0.875rem] leading-5 whitespace-pre-line text-fl-muted">{row.text}</p>
+              <p data-post-text={shows} className="text-[0.875rem] leading-5 break-words whitespace-pre-line text-fl-muted">
+                {message}
+              </p>
+              {announcement && shows === "whatsapp" && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs leading-4 text-fl-dim">Stoop doesn&apos;t post to WhatsApp. This opens your share sheet with exactly this message: you pick the chats.</p>
+                  <a href={whatsappShareUrl(message)} target="_blank" rel="noopener noreferrer" aria-label="Send on WhatsApp: the announcement, opens in a new tab" className={cn(ROW_BUTTON, "self-start")}>
+                    <WhatsAppGlyph />
+                    Send on WhatsApp
+                  </a>
+                </div>
+              )}
               {done?.map((r, i) => (
                 <p key={i} className={cn("text-[0.8125rem]", r.status === "failed" ? "text-fl-bad" : r.status === "skipped" ? "text-fl-dim" : "text-fl-ok")}>
                   {r.message}

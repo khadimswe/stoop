@@ -107,17 +107,120 @@ test("the five steps link forward and back", async ({ page }) => {
   const timeline = page.getByRole("group", { name: "Posts and when to share them" });
   for (const name of ["Now · Announce", "7 pm · Evening before", "9 am · Morning of", "11 am · An hour before"]) await expect(timeline.getByText(name)).toBeVisible();
   await expect(timeline.getByText("Tomorrow, 12 to 4 pm: our table is out front.")).toBeVisible();
-  await expect(timeline.getByRole("link", { name: /WhatsApp share for the evening before post/ })).toHaveAttribute("href", /^https:\/\/wa\.me\/\?text=Tomorrow/);
+  await timeline.getByRole("group", { name: "Channel for the evening-before reminder" }).getByRole("button", { name: "WhatsApp", exact: true }).click();
+  await expect(timeline.getByRole("link", { name: /Send on WhatsApp: the evening-before reminder/ })).toHaveAttribute("href", /^https:\/\/wa\.me\/\?text=Tomorrow/);
   await expect(timeline.getByText("Ready to share").first()).toBeVisible();
   // Remind me saves one calendar file with an alert at each post time.
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Remind me at each post time" }).click();
   expect((await download).suggestedFilename()).toBe("post-reminders.ics");
   // An edit that empties a post is refused in plain words, and that post can't be copied.
-  await timeline.getByRole("button", { name: "Edit text of the morning of post" }).click();
-  await timeline.getByRole("textbox", { name: "Morning of post text" }).fill("");
+  await timeline.getByRole("button", { name: "Edit the Facebook text of the morning-of reminder" }).click();
+  await timeline.getByRole("textbox", { name: "Facebook text of the morning-of reminder" }).fill("");
   await expect(timeline.getByRole("alert")).toHaveText("A post can't be empty. Write something, or tap Reset.");
-  await expect(timeline.getByRole("button", { name: "Copy the morning of post" })).toBeDisabled();
+  await expect(timeline.getByRole("button", { name: "Copy the Facebook text of the morning-of reminder" })).toBeDisabled();
+});
+
+/** Records what the page copies, keeps share links from leaving the test, and (optionally) takes the share sheet away. */
+async function watchSharing(page: Page, { noShareSheet = false } = {}) {
+  await page.addInitScript((noSheet: boolean) => {
+    const w = window as unknown as { __copied: string[] };
+    w.__copied = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => void w.__copied.push(text) } });
+    if (noSheet) Object.defineProperty(Navigator.prototype, "share", { configurable: true, value: undefined });
+  }, noShareSheet);
+  await page.context().route(/^https:\/\/(www\.facebook\.com|wa\.me)\//, (route) => route.fulfill({ body: "ok", contentType: "text/plain" }));
+  return () => page.evaluate(() => (window as unknown as { __copied: string[] }).__copied.at(-1) ?? null);
+}
+
+/** Taps a link that opens a new tab, and closes the tab. */
+async function tapOut(page: Page, link: ReturnType<Page["getByRole"]>) {
+  const popup = page.waitForEvent("popup");
+  await link.click();
+  await (await popup).close();
+}
+
+test("Promote sends exactly what each channel shows, edits included, and keeps edits through a reload", async ({ page }) => {
+  const copied = await watchSharing(page);
+  await page.goto(`${EVENT}/promote`);
+  const post = page.getByRole("group", { name: "Posts and when to share them" }).getByRole("listitem").filter({ hasText: "Now · Announce" });
+  // A channel's button, before and after it is used (", copied" or ", shared" is added to its name).
+  const channel = (name: string) => post.getByRole("group", { name: "Channel for the announcement" }).getByRole("button", { name: new RegExp(`^${name}(, (copied|shared))?$`) });
+  const shown = (name: string) => post.locator(`[data-post-text="${name}"]`).textContent();
+
+  // Facebook: Copy and Share on Facebook both copy exactly the words shown.
+  await expect(channel("Facebook")).toHaveAttribute("aria-pressed", "true");
+  const facebook = await shown("facebook");
+  expect(facebook).toMatch(/^Cold Saturday\?/);
+  await post.getByRole("button", { name: "Copy the Facebook text of the announcement" }).click();
+  expect(await copied()).toBe(facebook);
+  await tapOut(page, post.getByRole("link", { name: /^Share on Facebook: the announcement/ }));
+  expect(await copied()).toBe(facebook);
+  await expect(post.getByText("Shared on Facebook")).toBeVisible();
+
+  // Instagram: its own caption, hashtags included, is what Copy caption copies.
+  await channel("Instagram").click();
+  const instagram = await shown("instagram");
+  expect(instagram).toMatch(/\n\n#Chicago /);
+  expect(instagram).not.toBe(facebook);
+  await post.getByRole("button", { name: "Copy caption: the Instagram text of the announcement" }).click();
+  expect(await copied()).toBe(instagram);
+
+  // WhatsApp: the message shown, event link included, is exactly the message WhatsApp opens with.
+  await channel("WhatsApp").click();
+  const whatsapp = await shown("whatsapp");
+  expect(whatsapp).toMatch(/^Hi neighbor!/);
+  expect(whatsapp!.endsWith(`/e/ex-${SLUG}`)).toBe(true);
+  const href = await post.getByRole("link", { name: /^Send on WhatsApp: the announcement/ }).getAttribute("href");
+  expect(new URL(href!).searchParams.get("text")).toBe(whatsapp);
+  await post.getByRole("button", { name: "Copy the WhatsApp text of the announcement" }).click();
+  expect(await copied()).toBe(whatsapp);
+
+  // An edit changes that channel only, and what goes out is the edit.
+  await channel("Instagram").click();
+  await post.getByRole("button", { name: "Edit the Instagram text of the announcement" }).click();
+  const box = post.getByRole("textbox", { name: "Instagram text of the announcement" });
+  await box.fill("See it at www.example.com");
+  await expect(post.getByRole("alert")).toContainText("is a link");
+  await expect(post.getByRole("button", { name: /^Copy caption/ })).toBeDisabled();
+  const edit = "Warm drinks at our table today.\n\n#Chicago";
+  await box.fill(edit);
+  await expect(post.getByRole("alert")).toHaveCount(0);
+  await post.getByRole("button", { name: "Done editing the Instagram text of the announcement" }).click();
+  expect(await shown("instagram")).toBe(edit);
+  await post.getByRole("button", { name: /^Copy caption/ }).click();
+  expect(await copied()).toBe(edit);
+  await channel("Facebook").click();
+  expect(await shown("facebook")).toBe(facebook);
+
+  // A reload keeps the edit (in this tab only), and Reset brings the draft back.
+  await page.reload();
+  await channel("Instagram").click();
+  expect(await shown("instagram")).toBe(edit);
+  await post.getByRole("button", { name: "Reset the Instagram text of the announcement" }).click();
+  expect(await shown("instagram")).toBe(instagram);
+});
+
+test("Share the event without a share sheet opens a menu, and marks only the channel used", async ({ page }) => {
+  await watchSharing(page, { noShareSheet: true });
+  await page.goto(`${EVENT}/promote`);
+  const post = page.getByRole("group", { name: "Posts and when to share them" }).getByRole("listitem").filter({ hasText: "Now · Announce" });
+  await expect(post.getByText("Ready to share")).toBeVisible();
+  const share = page.getByRole("button", { name: "Share the event" }).filter({ visible: true });
+  await share.click();
+  await expect(share).toHaveAttribute("aria-expanded", "true");
+  const menu = page.getByRole("group", { name: "Share the announcement on" }).filter({ visible: true });
+  await expect(menu.getByRole("button", { name: "Copy link" })).toBeVisible();
+  // Nothing is marked until a channel is picked.
+  await expect(post.getByText("Ready to share")).toBeVisible();
+  const whatsapp = menu.getByRole("link", { name: /^WhatsApp/ });
+  const href = await whatsapp.getAttribute("href");
+  await tapOut(page, whatsapp);
+  await expect(menu).toHaveCount(0);
+  await expect(post.getByText("Shared on WhatsApp")).toBeVisible();
+  // The announcement now shows its WhatsApp words: exactly the message that opened.
+  await expect(post.getByRole("group", { name: "Channel for the announcement" }).getByRole("button", { name: /^WhatsApp/ })).toHaveAttribute("aria-pressed", "true");
+  expect(new URL(href!).searchParams.get("text")).toBe(await post.locator('[data-post-text="whatsapp"]').textContent());
 });
 
 test("every listed place has a pin with the same number once the map loads, and a pin picks its row", async ({ page }) => {
