@@ -5,9 +5,12 @@ import { ReceiptTrigger } from "@/components/stoop/floor/receipts";
 
 /**
  * Stops the link's own navigation once the receipt trigger (inside) has opened the dialog. A click
- * with a modifier (open in a new tab or window) keeps the browser's own behavior.
+ * with a modifier (open in a new tab or window) keeps the browser's own behavior. Clicks inside the
+ * open receipt also reach this wrapper (React bubbles them up from the dialog's portal), so only a
+ * click on the link itself, in the page, is stopped; the receipt's own toggles and links still work.
  */
-const stay = (event: MouseEvent) => {
+const stay = (event: MouseEvent<HTMLElement>) => {
+  if (!event.currentTarget.contains(event.target as Node)) return;
   if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) event.preventDefault();
 };
 
