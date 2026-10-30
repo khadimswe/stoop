@@ -7,7 +7,7 @@ import type { PlanReport } from "../plan/schema";
 import { landingCompare } from "../plan/view/floor";
 import { planView, sourceFromReport, type PlanView } from "../plan/view/plan";
 import { titleGenre } from "../plan/words";
-import { ageSpan, keyDaySteps, listOf, pickReceipts, postTimeline, storeShowcase, tablePicks, verdictText } from "./landing-stores";
+import { ageSpan, listOf, pickReceipts, postTimeline, storeShowcase, verdictText } from "./landing-stores";
 import { genericCheckWords, usDistance, usRadius } from "./plain-words";
 import { andList, recordedNames } from "../testing/recorded-names";
 import { describeRecorded, ifRecorded } from "../testing/recorded";
@@ -49,8 +49,8 @@ describe("small wording helpers", () => {
 });
 
 describeRecorded("each example store's showcase", () => {
-  for (const { slug, city, view, report } of stores) {
-    const show = storeShowcase(view, report, slug, city);
+  for (const { slug, city, view } of stores) {
+    const show = storeShowcase(view, slug, city);
 
     it(`${slug}: the verdict names only Qloo places and the city, each with a receipt`, () => {
       const picks = show.verdict.filter((p) => p.kind === "pick");
@@ -65,28 +65,12 @@ describeRecorded("each example store's showcase", () => {
       expect(titleGenre(verdictText(show.verdict))).toBeNull();
     });
 
-    it(`${slug}: five steps of the day in order, the first and the last included`, () => {
-      const day = keyDaySteps(view);
-      expect(day).toHaveLength(Math.min(5, view.runOfShow.length));
-      expect(day[0]!.time).toBe(view.runOfShow[0]!.time);
-      expect(day.at(-1)!.time).toBe(view.runOfShow.at(-1)!.time);
-      expect(day.map((d) => d.time)).toEqual([...day.map((d) => d.time)].sort());
-      for (const d of day) expect(d.text.length).toBeGreaterThan(0);
-    });
-
-    it(`${slug}: how Stoop decided uses the report's own counts`, () => {
-      const [cityCell, communityCell, planCell, checkedCell] = show.decided;
-      const calls = (stage: keyof PlanReport["stats"]["stages"]) => report.stats.stages[stage]!.liveCalls + report.stats.stages[stage]!.cachedCalls;
-      expect(cityCell!.calls).toBe(`${calls("city")} Qloo calls`);
-      expect(communityCell!.text).toContain(`${view.local.block!.places.length} places within about 1 mile`);
-      expect(communityCell!.calls).toBe(`${calls("block")} Qloo calls`);
-      // The rubric counts bringing people inside double, so the run's own "25 of 30" is used.
-      expect(planCell!.text).toMatch(/table ideas?, .*scored .*\d+ of 30.*fit to the \$\d+ budget\.$/);
-      expect(planCell!.text).not.toMatch(/rubric/);
-      // Plain words, never "checkable" or "median".
-      expect(checkedCell!.text).toMatch(/^A generic AI plan for the same store named no place nearby, and .+ Qloo's own top \d+ for .+ adults \d+ to \d+.*\.$/);
-      expect(checkedCell!.text).not.toMatch(/checkable|median/);
-      expect(checkedCell!.calls).toBe(`${calls("baseline")} Qloo calls`);
+    it(`${slug}: the tab keeps the free-to-spin line, the community map from Qloo and the poster's small image`, () => {
+      expect(show.meta).toContain("Free to spin, no purchase needed");
+      expect(show.map!.chip).toBe(`${view.local.block!.places.length} places from Qloo, within about 1 mile`);
+      expect(show.map!.pins.map((p) => p.name)).toEqual(view.local.block!.places.map((p) => p.name));
+      expect(show.poster.src).toBe(view.marketing.poster.thumb);
+      expect(show.fictional).toBe("Fictional store. Not affiliated with or endorsed by T-Mobile.");
     });
 
     it(`${slug}: the comparison names the generic plan's own picks and never a genre`, () => {
@@ -101,26 +85,16 @@ describeRecorded("each example store's showcase", () => {
       expect(rows[3]!.generic).toBe("Names no place near the store");
       expect(rows[3]!.stoop).toBe(`${view.local.block!.places.length} places within about 1 mile, from Qloo`);
     });
-
-    it(`${slug}: the table's picks come from the plan`, () => {
-      const picks = tablePicks(view, slug);
-      expect(picks.map((p) => p.title)).toEqual(["Music", "Snacks", "Prize wheel"]);
-      for (const p of picks) {
-        expect(p.receipt && view.receipts[p.receipt]).toBeTruthy();
-        expect(p.href).toMatch(/^\/(s|plan)\//);
-      }
-    });
   }
 
   it("Chicago reads like the plan: its spots, the city and the generic plan's three artists", () => {
-    const show = storeShowcase(chicago.view, chicago.report, chicago.slug, chicago.city);
+    const show = storeShowcase(chicago.view, chicago.slug, chicago.city);
     // Qloo's names come from the recording, never written here (lib/testing/recorded-names.ts).
     const q = recordedNames(chicago.slug);
     expect(verdictText(show.verdict)).toBe(
       `Warm Cup Wheel Stop: hot coffee to-go box from ${q.snackPlace}, 0.3 miles away, a playlist of artists Qloo ranks for Chicago, and gift cards to ${q.giftCardPlace}.`,
     );
     expect(show.meta).toEqual(["$49 of a $50 budget", "Free to spin, no purchase needed", "Sat, Nov 7, 12 to 4 pm"]);
-    expect(show.day.map((d) => d.clock)).toEqual(["11:15", "12:00", "1:30", "2:00", "4:00"]);
     const rows = landingCompare(chicago.view);
     // The first generic artist has no measurable affinity and the other two beat none of Qloo's 20: none makes the top 20.
     expect(rows[0]!.generic).toBe(`${andList(q.genericArtists)}: famous, but none of the 3 make Qloo's own top 20 for Chicago adults 25 to 34`);
