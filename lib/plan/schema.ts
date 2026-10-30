@@ -29,6 +29,8 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const CARRIERS = ["metro", "cricket", "boost", "other"] as const;
 /** Where the event happens. Stores that do well go outside: a table on the sidewalk, or a booth at a fair or community event. */
 export const SETTINGS = ["sidewalk_table", "in_store", "nearby_venue", "community_event"] as const;
+/** The game at an outdoor table: a tabletop prize wheel, or a drop board (drop a chip, it lands in one of 6 slots). */
+export const GAMES = ["wheel", "drop_board"] as const;
 
 export const storeSchema = z.strictObject({
   id: slug,
@@ -58,6 +60,8 @@ export const inputsSchema = z.strictObject({
   startTime: hhmm,
   durationMinutes: z.number().int().min(30).max(480),
   setting: z.enum(SETTINGS),
+  /** The table game when the setting has one (outside: a sidewalk table or a community event booth). Absent means the prize wheel. */
+  game: z.enum(GAMES).optional(),
   /**
    * Where the event happens when it isn't at the store (a fair, a festival, a nearby venue). Places
    * near the event are searched around this point instead of the store's.

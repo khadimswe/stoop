@@ -2,7 +2,8 @@
 // inputs POST /api/plan takes (lib/plan/schema.ts `inputsSchema`). Pure, so the browser and the tests
 // check it the same way. Offers are kept word for word: the plan never invents one.
 import { AGE_BUCKETS, type AgeBucket } from "../../qloo/constants";
-import { CARRIERS, inputsSchema, SETTINGS, type PlanInputs } from "../schema";
+import { settingHasGame, type TableGame } from "../game";
+import { CARRIERS, GAMES, inputsSchema, SETTINGS, type PlanInputs } from "../schema";
 
 export type Carrier = (typeof CARRIERS)[number];
 export type Setting = (typeof SETTINGS)[number];
@@ -26,6 +27,8 @@ export interface StoreFormValues {
   startTime: string;
   durationMinutes: string;
   setting: Setting;
+  /** The game at an outdoor table: the prize wheel, or a drop board with 6 slots. */
+  game: TableGame;
   /** Where the event happens when it is away from the store (a fair, a nearby venue). */
   venueName: string;
   venueLat: string;
@@ -57,6 +60,7 @@ export const FIELD_ORDER: readonly StoreField[] = [
   "startTime",
   "durationMinutes",
   "setting",
+  "game",
   "venueName",
   "venueLat",
   "venueLon",
@@ -108,6 +112,7 @@ export function emptyStoreForm(): StoreFormValues {
     startTime: "12:00",
     durationMinutes: "240",
     setting: "sidewalk_table",
+    game: "wheel",
     venueName: "",
     venueLat: "",
     venueLon: "",
@@ -189,6 +194,7 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
   const duration = Number(values.durationMinutes);
   if (!Number.isInteger(duration) || duration < 30 || duration > 480) errors.durationMinutes = "Pick how long the event runs.";
   if (!(SETTINGS as readonly string[]).includes(values.setting)) errors.setting = "Pick where the event happens.";
+  if (!(GAMES as readonly string[]).includes(values.game ?? "wheel")) errors.game = "Pick the game: a prize wheel or a drop board.";
 
   // Away from the store (a fair, a nearby venue): optional, but all three parts or none.
   let location: PlanInputs["location"];
@@ -232,6 +238,8 @@ export function parseStoreForm(values: StoreFormValues, today?: string): ParseRe
     startTime: values.startTime,
     durationMinutes: duration,
     setting: values.setting,
+    // A drop board is sent only when the setting has a game; the wheel is the default and is never sent.
+    ...(settingHasGame(values.setting) && values.game === "drop_board" ? { game: "drop_board" as const } : {}),
     ...(location ? { location } : {}),
     budgetUsd: budget,
     offers: offers.filter(Boolean).map((text) => ({ text })),

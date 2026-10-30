@@ -6,6 +6,7 @@ import { z } from "zod";
 import { POSTER_MODEL } from "../prompts/models.config";
 import { posterSchema, postsSchema, type PlanReport, type Poster, type Posts } from "./schema";
 import { checkPosterPrompt } from "./poster-prompt";
+import { GAME_WORDS } from "./game";
 import { posterText, withFrontConcept } from "./poster-text";
 import { instagramCopy, whatsappMessage } from "./share";
 
@@ -72,7 +73,9 @@ export function marketingMarkdown(report: Pick<PlanReport, "inputs" | "plan" | "
     `- Phone: ${text.phone ?? "none (the store gave none)"}`,
     ...(text.location ? [`- Event place: ${text.location}`] : []),
     ...(text.deals.length ? text.deals.map((d, i) => `- Deal card ${i + 1}: label "${d.label}"; offer ${i + 1} (verbatim): ${d.text}`) : ["- Offers: none"]),
-    `- Prize wheel badge: ${text.wheelWhat ? `Spin the prize wheel. ${text.wheelWhat}. Free to spin, no purchase needed.` : "none (no wheel in the plan)"}`,
+    text.game === "drop_board"
+      ? `- Drop board badge: ${text.wheelWhat ? `${GAME_WORDS.drop_board.call}. ${text.wheelWhat}. ${GAME_WORDS.drop_board.free}` : "none (no drop board in the plan)"}`
+      : `- Prize wheel badge: ${text.wheelWhat ? `Spin the prize wheel. ${text.wheelWhat}. Free to spin, no purchase needed.` : "none (no wheel in the plan)"}`,
     `- Palette: ${text.carrier} (colors only, never a logo)`,
     `- Small line: ${text.disclaimer ?? "none"}`,
     `- Alt text: ${poster.alt}`,

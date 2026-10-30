@@ -4,6 +4,8 @@ import { ChevronDown, ChevronLeft, LayoutGrid, Loader2, Minus, Plus, X } from "l
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { AGE_BUCKETS, type AgeBucket } from "@/lib/qloo/constants";
+import { GAME_LABELS, settingHasGame } from "@/lib/plan/game";
+import { GAMES } from "@/lib/plan/schema";
 import { AWAY_SETTINGS, capitalizeFirst, SETTING_LABELS, timeRange } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
 import { parsePlanNotice, sameStore, type PlanNotice } from "@/lib/plan/view/notice";
@@ -109,8 +111,8 @@ function loadDraft(key: string): Partial<StoreFormValues> | null {
 function saveDraft(key: string, values: StoreFormValues) {
   try {
     const all = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as Record<string, Partial<StoreFormValues>>;
-    const { offers, ageBands, setting, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon } = values;
-    all[key] = { offers, ageBands, setting, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon };
+    const { offers, ageBands, setting, game, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon } = values;
+    all[key] = { offers, ageBands, setting, game, notes, startTime, durationMinutes, budgetUsd, date, venueName, venueLat, venueLon };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
   } catch {
     // Private browsing: the form still works, it just isn't kept.
@@ -138,7 +140,7 @@ export function CreateScreen({
   at,
 }: {
   store: CreateStore;
-  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "notes" | "startTime" | "durationMinutes" | "budgetUsd" | "date" | "venueName" | "venueLat" | "venueLon">>;
+  defaults?: Partial<Pick<StoreFormValues, "offers" | "ageBands" | "setting" | "game" | "notes" | "startTime" | "durationMinutes" | "budgetUsd" | "date" | "venueName" | "venueLat" | "venueLon">>;
   backHref: string;
   steps?: Partial<Record<Step, string>>;
   reasons?: Partial<Record<Step, string>>;
@@ -469,6 +471,25 @@ export function CreateScreen({
               ))}
             </div>
           </OpenRow>
+          {settingHasGame(values.setting) && (
+            <OpenRow id={`${id}-game`} label="Game" value={GAME_LABELS[values.game]} open={open === "game"} onToggle={() => toggle("game")}>
+              <div role="radiogroup" aria-label="Game" className="flex flex-wrap gap-2">
+                {GAMES.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    role="radio"
+                    aria-checked={values.game === g}
+                    onClick={() => set("game", g)}
+                    className={cn("h-[34px] rounded-[6px] border px-3 text-sm font-medium", values.game === g ? "border-fl-ink bg-fl-ink text-white" : "border-fl-line bg-white")}
+                  >
+                    {GAME_LABELS[g]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-fl-dim">{values.game === "drop_board" ? "Drop a chip, it lands in one of 6 slots: your promos first, plus a gift card from a place in your community." : "Your promos and local gift cards go on the slices."}</p>
+            </OpenRow>
+          )}
           <OpenRow id={`${id}-notes`} label="Notes" value={values.notes || <span className="text-fl-dim">Staff, weather, last time</span>} open={open === "notes"} onToggle={() => toggle("notes")} error={errors.notes}>
             <textarea
               aria-label="Notes"
@@ -516,7 +537,7 @@ export function CreateScreen({
           <dt className="text-fl-dim">Promos</dt>
           <dd>{offersTyped ? `${offersTyped}, word for word` : "None yet"}</dd>
         </dl>
-        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, snacks and prizes from places in your community, a prize wheel and a timeline.</p>
+        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, snacks and prizes from places in your community, {settingHasGame(values.setting) ? `${values.game === "drop_board" ? "a drop board" : "a prize wheel"} and a timeline` : "and a timeline"}.</p>
       </section>
       <p className="text-center text-xs text-fl-dim">{note}</p>
       {submitButton}

@@ -2,6 +2,7 @@
 // receipts all come from the run's own Qloo results and the manager's inputs.
 import { noGenre, type PlaceView, type PlanView, type ShoppingView } from "./plan";
 import { plural, usd } from "./format";
+import { gameWords } from "../game";
 // The landing comparison's plain words and US units, shared with the landing (no runtime cycle: plain-words imports types only).
 import { ageSpan, genericArtistNames, genericCheckWords, genericPicks, listOf, usDistance, usRadius } from "../../marketing/plain-words";
 
@@ -41,7 +42,7 @@ export function eventStats(view: PlanView): { value: string; label: string }[] {
   const spent = view.shopping.reduce((sum, s) => sum + (s.usd ?? 0), 0);
   const budget = view.header.budgetText.replace(" budget", "");
   const stats = [{ value: usd(spent), label: `of ${budget}` }, { value: String(view.partnerIds.length), label: view.partnerIds.length === 1 ? "spot in the community" : "spots in the community" }];
-  if (view.wheel) stats.push({ value: "Free", label: "to spin" });
+  if (view.wheel) stats.push({ value: "Free", label: gameWords(view.wheel.game).stat });
   else stats.push({ value: String(view.runOfShow.length), label: "timeline steps" });
   return stats;
 }

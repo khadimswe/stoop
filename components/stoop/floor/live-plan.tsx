@@ -276,6 +276,7 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
         offers: i.offers.map((o) => o.text),
         ageBands: i.ageBands,
         setting: i.setting,
+        game: i.game ?? "wheel",
         notes: i.notes ?? "",
         startTime: i.startTime,
         durationMinutes: String(i.durationMinutes),
