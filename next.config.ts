@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
+import { createRequire, isBuiltin } from "node:module";
 import path from "node:path";
 import type { NextConfig } from "next";
 import { BUILD_DATA_FILES, missingDataMessage, missingFiles } from "./lib/recorded-data";
@@ -29,23 +30,36 @@ const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.js
 // the folders those files live in.
 function nextSetupFiles(): string[] {
   const root = process.cwd();
-  const modules = path.join(root, "node_modules");
-  const asFile = (base: string): string | null => {
-    for (const candidate of [base, `${base}.js`, path.join(base, "index.js")]) if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
-    const manifest = path.join(base, "package.json");
-    return existsSync(manifest) ? asFile(path.join(base, (JSON.parse(readFileSync(manifest, "utf8")) as { main?: string }).main ?? "index.js")) : null;
+  const resolveFrom = createRequire(path.join(root, "package.json"));
+  // Packages resolve through their package.json (main or exports), so each one ships too.
+  const manifests = new Set<string>();
+  // Every package.json from the file up to its package's root (bundled packages nest their own).
+  const manifestsOf = (file: string) => {
+    const found: string[] = [];
+    for (let dir = path.dirname(file); dir.startsWith(root) && dir !== root; dir = path.dirname(dir)) {
+      if (existsSync(path.join(dir, "package.json"))) found.push(path.join(dir, "package.json"));
+      if (/^(node_modules|@[^/]+)$/.test(path.basename(path.dirname(dir)))) break;
+    }
+    return found;
   };
   const seen = new Set<string>();
-  const walk = (file: string | null) => {
-    if (!file || seen.has(file)) return;
+  const walk = (file: string) => {
+    if (seen.has(file) || !statSync(file).isFile()) return;
     seen.add(file);
+    for (const manifest of manifestsOf(file)) manifests.add(manifest);
     for (const [, , spec] of readFileSync(file, "utf8").matchAll(/require\((["'])([^"']+)\1\)/g)) {
-      if (spec!.startsWith(".")) walk(asFile(path.resolve(path.dirname(file), spec!)));
-      else if (spec!.startsWith("next/")) walk(asFile(path.join(modules, spec!)));
+      if (isBuiltin(spec!)) continue;
+      let resolved: string;
+      try {
+        resolved = resolveFrom.resolve(spec!, { paths: [path.dirname(file)] });
+      } catch {
+        continue; // an optional require behind a guard; it never loaded at setup either
+      }
+      if (path.isAbsolute(resolved) && resolved.startsWith(path.join(root, "node_modules"))) walk(resolved);
     }
   };
-  walk(asFile(path.join(modules, "next/dist/server/node-environment.js")));
-  return [...seen].map((file) => `./${path.relative(root, file)}`);
+  walk(path.join(root, "node_modules/next/dist/server/node-environment.js"));
+  return [...seen, ...manifests].map((file) => `./${path.relative(root, file)}`);
 }
 const NEXT_SETUP = [...nextSetupFiles(), ...["server/lib", "shared/lib", "lib", "client/components", "client/lib"].map((dir) => `./node_modules/next/dist/${dir}/**/*.js`)];
 
