@@ -142,7 +142,7 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
   if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the ${named} line word for word.`);
   const deal = (report.plan?.wheel ? text.replace(GAME_NAMES[game], " ") : text).match(DEAL_WORDS)?.[0];
   if (deal) add(deal, `"${deal}" is deal or prize talk. Code adds the offers word for word, and a post never says what the ${named} pays out.`);
-  const off = otherGameWord(text, game);
+  const off = otherGameWord(text, game, [...report.inputs.offers.map((o) => o.text), ...(report.local.block?.places.map((p) => p.name) ?? [])]);
   if (off) add(off, otherGameMessage(off));
   const minor = text.match(MINOR_SETTING)?.[0];
   if (minor) add(minor, `"${minor}" points at students. The event is for adults passing by.`);

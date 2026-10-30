@@ -183,13 +183,15 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
   const start = startMinutes(inputs);
   const end = start + inputs.durationMinutes;
 
+  // A drop board's wheel-phrase check sets aside the manager's promos and the places' names.
+  const ignored = [...inputs.offers.map((o) => o.text), ...[...aliases.places.values()].map((p) => p.name)];
   const runOfShow: Plan["runOfShow"] = [];
   answer.runOfShow.slice(0, MAX_STEPS).forEach((s, i) => {
     const at = `runOfShow.${i + 1}`;
     const time = s.time.trim().padStart(5, "0");
     const step = toRealRefs(s.step.trim(), aliases);
     const problems = textIssues(step, guard);
-    const off = otherGameWord(step, gameOf(inputs));
+    const off = otherGameWord(step, gameOf(inputs), ignored);
     if (off) problems.push(otherGameMessage(off));
     if (!HHMM.test(time)) problems.push(`time must be HH:MM (24 hour), got "${s.time}".`);
     else if (toMinutes(time) < start - SETUP_MARGIN_MIN || toMinutes(time) > end + SETUP_MARGIN_MIN) problems.push(`time ${time} is outside the day (${clock(start - SETUP_MARGIN_MIN)} to ${clock(end + SETUP_MARGIN_MIN)}).`);
@@ -248,7 +250,7 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const problems = textIssues(real, guard);
     const check = renderRefs(real, aliases.names);
     if (!check || check.length > 200) problems.push("each check must be 1 to 200 characters.");
-    const off = otherGameWord(check, gameOf(inputs));
+    const off = otherGameWord(check, gameOf(inputs), ignored);
     if (off) problems.push(otherGameMessage(off));
     if (problems.length) issues.push(...problems.map((p) => `checks.${i + 1}: ${p}`));
     else extras.push(check);
@@ -261,6 +263,8 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
 
 const GIFT = /gift ?cards?/i;
 const WHEEL = /\b(wheel|spins?|drop ?boards?)\b/i;
+/** A drop board's own words, for a drop-board plan only: a wheel plan's "3 pm slot" is not a prize. */
+const BOARD = /\b(drop(?:s|ped|ping)? (?:a|the|your) chips?|chips? lands?|slots?)\b/i;
 const AMOUNT = /\$\s?(\d+)\s+(?:e-?)?gift ?cards?/i;
 
 /**
@@ -268,10 +272,10 @@ const AMOUNT = /\$\s?(\d+)\s+(?:e-?)?gift ?cards?/i;
  * show, not the wheel, whose slices carry their own) that the shopping list does not buy yet: one card
  * per place, at the amount the line names, or $5 for a "small" card and $10 otherwise.
  */
-export function prizePurchases(kept: Concept, plan: Pick<Plan, "runOfShow" | "shopping">, aliases: Aliases, budgetUsd: number): Plan["shopping"] {
+export function prizePurchases(kept: Concept, plan: Pick<Plan, "runOfShow" | "shopping">, aliases: Aliases, budgetUsd: number, game: TableGame = "wheel"): Plan["shopping"] {
   const amounts = new Map<string, number>();
   const note = (text: string, refs: readonly string[]) => {
-    if (!GIFT.test(text) || WHEEL.test(text)) return;
+    if (!GIFT.test(text) || WHEEL.test(text) || (game === "drop_board" && BOARD.test(text))) return;
     const named = Number(AMOUNT.exec(text)?.[1]);
     const amount = Number.isFinite(named) && named > 0 ? named : /\bsmall\b/i.test(text) || budgetUsd <= 50 ? 5 : 10;
     for (const id of refs) if (aliases.places.has(id) && !amounts.has(id)) amounts.set(id, amount);
@@ -358,7 +362,7 @@ export async function buildPlan(env: PlanEnv, inputs: PlanInputs, concepts: Conc
     built = fallbackPlan(inputs, kept, aliases);
   }
   // Every gift card the plan gives away in a drawing has a line in the shopping list, inside the budget.
-  const prizes = prizePurchases(kept, built, aliases, inputs.budgetUsd);
+  const prizes = prizePurchases(kept, built, aliases, inputs.budgetUsd, gameOf(inputs));
   if (prizes.length) {
     const withPrizes = { ...built, shopping: [...built.shopping, ...prizes] };
     withPrizes.estimatedCostUsd = Math.round(withPrizes.shopping.reduce((sum, s) => sum + (s.estUsd ?? 0), 0));

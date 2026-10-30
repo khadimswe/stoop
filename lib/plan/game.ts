@@ -77,12 +77,24 @@ export const GAME_WORDS: Readonly<Record<TableGame, GameWords>> = {
 
 export const gameWords = (game: TableGame | null | undefined): GameWords => GAME_WORDS[game ?? "wheel"];
 
-/** The wheel's own words, which a drop-board plan never uses. */
-const WHEEL_WORDS = /\b(?:wheels?|spin|spins|spinning|spun)\b/i;
+/**
+ * The wheel's game phrases, which a drop-board plan never uses. Phrases, not bare words: "a DJ spins
+ * the city mix" is music, and "Big Wheel Diner" is a place.
+ */
+const WHEEL_PHRASES = /\b(?:prize wheels?|the wheel|wheel spins?|spin the|spin to win|free spins?|spins? again)\b/i;
 
-/** A wheel word in a drop-board plan's text, or null (always null for a wheel plan, so its checks never change). */
-export function otherGameWord(text: string, game: TableGame): string | null {
-  return game === "drop_board" ? (WHEEL_WORDS.exec(text)?.[0] ?? null) : null;
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A wheel phrase in a drop-board plan's text, or null (always null for a wheel plan, so its checks never
+ * change). Text in `ignore` is set aside first: the manager's promos (quoted word for word, so a repair
+ * could never change them) and the names of Qloo places.
+ */
+export function otherGameWord(text: string, game: TableGame, ignore: readonly string[] = []): string | null {
+  if (game !== "drop_board") return null;
+  let rest = text;
+  for (const phrase of ignore) if (phrase.trim()) rest = rest.replace(new RegExp(escapeRe(phrase.trim()), "gi"), " ");
+  return WHEEL_PHRASES.exec(rest)?.[0] ?? null;
 }
 
 /** The check's message, for the repair prompt. */
@@ -101,5 +113,5 @@ export function offersLeftOff(offers: readonly { text: string }[], slices: reado
 export function leftOffNote(leftOff: readonly string[], total: number): string | null {
   if (!leftOff.length) return null;
   const on = total - leftOff.length;
-  return `The drop board has ${DROP_BOARD_SLOTS} slots, so it carries ${on === 1 ? "your first promo" : `your first ${on} promos`} of ${total}. Not on the board: ${leftOff.map((o) => `"${o}"`).join(", ")}. Every promo is still on the poster and in the posts.`;
+  return `The drop board has ${DROP_BOARD_SLOTS} slots, so it carries ${on === 1 ? "your first promo" : `your first ${on} promos`} of ${total}. Not on the board: ${leftOff.map((o) => `"${o}"`).join(", ")}. Staff can still offer them at the table.`;
 }

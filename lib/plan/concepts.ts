@@ -135,6 +135,8 @@ export function notesMissing(notes: string, items: readonly Pick<PlanItem, "text
 /** Maps one answer to plan items with real refs and receipts, and lists every problem. Lines with problems are left out. */
 export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardContext, game: TableGame = "wheel"): ConceptCheck {
   const activity = game === "drop_board" ? "the drop board" : "the wheel";
+  // A drop board's wheel-phrase check sets aside the manager's promos and the places' names.
+  const ignored = [...guard.offers, ...[...aliases.places.values()].map((p) => p.name)];
   const issues: string[] = [];
   const concepts: CheckedConcept[] = [];
   const answer = stripEmDashes(raw);
@@ -150,7 +152,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     }
     const genre = titleGenre(`${title} ${hook}`);
     if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (${activity}), the food or the place, never the music.`);
-    const offTitle = otherGameWord(`${title} ${hook}`, game);
+    const offTitle = otherGameWord(`${title} ${hook}`, game, ignored);
     if (offTitle) issues.push(`${at}.title or hook: ${otherGameMessage(offTitle)}`);
     const items: PlanItem[] = [];
     const used = new Set<string>();
@@ -165,7 +167,7 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       if (!text) problems.push("must not be empty.");
       else if (text.length > MAX_TEXT) problems.push(`is ${text.length} characters once its keys become Qloo ids (each key is about 40); the limit is ${MAX_TEXT}. Shorten it or use fewer keys.`);
       if (unknownStyles.length) problems.push(`styles ${unknownStyles.join(", ")} are not s-keys from the data.`);
-      const offLine = otherGameWord(text, game);
+      const offLine = otherGameWord(text, game, ignored);
       if (offLine) problems.push(otherGameMessage(offLine));
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
       const cliche = clicheIn(text);
@@ -362,7 +364,7 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
   }
   // A title or hook that still names a genre, or still breaks a rule, gets the safe template.
   best.concepts.forEach((concept, i) => {
-    const bad = titleGenre(`${concept.title} ${concept.hook}`) || otherGameWord(`${concept.title} ${concept.hook}`, game) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
+    const bad = titleGenre(`${concept.title} ${concept.hook}`) || otherGameWord(`${concept.title} ${concept.hook}`, game, [...guard.offers, ...[...aliases.places.values()].map((p) => p.name)]) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
     if (!bad) return;
     const safe = safeTitle(inputs, i);
     planDecide(env, "concepts", `Gave concept ${i + 1} a plain title`, `"${concept.title}" named a music genre or broke a rule; titles come from the occasion, the activity, the food or the place.`);
