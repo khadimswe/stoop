@@ -4,7 +4,7 @@ import { z } from "zod";
 import { waitlistRequestSchema } from "../api/requests";
 import { waitlistResponseSchema } from "../api/responses";
 import { toCsv } from "../csv";
-import { sendConfirmation, type Mailer } from "../email";
+import { type Mailer, sendConfirmation, signupKindOf } from "../email";
 import { sha256 } from "../hash";
 import { saltedHash } from "../store/visitor";
 import { apiError, BodyError, cookieHeader, json, readCookie, readJson } from "../http";
@@ -67,7 +67,7 @@ export function createWaitlistPost(deps: WaitlistDeps) {
       const mailer = deps.mailer();
       if (created && mailer && (await hitRate(store, DAILY_RULES.confirmationEmails, EVERYONE, deps.now?.())).ok) {
         const key = `waitlist-confirm-${await saltedHash(store, entry.email)}`;
-        deps.defer(() => sendConfirmation(mailer, entry.email, entry.position, key));
+        deps.defer(() => sendConfirmation(mailer, entry.email, entry.position, key, signupKindOf(entry.sourceReport)));
       }
       const headers = existingToken ? undefined : { "Set-Cookie": cookieHeader(request, SIGNUP_COOKIE, token, SIGNUP_COOKIE_MAX_AGE) };
       return json(waitlistResponseSchema.parse({ position: entry.position }), { headers });

@@ -41,14 +41,22 @@ export function mailerFromEnv(env: Env = process.env): Mailer | null {
   return apiKey && from ? resendMailer(apiKey, from) : null;
 }
 
+/** Which signup the confirmation answers: a store pilot (the landing's Reserve), or the original ad brief. */
+export type SignupKind = "stores" | "brief";
+
+/** The waitlist entry's source says which: the landing's store pilot form sends "store-pilot". */
+export const signupKindOf = (sourceReport: string | null | undefined): SignupKind => (sourceReport === "store-pilot" ? "stores" : "brief");
+
 /** The signup confirmation: short and plain. It holds only the position, never anything the visitor typed. */
-export function confirmationEmail(position: number): { subject: string; text: string } {
+export function confirmationEmail(position: number, kind: SignupKind = "brief"): { subject: string; text: string } {
   return {
     subject: "You're on the Stoop waitlist",
     text: [
       `You're #${position} on the Stoop waitlist.`,
       "",
-      "Thanks for signing up. We'll be in touch about your free Culture Brief: the audience around your product, with the Qloo data behind it.",
+      kind === "stores"
+        ? "Thanks for signing up. We'll be in touch to set up Stoop for your stores: an event for the community around each one, with the Qloo data behind every pick."
+        : "Thanks for signing up. We'll be in touch about your free Culture Brief: the audience around your product, with the Qloo data behind it.",
       "",
       "We never sell your email or send it to Qloo. Didn't sign up? You can ignore this email.",
       "",
@@ -111,9 +119,9 @@ async function deliver(mailer: Mailer, message: EmailMessage, label: string): Pr
 }
 
 /** Sends the confirmation, or skips it without a mailer. Never throws: a failure is logged and reported. */
-export async function sendConfirmation(mailer: Mailer | null, to: string, position: number, idempotencyKey?: string): Promise<SendOutcome> {
+export async function sendConfirmation(mailer: Mailer | null, to: string, position: number, idempotencyKey?: string, kind: SignupKind = "brief"): Promise<SendOutcome> {
   if (!mailer) return "skipped";
-  return deliver(mailer, { to, ...confirmationEmail(position), ...(idempotencyKey ? { idempotencyKey } : {}) }, "Waitlist confirmation email");
+  return deliver(mailer, { to, ...confirmationEmail(position, kind), ...(idempotencyKey ? { idempotencyKey } : {}) }, "Waitlist confirmation email");
 }
 
 /** Sends the MCP token email, or skips it without a mailer. Never throws. */

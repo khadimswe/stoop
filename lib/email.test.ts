@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { confirmationEmail, mailerFromEnv, sendConfirmation, type Mailer } from "./email";
+import { confirmationEmail, mailerFromEnv, sendConfirmation, signupKindOf, type Mailer } from "./email";
 
 describe("mailerFromEnv", () => {
   it("is null (emails skipped) unless both RESEND_API_KEY and EMAIL_FROM are set", () => {
@@ -19,6 +19,14 @@ describe("confirmationEmail", () => {
     expect(text).toContain("We never sell your email or send it to Qloo.");
     expect(text).not.toContain(String.fromCharCode(0x2014));
     expect(text.length).toBeLessThan(500);
+  });
+
+  it("speaks to a store pilot signup about stores, not an ad brief", () => {
+    expect(signupKindOf("store-pilot")).toBe("stores");
+    expect(signupKindOf(null)).toBe("brief");
+    const { text } = confirmationEmail(3, "stores");
+    expect(text).toContain("set up Stoop for your stores");
+    expect(text).not.toContain("Culture Brief");
   });
 });
 
