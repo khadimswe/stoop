@@ -42,6 +42,9 @@ function nextSetupFiles(): string[] {
     }
     return found;
   };
+  // A package outside Next ships whole: its exports can pick a different file on Vercel's Node than here
+  // (@swc/helpers resolves to esm/ locally and to cjs/ there).
+  const packages = new Set<string>();
   const seen = new Set<string>();
   const walk = (file: string) => {
     if (seen.has(file) || !statSync(file).isFile()) return;
@@ -55,11 +58,16 @@ function nextSetupFiles(): string[] {
       } catch {
         continue; // an optional require behind a guard; it never loaded at setup either
       }
-      if (path.isAbsolute(resolved) && resolved.startsWith(path.join(root, "node_modules"))) walk(resolved);
+      if (!path.isAbsolute(resolved) || !resolved.startsWith(path.join(root, "node_modules"))) continue;
+      if (!spec!.startsWith(".") && !spec!.startsWith("next/")) {
+        const top = manifestsOf(resolved).at(-1);
+        if (top) packages.add(path.dirname(top));
+      }
+      walk(resolved);
     }
   };
   walk(path.join(root, "node_modules/next/dist/server/node-environment.js"));
-  return [...seen, ...manifests].map((file) => `./${path.relative(root, file)}`);
+  return [...[...seen, ...manifests].map((file) => `./${path.relative(root, file)}`), ...[...packages].map((dir) => `./${path.relative(root, dir)}/**`)];
 }
 const NEXT_SETUP = [...nextSetupFiles(), ...["server/lib", "shared/lib", "lib", "client/components", "client/lib"].map((dir) => `./node_modules/next/dist/${dir}/**/*.js`)];
 
