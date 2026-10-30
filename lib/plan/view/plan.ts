@@ -217,6 +217,12 @@ export interface LocalView {
     radiusM: number;
     /** The map's center: the event's own place when it is away from the store, else the store. */
     center: { lat: number; lon: number; label: string };
+    /** Where distances are measured from: "the event" when the community was read around the event's place. */
+    from: "the store" | "the event";
+    /** The store's own spot when the map is centered on the event's place (it gets its own pin), else null. */
+    store: { lat: number; lon: number; label: string } | null;
+    /** The event's place in words when it is away from the store ("A fall community fair on Navigation Blvd"). */
+    eventName: string | null;
     /** Places by distance, nearest first (their pin numbers). */
     places: PlaceView[];
   } | null;
@@ -378,20 +384,41 @@ function ledgerRows(ledger: Ledger, ids: readonly string[], callLabels = true): 
   });
 }
 
-const rankText = (rank: number) => `#${rank} in its response`;
+/** "1st", "2nd", "3rd", "11th", "22nd". */
+export function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
+/**
+ * Qloo's own order, said so it never reads as a pin number (pins count by distance): "3rd in its
+ * answer for food spots". The answer is the one call the pick came from (`search` names it).
+ */
+const rankRow = (rank: number, search?: string | null): ReceiptRow => ({ label: "Qloo's rank", value: `${ordinal(rank)} in its answer${search ? ` for ${search}` : ""}` });
+
+/** "food spots" from the call's own label ("Finding food spots within 1.5 km of the store"). */
+export function searchOf(label: string | undefined): string | null {
+  return label ? (/^Finding (.+?) within\b/.exec(label)?.[1] ?? null) : null;
+}
 
 function artistRows(artist: ArtistRef): ReceiptRow[] {
   // Genres stay out: an event, a crowd or a block is never labeled by a music genre.
-  return [{ label: "Qloo pick", value: `${artist.name} (artist, ${rankText(artist.rank)})` }];
+  return [{ label: "Qloo pick", value: `${artist.name} (artist)` }, rankRow(artist.rank)];
 }
 
-function placeRows(place: Place): ReceiptRow[] {
+/** Qloo says why only when it can explain a pick ("Qloo links it to fans of ..."); otherwise it is Qloo's own description of the place. */
+const EXPLAINED = /^Qloo links it to /;
+
+/** A place's receipt rows; `from` is where its distance is measured: the store, or the event's own place. */
+export function placeRows(place: Place, from: "the store" | "the event" = "the store", search: string | null = null): ReceiptRow[] {
   const rows: ReceiptRow[] = [
-    { label: "Qloo pick", value: `${place.name} (${PLACE_KIND_LABELS[place.kind].toLowerCase()}, ${rankText(place.rank)})` },
-    { label: "Found by", value: "Qloo's places near the store, sorted by Qloo's own tags" },
+    { label: "Qloo pick", value: `${place.name} (${PLACE_KIND_LABELS[place.kind].toLowerCase()})` },
+    rankRow(place.rank, search),
+    { label: "Found by", value: `Qloo's places near ${from}, sorted by Qloo's own tags` },
   ];
-  if (place.why) rows.push({ label: "Why", value: place.why });
-  if (place.distanceM !== null) rows.push({ label: "Distance", value: `${distanceText(place.distanceM)} from the store` });
+  if (place.why) rows.push({ label: EXPLAINED.test(place.why) ? "Why" : "Qloo's description", value: place.why });
+  if (place.distanceM !== null) rows.push({ label: "Distance", value: `${distanceText(place.distanceM)} from ${from}` });
   if (place.address) rows.push({ label: "Address", value: place.address });
   return rows;
 }
@@ -420,6 +447,9 @@ export function planView(source: PlanSource): PlanView {
   const artists = new Map<string, ArtistRef>([...(report.local.city?.artists ?? []), ...(report.local.blockMusic?.artists ?? [])].map((a) => [a.id, a]));
   const blockPlaces = (report.local.block?.places ?? []).map((p) => ({ ...p, name: cleanName(p.name) }));
   const places = new Map(blockPlaces.map((p) => [p.id, p]));
+  // The community is read around the event's own place when it is away from the store: distances are from there.
+  const from = inputs.location ? ("the event" as const) : ("the store" as const);
+  const rowsOf = (p: Place) => placeRows(p, from, searchOf(ledger.get(p.evidenceIds[0] ?? "")?.label));
 
   // Places numbered by distance from the store, nearest first: the block map's pins and every badge.
   const byDistance = [...blockPlaces].sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity) || a.rank - b.rank);
@@ -434,7 +464,7 @@ export function planView(source: PlanSource): PlanView {
     return key;
   };
   const artistReceipt = (a: ArtistRef) => receipt(`artist:${a.id}`, a.evidenceIds, "Playlist", a.name, artistRows(a));
-  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The community", p.name, placeRows(p), false);
+  const placeReceipt = (p: Place) => receipt(`place:${p.id}`, p.evidenceIds, "The community", p.name, rowsOf(p), false);
 
   const nameOf = (refId: string): { name: string; receipt: string | null } | null => {
     const artist = artists.get(refId);
@@ -459,7 +489,7 @@ export function planView(source: PlanSource): PlanView {
       const a = artists.get(ref);
       if (a) return artistRows(a);
       const p = places.get(ref);
-      return p ? placeRows(p) : [];
+      return p ? rowsOf(p) : [];
     });
     const backed = it.origin === "qloo" || it.origin === "interpreted";
     const named = it.refs.flatMap((ref) => {
@@ -501,7 +531,7 @@ export function planView(source: PlanSource): PlanView {
       costText: s.estUsd === undefined ? null : usd(s.estUsd),
       from: partner ? { name: partner.name, receipt: placeReceipt(partner), n: pinOf.get(partner.id) ?? 0, distanceText: partner.distanceM === null ? null : distanceText(partner.distanceM) } : null,
       origin: s.origin,
-      receipt: backed ? receipt(`shop:${i}`, s.evidenceIds, "Shopping list", plain(parts(s.item)), partner ? placeRows(partner) : []) : null,
+      receipt: backed ? receipt(`shop:${i}`, s.evidenceIds, "Shopping list", plain(parts(s.item)), partner ? rowsOf(partner) : []) : null,
       prize: /\b(gift ?cards?|prizes?|raffle|drawing)\b/i.test(s.item),
       usd: s.estUsd ?? null,
     };
@@ -570,6 +600,9 @@ export function planView(source: PlanSource): PlanView {
           radiusText: radiusText(block.radiusM),
           radiusM: block.radiusM,
           center: inputs.location ? { ...inputs.location.point, label: "The event" } : { ...inputs.store.point, label: "Your store" },
+          from,
+          store: inputs.location ? { ...inputs.store.point, label: "Your store" } : null,
+          eventName: inputs.location ? capitalizeFirst(inputs.location.name) : null,
           places: byDistance.map((p) => ({
             id: p.id,
             name: p.name,
@@ -661,7 +694,7 @@ export function planView(source: PlanSource): PlanView {
               parts: textParts,
               text: plain(textParts),
               origin: slice.origin,
-              receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, "Prize wheel", plain(textParts), place ? placeRows(place) : []) : null,
+              receipt: backed ? receipt(`wheel:${i}`, slice.evidenceIds, "Prize wheel", plain(textParts), place ? rowsOf(place) : []) : null,
               place: place ? { name: place.name, n: pinOf.get(place.id) ?? 0, distanceText: place.distanceM === null ? null : distanceText(place.distanceM) } : null,
             };
           }),

@@ -12,8 +12,10 @@ import { ActionBar, BUTTON2, Fine, FloorHeader, FloorMark, IconSlot, NumBadge, P
 import { FloorReceipts, OriginTag, ReceiptTrigger } from "./receipts";
 
 const FIRST = 5;
+/** The map's "24 places from Qloo" badge ends this far from the map's top: pins are fitted below it. */
+const BADGE_BOTTOM = 36;
 
-function PlaceRow({ p, uses, picked, onPick }: { p: PlaceView; uses: readonly string[] | undefined; picked: boolean; onPick: (id: string) => void }) {
+function PlaceRow({ p, uses, picked, onPick, from }: { p: PlaceView; uses: readonly string[] | undefined; picked: boolean; onPick: (id: string) => void; from: "the store" | "the event" }) {
   const used = Boolean(uses?.length);
   return (
     <Row
@@ -29,7 +31,7 @@ function PlaceRow({ p, uses, picked, onPick }: { p: PlaceView; uses: readonly st
         <span className="flex flex-col gap-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>
-              {placeMeta(p)}
+              {placeMeta(p, from)}
               {used && <span className="text-fl-ink"> · in the plan: {uses!.join(", ").toLowerCase()}</span>}
             </span>
             <span className="relative z-10">
@@ -61,6 +63,7 @@ export function BlockScreen({
   eventHref,
   steps,
   reasons,
+  stepActions,
   storesHref = "/stores",
   fictional,
   notice,
@@ -79,6 +82,8 @@ export function BlockScreen({
   eventHref?: string;
   steps?: Partial<Record<Step, string>>;
   reasons?: Partial<Record<Step, string>>;
+  /** Steps that open in place (the /start flow). */
+  stepActions?: Partial<Record<Step, () => void>>;
   storesHref?: string;
   fictional: string | null;
   notice?: React.ReactNode;
@@ -106,7 +111,9 @@ export function BlockScreen({
     requestAnimationFrame(() => document.getElementById(`place-${id}`)?.scrollIntoView({ block: "nearest" }));
   };
   const street = address.split(",")[0];
-  const mapLabel = block ? `Map of ${shown.length} places within ${block.radiusText} of the store, numbered by distance` : "";
+  // An event away from the store: the community was read around the event's own place.
+  const from = block?.from ?? "the store";
+  const mapLabel = block ? `Map of ${shown.length} places within ${block.radiusText} of ${from}, numbered by distance` : "";
 
   const create =
     onCreate || !createHref ? (
@@ -122,7 +129,18 @@ export function BlockScreen({
   const map = (className: string, controls: boolean) =>
     block && places.length > 0 ? (
       <div className={cn("relative", className)}>
-        <BlockMap center={block.center} radiusM={block.radiusM} places={mapPlaces} picked={picked} onPick={pick} controls={controls} className="h-full" label={mapLabel} />
+        <BlockMap
+          center={block.center}
+          store={block.store}
+          radiusM={block.radiusM}
+          places={mapPlaces}
+          picked={picked}
+          onPick={pick}
+          controls={controls}
+          insetTop={BADGE_BOTTOM}
+          className="h-full"
+          label={mapLabel}
+        />
         <p className="pointer-events-none absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-[6px] bg-white px-2 py-1 text-xs font-medium">
           <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
           {kind === "all" ? `${places.length} places from Qloo` : `${shown.length} of ${places.length} places from Qloo`}
@@ -155,12 +173,21 @@ export function BlockScreen({
         step="Community"
         hrefs={steps}
         reasons={reasons}
+        actions={stepActions}
         storesHref={storesHref}
       />
       <div className="flex flex-1 flex-col lg:grid lg:grid-cols-[488px_minmax(0,1fr)]">
         <main className="mx-auto flex w-full max-w-xl flex-col gap-7 px-4 pt-5 pb-8 lg:mx-0 lg:max-w-none lg:border-r lg:border-fl-rule lg:px-6 lg:pt-8">
           {notice}
-          <ScreenTitle title="Your community" meta={`${street} · ${places.length > 0 ? `${places.length} places within ${block?.radiusText ?? "1.5 km"}, from Qloo` : `within ${block?.radiusText ?? "1.5 km"}`}`} />
+          <ScreenTitle
+            title="Your community"
+            meta={`${street} · ${places.length > 0 ? `${places.length} places within ${block?.radiusText ?? "1.5 km"}${from === "the event" ? " of the event" : ""}, from Qloo` : `within ${block?.radiusText ?? "1.5 km"}`}`}
+          />
+          {block?.eventName && (
+            <p className="-mt-5 text-[0.8125rem] text-pretty text-fl-dim">
+              Read around the event&apos;s place: {block.eventName}. Distances are from there; your store has its own pin.
+            </p>
+          )}
           {block && places.length > 0 ? (
             <div className="flex flex-col gap-3.5">
               {map("h-[340px] lg:hidden", false)}
@@ -202,10 +229,10 @@ export function BlockScreen({
             >
               <RowGroup label="Places in your community" className="[&>li]:relative">
                 {list.map((p) => (
-                  <PlaceRow key={p.id} p={p} uses={uses[p.id]} picked={picked === p.id} onPick={pick} />
+                  <PlaceRow key={p.id} p={p} uses={uses[p.id]} picked={picked === p.id} onPick={pick} from={from} />
                 ))}
               </RowGroup>
-              <Fine>Pin numbers on the map match this list, nearest first. Ink pins are places the plan uses.</Fine>
+              <Fine>Pin numbers on the map match this list, nearest {from === "the event" ? "the event" : "the store"} first. Ink pins are places the plan uses.</Fine>
             </Section>
           )}
 

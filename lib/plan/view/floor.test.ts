@@ -47,15 +47,24 @@ describe("the floor's selectors on each example", () => {
     it(`${slug}: the judges' fold and the landing table never print a genre-led line`, () => {
       const judge = judgeView(view);
       expect(judge).not.toBeNull();
-      expect(judge!.stats[0]!.label).toBe("lines cite Qloo");
-      for (const line of [...judge!.pairs.flatMap((p) => [p.generic, p.stoop ?? ""]), ...judge!.lines]) expect(titleGenre(line)).toBeNull();
+      expect(judge!.stats[0]!.label).toBe("Stoop plan lines with a Qloo receipt");
+      for (const line of [...judge!.rows.flatMap((r) => [r.generic, r.stoop]), ...judge!.lines]) expect(titleGenre(line)).toBeNull();
       const rows = landingCompare(view);
       for (const r of rows) for (const text of [r.generic, r.stoop]) expect(titleGenre(text)).toBeNull();
     });
 
+    it(`${slug}: the judges' fold shows the landing's rows and says the check the landing's way`, () => {
+      const judge = judgeView(view)!;
+      expect(judge.rows).toEqual(landingCompare(view));
+      expect(judge.stats.map((s) => s.label)).toEqual(["Stoop plan lines with a Qloo receipt", "generic plan lines with a Qloo receipt", expect.stringMatching(/^generic artists in Qloo's top \d+$/)]);
+      expect(judge.stats[2]!.value).toMatch(/^0 of [23]$/);
+      for (const text of [...judge.lines, ...judge.stats.map((s) => s.label)]) expect(text).not.toMatch(/median/i);
+    });
+
     it(`${slug}: never flags the manager's own promo sign as a cliche`, () => {
       const judge = judgeView(view)!;
-      for (const pair of judge.pairs) expect(pair.generic).not.toMatch(/\$\d+\/mo|port in|taxes and fees/i);
+      for (const row of judge.rows) expect(row.generic).not.toMatch(/\$\d+\/mo|port in|taxes and fees/i);
+      for (const line of judge.lines) expect(line).not.toMatch(/\$\d+\/mo|port in|taxes and fees/i);
     });
   }
 });
@@ -85,6 +94,8 @@ describe("small wording rules", () => {
   it("places read kind, distance, next door and chain in one line", () => {
     expect(placeMeta({ kindLabel: "Food", distanceText: "100 ft", distanceM: 26, chain: false })).toBe("Food · next door");
     expect(placeMeta({ kindLabel: "Shop", distanceText: "0.5 mi", distanceM: 800, chain: true })).toBe("Shop · 0.5 mi · chain");
+    // Read around an event's own place: the distance says so, never "next door".
+    expect(placeMeta({ kindLabel: "Food", distanceText: "100 ft", distanceM: 26, chain: false }, "the event")).toBe("Food · 100 ft from the event");
   });
 
   it("counts left-out tags instead of naming them, and drops quoted or genre reasons", () => {

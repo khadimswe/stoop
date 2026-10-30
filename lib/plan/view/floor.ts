@@ -3,7 +3,7 @@
 import { noGenre, type PlaceView, type PlanView, type ShoppingView } from "./plan";
 import { plural, usd } from "./format";
 // The landing comparison's plain words and US units, shared with the landing (no runtime cycle: plain-words imports types only).
-import { ageSpan, genericArtistNames, genericCheckWords, listOf, usDistance, usRadius } from "../../marketing/plain-words";
+import { ageSpan, genericArtistNames, genericCheckWords, genericPicks, listOf, usDistance, usRadius } from "../../marketing/plain-words";
 
 export const KIND_GROUPS = [
   { kind: "food", label: "Food" },
@@ -24,9 +24,16 @@ export function kindCounts(places: readonly PlaceView[]): { kind: PlaceView["kin
   ];
 }
 
-/** "Food · 26 m · next door". */
-export function placeMeta(p: Pick<PlaceView, "kindLabel" | "distanceText" | "distanceM" | "chain">): string {
-  return [p.kindLabel, p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : p.distanceText, p.chain ? "chain" : null].filter(Boolean).join(" · ");
+/** "Food · 26 m · next door"; measured from the event's place, "Food · 450 ft from the event". */
+export function placeMeta(p: Pick<PlaceView, "kindLabel" | "distanceText" | "distanceM" | "chain">, from: "the store" | "the event" = "the store"): string {
+  const near = from === "the event" ? (p.distanceText ? `${p.distanceText} from the event` : null) : p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : p.distanceText;
+  return [p.kindLabel, near, p.chain ? "chain" : null].filter(Boolean).join(" · ");
+}
+
+/** "0.3 mi away", or "0.3 mi from the event" when the community was read around the event's place. */
+export function awayText(distanceText: string | null, view: Pick<PlanView, "local">): string | null {
+  if (!distanceText) return null;
+  return view.local.block?.from === "the event" ? `${distanceText} from the event` : `${distanceText} away`;
 }
 
 /** The event's three numbers: the spend against the budget, the block spots it uses, the wheel or the timeline. */
@@ -124,38 +131,42 @@ export function foldMeta(view: PlanView): { checklist: string; shopping: string 
 }
 
 export interface JudgeView {
+  /** Three numbers with plain labels: receipts on each side, and Qloo's check of the generic artists. */
   stats: { value: string; label: string }[];
-  /** A generic choice next to what the Stoop plan did instead, from the pipeline's own sentences. */
-  pairs: { generic: string; stoop: string | null }[];
-  /** The rest of the pipeline's comparison lines, verbatim. */
+  /** The landing's own rows ("A generic AI plan could be for any store."): what each plan picked, line by line. */
+  rows: LandingCompareRow[];
+  /** What else the comparison found, in the pipeline's words, without what the rows and numbers already say. */
   lines: string[];
 }
 
-const PAIR_CUES: { cliche: RegExp; line: RegExp }[] = [
-  { cliche: /place|community/i, line: /^Buys from|places? in this community/i },
-  { cliche: /music|playlist/i, line: /playlist|artists/i },
-  { cliche: /snack|food|drink/i, line: /snack|food|buys/i },
-];
+/** Comparison lines the rows and the numbers already say (receipt counts, the median check, "names no place"). */
+const SAID_BY_ROWS = /median|cite a Qloo receipt|names no place|^Buys from|leans on \d+ generic/i;
 
-/** The judges' fold: three numbers, then each cliche beside the Stoop line that answers it. */
+/**
+ * The judges' fold: the same rows the landing shows (call landingCompare, read-only), three numbers in
+ * plain words ("Stoop plan lines with a receipt", "generic artists in Qloo's top 20"), then what else
+ * the comparison found. "Below the median" is never said: the landing's "none make Qloo's own top 20"
+ * is the one wording.
+ */
 export function judgeView(view: PlanView): JudgeView | null {
   if (!view.generic || !view.comparison) return null;
   const c = view.comparison;
   const backed = /^(\d+) of (\d+)/.exec(c.backedLine);
-  const check = view.generic.check;
+  const names = genericArtistNames(view);
+  const { checked } = genericPicks(view);
+  const top = Math.max(0, ...checked.map((x) => x.of ?? 0));
+  const inTop = checked.filter((x) => (x.beats ?? 0) > 0).length;
   const stats = [
-    { value: backed ? `${backed[1]} of ${backed[2]}` : "0", label: "lines cite Qloo" },
-    { value: "0", label: "in generic" },
-    ...(check ? [{ value: /^(\d+ of \d+)/.exec(check.line)?.[1] ?? "n/a", label: "below median" }] : [{ value: String(view.generic.cliches.length), label: "clichés" }]),
+    { value: backed ? `${backed[1]} of ${backed[2]}` : "0", label: "Stoop plan lines with a Qloo receipt" },
+    { value: "0", label: "generic plan lines with a Qloo receipt" },
+    names.length && top && genericCheckWords(view)
+      ? { value: `${inTop} of ${names.length}`, label: `generic artists in Qloo's top ${top}` }
+      : { value: String(view.generic.cliches.length), label: view.generic.cliches.length === 1 ? "cliché in the generic plan" : "clichés in the generic plan" },
   ];
-  const used = new Set<string>();
-  const pairs = view.generic.cliches.map((cl) => {
-    const cue = PAIR_CUES.find((p) => p.cliche.test(cl.text));
-    const line = cue ? c.lines.find((l) => !used.has(l) && cue.line.test(l) && !/^The generic plan/i.test(l)) : undefined;
-    if (line) used.add(line);
-    return { generic: noGenre(`${cl.text}. ${cl.why}`), stoop: line ? noGenre(line) : null };
-  });
-  return { stats, pairs, lines: c.lines.filter((l) => !used.has(l)).map(noGenre) };
+  // A cliche no row covers (balloons, a banner) is said once, in the generic plan's own words.
+  const covered = /music|playlist|snack|food|drink|place|community|gift|prize/i;
+  const extra = view.generic.cliches.filter((cl) => !covered.test(cl.text)).map((cl) => noGenre(`Also flagged in the generic plan: ${cl.text.charAt(0).toLowerCase()}${cl.text.slice(1)}. ${cl.why}`));
+  return { stats, rows: landingCompare(view), lines: [...c.lines.filter((l) => !SAID_BY_ROWS.test(l)).map(noGenre), ...extra] };
 }
 
 // The agent's posting plan (the Promote timeline) lives in lib/plan/view/promote.ts, on the one schedule in lib/social/schedule.ts.
