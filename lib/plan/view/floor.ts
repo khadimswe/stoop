@@ -2,6 +2,8 @@
 // receipts all come from the run's own Qloo results and the manager's inputs.
 import { noGenre, type PlaceView, type PlanView, type ShoppingView } from "./plan";
 import { plural, usd } from "./format";
+// The landing comparison's plain words and US units, shared with the landing (no runtime cycle: plain-words imports types only).
+import { ageSpan, genericArtistNames, genericCheckWords, listOf, usDistance, usRadius } from "../../marketing/plain-words";
 
 export const KIND_GROUPS = [
   { kind: "food", label: "Food" },
@@ -158,26 +160,94 @@ export function judgeView(view: PlanView): JudgeView | null {
 
 // The agent's posting plan (the Promote timeline) lives in lib/plan/view/promote.ts, on the one schedule in lib/social/schedule.ts.
 
-/** The landing's "A generic AI plan could be for any store." rows: the generic plan beside this store's. */
-export function landingCompare(view: PlanView): { row: string; generic: string; stoop: string }[] {
+/** One row of the landing's comparison, each side with the receipt behind it when there is one. */
+export interface LandingCompareRow {
+  row: string;
+  generic: string;
+  stoop: string;
+  genericReceipt: string | null;
+  stoopReceipt: string | null;
+}
+
+/**
+ * The landing's "A generic AI plan could be for any store." rows: what the generic plan picked beside
+ * what this store's plan did, in plain words and US units. The generic plan's artists come from its
+ * own Qloo check (the trace's "Resolving the generic plan's ..." calls and "Checked a generic pick"
+ * decisions), and its vague spots ("a nearby bakery") are quoted in its own words.
+ */
+export function landingCompare(view: PlanView): LandingCompareRow[] {
   const g = view.generic;
   if (!g || !view.concept) return [];
+  const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const cliche = (re: RegExp) => g.cliches.find((c) => re.test(c.text));
   const firstSentence = (text: string | undefined) => (text ? noGenre(text.split(/(?<=\.)\s/)[0]!.replace(/\.$/, "")) : "Nothing on this line");
   const genericOf = (kind: string) => g.items.find((i) => i.kind === kind)?.text;
+  // "a nearby bakery", "a local food spot": a spot the generic plan points at without naming one.
+  const VAGUE = /\b(?:an?|the) (?:nearby|local) (?:[A-Z][a-z]+ )?(?:[a-z]+ )?(?:bakery|food spot|spot|shop|restaurant|place|store|cafe|deli|market)\b/;
+  const city = view.local.city;
   const play = playView(view);
+  const from = view.header.venue ? "the event" : "the door";
+  const placeAt = (n: number) => view.local.block?.places.find((p) => p.n === n);
+
+  // Music: the generic plan's own artists, and what Qloo's one scoring call said about them.
+  const searched = genericArtistNames(view);
+  const check = genericCheckWords(view);
+  const genericMusic = searched.length && check ? `${listOf(searched)}: famous, but ${check}` : cliche(/music/i) ? "Music picked with no local data" : firstSentence(genericOf("music"));
+  const music = view.concept.items.find((i) => i.kind === "music");
+  const ranks = (music?.parts ?? []).flatMap((p) => (p.kind === "ref" ? [city?.artists.find((a) => a.id === p.id)?.rank] : [])).filter((r): r is number => typeof r === "number");
+  const stoopMusic =
+    city && play.artists.length
+      ? ranks.length === play.artists.length
+        ? `${listOf(play.artists)}: Qloo's ${listOf(ranks.map((r) => `#${r}`))} for ${city.name} adults ${ageSpan(city.ageText)}`
+        : `${listOf(play.artists)}: artists Qloo ranks for ${city.name}, adults ${ageSpan(city.ageText)}`
+      : (play.note ?? "Qloo's artists for this city");
+
+  // Snacks: the generic plan's vague spot in its own words, beside the spot this plan buys from.
+  const food = genericOf("food");
+  const foodSpot = food ? VAGUE.exec(food) : null;
+  let genericSnack = cliche(/snack/i) ? "Store-bought snacks, no spot named" : firstSentence(food);
+  if (food && foodSpot) {
+    const before = food.slice(0, foodSpot.index).replace(/\s*\bfrom\s*$/, "");
+    const what = before.split(/\bof\s+|,\s+/).at(-1)?.trim() ?? "";
+    genericSnack = `${what && what.split(/\s+/).length <= 5 ? upper(what) : "Food"} from “${foodSpot[0]}”`;
+  }
   const snack = view.shopping.find((s) => !s.prize && s.from);
-  const cards = (view.wheel?.slices ?? []).filter((s) => s.kind === "gift_card" && s.place).map((s) => s.place!.name);
-  const places = view.local.block?.places.length ?? 0;
-  const rows = [
-    { row: "Music", generic: cliche(/music/i) ? "No local signal" : firstSentence(genericOf("music")), stoop: play.note ?? "Qloo's artists for this city" },
+  const snackM = snack?.from ? placeAt(snack.from.n)?.distanceM : null;
+
+  // Prizes: a gift card "to a nearby food spot", beside the spots this plan's gift cards come from.
+  const giveaway = genericOf("giveaway");
+  const giftSpot = giveaway && /gift cards?\b/i.test(giveaway) ? VAGUE.exec(giveaway.slice(giveaway.search(/gift cards?\b/i))) : null;
+  const genericPrize = giftSpot ? `A gift card to “${giftSpot[0]}”` : giveaway && /gift cards?\b/i.test(giveaway) ? "Gift cards, no spot named" : firstSentence(giveaway);
+  const cardPins = [
+    ...(view.wheel?.slices ?? []).flatMap((s) => (s.kind === "gift_card" && s.place ? [s.place.n] : [])),
+    ...view.shopping.flatMap((s) => (s.prize && s.from ? [s.from.n] : [])),
+  ];
+  const cardPlaces = [...new Set(cardPins)].flatMap((n) => placeAt(n) ?? []);
+
+  const block = view.local.block;
+  const rows: LandingCompareRow[] = [
+    { row: "Music", generic: genericMusic, stoop: stoopMusic, genericReceipt: g.check?.receipt ?? null, stoopReceipt: play.receipt },
     {
       row: "Snacks",
-      generic: cliche(/snack/i) ? "Store-bought snacks, no spot named" : firstSentence(genericOf("food")),
-      stoop: snack?.from ? `${snack.item.split(",")[0]} from ${snack.from.name}${snack.from.distanceText ? `, ${snack.from.distanceText} from the door` : ""}` : "Nothing on this line",
+      generic: genericSnack,
+      stoop: snack?.from ? `${snack.item.split(",")[0]} from ${snack.from.name}${snackM != null ? `, ${usDistance(snackM)} from ${from}` : ""}` : "Nothing on this line",
+      genericReceipt: null,
+      stoopReceipt: snack?.from?.receipt ?? null,
     },
-    { row: "Prizes", generic: firstSentence(genericOf("giveaway")), stoop: cards.length ? `Gift cards to ${[...new Set(cards)].join(" and ")}` : "The store's own promos" },
-    { row: "Places", generic: cliche(/place|community/i) ? "None in this community" : "Names no place nearby", stoop: places ? `${places} within ${view.local.block?.radiusText ?? "1.5 km"}, from Qloo` : "No Qloo places" },
+    {
+      row: "Prizes",
+      generic: genericPrize,
+      stoop: cardPlaces.length ? `Gift cards to ${listOf(cardPlaces.map((p) => p.name))}` : "The store's own promos",
+      genericReceipt: null,
+      stoopReceipt: cardPlaces[0]?.receipt ?? null,
+    },
+    {
+      row: "Places",
+      generic: cliche(/place|community/i) ? "Names no place near the store" : "Places it names aren't checked against Qloo",
+      stoop: block?.places.length ? `${block.places.length} places within ${usRadius(block.radiusM)}, from Qloo` : "No Qloo places",
+      genericReceipt: null,
+      stoopReceipt: null,
+    },
   ];
   return rows.filter((r) => r.stoop !== "Nothing on this line");
 }
