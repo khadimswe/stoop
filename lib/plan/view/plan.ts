@@ -3,6 +3,7 @@
 // (a run streaming in). Every name on screen comes from the run's own Qloo results (`local`) through
 // "[[id]]" refs; every receipt comes from the run's ledger. No evidence, no receipt.
 import type { Evidence } from "../../evidence";
+import { genericCheckWords } from "../../marketing/plain-words";
 import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
@@ -612,6 +613,12 @@ export function planView(source: PlanSource): PlanView {
   const partnerPlace = partnerId ? places.get(partnerId) : undefined;
   const tiles = tileViews(keptView, plan?.wheel ? plan.wheel.slices.length : 0, marketing, partnerPlace ? { name: partnerPlace.name, distanceText: partnerPlace.distanceM === null ? null : distanceText(partnerPlace.distanceM) } : null);
   if (generic) generic.rows = compareRows(keptView?.items ?? [], generic.items);
+  // Qloo's check of the generic picks says what it found, in one plain line, above the calls it made.
+  if (checkReceipt) {
+    const found = genericCheckWords({ trace, local, generic });
+    const result = found ? `${capitalizeFirst(found)}.` : checkLine;
+    if (result) receipts[checkReceipt] = { ...receipts[checkReceipt]!, rows: [{ label: "Result", value: result }, ...receipts[checkReceipt]!.rows] };
+  }
   return {
     id,
     kind: source.kind,
