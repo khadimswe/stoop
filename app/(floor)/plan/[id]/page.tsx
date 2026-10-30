@@ -31,7 +31,7 @@ async function Step({ params }: { params: PageProps<"/plan/[id]">["params"] }) {
   const slug = planExampleSlug(id);
   if (slug && isRecordedPlanSlug(slug)) {
     const h = exampleHrefs(slug);
-    return <EventScreen view={loadPlanExampleView(slug)} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} />;
+    return <EventScreen view={loadPlanExampleView(slug)} hrefs={{ back: h.block, poster: h.poster, steps: h.steps }} exampleSlug={slug} />;
   }
   if (!LIVE_PLAN_ID.test(id)) notFound();
   return <LiveStep planId={id} step="event" />;

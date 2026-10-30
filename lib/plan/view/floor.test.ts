@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { planEventSchema, reducePlan, toPlanReport } from "../events";
 import { PLAN_EXAMPLES, examplePlanId, type PlanExampleSlug } from "../example-list";
 import { titleGenre } from "../words";
-import { eventStats, judgeView, kindCounts, landingCompare, placeMeta, playView, prizesLine, snacksView } from "./floor";
+import { about, budgetView, eventStats, judgeView, kindCounts, landingCompare, placeMeta, playView, prizesLine, prizesView, snackGroups, snacksView, venueLine } from "./floor";
 import { noGenre, planView, posterRoute, safeReason, sourceFromReport, stepLabel, type PlanView } from "./plan";
 
 // The floor's selectors, against the recorded example runs (data/plans/<slug>/plan.events.json).
@@ -60,10 +60,31 @@ describe("the floor's selectors on each example", () => {
   }
 });
 
+describe("the event page's groups", () => {
+  for (const { slug, view } of views) {
+    it(`${slug}: snacks sit under their place once, prizes and snacks add up to the spend`, () => {
+      const groups = snackGroups(view);
+      const pins = groups.flatMap((g) => (g.place ? [g.place.n] : []));
+      expect(new Set(pins).size).toBe(pins.length);
+      expect(groups.flatMap((g) => g.items)).toHaveLength(snacksView(view).items.length);
+      const budget = budgetView(view);
+      expect(budget.spentText).toBe(eventStats(view)[0]!.value);
+      const prizes = prizesView(view);
+      if (prizes) expect(prizes.items).toHaveLength(view.shopping.filter((s) => s.prize).length);
+    });
+  }
+
+  it("keeps an article lowercase after At, and says prices are estimates", () => {
+    expect(venueLine("A fall community fair on Navigation Blvd")).toBe("At a fall community fair on Navigation Blvd");
+    expect(venueLine("Pilsen Fall Fest")).toBe("At Pilsen Fall Fest");
+    expect(about("$11")).toBe("about $11");
+    expect(about(null)).toBeNull();
+  });
+});
 describe("small wording rules", () => {
   it("places read kind, distance, next door and chain in one line", () => {
-    expect(placeMeta({ kindLabel: "Food", distanceText: "26 m", distanceM: 26, chain: false })).toBe("Food · 26 m · next door");
-    expect(placeMeta({ kindLabel: "Shop", distanceText: "800 m", distanceM: 800, chain: true })).toBe("Shop · 800 m · chain");
+    expect(placeMeta({ kindLabel: "Food", distanceText: "100 ft", distanceM: 26, chain: false })).toBe("Food · next door");
+    expect(placeMeta({ kindLabel: "Shop", distanceText: "0.5 mi", distanceM: 800, chain: true })).toBe("Shop · 0.5 mi · chain");
   });
 
   it("counts left-out tags instead of naming them, and drops quoted or genre reasons", () => {

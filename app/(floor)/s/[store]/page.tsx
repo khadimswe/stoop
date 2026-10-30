@@ -23,6 +23,7 @@ async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) 
   const { store } = await params;
   if (!isRecordedPlanSlug(store)) notFound();
   const view = loadPlanExampleView(store);
+  const h = exampleHrefs(store);
   return (
     <BlockScreen
       storeName={view.header.storeName}
@@ -31,7 +32,9 @@ async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) 
       local={view.local}
       uses={view.placeUses}
       receipts={view.receipts}
-      createHref={exampleHrefs(store).create}
+      createHref={h.create}
+      eventHref={h.event}
+      steps={h.steps}
       fictional={view.header.fictional}
     />
   );

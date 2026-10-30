@@ -24,7 +24,7 @@ export function kindCounts(places: readonly PlaceView[]): { kind: PlaceView["kin
 
 /** "Food · 26 m · next door". */
 export function placeMeta(p: Pick<PlaceView, "kindLabel" | "distanceText" | "distanceM" | "chain">): string {
-  return [p.kindLabel, p.distanceText, p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : null, p.chain ? "chain" : null].filter(Boolean).join(" · ");
+  return [p.kindLabel, p.distanceM !== null && p.distanceM < NEXT_DOOR_M ? "next door" : p.distanceText, p.chain ? "chain" : null].filter(Boolean).join(" · ");
 }
 
 /** The event's three numbers: the spend against the budget, the block spots it uses, the wheel or the timeline. */
@@ -55,6 +55,53 @@ export function snacksView(view: PlanView): { items: ShoppingView[]; totalText: 
   const items = view.shopping.filter((s) => !s.prize);
   const total = items.reduce((sum, s) => sum + (s.usd ?? 0), 0);
   return { items, totalText: items.length ? usd(total) : null };
+}
+
+/** A price from the plan is Claude's estimate: "about $11". */
+export const about = (costText: string | null): string | null => (costText ? `about ${costText}` : null);
+
+export interface SnackGroup {
+  /** The community place to buy from (its pin number matches the Community map), or null for the rest. */
+  place: { name: string; n: number; distanceText: string | null; receipt: string | null } | null;
+  items: ShoppingView[];
+  totalText: string | null;
+}
+
+/** Snacks under the place they come from, nearest place first, so one place shows its pin once. */
+export function snackGroups(view: PlanView): SnackGroup[] {
+  const groups = new Map<string, SnackGroup>();
+  for (const s of snacksView(view).items) {
+    const key = s.from ? `p:${s.from.name}` : "none";
+    const g = groups.get(key) ?? { place: s.from ? { name: s.from.name, n: s.from.n, distanceText: s.from.distanceText, receipt: s.from.receipt } : null, items: [], totalText: null };
+    g.items.push(s);
+    groups.set(key, g);
+  }
+  return [...groups.values()]
+    .map((g) => ({ ...g, totalText: g.items.some((s) => s.usd !== null) ? usd(g.items.reduce((sum, s) => sum + (s.usd ?? 0), 0)) : null }))
+    .sort((a, b) => (a.place ? a.place.n : Infinity) - (b.place ? b.place.n : Infinity));
+}
+
+/** The prizes on the shopping list, one per line, and their total. */
+export function prizesView(view: PlanView): { items: { item: string; costText: string | null }[]; totalText: string } | null {
+  const prizes = view.shopping.filter((s) => s.prize);
+  if (!prizes.length) return null;
+  return { items: prizes.map((p) => ({ item: p.item, costText: p.costText })), totalText: usd(prizes.reduce((sum, s) => sum + (s.usd ?? 0), 0)) };
+}
+
+/** The side column's budget: what the shopping list adds up to against the budget, snacks and prizes apart. */
+export function budgetView(view: PlanView): { spentText: string; budgetText: string; rows: { label: string; value: string }[] } {
+  const snacks = view.shopping.filter((s) => !s.prize).reduce((sum, s) => sum + (s.usd ?? 0), 0);
+  const prizes = view.shopping.filter((s) => s.prize).reduce((sum, s) => sum + (s.usd ?? 0), 0);
+  const rows = [
+    ...(snacks > 0 ? [{ label: "Snacks and drinks", value: usd(snacks) }] : []),
+    ...(prizes > 0 ? [{ label: "Prizes", value: usd(prizes) }] : []),
+  ];
+  return { spentText: usd(snacks + prizes), budgetText: view.header.budgetText.replace(" budget", ""), rows };
+}
+
+/** "At a fall community fair" (an article stays lowercase after "At"), "At Pilsen Fall Fest". */
+export function venueLine(venue: string): string {
+  return `At ${/^(A|An|The) /.test(venue) ? venue.charAt(0).toLowerCase() + venue.slice(1) : venue}`;
 }
 
 /** "Prizes on the list: Gift card for the 2:00 drawing, Gift cards for the wheel's slice · $15". */

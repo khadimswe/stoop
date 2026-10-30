@@ -1,18 +1,19 @@
 "use client";
 
-import { ChevronLeft, Loader2, LocateFixed, Search } from "lucide-react";
+import { ChevronLeft, LayoutGrid, Loader2, LocateFixed, Search } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { CARRIER_LABELS } from "@/lib/plan/view/format";
 import { apiMessageOf } from "@/lib/plan/view/live";
+import { splitMessage } from "@/lib/plan/view/notice";
 import { planView, type PlanView } from "@/lib/plan/view/plan";
-import { storeSlug } from "@/lib/plan/view/start-form";
+import { phoneProblem, storeSlug } from "@/lib/plan/view/start-form";
 import type { Evidence } from "@/lib/evidence";
 import type { Local } from "@/lib/plan/schema";
 import { cn } from "cn";
 import { BlockScreen } from "./block-screen";
 import { CreateScreen, type CreateStore } from "./create-screen";
-import { ActionBar, AppBar, BUTTON2, IconSlot, Notice, PRIMARY, RowLabel, ScreenBody, ScreenTitle, Section, Stepper, TEXT_LINK } from "./kit";
+import { ActionBar, BUTTON2, FloorHeader, IconSlot, Notice, PRIMARY, RowLabel, ScreenBody, ScreenTitle, Section, TEXT_LINK, TwoColumn } from "./kit";
 import { PinMap } from "./pin-map";
 
 interface Hit {
@@ -26,7 +27,31 @@ interface Hit {
 
 type Phase = { kind: "store" } | { kind: "finding" } | { kind: "block"; view: PlanView | null; example: { slug: string; message: string } | null } | { kind: "create" };
 
-const FIELD = "h-11 w-full min-w-0 rounded-[12px] border border-fl-line bg-white px-3 text-base text-fl-ink placeholder:text-fl-dim";
+/** Hints read as hints: lighter, and starting with "e.g." so nobody takes them for a filled value. */
+const HINT = "placeholder:text-fl-dim/70 placeholder:italic";
+const FIELD = cn("h-11 w-full min-w-0 rounded-[12px] border border-fl-line bg-white px-3 text-base text-fl-ink", HINT);
+const INLINE = cn("min-w-0 flex-1 rounded-[6px] bg-transparent px-1 py-1 text-[0.9375rem]", HINT);
+const SAVED_KEY = "stoop:start";
+const noSubscription = () => () => {};
+
+interface Saved {
+  name: string;
+  carrier: CreateStore["carrier"];
+  phone: string;
+  place: Hit | null;
+  create: boolean;
+}
+
+/** What this tab kept. It opens on the form again only when coming back from an example ("?resume"). */
+function loadSaved(): Saved | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(SAVED_KEY) ?? "null") as Saved | null;
+    if (!v || typeof v.name !== "string") return null;
+    return { ...v, create: v.create && new URLSearchParams(window.location.search).has("resume") };
+  } catch {
+    return null;
+  }
+}
 
 /** A plan view of just a block (no plan yet), so the Community step shows it with its receipts. */
 function blockView(store: CreateStore, local: Local, ledger: Evidence[]): PlanView {
@@ -52,21 +77,43 @@ function blockView(store: CreateStore, local: Local, ledger: Evidence[]): PlanVi
 /**
  * A new store, from nothing: its name and where it is (an address search or "Use my location", then
  * the pin dragged onto the door; never raw coordinates), then its block (POST /api/plan/block, or an
- * example block when live maps are off), then the event form.
+ * example block when live maps are off), then the event form. What was typed is kept for the tab, so
+ * coming back (from an example plan, say) finds the store and the form as they were.
  */
 export function StartFlow() {
-  const [phase, setPhase] = useState<Phase>({ kind: "store" });
-  const [name, setName] = useState("");
-  const [carrier, setCarrier] = useState<CreateStore["carrier"]>("metro");
-  const [phone, setPhone] = useState("");
+  // The saved store is read on the client only: the server and the first client render match, then
+  // the form starts again from what this tab kept.
+  const client = useSyncExternalStore(noSubscription, () => true, () => false);
+  return <StartSteps key={client ? "client" : "server"} saved={client ? loadSaved() : null} />;
+}
+
+function StartSteps({ saved }: { saved: Saved | null }) {
+  const [phase, setPhase] = useState<Phase>(saved?.create && saved.place && saved.name ? { kind: "create" } : { kind: "store" });
+  const [name, setName] = useState(saved?.name ?? "");
+  const [carrier, setCarrier] = useState<CreateStore["carrier"]>(saved?.carrier ?? "metro");
+  const [phone, setPhone] = useState(saved?.phone ?? "");
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[] | null>(null);
-  const [place, setPlace] = useState<Hit | null>(null);
+  const [place, setPlace] = useState<Hit | null>(saved?.place ?? null);
   const [busy, setBusy] = useState<"search" | "locate" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const store: CreateStore | null = place && name.trim() ? { name: name.trim(), address: [place.address, place.city, place.region].filter(Boolean).join(", "), city: place.city, region: place.region, lat: place.lat, lon: place.lon, carrier, phone: phone.trim() || undefined } : null;
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SAVED_KEY, JSON.stringify({ name, carrier, phone, place, create: phase.kind === "create" } satisfies Saved));
+    } catch {
+      // Private browsing: nothing is kept, the flow still works.
+    }
+  }, [name, carrier, phone, place, phase.kind]);
+
+  const pick = (h: Hit) => {
+    setPlace(h);
+    setProblem(null);
+  };
 
   const lookup = async (params: string) => {
     setProblem(null);
@@ -78,12 +125,15 @@ export function StartFlow() {
 
   const search = async (event: FormEvent) => {
     event.preventDefault();
-    if (q.trim().length < 4) return setProblem("Type the street address, city and state.");
+    const text = q.trim();
+    if (text.length < 4) return setProblem("Type the street address, city and state.");
+    if (/\bp\.?\s*o\.?\s*box\b/i.test(text)) return setProblem("Use the store's street address, not a PO box: the community is mapped around the door.");
     setBusy("search");
     try {
-      const found = await lookup(`q=${encodeURIComponent(q.trim())}`);
+      const found = await lookup(`q=${encodeURIComponent(text)}`);
       setHits(found);
-      if (found.length === 0) setProblem("No match. Add the city and state, like 1240 W 18th St, Chicago, IL.");
+      if (found.length === 0) setProblem("No match. Stoop works with US store addresses for now. Add the city and state, like 1240 W 18th St, Chicago, IL.");
+      else if (found.length > 0) setProblem(null);
     } catch (e) {
       setProblem(e instanceof Error ? e.message : "Address search failed.");
     } finally {
@@ -99,8 +149,8 @@ export function StartFlow() {
         try {
           const found = await lookup(`lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
           const hit = found[0];
-          if (hit) setPlace({ ...hit, lat: pos.coords.latitude, lon: pos.coords.longitude });
-          else setProblem("Got your location, but no street address for it. Search the address instead.");
+          if (hit) pick({ ...hit, lat: pos.coords.latitude, lon: pos.coords.longitude });
+          else setProblem("Got your location, but no US street address for it. Search the address instead.");
         } catch (e) {
           setProblem(e instanceof Error ? e.message : "Couldn't read that location.");
         } finally {
@@ -116,8 +166,13 @@ export function StartFlow() {
   };
 
   const seeBlock = async () => {
-    if (!name.trim()) return setNameError("Enter the store's name.");
-    if (!store) return setProblem("Find the store's address first.");
+    const badName = name.trim() ? null : "Enter the store's name.";
+    const badPhone = phoneProblem(phone);
+    setNameError(badName);
+    setPhoneError(badPhone);
+    if (badName || badPhone) return;
+    if (!place) return setProblem(hits && hits.length > 0 ? "Pick the store's address from the matches above." : "Find the store's address first.");
+    if (!store) return;
     setPhase({ kind: "finding" });
     try {
       const response = await fetch("/api/plan/block", {
@@ -125,18 +180,24 @@ export function StartFlow() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ store: { id: storeSlug(store.name, store.city), name: store.name, carrier: store.carrier, address: store.address, city: store.city, region: store.region, point: { lat: store.lat, lon: store.lon }, ...(store.phone ? { phone: store.phone } : {}) } }),
       });
-      const body = (await response.json().catch(() => null)) as { mode?: string; local?: Local; ledger?: Evidence[]; slug?: string; message?: string } | null;
+      const body = (await response.json().catch(() => null)) as { mode?: string; local?: Local; ledger?: Evidence[]; slug?: string; message?: string; field?: string; error?: { field?: string } } | null;
       if (body?.mode === "live" && body.local) return setPhase({ kind: "block", view: blockView(store, body.local, body.ledger ?? []), example: null });
       if (body?.mode === "example" && body.slug) return setPhase({ kind: "block", view: null, example: { slug: body.slug, message: body.message ?? "Live maps are off right now." } });
       setPhase({ kind: "store" });
-      setProblem(apiMessageOf(body) ?? "Couldn't map your community right now. Try again in a minute.");
+      // A refused field is said on that field.
+      const field = body?.error?.field ?? body?.field;
+      const message = apiMessageOf(body) ?? "Couldn't map your community right now. Try again in a minute.";
+      if (field && /phone/i.test(field)) setPhoneError(message);
+      else if (field && /name/i.test(field)) setNameError(message);
+      else setProblem(message);
     } catch {
       setPhase({ kind: "store" });
       setProblem("No connection. Try again.");
     }
   };
 
-  if (phase.kind === "create" && store) return <CreateScreen store={store} backHref="/start" onEditStore={() => setPhase({ kind: "store" })} />;
+  const draftKey = store ? storeSlug(store.name, store.city) : undefined;
+  if (phase.kind === "create" && store) return <CreateScreen store={store} backHref="/start?resume=1" onEditStore={() => setPhase({ kind: "store" })} draftKey={draftKey} />;
 
   if (phase.kind === "block" && store) {
     if (phase.view) {
@@ -154,21 +215,26 @@ export function StartFlow() {
         />
       );
     }
+    const said = splitMessage(phase.example?.message ?? "Live maps are off right now.");
     return (
       <>
-        <AppBar left={<BackButton onClick={() => setPhase({ kind: "store" })} />} title={store.name} subtitle={`${store.city}, ${store.region}`} />
-        <Stepper current="Community" />
+        <FloorHeader left={<BackButton onClick={() => setPhase({ kind: "store" })} />} title={store.name} subtitle={`${store.city}, ${store.region}`} store={{ name: store.name, city: `${store.city}, ${store.region}` }} step="Community" />
         <ScreenBody>
           <ScreenTitle title="Your community" meta={store.address} />
-          <Notice title="Live maps are off right now">
-            {phase.example?.message}{" "}
+          <Notice title={said.title}>
+            Stoop maps the places in your community when live plans are on. Until then, look around{" "}
             <Link href={`/s/${phase.example?.slug}`} className={TEXT_LINK}>
-              See an example community
+              an example store&apos;s community
             </Link>
+            , or go on and plan your event.
           </Notice>
-          <p className="text-sm text-fl-muted">You can still plan your event. Stoop maps the places in your community when live plans are on.</p>
+          <div className="hidden lg:block lg:max-w-xs">
+            <button type="button" onClick={() => setPhase({ kind: "create" })} className={PRIMARY}>
+              Create an event
+            </button>
+          </div>
         </ScreenBody>
-        <ActionBar>
+        <ActionBar className="lg:hidden">
           <button type="button" onClick={() => setPhase({ kind: "create" })} className={PRIMARY}>
             Create an event
           </button>
@@ -177,98 +243,120 @@ export function StartFlow() {
     );
   }
 
-  return (
-    <>
-      <AppBar
-        left={
-          <IconSlot href="/" label="Stoop home">
-            <ChevronLeft aria-hidden="true" />
-          </IconSlot>
-        }
-        title="Your store"
-      />
-      <Stepper current="Community" />
-      <ScreenBody>
-        <ScreenTitle title="Your store" meta="Where the table goes. Stoop maps the community around it." />
-        <ul className="overflow-hidden rounded-[20px] bg-white [&>li+li]:border-t [&>li+li]:border-fl-rule">
-          <li className="flex flex-col gap-1.5 px-4 py-3">
-            <div className="flex min-h-11 items-center gap-3">
-              <RowLabel htmlFor="store-name">Name</RowLabel>
-              <input
-                id="store-name"
-                value={name}
-                maxLength={80}
-                autoComplete="organization"
-                placeholder="18th Street Wireless"
-                aria-invalid={nameError ? true : undefined}
-                aria-describedby={nameError ? "store-name-error" : undefined}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (e.target.value.trim()) setNameError(null);
-                }}
-                className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-fl-dim"
-              />
-            </div>
-            {nameError && (
-              <p id="store-name-error" className="pl-[4.75rem] text-sm text-fl-bad">
-                {nameError}
-              </p>
-            )}
-          </li>
-          <li className="flex min-h-[54px] items-center gap-3 px-4 py-2">
-            <RowLabel htmlFor="store-carrier">Carrier</RowLabel>
-            <select id="store-carrier" value={carrier} onChange={(e) => setCarrier(e.target.value as CreateStore["carrier"])} className="min-w-0 flex-1 bg-transparent text-[0.9375rem]">
-              {(Object.keys(CARRIER_LABELS) as CreateStore["carrier"][]).map((c) => (
-                <option key={c} value={c}>
-                  {c === "other" ? "Other" : CARRIER_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </li>
-          <li className="flex min-h-[54px] items-center gap-3 px-4 py-2">
-            <RowLabel htmlFor="store-phone">Phone</RowLabel>
-            <input id="store-phone" type="tel" value={phone} maxLength={24} autoComplete="tel" placeholder="Optional, printed on the poster" onChange={(e) => setPhone(e.target.value)} className="min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-fl-dim" />
-          </li>
-        </ul>
+  const primary = (
+    <button type="button" onClick={seeBlock} disabled={phase.kind === "finding"} className={PRIMARY}>
+      {phase.kind === "finding" && <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />}
+      {phase.kind === "finding" ? "Finding your community..." : "See my community"}
+    </button>
+  );
 
-        <Section title="Address">
-          {place ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-3 rounded-[20px] bg-white px-4 py-3.5">
-                <span>
-                  <span className="block text-[0.9375rem] font-medium">{place.address || place.label.split(",")[0]}</span>
-                  <span className="block text-[0.8125rem] text-fl-dim">
-                    {place.city}, {place.region}
-                  </span>
+  const main = (
+    <>
+      <ScreenTitle title="Your store" meta="Where the table goes. Stoop maps the community around it." />
+      <ul className="overflow-hidden rounded-[20px] bg-white [&>li+li]:border-t [&>li+li]:border-fl-rule">
+        <li className="flex flex-col gap-1.5 px-4 py-3">
+          <div className="flex min-h-11 items-center gap-3">
+            <RowLabel htmlFor="store-name">Name</RowLabel>
+            <input
+              id="store-name"
+              value={name}
+              maxLength={80}
+              autoComplete="organization"
+              placeholder="e.g. 18th Street Wireless"
+              aria-invalid={nameError ? true : undefined}
+              aria-describedby={nameError ? "store-name-error" : undefined}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (e.target.value.trim()) setNameError(null);
+              }}
+              className={INLINE}
+            />
+          </div>
+          {nameError && (
+            <p id="store-name-error" className="pl-[4.75rem] text-sm text-fl-bad">
+              {nameError}
+            </p>
+          )}
+        </li>
+        <li className="flex min-h-[54px] items-center gap-3 px-4 py-2">
+          <RowLabel htmlFor="store-carrier">Carrier</RowLabel>
+          <select id="store-carrier" value={carrier} onChange={(e) => setCarrier(e.target.value as CreateStore["carrier"])} className="min-w-0 flex-1 rounded-[6px] bg-transparent py-1 text-[0.9375rem]">
+            {(Object.keys(CARRIER_LABELS) as CreateStore["carrier"][]).map((c) => (
+              <option key={c} value={c}>
+                {c === "other" ? "Other" : CARRIER_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </li>
+        <li className="flex flex-col gap-1.5 px-4 py-2">
+          <div className="flex min-h-[38px] items-center gap-3">
+            <RowLabel htmlFor="store-phone">Phone</RowLabel>
+            <input
+              id="store-phone"
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              maxLength={24}
+              autoComplete="tel"
+              placeholder="Optional, printed on the poster"
+              aria-invalid={phoneError ? true : undefined}
+              aria-describedby={phoneError ? "store-phone-error" : undefined}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (phoneError && !phoneProblem(e.target.value)) setPhoneError(null);
+              }}
+              onBlur={() => setPhoneError(phoneProblem(phone))}
+              className={INLINE}
+            />
+          </div>
+          {phoneError && (
+            <p id="store-phone-error" className="pl-[4.75rem] text-sm text-fl-bad">
+              {phoneError}
+            </p>
+          )}
+        </li>
+      </ul>
+
+      <Section title="Address">
+        {place ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3 rounded-[20px] bg-white px-4 py-3.5">
+              <span>
+                <span className="block text-[0.9375rem] font-medium">{place.address || place.label.split(",")[0]}</span>
+                <span className="block text-[0.8125rem] text-fl-dim">
+                  {place.city}, {place.region}
                 </span>
-                <button type="button" onClick={() => setPlace(null)} className={cn(TEXT_LINK, "text-sm")}>
-                  Change
-                </button>
-              </div>
-              <PinMap point={{ lat: place.lat, lon: place.lon }} onChange={(p) => setPlace((x) => (x ? { ...x, lat: p.lat, lon: p.lon } : x))} className="h-[220px]" />
-              <p className="text-[0.8125rem] text-fl-dim">Drag the pin onto the store&apos;s door, or tap the map.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <form onSubmit={search} role="search" className="flex gap-2">
-                <label htmlFor="store-address" className="sr-only">
-                  Street address, city and state
-                </label>
-                <input id="store-address" value={q} onChange={(e) => setQ(e.target.value)} placeholder="1240 W 18th St, Chicago, IL" autoComplete="street-address" className={FIELD} />
-                <button type="submit" className={BUTTON2} disabled={busy !== null}>
-                  {busy === "search" ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <Search aria-hidden="true" />}
-                  Find
-                </button>
-              </form>
-              <button type="button" onClick={locate} className={cn(BUTTON2, "self-start")} disabled={busy !== null}>
-                {busy === "locate" ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <LocateFixed aria-hidden="true" />}
-                Use my location
+              </span>
+              <button type="button" onClick={() => setPlace(null)} className={cn(TEXT_LINK, "text-sm")}>
+                Change
               </button>
-              {hits && hits.length > 0 && (
+            </div>
+            <PinMap point={{ lat: place.lat, lon: place.lon }} onChange={(p) => setPlace((x) => (x ? { ...x, lat: p.lat, lon: p.lon } : x))} className="h-[220px] lg:h-[280px]" />
+            <p className="text-[0.8125rem] text-fl-dim">Drag the pin onto the store&apos;s door, or tap the map.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <form onSubmit={search} role="search" className="flex gap-2">
+              <label htmlFor="store-address" className="sr-only">
+                Street address, city and state
+              </label>
+              <input id="store-address" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. 1240 W 18th St, Chicago, IL" autoComplete="street-address" className={FIELD} />
+              <button type="submit" className={BUTTON2} disabled={busy !== null}>
+                {busy === "search" ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <Search aria-hidden="true" />}
+                Find
+              </button>
+            </form>
+            <button type="button" onClick={locate} className={cn(BUTTON2, "self-start")} disabled={busy !== null}>
+              {busy === "locate" ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <LocateFixed aria-hidden="true" />}
+              Use my location
+            </button>
+            {hits && hits.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[0.8125rem] text-fl-dim">{hits.length === 1 ? "Is this the store? Tap it to use it." : "Tap the store's address."}</p>
                 <ul aria-label="Matches" className="overflow-hidden rounded-[20px] bg-white [&>li+li]:border-t [&>li+li]:border-fl-rule">
                   {hits.map((h) => (
                     <li key={`${h.lat},${h.lon}`}>
-                      <button type="button" onClick={() => setPlace(h)} className="flex min-h-[54px] w-full flex-col justify-center px-4 py-2.5 text-left hover:bg-fl-sunk">
+                      <button type="button" onClick={() => pick(h)} className="flex min-h-[54px] w-full flex-col justify-center px-4 py-2.5 text-left hover:bg-fl-sunk">
                         <span className="text-[0.9375rem] font-medium">{h.address || h.label.split(",")[0]}</span>
                         <span className="text-[0.8125rem] text-fl-dim">
                           {h.city}, {h.region}
@@ -277,28 +365,65 @@ export function StartFlow() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
-          )}
-          {problem && (
-            <p role="alert" className="text-sm text-fl-bad">
-              {problem}
-            </p>
-          )}
-        </Section>
-        <p className="text-[0.8125rem] text-fl-dim">
-          Just looking?{" "}
-          <Link href="/stores" className={TEXT_LINK}>
-            See the example stores
-          </Link>
-        </p>
-      </ScreenBody>
-      <ActionBar>
-        <button type="button" onClick={seeBlock} disabled={phase.kind === "finding"} className={PRIMARY}>
-          {phase.kind === "finding" && <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />}
-          {phase.kind === "finding" ? "Finding your community..." : "See my community"}
-        </button>
-      </ActionBar>
+              </div>
+            )}
+          </div>
+        )}
+        {problem && (
+          <p role="alert" className="text-sm text-fl-bad">
+            {problem}
+          </p>
+        )}
+      </Section>
+      <p className="text-[0.8125rem] text-fl-dim">
+        Just looking?{" "}
+        <Link href="/stores" className={TEXT_LINK}>
+          See the example stores
+        </Link>
+      </p>
+    </>
+  );
+
+  const side = (
+    <>
+      <section aria-labelledby="start-next" className="flex flex-col gap-2 rounded-[20px] bg-white px-4 py-3.5">
+        <h2 id="start-next" className="text-[0.9375rem] font-semibold">
+          What happens next
+        </h2>
+        <ol className="flex flex-col gap-1.5 text-[0.8125rem] text-fl-muted">
+          <li>
+            <b className="font-semibold text-fl-ink">1 Community.</b> Places within about a mile of the door, from Qloo.
+          </li>
+          <li>
+            <b className="font-semibold text-fl-ink">2 Create.</b> The day, the budget and your promos.
+          </li>
+          <li>
+            <b className="font-semibold text-fl-ink">3 to 5.</b> The plan, the poster and the posts. Nothing posts until you approve it.
+          </li>
+        </ol>
+      </section>
+      {primary}
+    </>
+  );
+
+  return (
+    <>
+      <FloorHeader
+        left={
+          <IconSlot href="/" label="Stoop home">
+            <ChevronLeft aria-hidden="true" />
+          </IconSlot>
+        }
+        title="Your store"
+        right={
+          <IconSlot href="/stores" label="My stores">
+            <LayoutGrid aria-hidden="true" />
+          </IconSlot>
+        }
+        step="Community"
+      />
+      <TwoColumn main={main} side={side} />
+      <ActionBar className="lg:hidden">{primary}</ActionBar>
     </>
   );
 }
