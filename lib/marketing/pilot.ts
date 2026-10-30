@@ -20,10 +20,15 @@ export const HERO = {
   /** The phone's eyebrow, short enough for one line at 320 px. */
   eyebrowShort: "For Metro, Cricket and Boost stores",
   headline: "Give your community a reason to stop.",
-  sub: "Every prepaid store sets up the same table outside. Stoop plans yours for the community around it: music your city plays, snacks and gift cards from spots down the street, and a prize wheel built from your deals. Then it makes the poster and lines up the posts.",
-  /** The phone's shorter line: the same promise in two sentences. */
-  subShort: "Every prepaid store sets up the same table. Stoop plans yours for the community around it, then makes the poster and lines up the posts.",
-  trust: ["Built by a sales rep on a Metro floor", "Every pick has a Qloo receipt", "Nothing posts until you approve", "Independent, not affiliated with any carrier"],
+  /** Qloo is named as what picks the music and the places, in the hero's first read. */
+  sub: "Every prepaid store sets up the same table outside. Stoop uses Qloo's taste data to plan yours for the community around it: music your city plays, snacks and gift cards from spots down the street, and a prize wheel built from your deals. Then it makes the poster and lines up the posts.",
+  /**
+   * The phone's shorter line: the same table, Qloo, and the three draws. Two sentences, each its own
+   * block, so neither ever paints larger than the H1 (the LCP element) on a 320 to 430 px phone.
+   */
+  subShort: ["Every prepaid store sets up the same table.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals."],
+  /** The Qloo line leads and says what Qloo is. */
+  trust: ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"],
 } as const;
 
 /** A self-hosted video: an H.264 mp4 (and an optional WebM), its first frame as a JPEG, optional captions. */
@@ -112,7 +117,7 @@ export const POSTING_COPY = {
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "Stoop writes the announcement and the reminders for the evening before, the morning of and an hour before, for Facebook, Instagram and WhatsApp. Each one is ready to copy or share in one tap, and nothing goes out without you.",
+    body: "Stoop writes the announcement and the reminders for the evening before, the morning of and an hour before, for Facebook, Instagram and WhatsApp. You copy or share each one when it's time; nothing goes out without you.",
     note: "Posting straight to your Facebook Page turns on once Meta approves the app.",
   },
 } as const;

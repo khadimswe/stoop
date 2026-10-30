@@ -123,7 +123,7 @@ export function verdictParts(view: PlanView, slug: string, receipts: Readonly<Re
   }
   const cards = prizePlaces(view);
   if (cards.length) {
-    if (snack && cards.length === 1 && cards[0]!.n === snack.from.n) phrases.push([{ kind: "text", text: "gift cards from the same spot on the wheel" }]);
+    if (snack && cards.length === 1 && cards[0]!.n === snack.from.n) phrases.push([{ kind: "text", text: "gift cards to the same spot on the prize wheel" }]);
     else {
       const parts: VerdictPart[] = [{ kind: "text", text: "gift cards to " }];
       cards.forEach((p, i) => {
@@ -209,7 +209,7 @@ export function decidedCells(view: PlanView, report: Pick<PlanReport, "stats" | 
     const from = view.header.venue ? "the event" : "the door";
     cells.push({
       eyebrow: "Qloo · the community",
-      text: `${block.places.length} places within ${usRadius(block.radiusM)} of ${from}, ${withWhy === block.places.length ? "each with" : `${withWhy} with`} Qloo's own why.`,
+      text: `${block.places.length} places within ${usRadius(block.radiusM)} of ${from}, ${withWhy === block.places.length ? "each with" : `${withWhy} with`} Qloo's reason for it.`,
       calls: stageCalls(report, "block"),
     });
   }
@@ -218,7 +218,10 @@ export function decidedCells(view: PlanView, report: Pick<PlanReport, "stats" | 
     const score = keptScore(view);
     cells.push({
       eyebrow: "Claude · the plan",
-      text: `${ideas} table ${ideas === 1 ? "idea" : "ideas"} scored on the event rubric. One kept at ${score.total} of ${score.max}, then fit to the ${view.header.budgetText}.`,
+      text:
+        ideas === 1
+          ? `One table idea, scored ${score.total} of ${score.max} on whether it stops people and brings them inside, then fit to the ${view.header.budgetText}.`
+          : `${ideas} table ideas, each scored on whether it stops people and brings them inside. The best, at ${score.total} of ${score.max}, was fit to the ${view.header.budgetText}.`,
       calls: null,
     });
   }
@@ -361,7 +364,7 @@ export function postTimeline(inputs: Pick<PlanReport["inputs"], "date" | "startT
   if (!posting) {
     return [
       { when: "Now", title: "Announce", channels: "Facebook, Instagram, WhatsApp", status: "share", statusText: "Ready to share" },
-      ...reminders.map((r) => ({ ...r, channels: "Facebook, Instagram, WhatsApp", status: "share" as const, statusText: "Copy" })),
+      ...reminders.map((r) => ({ ...r, channels: "Facebook, Instagram, WhatsApp", status: "share" as const, statusText: "Ready to share" })),
     ];
   }
   return [

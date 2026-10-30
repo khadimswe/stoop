@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, Clock } from "lucide-react";
 import Link from "next/link";
 import { FloorReceipts } from "@/components/stoop/floor/receipts";
 import { BeforeAfter } from "@/components/stoop/home/before-after";
@@ -33,12 +33,16 @@ const STEPS = [
   { name: "Promote", line: "Posts written for Facebook, Instagram and WhatsApp. Nothing goes out without you.", href: "promote" },
 ] as const;
 
-const CHIP: Record<"ok" | "lime" | "plain", string> = {
-  ok: "bg-fl-ok-bg text-fl-ok",
-  lime: "bg-fl-signal text-fl-ink",
-  plain: "bg-fl-band text-fl-muted",
-};
-const chipTone = (p: TimelinePost) => (p.status === "now" || p.statusText === "Ready to share" ? "ok" : p.status === "scheduled" ? "lime" : "plain");
+/** Each post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
+function PostStatus({ post }: { post: TimelinePost }) {
+  const Icon = post.status === "scheduled" ? Clock : Check;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-[0.8125rem] font-medium whitespace-nowrap text-fl-dark-dim">
+      <Icon aria-hidden="true" className="size-3.5 text-fl-signal" />
+      {post.statusText}
+    </span>
+  );
+}
 
 export default function Home() {
   const slugs = recordedPlanSlugs();
@@ -61,6 +65,10 @@ export default function Home() {
   const postCopy = POSTING_COPY[posting ? "on" : "off"];
   const posts = postTimeline(PLAN_EXAMPLE_INPUTS[lead], posting);
   const cityName = leadView.local.city?.name ?? leadStore.show.city;
+  const bandMedia = PILOT_COPY ? PILOT_MEDIA : null;
+  // The band above shows the lead store's plan and poster, so the tabs open on another store (a different
+  // community right away, never the same plan twice in a row) and the lead store comes last.
+  const tabStores = bandMedia ? stores : [...stores.filter((s) => s.slug !== lead), leadStore];
 
   return (
     <>
@@ -76,8 +84,15 @@ export default function Home() {
           <h1 id="hero-title" className="mt-6 max-w-[11em] font-serif text-[clamp(2.5rem,1.1rem+5.6vw,6rem)] leading-[1] font-normal tracking-[-0.02em] text-balance">
             {HERO.headline}
           </h1>
-          <p className="mt-6 hidden max-w-[52rem] text-lg leading-[1.5] text-pretty text-fl-muted sm:block lg:text-[1.3125rem]">{HERO.sub}</p>
-          <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted sm:hidden">{HERO.subShort}</p>
+          <p className="mt-6 hidden max-w-[52rem] text-lg leading-[1.5] text-balance text-fl-muted md:block lg:text-[1.3125rem]">{HERO.sub}</p>
+          {/* Phones and small tablets: each sentence its own block, so neither out-paints the H1. */}
+          <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted md:hidden">
+            {HERO.subShort.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
+          </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
             <Link href="/start" className="inline-flex h-12 items-center justify-center rounded-[12px] bg-fl-ink px-6 text-base font-semibold text-white hover:bg-[#2a2a2e]">
               Plan an event
@@ -87,10 +102,11 @@ export default function Home() {
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>
-          <ul className="mt-7 flex flex-col items-center gap-x-7 gap-y-2 text-sm text-fl-dim sm:flex-row sm:flex-wrap sm:justify-center">
-            {HERO.trust.map((t) => (
-              <li key={t} className="flex items-center gap-2">
-                <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
+          {/* A tidy left-aligned list, centered as a block: one column on phones, two by two from sm. The Qloo line leads. */}
+          <ul className="mt-7 grid w-fit max-w-full grid-cols-1 gap-x-10 gap-y-2 text-left text-sm text-fl-dim sm:grid-cols-2">
+            {HERO.trust.map((t, i) => (
+              <li key={t} className={cn("flex items-start gap-2", i === 0 && "font-medium text-fl-ink")}>
+                <i aria-hidden="true" className="mt-[0.4375rem] block size-2 shrink-0 rounded-[2px] bg-fl-ink" />
                 {t}
               </li>
             ))}
@@ -99,7 +115,7 @@ export default function Home() {
         </section>
 
         <MediaBand
-          media={PILOT_COPY ? PILOT_MEDIA : null}
+          media={bandMedia}
           still={{
             title: leadStore.show.title,
             line: `${leadView.header.storeName} · ${leadStore.show.city} · ${leadView.header.dateShort}, ${leadView.header.timeText}`,
@@ -124,8 +140,8 @@ export default function Home() {
             </div>
             <StoreTabs
               label="Example stores"
-              tabs={stores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city, title: s.show.title }))}
-              panels={stores.map((s) => (
+              tabs={tabStores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city, title: s.show.title }))}
+              panels={tabStores.map((s) => (
                 <StorePanel key={s.slug} show={s.show} receipts={s.receipts} />
               ))}
             />
@@ -250,7 +266,7 @@ export default function Home() {
                       <span className="block text-[0.9375rem] font-semibold">{p.title}</span>
                       <span className="block text-[0.8125rem] text-fl-dark-dim">{p.channels}</span>
                     </span>
-                    <span className={cn("inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-semibold whitespace-nowrap", CHIP[chipTone(p)])}>{p.statusText}</span>
+                    <PostStatus post={p} />
                   </li>
                 ))}
               </ol>

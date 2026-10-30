@@ -6,7 +6,9 @@ import { HomeNav } from "@/components/stoop/home/home-nav";
 import { metaPostingEnabled } from "@/lib/config";
 import { examplePlanId, LEAD_PLAN_EXAMPLE } from "@/lib/plan/example-list";
 import { exampleHrefs } from "@/lib/plan/view/hrefs";
+import { genericCheckWords } from "@/lib/marketing/plain-words";
 import { codeUrl } from "@/lib/marketing/site";
+import { loadPlanExampleView, recordedPlanSlugs } from "@/lib/plan/view/load";
 
 export const metadata: Metadata = {
   title: "For judges · Stoop",
@@ -18,32 +20,38 @@ export const ensureStatic = "navigation";
 
 const LEAD = exampleHrefs(LEAD_PLAN_EXAMPLE.slug).event;
 
-const PATH = [
-  {
-    title: "Same table. Different community.",
-    line: "On the landing, three example stores with the same kind of deals get three different plans: different music, snack spots and prizes, each picked by Qloo for that city and the places around that store.",
-    href: "/#examples",
-    cta: "See the three stores",
-  },
-  {
-    title: "One event and its receipts",
-    line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}. Tap "Why Qloo picked this" on the playlist, a snack spot or a gift card: the exact Qloo request behind it, never the key.`,
-    href: `${LEAD}#receipt-play`,
-    cta: "Open a receipt",
-  },
-  {
-    title: "The generic AI plan beside it",
-    line: "The same model, the same inputs, no Qloo. It names no place near the store, and the famous artists it picks rank below Qloo's own top picks for that city and those ages.",
-    href: `${LEAD}#compare`,
-    cta: "Open the comparison",
-  },
-  {
-    title: "Try your own store",
-    line: "Type a store's name and address, see its community, then plan the event. When live plans are off, Stoop says so plainly and opens the closest example store instead (same city, else same state, else the nearest), so nothing ever breaks.",
-    href: "/start",
-    cta: "Plan an event",
-  },
-] as const;
+/**
+ * The four steps. The comparison's line says what Qloo found for the lead example's generic playlist,
+ * from its recorded run ("none of its 3 artists make Qloo's own top 20 for Chicago adults 25 to 34").
+ */
+function pathSteps(check: string | null) {
+  return [
+    {
+      title: "Same table. Different community.",
+      line: "On the landing, three example stores with the same kind of deals get three different plans: different music, snack spots and prizes, each picked by Qloo for that city and the places around that store.",
+      href: "/#examples",
+      cta: "See the three stores",
+    },
+    {
+      title: "One event and its receipts",
+      line: `${LEAD_PLAN_EXAMPLE.storeName}, ${LEAD_PLAN_EXAMPLE.city}. Tap "Why Qloo picked this" on the playlist, a snack spot or a gift card: the exact Qloo request behind it (never the API key).`,
+      href: `${LEAD}#receipt-play`,
+      cta: "Open a receipt",
+    },
+    {
+      title: "The generic AI plan beside it",
+      line: `The same model, the same inputs, no Qloo. It names no place near the store, and ${check ?? "the famous artists it picks fall outside Qloo's own top picks for that city and those ages"}.`,
+      href: `${LEAD}#compare`,
+      cta: "Open the comparison",
+    },
+    {
+      title: "Try your own store",
+      line: "Type a store's name and address, see its community, then plan the event. When live plans are off, Stoop says so plainly and opens the closest example store instead (same city, else same state, else the nearest), so nothing ever breaks.",
+      href: "/start",
+      cta: "Plan an event",
+    },
+  ] as const;
+}
 
 const DECIDES = [
   {
@@ -55,19 +63,19 @@ const DECIDES = [
   {
     call: "/v2/insights · place",
     how: "filter.location = the store's POINT, filter.location.radius = 1500 (about 1 mile), one category per call, explainability",
-    decides: "The community: food spots, cafes, venues and parks near the store, with Qloo's why. The snack spot, the gift cards and any partner come only from these.",
+    decides: "The community: food spots, cafes, venues and parks near the store, each with Qloo's reason. The snack spot, the gift cards and any partner come only from these.",
     code: "lib/plan/taste.ts",
   },
   {
     call: "/v2/insights · artist by places",
     how: "signal.interests.entities = venues in the community",
-    decides: "What people who love those places play, used only when the plan uses it.",
+    decides: "A second music option: what people who love the community's top local spots play. Offered only when it is current and adds artists the city's list lacks, and always next to the city's music.",
     code: "lib/plan/block-music.ts",
   },
   {
     call: "/search, then /v2/insights · scoring",
     how: "the generic plan's artist names, then one filter.results.entities call against the city's own picks",
-    decides: "Checks the generic plan's artists against the city, in one call with one signal.",
+    decides: "Ranks the generic plan's artists against the city's own picks, all in one call, so the comparison is fair.",
     code: "lib/plan/baseline.ts",
   },
 ] as const;
@@ -75,12 +83,14 @@ const DECIDES = [
 export default function JudgesPage() {
   const rules = [
     "Every music, food and venue pick has a receipt, or says it isn't from Qloo.",
-    "Names come only from the run's own Qloo results.",
-    "Promos are quoted exactly as the store typed them.",
+    "Every place and artist named in a plan comes from that store's own Qloo results.",
+    "Deals are quoted word for word, as the manager typed them.",
     metaPostingEnabled() ? "Nothing posts without the manager's tap." : "Stoop writes the posts; the manager shares them. Nothing goes out on its own.",
     "Example stores are fictional. No carrier logos.",
     "No traffic or sales claims: a store pilot measures that.",
   ];
+  const lead = recordedPlanSlugs().includes(LEAD_PLAN_EXAMPLE.slug) ? loadPlanExampleView(LEAD_PLAN_EXAMPLE.slug) : null;
+  const steps = pathSteps(lead ? genericCheckWords(lead, true) : null);
   return (
     <>
       <HomeNav />
@@ -88,7 +98,7 @@ export default function JudgesPage() {
         <div className="flex flex-col gap-3">
           <h1 className="font-serif text-[clamp(2.125rem,1.5rem+2.5vw,3.375rem)] leading-[1.06] font-normal text-balance">For judges</h1>
           <p className="max-w-[36em] text-lg leading-[1.5] text-pretty text-fl-muted">
-            Every prepaid store runs the same table outside. Stoop plans one for the community around it, with Qloo deciding the music from the city and the snack spots and prizes from the places near the store.
+            Every prepaid store runs the same table outside. Stoop plans one for the community around it, with Qloo&apos;s taste data deciding the music (from the city) and the snack spots and prizes (from the places near the store).
           </p>
         </div>
 
@@ -97,7 +107,7 @@ export default function JudgesPage() {
             The path, in four steps
           </h2>
           <ol className="grid gap-x-8 gap-y-6 border-t border-fl-ink pt-6 sm:grid-cols-2">
-            {PATH.map((step, i) => (
+            {steps.map((step, i) => (
               <li key={step.title} className="flex flex-col items-start gap-1.5">
                 <span className="text-sm font-semibold text-fl-dim tabular-nums">{i + 1}</span>
                 <h3 className="text-lg leading-tight font-semibold">{step.title}</h3>
@@ -155,7 +165,7 @@ export default function JudgesPage() {
             </table>
           </div>
           <p className="text-sm text-pretty text-fl-muted">
-            The city sets the music; the places Qloo finds near the store set the food, the gift cards and the partners. Qloo has no reliable read on one neighborhood&apos;s taste, so Stoop never claims one, and it never reads a business&apos;s own listing as its crowd.
+            The city sets the music; the places Qloo finds near the store set the food, the gift cards and the partners. In our tests a neighborhood point barely changed Qloo&apos;s taste results, so Stoop never claims a neighborhood&apos;s taste, and it never treats a shop&apos;s own Qloo profile as the taste of the people who go there.
           </p>
         </section>
 
