@@ -7,7 +7,8 @@ import { baselineInstructions } from "./baseline";
 import { fallbackPlan, planPrompt } from "./builder";
 import { conceptsInstructions, conceptsTask } from "./concepts";
 import { PLAN_EXAMPLE_INPUTS } from "./example-list";
-import { DROP_BOARD_SLOTS, gameOf, leftOffNote, offersLeftOff } from "./game";
+import { checkConcepts } from "./concepts";
+import { DROP_BOARD_SLOTS, gameOf, leftOffNote, offersLeftOff, otherGameWord } from "./game";
 import { guardFor } from "./guard-context";
 import { inputProblemOf } from "./input-errors";
 import { posterAlt, posterText, wheelLineOf } from "./poster-text";
@@ -181,9 +182,23 @@ describe("a drop-board plan's own words", () => {
     expect(reportReminderFacts(dropped).wheel).toBe(posterText(dropped).wheel);
   });
 
-  it("lets a post name the drop board, and still refuses prize talk", () => {
+  it("lets a post name the drop board, and still refuses prize talk and the wheel's words", () => {
     expect(checkPostText("Stop by and drop a chip on the drop board.", dropped, "facebook")).toEqual([]);
     expect(checkPostText("Stop by and win a prize at the table.", dropped, "facebook").length).toBeGreaterThan(0);
+    expect(checkPostText("Stop by and give it a spin.", dropped, "facebook").map((i) => i.match)).toContain("spin");
+    expect(checkPostText("Stop by and give it a spin.", report, "facebook").map((i) => i.match)).not.toContain("spin");
+  });
+
+  it("sends a drop-board concept that talks about a wheel back to Claude, and leaves a wheel plan's checks as they were", () => {
+    expect(otherGameWord("Spin to win at the Wheel Stop", "drop_board")).toBe("Spin");
+    expect(otherGameWord("Spin to win at the Wheel Stop", "wheel")).toBeNull();
+    expect(otherGameWord("Drop a chip on the drop board, spinach dip on the side", "drop_board")).toBeNull();
+    const raw = { concepts: [{ title: "Saturday Wheel Spin", hook: "Drop a chip, grab a taco.", items: [{ kind: "activity" as const, text: "Spin the prize wheel for a gift card.", origin: "creative" as const, styles: [] }], scores: { scrollStop: 3, specificity: 3, productRole: 3, emotionalClarity: 3, insider: 3, walkIn: 3 } as never, noStereotype: true, note: "n" }] };
+    const guard = guardFor(report.inputs, aliases.ids.values());
+    const drop = checkConcepts(raw, aliases, guard, "drop_board").issues.join(" ");
+    expect(drop).toMatch(/concepts\.1\.title or hook: "Wheel": this table has a drop board/);
+    expect(drop).toMatch(/concepts\.1\.items\.1: "Spin": this table has a drop board/);
+    expect(checkConcepts(raw, aliases, guard).issues.join(" ")).not.toMatch(/drop board/);
   });
 
   it("shows the board's slots, its title and the note for promos left off", () => {

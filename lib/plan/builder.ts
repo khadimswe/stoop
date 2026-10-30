@@ -16,7 +16,7 @@ import { refsIn, renderRefs } from "./refs";
 import { outOfScope } from "./taste";
 import { clicheIn } from "./baseline";
 import { checkWheel, gameRules, GIFT_CARD_MAX_USD, llmBoard, llmWheel, wheelWanted } from "./wheel";
-import { gameOf, leftOffNote, offersLeftOff, type TableGame } from "./game";
+import { gameOf, leftOffNote, offersLeftOff, otherGameMessage, otherGameWord, type TableGame } from "./game";
 import type { Concept, Plan, PlanInputs } from "./schema";
 
 export const PLAN_TIMEOUT_MS = 90_000;
@@ -189,6 +189,8 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const time = s.time.trim().padStart(5, "0");
     const step = toRealRefs(s.step.trim(), aliases);
     const problems = textIssues(step, guard);
+    const off = otherGameWord(step, gameOf(inputs));
+    if (off) problems.push(otherGameMessage(off));
     if (!HHMM.test(time)) problems.push(`time must be HH:MM (24 hour), got "${s.time}".`);
     else if (toMinutes(time) < start - SETUP_MARGIN_MIN || toMinutes(time) > end + SETUP_MARGIN_MIN) problems.push(`time ${time} is outside the day (${clock(start - SETUP_MARGIN_MIN)} to ${clock(end + SETUP_MARGIN_MIN)}).`);
     if (!step) problems.push("step must not be empty.");
@@ -246,6 +248,8 @@ export function checkPlan(raw: LlmPlan, inputs: PlanInputs, aliases: Aliases, gu
     const problems = textIssues(real, guard);
     const check = renderRefs(real, aliases.names);
     if (!check || check.length > 200) problems.push("each check must be 1 to 200 characters.");
+    const off = otherGameWord(check, gameOf(inputs));
+    if (off) problems.push(otherGameMessage(off));
     if (problems.length) issues.push(...problems.map((p) => `checks.${i + 1}: ${p}`));
     else extras.push(check);
   });

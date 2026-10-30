@@ -13,7 +13,7 @@ import { z } from "zod";
 import { askOnce, type AskUsage } from "../agent/ask";
 import { GUARDRAIL_INSTRUCTIONS, quoted } from "../agent/instructions";
 import { checkText, FAMOUS_PLACES, stripEmDashes, unsupportedClaims, type GuardIssue } from "../guardrails";
-import { gameOf, gameWords, type TableGame } from "./game";
+import { gameOf, gameWords, otherGameMessage, otherGameWord, type TableGame } from "./game";
 import { blockWord, textIssues } from "./guard";
 import { BRAND_WORDS } from "./poster-prompt";
 import { keptConcept, posterText, refNames } from "./poster-text";
@@ -142,6 +142,8 @@ function contentIssues(text: string, report: Report, path: string): GuardIssue[]
   if (free) add(free, `"${free}" is an offer. Code adds the manager's offers and the ${named} line word for word.`);
   const deal = (report.plan?.wheel ? text.replace(GAME_NAMES[game], " ") : text).match(DEAL_WORDS)?.[0];
   if (deal) add(deal, `"${deal}" is deal or prize talk. Code adds the offers word for word, and a post never says what the ${named} pays out.`);
+  const off = otherGameWord(text, game);
+  if (off) add(off, otherGameMessage(off));
   const minor = text.match(MINOR_SETTING)?.[0];
   if (minor) add(minor, `"${minor}" points at students. The event is for adults passing by.`);
   const claim = text.match(CLAIMS)?.[0];

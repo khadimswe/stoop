@@ -77,6 +77,17 @@ export const GAME_WORDS: Readonly<Record<TableGame, GameWords>> = {
 
 export const gameWords = (game: TableGame | null | undefined): GameWords => GAME_WORDS[game ?? "wheel"];
 
+/** The wheel's own words, which a drop-board plan never uses. */
+const WHEEL_WORDS = /\b(?:wheels?|spin|spins|spinning|spun)\b/i;
+
+/** A wheel word in a drop-board plan's text, or null (always null for a wheel plan, so its checks never change). */
+export function otherGameWord(text: string, game: TableGame): string | null {
+  return game === "drop_board" ? (WHEEL_WORDS.exec(text)?.[0] ?? null) : null;
+}
+
+/** The check's message, for the repair prompt. */
+export const otherGameMessage = (word: string) => `"${word}": this table has a drop board, not a wheel. Say "drop board" or "drop a chip".`;
+
 /**
  * The manager's promos that are not on the game, verbatim: a drop board's 6 slots can leave some off
  * (they stay on the poster and in the posts). A wheel carries every promo, so this is empty for one.

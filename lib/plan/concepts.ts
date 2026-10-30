@@ -17,7 +17,7 @@ import { dayContext } from "./calendar";
 import { titleGenre } from "./words";
 import { outOfScope } from "./taste";
 import { ITEM_KINDS, type Concept, type Local, type PlanInputs, type PlanItem } from "./schema";
-import { gameOf, type TableGame } from "./game";
+import { gameOf, otherGameMessage, otherGameWord, type TableGame } from "./game";
 
 export const CONCEPT_COUNT = 3;
 export const CONCEPTS_TIMEOUT_MS = 120_000;
@@ -150,6 +150,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
     }
     const genre = titleGenre(`${title} ${hook}`);
     if (genre) issues.push(`${at}.title or hook: "${genre}" names a music genre. A title comes from the occasion, the activity (${activity}), the food or the place, never the music.`);
+    const offTitle = otherGameWord(`${title} ${hook}`, game);
+    if (offTitle) issues.push(`${at}.title or hook: ${otherGameMessage(offTitle)}`);
     const items: PlanItem[] = [];
     const used = new Set<string>();
     concept.items.forEach((item, i) => {
@@ -163,6 +165,8 @@ export function checkConcepts(raw: LlmConcepts, aliases: Aliases, guard: GuardCo
       if (!text) problems.push("must not be empty.");
       else if (text.length > MAX_TEXT) problems.push(`is ${text.length} characters once its keys become Qloo ids (each key is about 40); the limit is ${MAX_TEXT}. Shorten it or use fewer keys.`);
       if (unknownStyles.length) problems.push(`styles ${unknownStyles.join(", ")} are not s-keys from the data.`);
+      const offLine = otherGameWord(text, game);
+      if (offLine) problems.push(otherGameMessage(offLine));
       if ((item.origin === "creative" || item.origin === "yours") && styles.length) problems.push(`a ${item.origin} line cites styles; mark it interpreted instead.`);
       const cliche = clicheIn(text);
       if (cliche) problems.push(`${cliche.text.toLowerCase()} is a cliche with no local signal (${cliche.why}) Use something from the city or the community instead.`);
@@ -358,7 +362,7 @@ export async function writeConcepts(env: PlanEnv, inputs: PlanInputs, local: Loc
   }
   // A title or hook that still names a genre, or still breaks a rule, gets the safe template.
   best.concepts.forEach((concept, i) => {
-    const bad = titleGenre(`${concept.title} ${concept.hook}`) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
+    const bad = titleGenre(`${concept.title} ${concept.hook}`) || otherGameWord(`${concept.title} ${concept.hook}`, game) || [concept.title, concept.hook].some((t) => !t || itemIssues({ kind: "theme", text: t, origin: "creative", refs: [], evidenceIds: [] }, guard).length > 0);
     if (!bad) return;
     const safe = safeTitle(inputs, i);
     planDecide(env, "concepts", `Gave concept ${i + 1} a plain title`, `"${concept.title}" named a music genre or broke a rule; titles come from the occasion, the activity, the food or the place.`);
