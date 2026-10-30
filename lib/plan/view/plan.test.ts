@@ -104,7 +104,8 @@ describe("live plans", () => {
     expect(planned.slice(0, 5).every((s) => s.status === "done")).toBe(true);
     expect(planned[0]!.title).toMatch(/^Read Chicago's music$/);
     expect(planned[1]!.title).toMatch(/^Found \d+ places within /);
-    expect(planned[2]!.detail).toMatch(/scored \d+ of \d+$/);
+    // Out of the rubric's weighted 30 ("Brings people inside" counts double), never 5 per score.
+    expect(planned[2]!.detail).toMatch(/scored \d+ of 30$/);
     expect(planned[2]!.source).toBe("Claude");
     expect(planned[5]!.status).toBe("pending");
     expect(planningSteps(reducePlan(all))[5]!.status).toBe("done");

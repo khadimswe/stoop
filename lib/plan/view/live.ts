@@ -1,6 +1,7 @@
 // A live plan in the browser: what the progress rail shows, and how to read the plan routes' answers.
 // Pure and client-safe; the hook in components/stoop/plan/use-plan-events.ts wires it to EventSource.
 import { planEventSchema, type PlanEvent, type PlanState } from "../events";
+import { PLAN_MAX_TOTAL } from "../rubric";
 import { PLAN_STAGES, planReportSchema, type PlanReport, type PlanStage } from "../schema";
 import { ageBandsText, distanceText, PLAN_STAGE_LABELS } from "./format";
 
@@ -97,7 +98,7 @@ export function planningSteps(state: Pick<PlanState, "status" | "current" | "rep
       key: "ideas",
       title: plan ? `Wrote ${plan.concepts.length} table ideas and kept the best` : "Writing 3 table ideas, keeping the best",
       source: "Claude",
-      detail: kept ? `"${kept.title}" scored ${kept.total} of ${kept.scores.length * 5}` : null,
+      detail: kept ? `"${kept.title}" scored ${kept.total} of ${PLAN_MAX_TOTAL}` : null,
       status: status("concepts"),
       timeText: seconds(stages.concepts?.durationMs),
     },

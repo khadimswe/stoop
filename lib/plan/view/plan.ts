@@ -7,6 +7,7 @@ import type { ReceiptRow, ReceiptView } from "../../report/view/types";
 import type { CueOrigin } from "../../types";
 import type { PlanState } from "../events";
 import { splitRefs } from "../refs";
+import { PLAN_MAX_TOTAL } from "../rubric";
 import { titleGenre } from "../words";
 import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, type PlanInputs, type PlanItem, type PlanReport, type PlanTraceStep } from "../schema";
 import {
@@ -482,7 +483,8 @@ export function planView(source: PlanSource): PlanView {
     items: c.items.map((it, i) => item(c.id, it, i)),
     scores: c.scores,
     total: c.total,
-    max: c.scores.length * 5,
+    // The rubric's weighted maximum ("Brings people inside" counts double), not five per score.
+    max: PLAN_MAX_TOTAL,
     kept: c.kept,
     note: c.note ?? null,
   });
