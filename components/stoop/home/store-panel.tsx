@@ -1,5 +1,4 @@
 import { ArrowRight } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { BlockMap } from "@/components/stoop/floor/block-map";
 import { FloorReceipts } from "@/components/stoop/floor/receipts";
@@ -14,8 +13,9 @@ export const PICK_LINK =
 
 /**
  * One example store's tab, kept short: the verdict (its title and its Qloo-backed picks, each opening
- * a receipt), the budget and date line, its community map and a small poster, then a way into the
- * whole plan. The day's timeline and the proof live on the plan itself and in the comparison below.
+ * a receipt), the budget and date line and its community map, then a way into the whole plan. The
+ * day's timeline and the proof live on the plan itself and in the comparison below; the page's one
+ * example poster sits in Promote.
  */
 export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: Readonly<Record<string, ReceiptView>> }) {
   return (
@@ -47,40 +47,31 @@ export function StorePanel({ show, receipts }: { show: StoreShowcase; receipts: 
           </ul>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_200px] lg:grid-cols-[minmax(0,1fr)_240px]">
-          {show.map && (
-            <div className="relative h-[280px] overflow-hidden rounded-[20px] md:h-auto md:min-h-[300px]">
-              <BlockMap center={show.map.center} radiusM={show.map.radiusM} places={show.map.pins} interactive={false} label={show.map.label} className="h-full" />
-              <noscript>
-                <div className="absolute inset-0 z-10">
-                  <CommunityPlot center={show.map.center} radiusM={show.map.radiusM} pins={show.map.pins} label={show.map.label} />
-                </div>
-              </noscript>
-              <p className="pointer-events-none absolute top-3 left-3 z-20 inline-flex h-7 items-center gap-2 rounded-full border border-fl-line bg-white px-3 text-xs font-medium">
-                <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
-                {show.map.chip}
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-4 md:flex-col md:items-stretch md:gap-3">
-            {show.poster.src && (
-              <Link href={show.hrefs.poster} className="block w-24 shrink-0 rounded-[10px] md:w-full">
-                <Image src={show.poster.src} alt={show.poster.alt} width={720} height={900} unoptimized loading="lazy" className="aspect-[4/5] h-auto w-full rounded-[10px] bg-fl-dark object-cover" />
-              </Link>
-            )}
-            <div className="flex min-w-0 flex-col gap-1">
-              <Link
-                href={show.hrefs.event}
-                aria-label={`Open the plan for ${show.storeName}`}
-                className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2"
-              >
-                Open the plan
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </Link>
-              {show.fictional && <p className="text-xs text-pretty text-fl-dim">{show.fictional}</p>}
-            </div>
+        {show.map && (
+          <div className="relative h-[280px] overflow-hidden rounded-[20px] md:h-[340px] lg:h-[380px]">
+            <BlockMap center={show.map.center} radiusM={show.map.radiusM} places={show.map.pins} interactive={false} label={show.map.label} className="h-full" />
+            <noscript>
+              <div className="absolute inset-0 z-10">
+                <CommunityPlot center={show.map.center} radiusM={show.map.radiusM} pins={show.map.pins} label={show.map.label} />
+              </div>
+            </noscript>
+            <p className="pointer-events-none absolute top-3 left-3 z-20 inline-flex h-7 items-center gap-2 rounded-full border border-fl-line bg-white px-3 text-xs font-medium">
+              <i aria-hidden="true" className="block size-2 rounded-[2px] bg-fl-ink" />
+              {show.map.chip}
+            </p>
           </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+          <Link
+            href={show.hrefs.event}
+            aria-label={`Open the plan for ${show.storeName}`}
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2"
+          >
+            Open the plan
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
+          {show.fictional && <p className="text-xs text-pretty text-fl-dim">{show.fictional}</p>}
         </div>
       </article>
     </FloorReceipts>

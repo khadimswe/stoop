@@ -1,4 +1,5 @@
 import { ArrowRight, Check, Clock } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { FloorReceipts } from "@/components/stoop/floor/receipts";
 import { BeforeAfter } from "@/components/stoop/home/before-after";
@@ -8,10 +9,11 @@ import { ReceiptLink } from "@/components/stoop/home/receipt-link";
 import { ReserveStores } from "@/components/stoop/home/reserve-stores";
 import { StorePanel } from "@/components/stoop/home/store-panel";
 import { StoreTabs } from "@/components/stoop/home/store-tabs";
+import { StoryBand } from "@/components/stoop/home/story-band";
 import { metaPostingEnabled } from "@/lib/config";
 import { beforeAfterItems } from "@/lib/marketing/before-after";
 import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
-import { BEFORE_AFTER, DEMO_VIDEO, FOUNDER_STORY, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, WHO } from "@/lib/marketing/pilot";
+import { BEFORE_AFTER, DEMO_VIDEO, FOUNDER_STORY, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, TABLE_PHOTO, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { landingCompare } from "@/lib/plan/view/floor";
 import { stampDate } from "@/lib/plan/view/format";
@@ -59,6 +61,7 @@ export default function Home() {
   const leadStore = stores.find((s) => s.slug === lead)!;
   const leadView = leadStore.view;
   const leadHrefs = exampleHrefs(lead);
+  const leadPoster = leadView.marketing.poster;
   const compare = landingCompare(leadView);
   const compareReceipts = pickReceipts(leadView.receipts, compare.flatMap((r) => [r.genericReceipt, r.stoopReceipt]));
   const posting = metaPostingEnabled();
@@ -119,14 +122,17 @@ export default function Home() {
 
         <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
-        <section id="examples" aria-labelledby="examples-title" className={cn("scroll-mt-20 bg-fl-band", pilotMedia && "mt-16 lg:mt-24")}>
+        {/* The real store leads: what happened at the founder's table, then the example stores. */}
+        <StoryBand story={STORE_STORY} photo={PILOT_COPY ? TABLE_PHOTO : null} />
+
+        <section id="examples" aria-labelledby="examples-title" className={cn("scroll-mt-20 bg-fl-band", pilotMedia && !STORE_STORY && "mt-16 lg:mt-24")}>
           <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
             <div className="flex flex-col gap-3">
               <p className={EYEBROW}>See it work</p>
               <h2 id="examples-title" className={H2}>
                 Same table. Different community.
               </h2>
-              <p className={LEDE}>Three example stores with the same kind of deals. Tap an underlined name to see why Qloo picked it.</p>
+              <p className={LEDE}>Three example stores, same kind of deals. Tap an underlined name to see why Qloo picked it.</p>
             </div>
             <StoreTabs
               label="Example stores"
@@ -244,17 +250,28 @@ export default function Home() {
               <p className="text-lg leading-[1.5] text-pretty text-fl-dark-dim">{postCopy.body}</p>
               <p className="text-sm text-fl-dark-dim">{postCopy.note}</p>
             </div>
-            {/* The example's send times, in its own calendar: the announcement, then the reminders. Cells grow
-                to fill each row, so 4 or 5 posts never leave an empty slot. */}
-            <ol aria-label="When the posts go out" className="flex flex-wrap gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule">
-              {posts.map((p) => (
-                <li key={p.title} className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
-                  <span className="text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
-                  <span className="text-[0.8125rem] text-fl-dark-dim">{p.title}</span>
-                  {mixedStatus && <PostStatus post={p} />}
-                </li>
-              ))}
-            </ol>
+            <div className="flex flex-col gap-4">
+              {/* The page's one example poster: small, beside what it comes with, never leading. */}
+              {leadPoster.medium && (
+                <figure className="flex items-center gap-4">
+                  <Link href={leadHrefs.poster} className="block w-24 shrink-0 rounded-[8px] sm:w-28">
+                    <Image src={leadPoster.medium} alt={leadPoster.alt} width={720} height={900} unoptimized loading="lazy" className="aspect-[4/5] h-auto w-full rounded-[8px] bg-fl-dark-2 object-cover" />
+                  </Link>
+                  <figcaption className="text-[0.9375rem] leading-[1.45] text-pretty">Every plan comes with a poster and the posts.</figcaption>
+                </figure>
+              )}
+              {/* The example's send times, in its own calendar: the announcement, then the reminders. Cells grow
+                  to fill each row, so 4 or 5 posts never leave an empty slot. */}
+              <ol aria-label="When the posts go out" className="flex flex-wrap gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule">
+                {posts.map((p) => (
+                  <li key={p.title} className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
+                    <span className="text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
+                    <span className="text-[0.8125rem] text-fl-dark-dim">{p.title}</span>
+                    {mixedStatus && <PostStatus post={p} />}
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         </section>
 

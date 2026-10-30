@@ -8,6 +8,8 @@
 //   nothing renders there and the example stores follow the hero.
 // - DEMO_VIDEO: a longer walkthrough of the product in "How it works", click to play. Null renders
 //   nothing. Not gated: it shows the app, not a store.
+// - STORE_STORY: the band right after the hero ("100 ice creams. About 5 people."), ON. TABLE_PHOTO is
+//   its real table photo, shown only with PILOT_COPY on; without it the band is text only.
 // - FOUNDER_STORY: the founder's own story, ON. It names streets he worked on, never a store or dealer.
 // - PILOT_RESULT: the first real event's result. Null renders nothing; fill it in after the event.
 export const PILOT_COPY = false;
@@ -95,6 +97,51 @@ export interface BeforeAfter {
   preview?: { src: string; alt: string } | null;
 }
 export const BEFORE_AFTER: BeforeAfter | null = null;
+
+/**
+ * The story band right after the hero: what happened at the founder's own store, in his words. ON, like
+ * FOUNDER_STORY: it names no store or dealer. The numbers are fields, so a correction is one edit and the
+ * big line and the story always agree (storyLines builds both). Set to null to take it down.
+ */
+export interface StoreStory {
+  /** How many treats the store bought: 100. */
+  bought: number;
+  /** What it bought, plural: "ice creams". */
+  item: string;
+  /** How many people came, as said out loud: "About 5". */
+  came: string;
+  /** The rest of the story, after what happened. */
+  lesson: string;
+  credit: string;
+}
+export const STORE_STORY: StoreStory | null = {
+  bought: 100,
+  item: "ice creams",
+  came: "About 5",
+  lesson: "The budget wasn't the problem. Knowing what the community wants was.",
+  credit: "Khadim, sales floor, Metro by T-Mobile",
+};
+
+/** The story's big line and its sentences, from its numbers: "100 ice creams. About 5 people." */
+export function storyLines(story: StoreStory): { headline: string; body: string } {
+  return {
+    headline: `${story.bought} ${story.item}. ${story.came} people.`,
+    body: `A few weeks ago, our store bought ${story.bought} ${story.item} for an event. ${story.came} people came all day. ${story.lesson}`,
+  };
+}
+
+/**
+ * The real table, in the story band, shown only with PILOT_COPY on (it shows a real store). Made from
+ * the founder's photo: the neighbor's window cropped off the left and its last two panes frosted (beer
+ * signs), then upright, 1600 px wide, JPEG quality 80 and no metadata, as scripts/pilot-photo.ts does.
+ */
+export const TABLE_PHOTO: (PilotPhoto & { width: number; height: number }) | null = {
+  src: "/pilot/table.jpg",
+  width: 1600,
+  height: 1435,
+  alt: "Our table outside the store: a purple canopy over a table with treats and a speaker, a sales rep behind it, and a drop board numbered 1 to 6 in front.",
+  caption: "Kennesaw, GA, Oct 30, 2026: our table outside the store. Stoop is independent and isn't affiliated with T-Mobile.",
+};
 
 /** His words, as the "Built on the sales floor" quote. Set to null to take it down. */
 export const FOUNDER_STORY: { quote: string; line: string; credit: string } | null = {
