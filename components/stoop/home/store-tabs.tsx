@@ -7,13 +7,13 @@ export interface StoreTab {
   slug: string;
   storeName: string;
   city: string;
-  title: string;
 }
 
 /**
  * The three example stores as tabs: arrow keys move between them (roving tabindex), Home and End
  * jump to the ends, and the panel follows the focused tab. The first tab's panel is in the HTML, so
- * it reads without JavaScript; the others are server-rendered and hidden until picked.
+ * it reads without JavaScript; the others are server-rendered into the payload and mount when picked,
+ * so the page carries one store's words and one map at a time.
  */
 export function StoreTabs({ tabs, panels, label }: { tabs: readonly StoreTab[]; panels: readonly ReactNode[]; label: string }) {
   const [at, setAt] = useState(0);
@@ -47,7 +47,7 @@ export function StoreTabs({ tabs, panels, label }: { tabs: readonly StoreTab[]; 
               role="tab"
               id={`tab-${tab.slug}`}
               aria-selected={on}
-              aria-controls={`panel-${tab.slug}`}
+              aria-controls={on ? `panel-${tab.slug}` : undefined}
               tabIndex={on ? 0 : -1}
               onClick={() => setAt(i)}
               className={cn(
@@ -55,20 +55,21 @@ export function StoreTabs({ tabs, panels, label }: { tabs: readonly StoreTab[]; 
                 on ? "border-fl-ink bg-fl-ink text-white sm:border-2 sm:bg-white sm:px-[15px] sm:text-fl-ink" : "border-fl-line bg-white text-fl-ink hover:border-fl-ink",
               )}
             >
-              <span className="sm:hidden">{tab.city}</span>
+              {/* Phones show the city alone; wider, the store's name with its city under it. */}
               <span className="hidden w-full truncate text-[0.9375rem] sm:block">{tab.storeName}</span>
-              <span className="hidden w-full truncate text-xs font-normal text-fl-dim sm:block">
-                {tab.city} · {tab.title}
-              </span>
+              <span className="sm:block sm:w-full sm:truncate sm:text-xs sm:font-normal sm:text-fl-dim">{tab.city}</span>
             </button>
           );
         })}
       </div>
-      {tabs.map((tab, i) => (
-        <div key={tab.slug} role="tabpanel" id={`panel-${tab.slug}`} aria-labelledby={`tab-${tab.slug}`} hidden={i !== at}>
-          {panels[i]}
-        </div>
-      ))}
+      {/* Only the picked store's panel is in the page (its map included); the others mount when picked. */}
+      {tabs.map((tab, i) =>
+        i === at ? (
+          <div key={tab.slug} role="tabpanel" id={`panel-${tab.slug}`} aria-labelledby={`tab-${tab.slug}`}>
+            {panels[i]}
+          </div>
+        ) : null,
+      )}
     </div>
   );
 }

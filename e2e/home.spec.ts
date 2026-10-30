@@ -330,7 +330,7 @@ test.describe("the store-events landing", () => {
     const hero = page.locator("#hero");
     await expect(hero.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
     await expect(hero.getByRole("link", { name: "See a real plan" })).toHaveAttribute("href", LEAD_EVENT);
-    // The sub says Qloo picks, at every width (phones get a shorter line that still names Qloo and the three draws).
+    // The sub says Qloo picks, at every width (on phones each sentence is its own block).
     const sub = hero.getByText(/Stoop uses Qloo's taste data to plan yours/).filter({ visible: true });
     await expect(sub).toHaveCount(1);
     for (const draw of [/music your city plays/, /snacks .*from spots/, /prize wheel/]) await expect(sub).toContainText(draw);
@@ -368,21 +368,25 @@ test.describe("the store-events landing", () => {
     expect(lcp).toBe("H1");
   });
 
-  test("until the founder's video is in, the band shows the lead example's real plan with its receipts", async ({ page }) => {
+  test("the founder's video sits right under the hero once it's set, and nothing stands in for it before", async ({ page }) => {
     await page.goto("/");
-    const band = page.getByRole("region", { name: "A real plan: Warm Cup Wheel Stop" });
-    await expect(band.getByText("What Stoop picked for this table")).toBeVisible();
-    await expect(band.getByText(andList(qloo.artists.slice(0, 3)))).toBeVisible();
-    await expect(band.getByRole("img", { name: /^Event poster/ })).toBeVisible();
-    await band.getByRole("link", { name: "Why Qloo picked this: Snacks" }).click();
-    const receipt = page.getByRole("dialog", { name: /^Receipt:/ });
-    await expect(receipt).toBeVisible();
-    // The raw Qloo query sits one tap away, under Technical details.
-    await receipt.getByText("Technical details").click();
-    await expect(receipt.getByText("Endpoint")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(receipt).toBeHidden();
-    await expect(page).toHaveURL(/\/$/);
+    const band = page.getByRole("region", { name: "A real table" });
+    const next = await page.locator("#hero").evaluate((hero) => hero.nextElementSibling?.getAttribute("aria-label") ?? hero.nextElementSibling?.id ?? null);
+    if ((await band.count()) === 0) {
+      // No video yet: the example stores follow the hero, with no empty band and no stand-in card.
+      expect(next).toBe("examples");
+      await expect(page.getByText("What Stoop picked for this table")).toHaveCount(0);
+      await expect(page.locator("video")).toHaveCount(0);
+    } else {
+      // The video loads after the H1: nothing until it is in view, muted, inline, its poster frame first.
+      expect(next).toBe("A real table");
+      const video = band.locator("video");
+      await expect(video).toHaveAttribute("preload", "none");
+      await expect(video).toHaveAttribute("poster", /\.(jpe?g|webp|png)$/);
+      expect(await video.evaluate((v: HTMLVideoElement) => v.muted && v.playsInline && v.loop)).toBe(true);
+      // The corner button (under reduced motion a second play button also sits in the middle).
+      await expect(band.getByRole("button", { name: /Pause the video|Play the video/ }).last()).toBeVisible();
+    }
     // No before and after slot until the founder has the photos.
     await expect(page.getByText("From the pilot")).toHaveCount(0);
   });
@@ -393,11 +397,9 @@ test.describe("the store-events landing", () => {
     await expect(tabs).toHaveCount(3);
     await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tabpanel")).toHaveCount(1);
-    // The band above already shows the lead store's plan, so the tabs open on another community, and
-    // the same poster or plan never shows twice in a row.
+    // The comparison below is the lead store's, so the tabs open on another community.
     await expect(page.getByRole("tabpanel").getByText(/^Two Lines, One Table: Wings and Wheel\./)).toBeVisible();
-    const bandPoster = await page.getByRole("region", { name: "A real plan: Warm Cup Wheel Stop" }).getByRole("img", { name: /^Event poster/ }).getAttribute("alt");
-    expect(await page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ }).getAttribute("alt")).not.toBe(bandPoster);
+    await expect(page.getByRole("tabpanel").getByRole("img", { name: /^Event poster/ })).toBeVisible();
 
     await tabs.nth(0).focus();
     await page.keyboard.press("ArrowRight");
@@ -411,13 +413,24 @@ test.describe("the store-events landing", () => {
     await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tabpanel").getByText(/^Warm Cup Wheel Stop:/)).toBeVisible();
 
+    // Each tab is short: the sentence with its Qloo picks, the map, the poster and a way into the plan.
     const panel = page.getByRole("tabpanel");
-    await expect(panel.getByText("The day")).toBeVisible();
     await expect(panel.getByText(/^24 places from Qloo, within about 1 mile$/)).toBeVisible();
-    await expect(panel.getByText(/Qloo calls\.$/).first()).toBeVisible();
+    await expect(panel.getByText("Free to spin, no purchase needed")).toBeVisible();
+    await expect(panel.getByText("Fictional store. Not affiliated with or endorsed by T-Mobile.")).toBeVisible();
+    await expect(panel.getByRole("img", { name: /^Event poster/ })).toBeVisible();
+    await expect(panel.getByRole("link", { name: "Open the plan for 18th Street Wireless" })).toHaveAttribute("href", LEAD_EVENT);
+    await expect(panel.getByText("The day")).toHaveCount(0);
+    await expect(panel.getByText(/Qloo calls/)).toHaveCount(0);
     await panel.getByRole("link", { name: `${qloo.snackPlace}: why Qloo picked this` }).click();
-    await expect(page.getByRole("dialog", { name: /^Receipt:/ })).toBeVisible();
+    const receipt = page.getByRole("dialog", { name: /^Receipt:/ });
+    await expect(receipt).toBeVisible();
+    // The raw Qloo query sits one tap away, under Technical details.
+    await receipt.getByText("Technical details").click();
+    await expect(receipt.getByText("Endpoint")).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(receipt).toBeHidden();
+    await expect(page).toHaveURL(/\/$/);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
 
@@ -447,8 +460,11 @@ test.describe("the store-events landing", () => {
     if ((await off.count()) > 0) {
       const section = page.locator("section", { has: off });
       await expect(section.getByText("Posting straight to your Facebook Page turns on once Meta approves the app.")).toBeVisible();
-      // Every post says it is ready to share, as a plain label: nothing in the timeline looks like a button.
-      await expect(section.getByText("Ready to share")).toHaveCount(4);
+      // One line names the channels once; the four send times sit in a compact row, as plain text.
+      await expect(section.getByText(/Facebook, Instagram and WhatsApp/)).toHaveCount(1);
+      const times = section.getByRole("list", { name: "When the posts go out" }).getByRole("listitem");
+      await expect(times).toHaveCount(4);
+      for (const [i, when] of ["Now", "Fri 7 pm", "Sat 9 am", "Sat 11 am"].entries()) await expect(times.nth(i)).toContainText(when);
       await expect(section.getByText("Copy", { exact: true })).toHaveCount(0);
       await expect(section.getByRole("button")).toHaveCount(0);
       await expect(section.getByText("Scheduled")).toHaveCount(0);

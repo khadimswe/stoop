@@ -1,13 +1,12 @@
-// The landing's "Same table. Different community." section, the media band's still and the posting
-// timeline, built from an example store's recorded plan. Pure: every name and number comes from the
-// plan view (lib/plan/view/plan.ts, names from the run's own Qloo results) or the report's own stats.
-// Nothing is invented; a line with nothing behind it is left out.
+// The landing's "Same table. Different community." tabs and the posting times, built from an example
+// store's recorded plan. Pure: every name and number comes from the plan view (lib/plan/view/plan.ts,
+// names from the run's own Qloo results). Nothing is invented; a line with nothing behind it is left out.
 import type { ReceiptView } from "../report/view/types";
 import type { PlanReport } from "../plan/schema";
 import { playView } from "../plan/view/floor";
 import { exampleHrefs } from "../plan/view/hrefs";
-import type { PlaceView, PlanView, TextPart } from "../plan/view/plan";
-import { ageSpan, genericCheckWords, listOf, usDistance, usRadius } from "./plain-words";
+import type { PlaceView, PlanView } from "../plan/view/plan";
+import { usDistance, usRadius } from "./plain-words";
 
 export { ageSpan, listOf } from "./plain-words";
 
@@ -21,20 +20,6 @@ export interface MapPin {
   point: { lat: number; lon: number } | null;
   distanceM: number | null;
   used: boolean;
-}
-
-export interface DayStep {
-  time: string;
-  clock: string;
-  label: string | null;
-  text: string;
-}
-
-export interface DecidedCell {
-  eyebrow: string;
-  text: string;
-  /** "2 Qloo calls", from the report's own stage stats; null for a stage with no Qloo call. */
-  calls: string | null;
 }
 
 export interface StoreShowcase {
@@ -54,26 +39,14 @@ export interface StoreShowcase {
     chip: string;
     label: string;
   } | null;
-  day: DayStep[];
-  /** How many steps the whole timeline has. */
-  daySteps: number;
+  /** The approved poster as a WebP 720 wide (sharp at the tab's 240 px on 2x screens), lazy-loaded. */
   poster: { src: string | null; alt: string };
-  decided: DecidedCell[];
   hrefs: { event: string; block: string; poster: string; promote: string };
   fictional: string | null;
 }
 
-/** Plain text from text parts, names filled in. */
-const plain = (parts: readonly TextPart[]) => parts.map((p) => (p.kind === "text" ? p.text : p.name)).join("");
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Calls a stage made, live and from cache, as "2 Qloo calls". */
-function stageCalls(report: Pick<PlanReport, "stats">, stage: keyof PlanReport["stats"]["stages"]): string | null {
-  const s = report.stats.stages[stage];
-  const n = s ? s.liveCalls + s.cachedCalls : 0;
-  return n > 0 ? `${n} Qloo ${n === 1 ? "call" : "calls"}` : null;
-}
 
 const placeByPin = (view: PlanView, n: number): PlaceView | undefined => view.local.block?.places.find((p) => p.n === n);
 
@@ -148,106 +121,8 @@ export function verdictParts(view: PlanView, slug: string, receipts: Readonly<Re
 /** The verdict as one line of text, for screen readers and tests. */
 export const verdictText = (parts: readonly VerdictPart[]) => parts.map((p) => p.text).join("");
 
-/**
- * Five steps of the day: the first and the last, then the opening, a step at a community spot, the
- * walk inside with a staffer and the drawing, as far as the plan has them.
- */
-export function keyDaySteps(view: PlanView, max = 5): DayStep[] {
-  const steps = view.runOfShow;
-  if (steps.length <= max) return steps.map(toDay);
-  const picked = new Set<number>([0, steps.length - 1]);
-  const middle = steps.map((s, i) => ({ s, i })).slice(1, -1);
-  const tests: ((s: (typeof steps)[number]) => boolean)[] = [
-    (s) => /^open/i.test(s.label ?? ""),
-    (s) => s.parts.some((p) => p.kind === "ref"),
-    (s) => /\b(walk|winners?)\b/i.test(plain(s.parts)),
-    (s) => /\bdrawing\b/i.test(plain(s.parts)),
-  ];
-  for (const test of tests) {
-    if (picked.size >= max) break;
-    const hit = middle.find(({ s, i }) => !picked.has(i) && test(s));
-    if (hit) picked.add(hit.i);
-  }
-  for (const { i } of middle) {
-    if (picked.size >= max) break;
-    picked.add(i);
-  }
-  return [...picked].sort((a, b) => a - b).map((i) => toDay(steps[i]!));
-}
-
-function toDay(s: PlanView["runOfShow"][number]): DayStep {
-  return { time: s.time, clock: s.clock, label: s.label, text: plain(s.rest).trim() };
-}
-
-/**
- * The kept idea's rubric score as the run said it ("scored 25 of 30 on the event rubric", where
- * bringing people inside counts double), else its plain total.
- */
-export function keptScore(view: PlanView): { total: number; max: number } {
-  for (const step of view.trace) {
-    const m = step.label.startsWith("Kept ") && step.reason ? /scored (\d+) of (\d+)/.exec(step.reason) : null;
-    if (m) return { total: Number(m[1]), max: Number(m[2]) };
-  }
-  return { total: view.concept?.total ?? 0, max: view.concept?.max ?? 0 };
-}
-
-/** The four "How Stoop decided" cells, with the report's own counts. */
-export function decidedCells(view: PlanView, report: Pick<PlanReport, "stats" | "baseline">): DecidedCell[] {
-  const cells: DecidedCell[] = [];
-  const city = view.local.city;
-  if (city) {
-    const playing = playView(view).artists.length;
-    cells.push({
-      eyebrow: "Qloo · the city",
-      text: `${city.artists.length} artists Qloo ranks for ${city.name}, adults ${ageSpan(city.ageText)}. The playlist plays ${playing} of them.`,
-      calls: stageCalls(report, "city"),
-    });
-  }
-  const block = view.local.block;
-  if (block) {
-    const withWhy = block.places.filter((p) => p.why).length;
-    const from = view.header.venue ? "the event" : "the door";
-    cells.push({
-      eyebrow: "Qloo · the community",
-      text: `${block.places.length} places within ${usRadius(block.radiusM)} of ${from}, ${withWhy === block.places.length ? "each with" : `${withWhy} with`} Qloo's reason for it.`,
-      calls: stageCalls(report, "block"),
-    });
-  }
-  if (view.concept) {
-    const ideas = 1 + view.alternatives.length;
-    const score = keptScore(view);
-    cells.push({
-      eyebrow: "Claude · the plan",
-      text:
-        ideas === 1
-          ? `One table idea, scored ${score.total} of ${score.max} on whether it stops people and brings them inside, then fit to the ${view.header.budgetText}.`
-          : `${ideas} table ideas, each scored on whether it stops people and brings them inside. The best, at ${score.total} of ${score.max}, was fit to the ${view.header.budgetText}.`,
-      calls: null,
-    });
-  }
-  const baseline = report.baseline;
-  if (baseline) {
-    const noPlace = baseline.cliches.some((c) => /place|community/i.test(c.text));
-    const check = genericCheckWords(view, true);
-    const text =
-      noPlace && check
-        ? `A generic AI plan for the same store named no place nearby, and ${check}.`
-        : noPlace
-          ? "A generic AI plan for the same store named no place nearby."
-          : check
-            ? `A generic AI plan for the same store: ${check}.`
-            : "A generic AI plan for the same store, checked against Qloo.";
-    cells.push({
-      eyebrow: "Checked",
-      text,
-      calls: stageCalls(report, "baseline"),
-    });
-  }
-  return cells;
-}
-
-/** One example store's showcase, for its tab. */
-export function storeShowcase(view: PlanView, report: Pick<PlanReport, "stats" | "baseline">, slug: string, city: string): StoreShowcase {
+/** One example store's showcase, for its tab: the verdict, its budget and date, its community map and poster. */
+export function storeShowcase(view: PlanView, slug: string, city: string): StoreShowcase {
   const hrefs = exampleHrefs(slug);
   const block = view.local.block;
   const meta = [
@@ -273,56 +148,10 @@ export function storeShowcase(view: PlanView, report: Pick<PlanReport, "stats" |
           label: `Map of the ${block.places.length} places Qloo found within ${usRadius(block.radiusM)} of ${view.header.venue ? "the event" : view.header.storeName}. Filled pins are the ones the plan uses.`,
         }
       : null,
-    day: keyDaySteps(view),
-    daySteps: view.runOfShow.length,
     poster: { src: view.marketing.poster.medium, alt: view.marketing.poster.alt },
-    decided: decidedCells(view, report),
     hrefs: { event: hrefs.event, block: hrefs.block, poster: hrefs.poster, promote: hrefs.promote },
     fictional: view.header.fictional,
   };
-}
-
-export interface PickRow {
-  n: number;
-  title: string;
-  value: string;
-  note: string;
-  receipt: string | null;
-  /** Where the receipt link goes without JavaScript. */
-  href: string;
-}
-
-/** "What Stoop picked for this table": the lead example's music, snack spot and wheel, for the media band's still. */
-export function tablePicks(view: PlanView, slug: string): PickRow[] {
-  const rows: Omit<PickRow, "n">[] = [];
-  const city = view.local.city;
-  const play = playView(view);
-  if (city && play.artists.length) {
-    const music = view.concept?.items.find((i) => i.kind === "music");
-    const ranks = (music?.parts ?? []).flatMap((p) => (p.kind === "ref" ? [city.artists.find((a) => a.id === p.id)?.rank] : [])).filter((r): r is number => typeof r === "number");
-    const who = ranks.length === play.artists.length ? `Qloo's ${listOf(ranks.map((r) => `#${r}`))}` : "Artists Qloo ranks";
-    rows.push({ title: "Music", value: listOf(play.artists), note: `${who} for ${city.name}, adults ${ageSpan(city.ageText)}`, receipt: play.receipt, href: `${exampleHrefs(slug).event}#receipt-play` });
-  }
-  const snack = snackPick(view);
-  if (snack) {
-    const from = view.header.venue ? "the event" : "the door";
-    rows.push({ title: "Snacks", value: `${snack.item} from ${snack.from.name}`, note: snack.place?.distanceM != null ? `${usDistance(snack.place.distanceM)} from ${from}` : "From a community spot", receipt: snack.from.receipt, href: placeHref(view, slug, snack.place) });
-  }
-  if (view.wheel) {
-    const promos = view.wheel.slices.filter((s) => s.kind === "promo").length;
-    const cards = view.wheel.slices.filter((s) => s.kind === "gift_card");
-    const gifts = cards.map((s) => lowerFirst(s.text.replace(/\.$/, "")));
-    // The receipt and the link without JavaScript both point at the same gift card.
-    const backed = cards.find((s) => s.receipt);
-    rows.push({
-      title: "Prize wheel",
-      value: `Your ${promos} ${promos === 1 ? "deal" : "deals"}${gifts.length ? `, plus ${listOf(gifts)}` : ""}`,
-      note: view.wheel.rules[0]?.split(". ")[0]?.replace(/\.$/, "") ?? "Free to spin",
-      receipt: backed?.receipt ?? null,
-      href: placeHref(view, slug, backed?.place ? placeByPin(view, backed.place.n) : undefined),
-    });
-  }
-  return rows.map((r, i) => ({ ...r, n: i + 1 }));
 }
 
 export interface TimelinePost {

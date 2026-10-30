@@ -9,7 +9,8 @@ import { ReserveStores } from "@/components/stoop/home/reserve-stores";
 import { StorePanel } from "@/components/stoop/home/store-panel";
 import { StoreTabs } from "@/components/stoop/home/store-tabs";
 import { metaPostingEnabled } from "@/lib/config";
-import { pickReceipts, postTimeline, storeShowcase, tablePicks, type TimelinePost } from "@/lib/marketing/landing-stores";
+import { beforeAfterItems } from "@/lib/marketing/before-after";
+import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
 import { BEFORE_AFTER, DEMO_VIDEO, FOUNDER_STORY, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { landingCompare } from "@/lib/plan/view/floor";
@@ -26,19 +27,19 @@ const H2 = "font-serif text-[clamp(1.875rem,1.3rem+2.5vw,3.375rem)] leading-[1.0
 const LEDE = "max-w-[46rem] text-lg leading-[1.5] text-pretty text-fl-muted lg:text-[1.1875rem]";
 
 const STEPS = [
-  { name: "Community", line: "Qloo maps the places within about a mile of your door and the artists your city plays.", href: "block" },
-  { name: "Create", line: "Pick the day, the hours and the budget, and type your deals the way you'd say them.", href: "create" },
-  { name: "Event", line: "Stoop plans the table: music, snacks, a prize wheel and the timeline, fit to the budget.", href: "event" },
-  { name: "Poster", line: "A poster with your deals word for word, ready to print or share.", href: "poster" },
-  { name: "Promote", line: "Posts written for Facebook, Instagram and WhatsApp. Nothing goes out without you.", href: "promote" },
+  { name: "Community", line: "Qloo finds the places nearby and the artists your city plays." },
+  { name: "Create", line: "Pick the day and budget. Type your deals." },
+  { name: "Event", line: "Stoop plans the table to fit the budget." },
+  { name: "Poster", line: "Your deals, word for word, ready to print." },
+  { name: "Promote", line: "Posts for each channel. Nothing goes out without you." },
 ] as const;
 
-/** Each post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
+/** A post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
 function PostStatus({ post }: { post: TimelinePost }) {
   const Icon = post.status === "scheduled" ? Clock : Check;
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-[0.8125rem] font-medium whitespace-nowrap text-fl-dark-dim">
-      <Icon aria-hidden="true" className="size-3.5 text-fl-signal" />
+    <span className="inline-flex items-start gap-1.5 text-[0.8125rem] font-medium text-fl-dark-dim">
+      <Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-fl-signal" />
       {post.statusText}
     </span>
   );
@@ -51,30 +52,31 @@ export default function Home() {
     const view = loadPlanExampleView(slug);
     const report = loadPlanExampleReport(slug);
     const city = PLAN_EXAMPLES.find((e) => e.slug === slug)?.city ?? view.header.cityLine;
-    const show = storeShowcase(view, report, slug, city);
+    const show = storeShowcase(view, slug, city);
     const keys = show.verdict.flatMap((p) => (p.kind === "pick" ? [p.receipt] : []));
     return { slug, view, report, show, receipts: pickReceipts(view.receipts, keys) };
   });
   const leadStore = stores.find((s) => s.slug === lead)!;
   const leadView = leadStore.view;
   const leadHrefs = exampleHrefs(lead);
-  const picks = tablePicks(leadView, lead);
   const compare = landingCompare(leadView);
   const compareReceipts = pickReceipts(leadView.receipts, compare.flatMap((r) => [r.genericReceipt, r.stoopReceipt]));
   const posting = metaPostingEnabled();
   const postCopy = POSTING_COPY[posting ? "on" : "off"];
   const posts = postTimeline(PLAN_EXAMPLE_INPUTS[lead], posting);
+  // Share mode readies every post the same way, so its status is said once, in the copy, not per post.
+  const mixedStatus = new Set(posts.map((p) => p.statusText)).size > 1;
   const cityName = leadView.local.city?.name ?? leadStore.show.city;
   const bandMedia = PILOT_COPY ? PILOT_MEDIA : null;
-  // The band above shows the lead store's plan and poster, so the tabs open on another store (a different
-  // community right away, never the same plan twice in a row) and the lead store comes last.
-  const tabStores = bandMedia ? stores : [...stores.filter((s) => s.slug !== lead), leadStore];
+  const pilotMedia = Boolean(bandMedia) || beforeAfterItems(PILOT_COPY ? BEFORE_AFTER : null).length > 0;
+  // The comparison below is the lead store's, so the tabs open on another community and the lead store comes last.
+  const tabStores = [...stores.filter((s) => s.slug !== lead), leadStore];
 
   return (
     <>
       <HomeNav />
       <main className="flex-1">
-        {/* The hero fills the first screen (the band below only peeks in), so the H1 stays the largest paint. */}
+        {/* The hero fills the first screen, so the H1 stays the largest paint; the video (when set) loads after it. */}
         <section id="hero" aria-labelledby="hero-title" className="mx-auto flex min-h-[calc(100svh-72px-40px)] max-w-[1248px] flex-col items-center justify-center px-4 pt-10 pb-12 text-center sm:px-8">
           <p className="inline-flex min-h-8 items-center rounded-full border border-fl-line bg-white px-3.5 py-1 text-[0.8125rem] font-medium">
             <span className="hidden sm:inline">{HERO.eyebrow}</span>
@@ -84,12 +86,11 @@ export default function Home() {
           <h1 id="hero-title" className="mt-6 max-w-[11em] font-serif text-[clamp(2.5rem,1.1rem+5.6vw,6rem)] leading-[1] font-normal tracking-[-0.02em] text-balance">
             {HERO.headline}
           </h1>
-          <p className="mt-6 hidden max-w-[52rem] text-lg leading-[1.5] text-balance text-fl-muted md:block lg:text-[1.3125rem]">{HERO.sub}</p>
-          {/* Phones and small tablets: each sentence its own block, so neither out-paints the H1. */}
-          <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted md:hidden">
-            {HERO.subShort.map((line) => (
-              <span key={line} className="block">
-                {line}
+          {/* Phones and small tablets: each sentence its own block, so none out-paints the H1. */}
+          <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted md:mt-6 md:max-w-[52rem] md:text-lg md:text-balance lg:text-[1.3125rem]">
+            {HERO.sub.map((line, i) => (
+              <span key={line} className="block md:inline">
+                {i > 0 ? ` ${line}` : line}
               </span>
             ))}
           </p>
@@ -114,33 +115,22 @@ export default function Home() {
           {PILOT_COPY && PILOT_LINE && <p className="mt-4 text-sm text-fl-muted">{PILOT_LINE}</p>}
         </section>
 
-        <MediaBand
-          media={bandMedia}
-          still={{
-            title: leadStore.show.title,
-            line: `${leadView.header.storeName} · ${leadStore.show.city} · ${leadView.header.dateShort}, ${leadView.header.timeText}`,
-            poster: leadStore.show.poster,
-            picks,
-            href: leadHrefs.event,
-            fictional: leadView.header.fictional,
-            receipts: pickReceipts(leadView.receipts, picks.map((p) => p.receipt)),
-          }}
-        />
+        <MediaBand media={bandMedia} />
 
         <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
-        <section id="examples" aria-labelledby="examples-title" className="mt-16 scroll-mt-20 bg-fl-band lg:mt-24">
+        <section id="examples" aria-labelledby="examples-title" className={cn("scroll-mt-20 bg-fl-band", pilotMedia && "mt-16 lg:mt-24")}>
           <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
             <div className="flex flex-col gap-3">
               <p className={EYEBROW}>See it work</p>
               <h2 id="examples-title" className={H2}>
                 Same table. Different community.
               </h2>
-              <p className={LEDE}>Three example stores with the same kind of deals. Qloo picked different music, food spots and prizes for each one. Tap an underlined name to see why.</p>
+              <p className={LEDE}>Three example stores with the same kind of deals. Tap an underlined name to see why Qloo picked it.</p>
             </div>
             <StoreTabs
               label="Example stores"
-              tabs={tabStores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city, title: s.show.title }))}
+              tabs={tabStores.map((s) => ({ slug: s.slug, storeName: s.show.storeName, city: s.show.city }))}
               panels={tabStores.map((s) => (
                 <StorePanel key={s.slug} show={s.show} receipts={s.receipts} />
               ))}
@@ -156,9 +146,7 @@ export default function Home() {
                 <h2 id="generic-title" className={H2}>
                   A generic AI plan could be for any store.
                 </h2>
-                <p className={LEDE}>
-                  We asked the same model for a plan for {leadView.header.storeName}, with the same budget and deals but no Qloo. Then Qloo checked what it picked.
-                </p>
+                <p className={LEDE}>Same model, same store, budget and deals, but no Qloo. Then Qloo checked what it picked.</p>
               </div>
               <table className="mt-8 w-full text-[0.9375rem] leading-[1.45] md:table-fixed">
                 <caption className="sr-only">The generic AI plan and Stoop&apos;s plan for {leadView.header.storeName}, line by line</caption>
@@ -210,7 +198,7 @@ export default function Home() {
                 </tbody>
               </table>
               <p className="mt-4 text-[0.8125rem] text-fl-dim">
-                {cityName} example, recorded {stampDate(leadStore.report.meta.createdAt)}. Both plans had the same inputs; only Qloo was left out.{" "}
+                {cityName} example, recorded {stampDate(leadStore.report.meta.createdAt)}.{" "}
                 <Link href={`${leadHrefs.event}#compare`} className="font-medium text-fl-ink underline underline-offset-[3px]">
                   See the whole comparison
                 </Link>
@@ -220,7 +208,7 @@ export default function Home() {
         )}
 
         <section id="how" aria-labelledby="how-title" className="scroll-mt-20 border-t border-fl-rule">
-          <div className="mx-auto flex max-w-[1248px] flex-col gap-10 px-4 py-16 sm:px-8 lg:py-24">
+          <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
             <div className="flex flex-col gap-3">
               <p className={EYEBROW}>How it works</p>
               <h2 id="how-title" className={H2}>
@@ -235,19 +223,19 @@ export default function Home() {
                     {s.name}
                   </p>
                   <p className="text-[0.9375rem] leading-[1.45] text-pretty text-fl-muted">{s.line}</p>
-                  <Link href={leadHrefs[s.href]} className="mt-auto inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-[3px]">
-                    See it in the example
-                    <span className="sr-only">: {s.name}</span>
-                  </Link>
                 </li>
               ))}
             </ol>
+            <Link href={leadHrefs.block} className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
+              See the steps in an example
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Link>
             <DemoVideoSlot video={DEMO_VIDEO} />
           </div>
         </section>
 
         <section aria-labelledby="posts-title" className="floor-dark bg-fl-dark text-fl-dark-bright">
-          <div className="mx-auto grid max-w-[1248px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] lg:gap-16 lg:py-24">
+          <div className="mx-auto grid max-w-[1248px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-16 lg:py-24">
             <div className="flex flex-col gap-4">
               <p className="text-sm font-semibold tracking-[0.02em] text-fl-dark-dim">Promote</p>
               <h2 id="posts-title" className={H2}>
@@ -256,24 +244,17 @@ export default function Home() {
               <p className="text-lg leading-[1.5] text-pretty text-fl-dark-dim">{postCopy.body}</p>
               <p className="text-sm text-fl-dark-dim">{postCopy.note}</p>
             </div>
-            <figure className="flex flex-col gap-3">
-              <ol className="rounded-[20px] bg-fl-dark-2 px-4 py-1 sm:px-5">
-                {posts.map((p, i) => (
-                  <li key={p.title} className={cn("flex items-center gap-3 py-3.5", i > 0 && "border-t border-fl-dark-rule")}>
-                    <span className="hidden w-24 shrink-0 text-sm font-semibold tabular-nums sm:block">{p.when}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-semibold text-fl-dark-dim tabular-nums sm:hidden">{p.when}</span>
-                      <span className="block text-[0.9375rem] font-semibold">{p.title}</span>
-                      <span className="block text-[0.8125rem] text-fl-dark-dim">{p.channels}</span>
-                    </span>
-                    <PostStatus post={p} />
-                  </li>
-                ))}
-              </ol>
-              <figcaption className="text-[0.8125rem] text-fl-dark-dim">
-                Example: {leadView.header.storeName}, {leadView.header.dateShort}, {leadView.header.timeText}.
-              </figcaption>
-            </figure>
+            {/* The example's send times, in its own calendar: the announcement, then the reminders. Cells grow
+                to fill each row, so 4 or 5 posts never leave an empty slot. */}
+            <ol aria-label="When the posts go out" className="flex flex-wrap gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule">
+              {posts.map((p) => (
+                <li key={p.title} className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
+                  <span className="text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
+                  <span className="text-[0.8125rem] text-fl-dark-dim">{p.title}</span>
+                  {mixedStatus && <PostStatus post={p} />}
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 

@@ -3,9 +3,9 @@
 // - PILOT_COPY: anything from a real store's pilot: the pilot line, the table video (PILOT_MEDIA), the
 //   before and after photos (BEFORE_AFTER) and the result (PILOT_RESULT). OFF until the founder has the
 //   dealer's written permission; each of those also needs its own constant set before it shows.
-// - PILOT_MEDIA: the founder's landscape video of a real table, under the hero. Null until he drops the
-//   files in public/pilot/ (public/pilot/README.md says which) and sets it; until then the band shows
-//   the lead example store's real plan as a still.
+// - PILOT_MEDIA: the founder's landscape video of a real table, right under the hero. Null until he
+//   drops the files in public/pilot/ and sets it (public/pilot/README.md has the steps); until then
+//   nothing renders there and the example stores follow the hero.
 // - DEMO_VIDEO: a longer walkthrough of the product in "How it works", click to play. Null renders
 //   nothing. Not gated: it shows the app, not a store.
 // - FOUNDER_STORY: the founder's own story, ON. It names streets he worked on, never a store or dealer.
@@ -20,13 +20,11 @@ export const HERO = {
   /** The phone's eyebrow, short enough for one line at 320 px. */
   eyebrowShort: "For Metro, Cricket and Boost stores",
   headline: "Give your community a reason to stop.",
-  /** Qloo is named as what picks the music and the places, in the hero's first read. */
-  sub: "Every prepaid store sets up the same table outside. Stoop uses Qloo's taste data to plan yours for the community around it: music your city plays, snacks and gift cards from spots down the street, and a prize wheel built from your deals. Then it makes the poster and lines up the posts.",
   /**
-   * The phone's shorter line: the same table, Qloo, and the three draws. Two sentences, each its own
-   * block, so neither ever paints larger than the H1 (the LCP element) on a 320 to 430 px phone.
+   * Qloo is named as what picks the music and the places, in the hero's first read. One line at every
+   * width: on phones each sentence is its own block, so none paints larger than the H1 (the LCP element).
    */
-  subShort: ["Every prepaid store sets up the same table.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals."],
+  sub: ["Every prepaid store sets up the same table outside.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals.", "Then it makes the poster and the posts."],
   /** The Qloo line leads and says what Qloo is. */
   trust: ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"],
 } as const;
@@ -49,17 +47,18 @@ export interface LandscapeVideo {
 export const PILOT_VIDEO_CAPTION = "Kennesaw, GA · the first table Stoop planned";
 
 /**
- * The founder's landscape video of a real table: 16:9 (1280 by 720), a muted loop that plays inline
- * once it scrolls into view, tap for sound. To turn it on, drop the files in public/pilot/ and set:
+ * The founder's landscape video of a real table, right under the hero: 16:9, a muted loop that plays
+ * inline once it scrolls into view (never under reduced motion, where it waits on its poster frame
+ * with a play button). `sound: true` adds a sound button, only for a clip made with its audio kept.
  *
- *   export const PILOT_MEDIA: PilotMedia | null = {
- *     kind: "video", src: "/pilot/table.mp4", webm: "/pilot/table.webm", poster: "/pilot/table-poster.jpg",
- *     captions: "/pilot/table.vtt", caption: PILOT_VIDEO_CAPTION,
- *   };
+ * To turn it on (public/pilot/README.md has the ffmpeg command): put table.mp4 and table-poster.jpg in
+ * public/pilot/, set PILOT_COPY = true above, and replace the null below with
  *
- * Null: the band shows the lead example store's poster and what Stoop picked for its table.
+ *   { kind: "video", src: "/pilot/table.mp4", poster: "/pilot/table-poster.jpg", caption: PILOT_VIDEO_CAPTION }
+ *
+ * Null renders nothing: the example stores follow the hero.
  */
-export type PilotMedia = LandscapeVideo & { kind: "video"; caption: string };
+export type PilotMedia = LandscapeVideo & { kind: "video"; caption: string; sound?: boolean };
 export const PILOT_MEDIA: PilotMedia | null = null;
 
 /**
@@ -112,12 +111,12 @@ export const FOUNDER_STORY: { quote: string; line: string; credit: string } | nu
 export const POSTING_COPY = {
   on: {
     title: "Approve once. Stoop lines up the posts.",
-    body: "One announcement now, then reminders the evening before, the morning of and an hour before. Facebook posts go out on schedule on their own. Instagram posts when you approve. WhatsApp opens your share sheet for the groups you already have.",
+    body: "Facebook sends the announcement and reminders on schedule. Instagram posts when you approve, and WhatsApp opens your share sheet.",
     note: "Posting is on only for stores that connect their Facebook Page.",
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "Stoop writes the announcement and the reminders for the evening before, the morning of and an hour before, for Facebook, Instagram and WhatsApp. You copy or share each one when it's time; nothing goes out without you.",
+    body: "An announcement and reminders for Facebook, Instagram and WhatsApp. You share each one when it's time.",
     note: "Posting straight to your Facebook Page turns on once Meta approves the app.",
   },
 } as const;

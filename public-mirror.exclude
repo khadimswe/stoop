@@ -50,6 +50,9 @@ MIRROR.md
 # same file would open pull requests there, and merging one would stop every later mirror push.
 .github/dependabot.yml
 # macOS folder metadata committed by accident once (it names local files).
+# The founder's real store media (the pilot video, poster frame and photos): shown on the live site
+# with the dealer's permission, never copied into the public code mirror.
+regex:^public/pilot/(?!README\.md$)
 regex:(^|/)\.DS_Store$
 
 # Names the Qloo name check (`--names-from`) would flag that are ordinary words or public place
