@@ -36,7 +36,7 @@ import { appendPlanEvents, getPlanMeta, setPlanMeta, type PlanMeta } from "./sto
 
 /** Plans at once (admission: more than this replays an example, with no queue). */
 export const MAX_LIVE_PLANS = 3;
-/** A lease outlives the longest plan (maxDuration 300 s) a little, so a crashed plan frees its slot. */
+/** A lease outlives the longest plan (the 300 s function timeout) a little, so a crashed plan frees its slot. */
 export const PLAN_LEASE_MS = 320_000;
 export const PLANS_PER_HOUR = 6;
 /**
@@ -49,7 +49,7 @@ export const PLANS_PER_NETWORK_DAILY = 10;
 export const MAX_EVENT_DAYS_AHEAD = 28;
 /** Every Claude call fits before this, and a stage with no time left uses its plain fallback. */
 export const PLAN_DEADLINE_MS = 240_000;
-/** The last resort: the run is stopped here, leaving the function (maxDuration 300 s) time to write what it has. */
+/** The last resort: the run is stopped here, leaving the function (300 s timeout) time to write what it has. */
 export const PLAN_HARD_STOP_MS = 265_000;
 /** A claim with no meta this old belongs to a start that crashed midway; it is replaced. */
 export const STALE_CLAIM_MS = 30_000;

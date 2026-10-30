@@ -14,9 +14,6 @@ import { signingSecret } from "@/lib/sign";
 import { getStorage, StorageConfigError } from "@/lib/storage";
 import { getStore } from "@/lib/store";
 
-// Node runtime: the default, and Cache Components refuses the runtime segment option.
-export const maxDuration = 300;
-
 /** The job stops itself before the platform's limit, so it can still say it ran out of time. */
 const DEADLINE_MS = 280_000;
 

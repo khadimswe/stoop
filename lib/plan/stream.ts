@@ -19,7 +19,7 @@ export async function marketingBusy(store: Store, runId: string): Promise<boolea
   }
 }
 
-/** A stream never runs longer than this (the route's maxDuration is 300 s). */
+/** A stream never runs longer than this (Vercel's default function timeout is 300 s). */
 export const PLAN_STREAM_MAX_MS = 280_000;
 
 interface Progress {

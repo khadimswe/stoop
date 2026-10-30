@@ -8,9 +8,6 @@ import { failSafe } from "@/lib/routes/guard";
 import { socialDeps } from "@/lib/social/server";
 import { getStore } from "@/lib/store";
 
-// Instagram's publish checks the container a few times before it goes out.
-export const maxDuration = 60;
-
 export async function POST(request: Request, ctx: RouteContext<"/api/plan/[id]/social/post">) {
   const { id } = await ctx.params;
   return failSafe("Meta post", () => ownerOnly(request, id, getStore, () => postToMeta(request, id, socialDeps())));

@@ -3,8 +3,6 @@
 import { postResume } from "@/lib/runtime/routes";
 import { routeDeps } from "@/lib/runtime/server";
 
-export const maxDuration = 300;
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return postResume(request, (await params).id, routeDeps());
 }

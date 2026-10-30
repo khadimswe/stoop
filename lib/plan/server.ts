@@ -30,7 +30,7 @@ function knownChains(): Promise<ReadonlySet<string>> {
   return chains;
 }
 
-/** POST /api/plan's maxDuration (300 s), less a margin: the plan and its marketing share it. */
+/** POST /api/plan's function timeout (Vercel's default, 300 s), less a margin: the plan and its marketing share it. */
 const INVOCATION_MS = 290_000;
 
 /**

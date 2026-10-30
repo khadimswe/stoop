@@ -7,8 +7,6 @@
 import { connection } from "next/server";
 import { mcpEndpoint } from "@/lib/mcp/endpoint";
 
-export const maxDuration = 300;
-
 export async function POST(request: Request, ctx: RouteContext<"/api/mcp/[token]">): Promise<Response> {
   const { token } = await ctx.params;
   return mcpEndpoint.post(request, { pathToken: token });

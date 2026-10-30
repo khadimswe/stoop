@@ -27,7 +27,7 @@ import { estimateUsd } from "./cost";
 import { emptyTally, memoizedModel } from "./memo";
 import { loadRunRecord, type RunRecord } from "./record";
 
-/** The run stops here, leaving the function (maxDuration 300 s) time to write what it has. */
+/** The run stops here, leaving the function (300 s timeout) time to write what it has. */
 export const DEADLINE_MS = 240_000;
 
 export interface ExecuteDeps {

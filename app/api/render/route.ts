@@ -4,9 +4,6 @@
 import { createRenderPost } from "@/lib/render/routes";
 import { renderRouteDeps } from "@/lib/render/server";
 
-// Node runtime (the default; Cache Components refuses the runtime option). The poller runs in after().
-export const maxDuration = 300;
-
 export function POST(request: Request): Promise<Response> {
   return createRenderPost(renderRouteDeps())(request);
 }

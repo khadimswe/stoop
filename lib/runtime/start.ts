@@ -25,7 +25,7 @@ import type { RequestContext } from "./types";
 
 /** At most this many live runs at once (admission: more than this replays an example, with no queue). */
 export const MAX_LIVE_RUNS = 2;
-/** A lease outlives the longest run (maxDuration 300 s) a little, so a crashed run frees its slot. */
+/** A lease outlives the longest run (the 300 s function timeout) a little, so a crashed run frees its slot. */
 export const LEASE_MS = 320_000;
 export const RUNS_PER_HOUR = 10;
 export const RESUMES_PER_HOUR = 6;

@@ -3,8 +3,6 @@
 import { postPlan } from "@/lib/plan/routes";
 import { planRouteDeps } from "@/lib/plan/server";
 
-export const maxDuration = 300;
-
 export function POST(request: Request) {
   return postPlan(request, planRouteDeps());
 }

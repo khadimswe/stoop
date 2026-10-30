@@ -22,12 +22,11 @@ if (process.argv.slice(2).find((arg) => !arg.startsWith("-")) === "build") {
 // serverless function's size limit, so that mode is for local builds.
 const API_DATA = ["./data/geo/reference-heatmap.json", "./data/culture/panels.json", "./data/runs/**/*.json", "./data/plans/**/*.json"];
 
-// Next's own server setup, which every function loads at boot (its error inspection requires
-// server/lib/source-maps, compiled/stacktrace-parser and more). Vercel groups API routes by their
-// maxDuration, and a group with no page in it got a trace without these files, so it crashed on boot
-// ("Cannot find module './lib/source-maps'") before any handler ran. Every API function carries every
-// file that setup reaches through require(), found here so a Next upgrade keeps the list right, plus
-// the folders those files live in.
+// API routes keep Vercel's default function timeout (300 s) and never export their own maxDuration:
+// Vercel groups routes into functions by that setting, and a group with no page in it shipped without
+// Next's full server runtime, so on Vercel it crashed on boot ("Cannot find module './lib/source-maps'")
+// and then mid-request. As a second guard, every API function also carries every file Next's server
+// setup reaches through require(), found here so a Next upgrade keeps the list right.
 function nextSetupFiles(): string[] {
   const root = process.cwd();
   const resolveFrom = createRequire(path.join(root, "package.json"));
