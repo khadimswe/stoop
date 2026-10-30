@@ -1,115 +1,86 @@
 # Pilot media for the landing
 
 Everything in this folder is served as is, at `/pilot/<file>`. Nothing shows on the landing until you
-set its constant in `lib/marketing/pilot.ts`, and the table video and the before and after photos also
-need `PILOT_COPY = true`, which you set only once the dealer has agreed in writing (they show a real
-store). Until then the landing shows the lead example store's real plan in the video band, and the
-before and after slot renders nothing.
+set its constant in `lib/marketing/pilot.ts`. The table video and the before and after photos also need
+`PILOT_COPY = true`, which you set only once the dealer has agreed in writing (they show a real store).
+With nothing set, the example stores follow the hero and the page is complete as it is.
 
-## 1. The table video (the band under the hero)
+## 1. The table video (right under the hero)
 
-Drop these four files here:
+1. Make the two files from your phone's clip, from the repo's root folder (one command; change the
+   input path to your clip):
 
-| File | What it is |
-|---|---|
-| `table.mp4` | The video, H.264 (required) |
-| `table.webm` | The same video as VP9 WebM (optional, smaller in Chrome and Firefox) |
-| `table-poster.jpg` | Its first frame, shown before it plays and under reduced motion |
-| `table.vtt` | Captions, if anyone speaks on camera (optional) |
+   ```sh
+   ffmpeg -t 20 -i ~/Desktop/IMG_1234.MOV \
+     -vf "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p" \
+     -c:v libx264 -profile:v high -preset slow -crf 23 -maxrate 5M -bufsize 10M \
+     -an -movflags +faststart -map_metadata -1 public/pilot/table.mp4 \
+     -vf "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080" \
+     -frames:v 1 -q:v 3 -map_metadata -1 public/pilot/table-poster.jpg
 
-Target: landscape 16:9 at 1280 by 720, 15 to 30 seconds, H.264 at about 2 to 3 Mbps, under about 8 MB.
-It plays muted and loops once it scrolls into view; people tap for sound. The first frame is the poster,
-so start on a frame that reads well on its own (the table, not a blur).
+   ls -lh public/pilot
+   ```
 
-Make them with ffmpeg (from the folder with your clip, `input.mov` here; `-ss` and `-t` pick 25 seconds
-from the 3 second mark, and `-map_metadata -1` drops the phone's location and camera data):
+   That writes `table.mp4` (1080p H.264, no sound, starts playing before it finishes downloading) and
+   `table-poster.jpg` (its first frame, shown before it plays and under reduced motion), and drops the
+   phone's location and camera data from both.
 
-```sh
-ffmpeg -ss 3 -t 25 -i input.mov \
-  -vf "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30" \
-  -c:v libx264 -profile:v high -preset slow -b:v 2500k -maxrate 3000k -bufsize 5000k -pix_fmt yuv420p \
-  -c:a aac -b:a 128k -movflags +faststart -map_metadata -1 public/pilot/table.mp4
+   - `-t 20` keeps the first 20 seconds. Add `-ss 3` before it to skip the first 3 seconds; the poster is
+     always the first frame of what you keep, so start on a frame that reads well (the table, not a blur).
+   - Check the size: aim for under about 15 MB. If it's bigger, lower `-t` or change `-crf 23` to `-crf 26`.
+   - To keep the sound, replace `-an` with `-c:a aac -b:a 128k`, and add `sound: true` in step 2 so the
+     video gets a sound button. It still starts muted.
+   - If the video looks grey or washed out, the phone recorded in HDR. Turn off HDR video in the camera
+     settings and film again, or export the clip from Photos as a regular (SDR) video first.
 
-ffmpeg -i public/pilot/table.mp4 -c:v libvpx-vp9 -b:v 1800k -row-mt 1 -c:a libopus -b:a 96k \
-  -map_metadata -1 public/pilot/table.webm
+2. In `lib/marketing/pilot.ts`, set `PILOT_COPY = true` and replace the `null` in the `PILOT_MEDIA` line:
 
-ffmpeg -i public/pilot/table.mp4 -frames:v 1 -q:v 3 public/pilot/table-poster.jpg
+   ```ts
+   export const PILOT_COPY = true;
 
-ls -lh public/pilot
-```
+   export const PILOT_MEDIA: PilotMedia | null = { kind: "video", src: "/pilot/table.mp4", poster: "/pilot/table-poster.jpg", caption: PILOT_VIDEO_CAPTION };
+   ```
 
-If `table.mp4` comes out over about 8 MB, lower `-b:v` to `2000k`, or upload it to the public Vercel Blob
-store instead and use its `https://...public.blob.vercel-storage.com/...` address (the site's security
-policy allows both).
+   The caption under the video is `PILOT_VIDEO_CAPTION` in the same file ("Kennesaw, GA · the first table
+   Stoop planned"); change the words there if you like.
 
-Captions (`table.vtt`) are plain text:
+3. Run `npm run dev` and open the landing: the video sits right under the hero, plays muted once it
+   scrolls into view, and has a pause button. Then commit `public/pilot/table.mp4`,
+   `public/pilot/table-poster.jpg` and `lib/marketing/pilot.ts`.
 
-```
-WEBVTT
-
-00:00.000 --> 00:03.500
-What you hear in the first few seconds.
-```
-
-Then, in `lib/marketing/pilot.ts`:
-
-1. Set `PILOT_COPY = true`, once the dealer has agreed in writing.
-2. Set `PILOT_VIDEO_CAPTION` to your line (for example "Kennesaw, GA · the first table Stoop planned").
-3. Set `PILOT_MEDIA`:
-
-```ts
-export const PILOT_MEDIA: PilotMedia | null = {
-  kind: "video",
-  src: "/pilot/table.mp4",
-  webm: "/pilot/table.webm",
-  poster: "/pilot/table-poster.jpg",
-  captions: "/pilot/table.vtt",
-  caption: PILOT_VIDEO_CAPTION,
-};
-```
-
-Leave out `webm` or `captions` (or set them to `null`) if you don't have them.
+Optional: captions for anything said on camera go in `public/pilot/table.vtt` (plain WebVTT text), with
+`captions: "/pilot/table.vtt"` added to `PILOT_MEDIA`.
 
 ## 2. The walkthrough video (optional, in "How it works")
 
-A longer screen walkthrough, click to play, never autoplays. Same steps as above with your own names, for
-example `demo.mp4` and `demo-poster.jpg` (any length; keep it under about 20 MB or use Blob), then set
-`DEMO_VIDEO` in `lib/marketing/pilot.ts`:
+A longer screen walkthrough, click to play, never autoplays. Make it with the same command and your own
+names (for example `demo.mp4` and `demo-poster.jpg`, any length; keep it under about 20 MB, or upload it to
+the public Vercel Blob store and use its address), then set `DEMO_VIDEO` in `lib/marketing/pilot.ts`:
 
 ```ts
 export const DEMO_VIDEO: DemoVideo | null = { src: "/pilot/demo.mp4", poster: "/pilot/demo-poster.jpg", title: "Planning a table in two minutes" };
 ```
 
-## 3. Before and after photos (optional, right under the video band)
+## 3. Before and after photos (optional, under the video)
 
-Two real photos from the pilot: your usual table as it normally looks, and the table Stoop planned on the
-pilot day. A third image is optional: an AI preview, which always shows an "AI preview" label.
+Two real photos from the pilot: your usual table as it normally looks (`before.jpg`), and the table Stoop
+planned on the pilot day (`after.jpg`). A third, `preview.jpg`, is optional: an AI preview, which always
+shows an "AI preview" label.
 
-| File | What it is |
-|---|---|
-| `before.jpg` | The usual table ("A usual Friday table") |
-| `after.jpg` | The table Stoop planned ("The table Stoop planned") |
-| `preview.jpg` | Optional AI preview, always labeled "AI preview" |
+Rules before any photo goes up: everyone you can recognize in it has agreed to be shown; no one under 18;
+no location metadata (the script below drops all of it); no carrier logos made bigger or added, and nothing
+that reads as the carrier's own ad.
 
-Rules before any photo goes up:
-
-- Everyone you can recognize in it has agreed to be shown.
-- No one under 18 in any photo.
-- No location metadata. The script below drops all of it (EXIF, GPS, camera, time).
-- No carrier logos made bigger or added, and nothing that reads as the carrier's own ad.
-
-Size: 1600 px on the long side, JPEG quality about 80. The script does exactly that (it also turns the
-photo upright first):
+The script turns the photo upright, fits it to 1600 px and writes a JPEG at quality 80 with no metadata:
 
 ```sh
 npx tsx scripts/pilot-photo.ts ~/Desktop/IMG_1234.HEIC public/pilot/before.jpg
 npx tsx scripts/pilot-photo.ts ~/Desktop/IMG_1240.HEIC public/pilot/after.jpg
 ```
 
-(If your version of sharp can't read HEIC, export the photo as JPEG from Photos first.)
-
-Then set `BEFORE_AFTER` in `lib/marketing/pilot.ts` (with `PILOT_COPY = true`, as for the video), with
-alt text that says what is in each photo:
+(If your version of sharp can't read HEIC, export the photo as JPEG from Photos first.) Then set
+`BEFORE_AFTER` in `lib/marketing/pilot.ts` (with `PILOT_COPY = true`), with alt text that says what is in
+each photo:
 
 ```ts
 export const BEFORE_AFTER: BeforeAfter | null = {
