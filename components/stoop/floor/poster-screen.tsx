@@ -89,10 +89,13 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
                 <div className="flex aspect-[4/5] w-full items-center justify-center rounded-[8px] bg-fl-dark-2 text-sm text-fl-dark-dim">No poster yet</div>
               )}
               {making && (
-                <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-fl-dark-bright">
-                  <Loader2 aria-hidden="true" className="size-6 motion-safe:animate-spin" />
-                  <p className="text-[0.9375rem] font-semibold">{m.remaking ? "Painting a new background" : "Making your poster and posts"}</p>
-                  <p className="max-w-[17rem] text-sm text-fl-dark-dim">About a minute. Your words are set by code; only the background art is drawn.</p>
+                <div role="status" className="absolute inset-0 flex items-center justify-center px-6">
+                  {/* A solid card, so the message never sits on the poster's own words. */}
+                  <div className="flex max-w-[20rem] flex-col items-center gap-3 rounded-[12px] bg-fl-dark px-6 py-5 text-center text-fl-dark-bright">
+                    <Loader2 aria-hidden="true" className="size-6 motion-safe:animate-spin" />
+                    <p className="text-[0.9375rem] font-semibold">{m.remaking ? "Painting a new background" : "Making your poster and posts"}</p>
+                    <p className="text-sm text-fl-dark-dim">About a minute. Your words are set by code; only the background art is drawn.</p>
+                  </div>
                 </div>
               )}
             </div>
