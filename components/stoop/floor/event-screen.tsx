@@ -4,7 +4,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { about, awayText, budgetView, eventStats, foldMeta, judgeView, playView, prizesView, snackGroups, venueLine } from "@/lib/plan/view/floor";
 import type { PlanView, TextPart } from "@/lib/plan/view/plan";
+import type { AskFacts } from "@/lib/plan/ask";
 import { cn } from "cn";
+import { AskCard } from "./ask-card";
 import { BlockMap, type MapPlace } from "./block-map";
 import { ExampleNotice } from "./example-notice";
 import { ActionBar, Fine, FloorHeader, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, StatStrip, TwoColumn, type Step } from "./kit";
@@ -90,6 +92,7 @@ export function EventScreen({
   exampleSlug,
   reasons,
   storesHref = "/stores",
+  ask = null,
 }: {
   view: PlanView;
   hrefs: { back: string; poster: string; steps: Partial<Record<Step, string>> };
@@ -99,6 +102,11 @@ export function EventScreen({
   exampleSlug?: string;
   reasons?: Partial<Record<Step, string>>;
   storesHref?: string;
+  /**
+   * "Get the OK" drafts, for a plan away from the store (lib/plan/ask.ts askFacts). Pass them only to
+   * the plan's owner or on an example: the district manager's draft carries the budget.
+   */
+  ask?: AskFacts | null;
 }) {
   const play = playView(view);
   const groups = snackGroups(view);
@@ -250,6 +258,8 @@ export function EventScreen({
           </ol>
         </Section>
       )}
+
+      {ask && view.concept && <AskCard facts={ask} />}
 
       {(view.checklist.length > 0 || view.shopping.length > 0) && (
         <div className="overflow-hidden rounded-[20px] bg-white [&>details+details]:border-t [&>details+details]:border-fl-rule">
