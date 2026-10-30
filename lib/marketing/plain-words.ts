@@ -60,22 +60,55 @@ export function genericPicks(view: Pick<PlanView, "trace">): { searched: string[
   return { searched, checked };
 }
 
-/**
- * Qloo's check of the generic playlist in plain words: "Qloo ranks all 3 below its own top 20 for
- * Chicago adults 25 to 34" when none beat a single one of Qloo's own picks, else "in the bottom half
- * of its own list"; an artist Qloo could not match is named. `ofIts` reads "all 3 of its artists".
- * Null when there is nothing checked to say.
- */
-export function genericCheckWords(view: Pick<PlanView, "trace" | "local">, ofIts = false): string | null {
-  const city = view.local.city;
-  const { searched, checked } = genericPicks(view);
-  const below = checked.filter((c) => c.below);
-  if (!city || !searched.length || !below.length) return null;
-  const top = Math.max(0, ...checked.map((c) => c.of ?? 0));
-  const all = below.length === searched.length;
-  const n = searched.length;
-  const who = all ? (n === 2 ? (ofIts ? "both of its artists" : "both") : ofIts ? `all ${n} of its artists` : `all ${n}`) : listOf(below.map((c) => c.name));
-  const where = top > 0 && below.every((c) => !c.beats) ? `below its own top ${top}` : "in the bottom half of its own list";
-  const missing = searched.filter((name) => !checked.some((c) => c.name === name));
-  return `Qloo ranks ${who} ${where} for ${city.name} adults ${ageSpan(city.ageText)}${missing.length ? `, and couldn't find ${listOf(missing)}` : ""}`;
+/** Accents, case and punctuation aside ("Beyonce" is "Beyoncé"). */
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+/** The same artist: equal once normalized, or one name a whole-word affix of the other, as the matcher accepts. */
+function sameName(a: string, b: string): boolean {
+  const x = norm(a);
+  const y = norm(b);
+  return x === y || x.startsWith(`${y} `) || y.startsWith(`${x} `) || x.endsWith(` ${y}`) || y.endsWith(` ${x}`);
 }
+
+/**
+ * Qloo's check of the generic playlist in plain words: "none of the 3 make Qloo's own top 20 for
+ * Chicago adults 25 to 34" when none beats a single one of Qloo's own picks (or Qloo measures no
+ * affinity for it), else "Qloo ranks ... in the bottom half of its own list"; an artist Qloo could not
+ * match is named. `ofIts` reads "none of its 3 artists". The trace is read only when it adds up to the
+ * check's own counts (`generic.check`'s "(n unverifiable)"); otherwise, or with nothing checked, null.
+ */
+export function genericCheckWords(view: Pick<PlanView, "trace" | "local" | "generic">, ofIts = false): string | null {
+  const city = view.local.city;
+  const picks = genericPicks(view);
+  // The generic plan's spelling first; a checked name the trace no longer shows is added as Qloo wrote it.
+  const names = [...picks.searched, ...picks.checked.map((c) => c.name).filter((c) => !picks.searched.some((s) => sameName(s, c)))];
+  const checkOf = (name: string) => picks.checked.find((c) => sameName(name, c.name));
+  const missing = names.filter((n) => !checkOf(n));
+  const unverifiable = Number(/\((\d+) unverifiable\)/.exec(view.generic?.check?.line ?? "")?.[1] ?? 0);
+  const below = names.filter((n) => checkOf(n)?.below);
+  if (!city || !below.length || missing.length !== unverifiable) return null;
+  const top = Math.max(0, ...picks.checked.map((c) => c.of ?? 0));
+  const outside = top > 0 && below.every((n) => !checkOf(n)!.beats);
+  const n = names.length;
+  const where = `for ${city.name} adults ${ageSpan(city.ageText)}`;
+  let said: string;
+  if (below.length === n) {
+    if (outside) said = n === 1 ? `it doesn't make Qloo's own top ${top}` : n === 2 ? `neither ${ofIts ? "of its artists " : ""}makes Qloo's own top ${top}` : `none of ${ofIts ? `its ${n} artists` : `the ${n}`} make Qloo's own top ${top}`;
+    else said = `Qloo ranks ${n === 1 ? "it" : n === 2 ? "both" : `all ${n}`}${ofIts && n > 1 ? " of its artists" : ""} in the bottom half of its own list`;
+  } else {
+    said = outside ? `${listOf(below)} ${below.length === 1 ? "doesn't" : "don't"} make Qloo's own top ${top}` : `Qloo ranks ${listOf(below)} in the bottom half of its own list`;
+  }
+  return `${said} ${where}${missing.length ? `, and Qloo couldn't find ${listOf(missing)}` : ""}`;
+}
+
+/** The generic plan's artists as the comparison names them, in its own spelling. */
+export function genericArtistNames(view: Pick<PlanView, "trace">): string[] {
+  const picks = genericPicks(view);
+  return [...picks.searched, ...picks.checked.map((c) => c.name).filter((c) => !picks.searched.some((s) => sameName(s, c)))];
+}
+

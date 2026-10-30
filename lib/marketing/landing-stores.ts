@@ -50,7 +50,7 @@ export interface StoreShowcase {
     radiusM: number;
     radiusText: string;
     pins: MapPin[];
-    /** "24 places from Qloo, within 1.5 km". */
+    /** "24 places from Qloo, within about 1 mile". */
     chip: string;
     label: string;
   } | null;
@@ -226,10 +226,17 @@ export function decidedCells(view: PlanView, report: Pick<PlanReport, "stats" | 
   if (baseline) {
     const noPlace = baseline.cliches.some((c) => /place|community/i.test(c.text));
     const check = genericCheckWords(view, true);
-    const said = [noPlace ? "named no place nearby" : null, check ? `and ${check}` : null].filter(Boolean).join(", ");
+    const text =
+      noPlace && check
+        ? `A generic AI plan for the same store named no place nearby, and ${check}.`
+        : noPlace
+          ? "A generic AI plan for the same store named no place nearby."
+          : check
+            ? `A generic AI plan for the same store: ${check}.`
+            : "A generic AI plan for the same store, checked against Qloo.";
     cells.push({
       eyebrow: "Checked",
-      text: said ? `A generic AI plan for the same store ${said}.` : "A generic AI plan for the same store, checked against Qloo.",
+      text,
       calls: stageCalls(report, "baseline"),
     });
   }
@@ -302,12 +309,14 @@ export function tablePicks(view: PlanView, slug: string): PickRow[] {
     const promos = view.wheel.slices.filter((s) => s.kind === "promo").length;
     const cards = view.wheel.slices.filter((s) => s.kind === "gift_card");
     const gifts = cards.map((s) => lowerFirst(s.text.replace(/\.$/, "")));
+    // The receipt and the link without JavaScript both point at the same gift card.
+    const backed = cards.find((s) => s.receipt);
     rows.push({
       title: "Prize wheel",
       value: `Your ${promos} ${promos === 1 ? "deal" : "deals"}${gifts.length ? `, plus ${listOf(gifts)}` : ""}`,
       note: view.wheel.rules[0]?.split(". ")[0]?.replace(/\.$/, "") ?? "Free to spin",
-      receipt: cards.find((s) => s.receipt)?.receipt ?? null,
-      href: placeHref(view, slug, cards[0]?.place ? placeByPin(view, cards[0].place.n) : undefined),
+      receipt: backed?.receipt ?? null,
+      href: placeHref(view, slug, backed?.place ? placeByPin(view, backed.place.n) : undefined),
     });
   }
   return rows.map((r, i) => ({ ...r, n: i + 1 }));

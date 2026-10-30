@@ -3,7 +3,7 @@
 import { noGenre, type PlaceView, type PlanView, type ShoppingView } from "./plan";
 import { plural, usd } from "./format";
 // The landing comparison's plain words and US units, shared with the landing (no runtime cycle: plain-words imports types only).
-import { ageSpan, genericCheckWords, genericPicks, listOf, usDistance, usRadius } from "../../marketing/plain-words";
+import { ageSpan, genericArtistNames, genericCheckWords, listOf, usDistance, usRadius } from "../../marketing/plain-words";
 
 export const KIND_GROUPS = [
   { kind: "food", label: "Food" },
@@ -191,7 +191,7 @@ export function landingCompare(view: PlanView): LandingCompareRow[] {
   const placeAt = (n: number) => view.local.block?.places.find((p) => p.n === n);
 
   // Music: the generic plan's own artists, and what Qloo's one scoring call said about them.
-  const { searched } = genericPicks(view);
+  const searched = genericArtistNames(view);
   const check = genericCheckWords(view);
   const genericMusic = searched.length && check ? `${listOf(searched)}: famous, but ${check}` : cliche(/music/i) ? "Music picked with no local data" : firstSentence(genericOf("music"));
   const music = view.concept.items.find((i) => i.kind === "music");
