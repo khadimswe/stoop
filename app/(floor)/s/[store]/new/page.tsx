@@ -30,6 +30,7 @@ async function Create({ params }: { params: PageProps<"/s/[store]/new">["params"
           offers: inputs.offers.map((o) => o.text),
           ageBands: inputs.ageBands,
           setting: inputs.setting,
+          game: inputs.game ?? "wheel",
           notes: inputs.notes ?? "",
           startTime: inputs.startTime,
           durationMinutes: String(inputs.durationMinutes),
