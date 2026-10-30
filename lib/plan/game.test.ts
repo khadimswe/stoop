@@ -3,6 +3,7 @@
 // plan's prompts and words stay exactly as they were (the recorded examples replay against them).
 import { describe, expect, it } from "vitest";
 import { MemoryStore } from "../store/memory";
+import { baselineInstructions } from "./baseline";
 import { fallbackPlan, planPrompt } from "./builder";
 import { conceptsInstructions, conceptsTask } from "./concepts";
 import { PLAN_EXAMPLE_INPUTS } from "./example-list";
@@ -123,6 +124,17 @@ describe("the prompts for a drop board", () => {
     const a = conceptsInstructions("wheel");
     const b = conceptsInstructions("drop_board");
     expect(a.replace(conceptsTask("wheel"), "")).toBe(b.replace(conceptsTask("drop_board"), ""));
+  });
+
+  it("change only the game sentence of the generic plan's task", () => {
+    expect(baselineInstructions("wheel")).toBe(baselineInstructions());
+    const wheel = baselineInstructions().split("\n");
+    const drop = baselineInstructions("drop_board").split("\n");
+    const changed = wheel.flatMap((line, i) => (line === drop[i] ? [] : [i]));
+    expect(drop).toHaveLength(wheel.length);
+    expect(changed).toHaveLength(1);
+    expect(drop[changed[0]!]).toContain("a drop board where people drop a chip");
+    expect(baselineInstructions("drop_board")).not.toMatch(SPIN_OR_WHEEL);
   });
 
   it("change only the game paragraph of the plan prompt", () => {

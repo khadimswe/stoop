@@ -473,7 +473,7 @@ export function CreateScreen({
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-fl-dim">{values.game === "drop_board" ? "Drop a chip, it lands in one of 6 slots. Your promos fill the slots first." : "Your promos and local gift cards go on the slices."}</p>
+              <p className="mt-2 text-xs text-fl-dim">{values.game === "drop_board" ? "Drop a chip, it lands in one of 6 slots: your promos first, plus a gift card from a place in your community." : "Your promos and local gift cards go on the slices."}</p>
             </OpenRow>
           )}
           <OpenRow id={`${id}-notes`} label="Notes" value={values.notes || <span className="text-fl-dim">Staff, weather, last time</span>} open={open === "notes"} onToggle={() => toggle("notes")} error={errors.notes}>
