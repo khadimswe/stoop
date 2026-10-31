@@ -40,6 +40,8 @@ export const AGES_CACHE_TTL = 7 * DAY_SECONDS;
 export const AGES_TIMEOUT_MS = 6_000;
 /** Bands shown as "skews": the top one or two with a positive skew. */
 const TOP_BANDS = 2;
+/** A band is named only when its mean skew reaches this; smaller leans are within noise, and with none the card stays hidden. */
+export const MIN_SKEW = 0.08;
 
 type SignalPlace = Pick<Place, "id" | "kind" | "rank" | "chain">;
 
@@ -63,9 +65,9 @@ export function bandSkews(rows: readonly DemographicsRow[]): AgeBandView[] {
   });
 }
 
-/** The one or two bands with the highest positive skew, in age order; empty when no band skews up. */
+/** The one or two bands with the highest skew of at least MIN_SKEW, in age order; empty when no band clearly skews up. */
 export function topBands(bands: readonly AgeBandView[], n = TOP_BANDS): AgeBandBucket[] {
-  const up = [...bands].filter((b) => b.skew > 0).sort((a, b) => b.skew - a.skew).slice(0, n);
+  const up = [...bands].filter((b) => b.skew >= MIN_SKEW).sort((a, b) => b.skew - a.skew).slice(0, n);
   return AGE_BANDS.filter((band) => up.some((b) => b.bucket === band.bucket)).map((band) => band.bucket);
 }
 
@@ -119,7 +121,7 @@ export interface AgesDeps {
   timeoutMs?: number;
 }
 
-export const agesCacheKey = (ids: readonly string[]) => `plan:ages:${hashOf({ ids: [...ids].sort() })}`;
+export const agesCacheKey = (ids: readonly string[]) => `plan:ages:v2:${hashOf({ ids: [...ids].sort() })}`;
 
 const nothing = () => new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 

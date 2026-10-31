@@ -10,7 +10,7 @@ import { demographicsResponse } from "../qloo/types";
 import { dayOf, keys } from "../store/keys";
 import { MemoryStore } from "../store/memory";
 import { describeRecorded, ifRecorded } from "../testing/recorded";
-import { agesCacheKey, askAges, bandSkews, getPlanAges, signalPlaces, topBands, AGES_SIGNAL_MAX, type AgesDeps } from "./ages";
+import { agesCacheKey, askAges, bandSkews, getPlanAges, signalPlaces, topBands, AGES_SIGNAL_MAX, MIN_SKEW, type AgesDeps } from "./ages";
 import { loadPlanReport } from "./store";
 import { AGE_BANDS, agesLine, agesViewOf, skewText, topLabel } from "./view/ages";
 
@@ -102,9 +102,15 @@ describeRecorded("against recorded Qloo data", () => {
     }
     expect(JSON.stringify(bands)).not.toMatch(/male|female|gender/);
     const top = topBands(bands);
-    expect(top.length).toBeGreaterThan(0);
     expect(top.length).toBeLessThanOrEqual(2);
-    for (const bucket of top) expect(bands.find((b) => b.bucket === bucket)!.skew).toBeGreaterThan(0);
+    for (const bucket of top) expect(bands.find((b) => b.bucket === bucket)!.skew).toBeGreaterThanOrEqual(MIN_SKEW);
+  });
+
+  it("names only a clear lean: tiny skews stay unnamed, and with none the card has nothing to say", () => {
+    const band = (bucket: (typeof AGE_BANDS)[number]["bucket"], skew: number) => ({ bucket, label: AGE_BANDS.find((b) => b.bucket === bucket)!.label, skew });
+    expect(topBands([band("24_and_younger", -0.01), band("25_to_29", 0.01), band("30_to_34", 0.01), band("55_and_older", 0.14)])).toEqual(["55_and_older"]);
+    expect(topBands([band("25_to_29", 0.05), band("30_to_34", 0.03), band("55_and_older", -0.2)])).toEqual([]);
+    expect(topBands([band("24_and_younger", 0.12), band("25_to_29", 0.09), band("35_to_44", -0.32)])).toEqual(["24_and_younger", "25_to_29"]);
   });
 
   it("asks Qloo once, through the client, and returns the bands with their receipt", async () => {
