@@ -103,7 +103,7 @@ export function budgetView(view: PlanView): { spentText: string; budgetText: str
   const snacks = view.shopping.filter((s) => !s.prize).reduce((sum, s) => sum + (s.usd ?? 0), 0);
   const prizes = view.shopping.filter((s) => s.prize).reduce((sum, s) => sum + (s.usd ?? 0), 0);
   const rows = [
-    ...(snacks > 0 ? [{ label: "Snacks and drinks", value: usd(snacks) }] : []),
+    ...(snacks > 0 ? [{ label: "Food and drinks", value: usd(snacks) }] : []),
     ...(prizes > 0 ? [{ label: "Prizes", value: usd(prizes) }] : []),
   ];
   return { spentText: usd(snacks + prizes), budgetText: view.header.budgetText.replace(" budget", ""), rows };
@@ -111,7 +111,12 @@ export function budgetView(view: PlanView): { spentText: string; budgetText: str
 
 /** "At a fall community fair" (an article stays lowercase after "At"), "At Pilsen Fall Fest". */
 export function venueLine(venue: string): string {
-  return `At ${/^(A|An|The) /.test(venue) ? venue.charAt(0).toLowerCase() + venue.slice(1) : venue}`;
+  return `At ${lowerArticle(venue)}`;
+}
+
+/** "A fall community fair" as "a fall community fair" mid-sentence; a name ("Pilsen Fall Fest") stays. */
+export function lowerArticle(venue: string): string {
+  return /^(A|An|The) /.test(venue) ? venue.charAt(0).toLowerCase() + venue.slice(1) : venue;
 }
 
 /** "Prizes on the list: Gift card for the 2:00 drawing, Gift cards for the wheel's slice · $15". */

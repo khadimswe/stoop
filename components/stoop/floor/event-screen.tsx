@@ -6,6 +6,7 @@ import { gameWords } from "@/lib/plan/game";
 import { about, awayText, budgetView, eventStats, foldMeta, judgeView, playView, prizesView, snackGroups, venueLine } from "@/lib/plan/view/floor";
 import type { PlanView, TextPart, WheelView } from "@/lib/plan/view/plan";
 import type { AskFacts } from "@/lib/plan/ask";
+import { plural } from "@/lib/plan/view/format";
 import { cn } from "cn";
 import { AskCard } from "./ask-card";
 import { BlockMap, type MapPlace } from "./block-map";
@@ -38,11 +39,13 @@ function Fold({ title, meta, children, id }: { title: string; meta?: string; chi
   );
 }
 
+// The ids stay "play" and "snacks": links from other pages (the judges' guide's "#receipt-play") land on them.
 const JUMPS = [
-  { id: "play", label: "Play" },
-  { id: "snacks", label: "Snacks" },
+  { id: "play", label: "Music" },
+  { id: "snacks", label: "Food and drinks" },
   { id: "wheel", label: "Wheel" },
   { id: "timeline", label: "Timeline" },
+  { id: "get-the-ok", label: "Get the OK" },
 ] as const;
 
 /** The wheel's mark for a slice that is not a community place (a promo, a creative prize): a plain dot, never a number. */
@@ -123,7 +126,10 @@ export function EventScreen({
   reasons,
   storesHref = "/stores",
   ask = null,
+  showBudget = true,
 }: {
+  /** False for anyone but a live plan's owner: their view has no budget or prices, so no "$0 of $0". */
+  showBudget?: boolean;
   view: PlanView;
   hrefs: { back: string; poster: string; steps: Partial<Record<Step, string>> };
   top?: ReactNode;
@@ -146,9 +152,12 @@ export function EventScreen({
   const budget = budgetView(view);
   const snacksTotal = groups.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.usd ?? 0), 0), 0);
   const game = view.wheel ? gameWords(view.wheel.game) : null;
-  const jumps = JUMPS.filter((j) => j.id !== "wheel" || view.wheel).map((j) => (j.id === "wheel" && game ? { ...j, label: game.short } : j));
+  const showAsk = Boolean(ask && view.concept);
+  const jumps = JUMPS.filter((j) => (j.id === "wheel" ? view.wheel : j.id === "get-the-ok" ? showAsk : true)).map((j) => (j.id === "wheel" && game ? { ...j, label: game.short } : j));
   // Short labels, so three columns still line up at 320 px.
-  const stats = eventStats(view).map((s, i) => (i === 0 ? { ...s, label: `${s.label} (est.)` } : i === 1 && s.label.includes("community") ? { ...s, label: s.value === "1" ? "community spot" : "community spots" } : s));
+  const stats = eventStats(view)
+    .map((s, i) => (i === 0 ? { ...s, label: `${s.label} (est.)` } : i === 1 && s.label.includes("community") ? { ...s, label: s.value === "1" ? "community spot" : "community spots" } : s))
+    .filter((_, i) => showBudget || i > 0);
   const poster = view.concept ? view.marketing.poster.thumb : null;
   const primary = (
     <Link href={hrefs.poster} className={PRIMARY} aria-disabled={!view.concept} tabIndex={view.concept ? undefined : -1}>
@@ -180,7 +189,7 @@ export function EventScreen({
       {running && !view.concept && <p className="text-sm text-fl-dim">The plan fills in as Qloo answers.</p>}
 
       {play.artists.length > 0 && (
-        <Section id="play" title="Play" aside={<OriginTag origin="qloo" receiptKey={play.receipt} context="the playlist" openOnHash="receipt-play" />}>
+        <Section id="play" title="Music" aside={<OriginTag origin="qloo" receiptKey={play.receipt} context="the playlist" openOnHash="receipt-play" />}>
           <RowGroup label="Playlist">
             {play.artists.map((name, i) => (
               <Row key={name} lead={<NumBadge n={i + 1} />} title={name} />
@@ -191,10 +200,10 @@ export function EventScreen({
       )}
 
       {groups.length > 0 && (
-        <Section id="snacks" title="Snacks" aside={snacksTotal > 0 && <span className="tabular-nums">about ${snacksTotal}</span>}>
+        <Section id="snacks" title="Food and drinks" aside={showBudget && snacksTotal > 0 && <span className="tabular-nums">about ${snacksTotal}</span>}>
           <div className="overflow-hidden rounded-[20px] bg-white">
             <MiniMap view={view} className="h-[180px] rounded-none lg:hidden" />
-            <ul aria-label="Snacks by place" className="[&>li+li]:border-t [&>li+li]:border-fl-rule">
+            <ul aria-label="Food and drinks by place" className="[&>li+li]:border-t [&>li+li]:border-fl-rule">
               {groups.map((g, gi) => (
                 <li key={g.place?.name ?? `none-${gi}`} className="flex flex-col gap-2 px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -228,7 +237,7 @@ export function EventScreen({
               ))}
             </ul>
           </div>
-          <Fine>Pin numbers match the Community map. Prices are the plan&apos;s estimates.</Fine>
+          <Fine>Pin numbers match the Community map.{showBudget && " Prices are the plan’s estimates."}</Fine>
         </Section>
       )}
 
@@ -259,7 +268,7 @@ export function EventScreen({
           {prizes && (
             <div className="flex flex-col gap-1 px-1">
               <p className="flex items-baseline justify-between gap-3 text-[0.8125rem] font-semibold">
-                Prizes on the shopping list <span className="font-normal text-fl-dim tabular-nums">about {prizes.totalText}</span>
+                Prizes on the shopping list {showBudget && <span className="font-normal text-fl-dim tabular-nums">about {prizes.totalText}</span>}
               </p>
               <ul className="flex flex-col gap-0.5 text-[0.8125rem] leading-[18px] text-fl-dim">
                 {prizes.items.map((p, i) => (
@@ -292,7 +301,7 @@ export function EventScreen({
         </Section>
       )}
 
-      {ask && view.concept && <AskCard facts={ask} />}
+      {ask && showAsk && <AskCard facts={ask} />}
 
       {(view.checklist.length > 0 || view.shopping.length > 0) && (
         <div className="overflow-hidden rounded-[20px] bg-white [&>details+details]:border-t [&>details+details]:border-fl-rule">
@@ -313,7 +322,7 @@ export function EventScreen({
             </Fold>
           )}
           {view.shopping.length > 0 && (
-            <Fold title="Shopping list" meta={fold.shopping}>
+            <Fold title="Shopping list" meta={showBudget ? fold.shopping : plural(view.shopping.length, "item")}>
               <ul className="flex flex-col">
                 {view.shopping.map((s, i) => (
                   <li key={i} className="flex items-baseline justify-between gap-3 border-b border-fl-rule py-2 text-sm last:border-b-0">
@@ -442,7 +451,7 @@ export function EventScreen({
           </div>
         </section>
       )}
-      {view.shopping.length > 0 && (
+      {showBudget && view.shopping.length > 0 && (
         <section aria-labelledby="side-budget-h" className="flex flex-col gap-2 rounded-[20px] bg-white px-4 py-3.5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="side-budget-h" className="text-[0.9375rem] font-semibold">

@@ -172,7 +172,7 @@ export function askDrafts(facts: AskFacts, { origin, today }: { origin: string; 
   const when = `${facts.dateText}, ${facts.timeText}`;
   // Only what the plan has: no line promises a game, music or snacks it doesn't.
   const table = [facts.music, ...facts.snacks, facts.game ? "a free prize game, no purchase needed" : null].filter((x): x is string => Boolean(x));
-  const brief = [facts.game ? "a free prize game (no purchase needed)" : null, facts.music ? "music" : null, facts.snacks.length ? "snacks" : null].filter((x): x is string => Boolean(x));
+  const brief = [facts.game ? "a free prize game (no purchase needed)" : null, facts.music ? "music" : null, facts.snacks.length ? "food" : null].filter((x): x is string => Boolean(x));
   const briefLine = brief.length > 1 ? `${brief.slice(0, -1).join(", ")} and ${brief.at(-1)}` : (brief[0] ?? null);
   const manager = [
     "Hi,",

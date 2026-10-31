@@ -122,7 +122,7 @@ export function OriginTag({ origin, receiptKey = null, extra, context, openOnHas
       <i aria-hidden="true" className={cn("block size-2 shrink-0", MARK[origin])} />
       <span>
         {why ? "Why Qloo picked this" : WORDS[origin]}
-        {origin === "creative" && <span className="sr-only"> (not from Qloo)</span>}
+        {origin === "creative" && <span> (not from Qloo)</span>}
         {extra && <span className="text-fl-dim"> · {extra}</span>}
       </span>
     </>

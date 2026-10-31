@@ -69,7 +69,7 @@ describeRecorded("Get the OK drafts on the recorded Houston plan", () => {
     // A fictional example store never names a carrier in text that leaves the page.
     expect(body).toContain("Navigation Wireless, a wireless store at 2810 Navigation Blvd, Houston, TX 77003");
     expect(body).not.toContain("T-Mobile");
-    expect(body).toContain("At the table: a free prize game (no purchase needed), music and snacks.");
+    expect(body).toContain("At the table: a free prize game (no purchase needed), music and food.");
     expect(body).toContain("We bring our own table, about 6 feet, and clean up after.");
     for (const q of ["Is there space for a table?", "Is there a vendor fee?", "Do you need insurance or a permit from us?"]) expect(body).toContain(q);
     expect(`${drafts.organizer.subject}\n${body}`).not.toMatch(DOLLARS);
@@ -122,7 +122,8 @@ describeRecorded("Get the OK drafts on the recorded Houston plan", () => {
     expect(noGameFacts.game).toBe(false);
     const d = askDrafts(noGameFacts, { origin: ORIGIN, today: TODAY });
     for (const body of [d.manager.body, d.organizer.body]) expect(body).not.toMatch(/prize game/);
-    expect(d.organizer.body).toContain("At the table: music and snacks.");
+    expect(d.organizer.body).toContain("At the table: music and food.");
+    expect(d.organizer.body).not.toMatch(/\bsnacks?\b/i);
     expect(d.manager.body).toContain("At the table: a playlist of artists Qloo ranks for Houston; large order of chips");
   });
 

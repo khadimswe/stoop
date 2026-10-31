@@ -106,8 +106,8 @@ export function publicPoster(poster: Poster): Poster {
 /**
  * What anyone with a live plan's link may read: exactly what the public event page (/e/<id>) shows (the
  * kept concept's title and hook, the day, time and place, the store's name and public phone, the
- * promos word for word, the poster, and what is at the table: the city's name for its music line, the
- * places the snacks come from, the prize wheel) and nothing private: no notes, budget, prices, store
+ * promos word for word, the poster, and what is at the table: the city's artists for its music line, the
+ * places the food comes from, the prize wheel) and nothing private: no notes, budget, prices, store
  * number, logged results, posts drafts, A/B test, trace, cost, the other concepts, the rest of the
  * community, or any receipt beyond the few those table facts cite. It is still a valid PlanReport, so
  * the pages read it with the same parser. A hook that names a measured place keeps a masked token, so
@@ -127,8 +127,12 @@ export function publicPlanReport(report: PlanReport): PlanReport {
   const shownIds = new Set([...snacks.map((s) => s.from!), ...(wheel?.slices.flatMap((s) => s.refs) ?? [])]);
   const places: Place[] = [...shownIds].flatMap((id) => (placeById.has(id) ? [placeById.get(id)!] : []));
   const city = report.local.city;
-  const musicLine: PlanItem[] = city && kept?.items.some((i) => i.kind === "music") ? [{ kind: "music", text: `Music ${city.city} plays`, origin: "creative", refs: [], evidenceIds: [] }] : [];
-  const cited = new Set([...snacks, ...places, ...(wheel?.slices ?? [])].flatMap((x) => x.evidenceIds));
+  // The music is a table fact too: the city's artists (the playlist plays them) with their receipts, and
+  // the kept concept's own music line when it names only those artists.
+  const artistIds = new Set(city?.artists.map((a) => a.id) ?? []);
+  const keptMusic = kept?.items.find((i) => i.kind === "music" && i.refs.length > 0 && i.refs.every((id) => artistIds.has(id)));
+  const musicLine: PlanItem[] = keptMusic ? [keptMusic] : city && kept?.items.some((i) => i.kind === "music") ? [{ kind: "music", text: `Music ${city.city} plays`, origin: "creative", refs: [], evidenceIds: [] }] : [];
+  const cited = new Set([...snacks, ...places, ...(wheel?.slices ?? []), ...(city?.artists ?? []), ...musicLine].flatMap((x) => x.evidenceIds));
   const concept: Concept | null = kept
     ? {
         id: kept.id,
@@ -147,7 +151,7 @@ export function publicPlanReport(report: PlanReport): PlanReport {
     inputs: { ...inputs, store, budgetUsd: 0 },
     ledger: report.ledger.filter((e) => cited.has(e.id)),
     local: {
-      city: city ? { city: city.city, ageBands: city.ageBands, artists: [], styles: [] } : null,
+      city: city ? { city: city.city, ageBands: city.ageBands, artists: city.artists, styles: [] } : null,
       block: report.local.block && places.length ? { radiusM: report.local.block.radiusM, places } : null,
       blockMusic: null,
       gaps: [],
