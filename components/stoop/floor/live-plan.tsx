@@ -36,6 +36,21 @@ export function liveHrefs(id: string) {
   };
 }
 
+/**
+ * What anyone but a live plan's owner sees at the top of its steps: their view is the public one
+ * (lib/plan/owner.ts publicPlanReport), so say so once and point to the plan's public event page.
+ */
+export function SharedPlanNotice({ eventPath }: { eventPath: string }) {
+  return (
+    <Notice title="You're viewing a shared plan.">
+      The full plan, poster and posts open on the phone or computer that made it.{" "}
+      <Link href={eventPath} className="font-medium text-fl-ink underline underline-offset-[3px] hover:decoration-2">
+        Open the event page
+      </Link>
+    </Notice>
+  );
+}
+
 /** Steps a plan still being made can't open yet, and why. */
 const NOT_YET: Partial<Record<Step, string>> = { Poster: "ready when the plan is done", Promote: "ready when the plan is done" };
 
@@ -296,12 +311,13 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
   if (step === "event" && planning) return <PlanningScreen state={state} planId={planId} />;
   if (!built || !built.view.concept) return <PlanningScreen state={state} planId={planId} />;
 
-  if (step === "poster") return <PosterScreen view={built.view} live hrefs={{ back: hrefs.event, promote: hrefs.promote, steps: hrefs.steps }} />;
-  if (step === "promote") return <PromoteScreen view={built.view} inputs={built.inputs} hrefs={{ back: hrefs.poster, steps: hrefs.steps }} />;
-  const marketing = state ? planningSteps(state)[5] : null;
   // Only the plan's owner gets its event stream, or the plan route's word for it; anyone else reads
-  // the public view (no budget), and the "Get the OK" drafts carry the budget.
+  // the public view (no budget, posts or trace), and the "Get the OK" drafts carry the budget.
   const owner = feed.phase === "streaming" || feed.phase === "ended" || (feed.phase === "report" && feed.owner);
+  const shared = owner ? null : <SharedPlanNotice eventPath={built.view.marketing.eventPath} />;
+  if (step === "poster") return <PosterScreen view={built.view} live shared={shared} hrefs={{ back: hrefs.event, promote: hrefs.promote, steps: hrefs.steps }} />;
+  if (step === "promote") return <PromoteScreen view={built.view} inputs={built.inputs} shared={shared} hrefs={{ back: hrefs.poster, steps: hrefs.steps }} />;
+  const marketing = state ? planningSteps(state)[5] : null;
   return (
     <EventScreen
       view={built.view}
@@ -309,9 +325,10 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
       showBudget={owner}
       hrefs={{ back: hrefs.community, poster: hrefs.poster, steps: hrefs.steps }}
       top={
-        marketing?.status === "current" ? (
+        shared ??
+        (marketing?.status === "current" ? (
           <Notice title="Making the poster and the posts">They start on their own once the plan is done. The Poster step shows them when they are ready.</Notice>
-        ) : null
+        ) : null)
       }
     />
   );

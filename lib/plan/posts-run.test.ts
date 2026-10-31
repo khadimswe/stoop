@@ -7,7 +7,7 @@ import type { Storage } from "../storage";
 import { MemoryStore } from "../store/memory";
 import type { VisitorId } from "../store/visitor";
 import { reducePlan, createPlanEmitter, type PlanEventInput } from "./events";
-import { posterKeys, type PosterRenderer } from "./poster-art";
+import { POSTER_REASONS, posterKeys, type PosterRenderer } from "./poster-art";
 import { POSTER_SIZES } from "./poster-image";
 import { samplePlanReport } from "./posts-fixture";
 import { AUTO_MARKETING_MIN_MS, autoMarketing, marketingResponseSchema, marketingState, marketingStateSchema, posterResponse, readVariant, requestMarketing, runMarketing, runRemake, sniffImage, trustedArtUrl, type MarketingRouteDeps } from "./posts-run";
@@ -149,7 +149,7 @@ describe("runMarketing", () => {
     const r = (await source.state(RUN))!.report;
     expect(r.posts?.facebook.text).toMatch(/^Taco Table Saturday/);
     expect(r.poster).toMatchObject({ status: "skipped" });
-    expect(r.poster.reason).toMatch(/plain background/);
+    expect(r.poster.reason).toBe(POSTER_REASONS.noService);
   });
 
   it("finishes with the template and the plain background when the writer or the art throws", async () => {
@@ -303,7 +303,7 @@ describe("a new version of the poster art", () => {
     const deps = routeDeps({ remake: async () => true });
     const answer = await requestMarketing(deps, RUN, { remake: "art" });
     expect(answer.status).toBe(409);
-    expect(JSON.stringify(answer.body)).toMatch(/not set up/);
+    expect(JSON.stringify(answer.body)).toContain(POSTER_REASONS.noService);
     expect(deps.scheduled).toHaveLength(0);
   });
 });

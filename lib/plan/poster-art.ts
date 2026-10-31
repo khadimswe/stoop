@@ -31,7 +31,7 @@ export const POSTER_MAX_BYTES = 15 * 1024 * 1024;
 /** Why the poster shows the plain background, in the words the page shows. */
 export const POSTER_REASONS = {
   off: "Live art is off, so the poster uses the plain background.",
-  noService: "Poster art is not set up on this server, so the poster uses the plain background.",
+  noService: "This poster uses the clean background: your deals, the day and the place, ready to print.",
   paused: "Poster art is paused for today, so the poster uses the plain background.",
   blocked: "The art prompt did not pass the guardrails, so the poster uses the plain background.",
   failed: "The art did not render, so the poster uses the plain background.",
