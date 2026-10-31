@@ -6,7 +6,7 @@ import type { PlanReport } from "../plan/schema";
 import { playView } from "../plan/view/floor";
 import { exampleHrefs } from "../plan/view/hrefs";
 import type { PlaceView, PlanView } from "../plan/view/plan";
-import { usDistance, usRadius } from "./plain-words";
+import { ageSpan, listOf, usDistance, usRadius } from "./plain-words";
 
 export { ageSpan, listOf } from "./plain-words";
 
@@ -28,7 +28,7 @@ export interface StoreShowcase {
   city: string;
   title: string;
   verdict: VerdictPart[];
-  /** "$49 of a $50 budget", "Free to spin, no purchase needed", "Sat, Nov 7, 12 to 4 pm". */
+  /** "$49 of a $50 budget", "Free to play, no purchase needed" (and the venue, when there is one). */
   meta: string[];
   map: {
     center: { lat: number; lon: number; label: string };
@@ -39,6 +39,8 @@ export interface StoreShowcase {
     chip: string;
     label: string;
   } | null;
+  /** The three picks as cards: Music, Food and Prize game, each with its receipt. */
+  picks: PickRow[];
   hrefs: { event: string; block: string; poster: string; promote: string };
   fictional: string | null;
 }
@@ -125,8 +127,8 @@ export function storeShowcase(view: PlanView, slug: string, city: string): Store
   const block = view.local.block;
   const meta = [
     view.shoppingTotal ? `${view.shoppingTotal} of a ${view.header.budgetText}` : view.header.budgetText,
-    view.wheel?.rules[0]?.split(". ")[0]?.replace(/\.$/, "") ?? null,
-    `${view.header.dateShort}, ${view.header.timeText}`,
+    // The prize game may be a wheel or a drop board, so the landing says "play" for the recorded "spin".
+    view.wheel?.rules[0]?.split(". ")[0]?.replace(/\.$/, "").replace(/^Free to spin\b/i, "Free to play") ?? null,
     view.header.venue ? `At ${lowerFirst(view.header.venue)}` : null,
   ].filter((m): m is string => Boolean(m));
   return {
@@ -147,8 +149,57 @@ export function storeShowcase(view: PlanView, slug: string, city: string): Store
         }
       : null,
     hrefs: { event: hrefs.event, block: hrefs.block, poster: hrefs.poster, promote: hrefs.promote },
+    picks: tablePicks(view, slug),
     fictional: view.header.fictional,
   };
+}
+
+export interface PickRow {
+  title: "Music" | "Food" | "Prize game";
+  value: string;
+  note: string;
+  receipt: string | null;
+  /** Where the receipt link goes without JavaScript. */
+  href: string;
+}
+
+/**
+ * The table's three picks as cards, all from the recorded plan: the city's artists with Qloo's own
+ * ranks, the food spot nearby with what it serves and how far, and the prize game's deals with the
+ * gift card spot. A pick the plan doesn't have is left out.
+ */
+export function tablePicks(view: PlanView, slug: string): PickRow[] {
+  const rows: PickRow[] = [];
+  const from = view.header.venue ? "the event" : "the door";
+  const city = view.local.city;
+  const play = playView(view);
+  if (city && play.artists.length) {
+    const music = view.concept?.items.find((i) => i.kind === "music");
+    const ranks = (music?.parts ?? []).flatMap((p) => (p.kind === "ref" ? [city.artists.find((a) => a.id === p.id)?.rank] : [])).filter((r): r is number => typeof r === "number");
+    const who = ranks.length === play.artists.length ? `Qloo's ${listOf(ranks.map((r) => `#${r}`))}` : "Artists Qloo ranks";
+    rows.push({ title: "Music", value: listOf(play.artists), note: `${who} for ${city.name}, adults ${ageSpan(city.ageText)}`, receipt: play.receipt, href: `${exampleHrefs(slug).event}#receipt-play` });
+  }
+  const food = snackPick(view);
+  if (food) {
+    const distance = food.place?.distanceM != null ? `, ${usDistance(food.place.distanceM)} from ${from}` : "";
+    rows.push({ title: "Food", value: food.from.name, note: `${upperFirst(food.item)}${distance}`, receipt: food.from.receipt, href: placeHref(view, slug, food.place) });
+  }
+  if (view.wheel) {
+    const promos = view.wheel.slices.filter((s) => s.kind === "promo").length;
+    const cards = view.wheel.slices.filter((s) => s.kind === "gift_card");
+    const gifts = cards.map((s) => lowerFirst(s.text.replace(/\.$/, "")));
+    // The receipt and the link without JavaScript both point at the same gift card.
+    const backed = cards.find((s) => s.receipt);
+    const spot = backed?.place ? placeByPin(view, backed.place.n) : undefined;
+    rows.push({
+      title: "Prize game",
+      value: `Your ${promos} ${promos === 1 ? "deal" : "deals"}${gifts.length ? `, plus ${listOf(gifts)}` : ""}`,
+      note: spot?.distanceM != null ? `${usDistance(spot.distanceM)} from ${from}` : "From a spot nearby",
+      receipt: backed?.receipt ?? null,
+      href: placeHref(view, slug, spot),
+    });
+  }
+  return rows;
 }
 
 export interface TimelinePost {

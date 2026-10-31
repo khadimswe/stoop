@@ -1,22 +1,29 @@
 import type { DemoVideo, PilotMedia } from "@/lib/marketing/pilot";
+import { cn } from "cn";
 import { PilotVideo } from "./pilot-video";
 
 /**
- * The founder's landscape video of a real table, full width under the hero (16:9, edge to edge on
- * phones), with his caption under it. Null renders nothing: the example stores follow the hero
- * directly, so the page never shows an empty band or a placeholder.
+ * The founder's video of the first table Stoop planned, in the hero: a dark screen set into the page
+ * (16:9, rounded), a muted loop that plays once in view, its poster
+ * frame first. A small chip on it says where and when, with "How it went" jumping to the real table
+ * section when that section is on the page.
  */
-export function MediaBand({ media }: { media: PilotMedia | null }) {
-  if (!media) return null;
+export function HeroVideo({ media, howItWent, className }: { media: PilotMedia; howItWent: string | null; className?: string }) {
   return (
-    <section aria-label="A real table" className="mx-auto w-full max-w-[1248px] sm:px-8">
-      <figure className="floor-dark overflow-hidden bg-fl-dark text-fl-dark-bright sm:rounded-[24px]">
-        <div className="relative aspect-video w-full">
-          <PilotVideo media={media} />
-        </div>
-        <figcaption className="px-4 py-3 text-sm sm:px-6">{media.caption}</figcaption>
-      </figure>
-    </section>
+    <figure aria-label={media.caption} className={cn("floor-dark relative overflow-hidden rounded-[20px] bg-fl-dark text-fl-dark-bright", className)}>
+      <div className="relative aspect-video w-full">
+        <PilotVideo media={media} />
+      </div>
+      {/* Under the video on smaller screens (it would cover too much of it), a chip on it from desktop up. */}
+      <figcaption className="flex flex-wrap items-center gap-x-2 px-3 py-2 text-xs font-medium lg:absolute lg:top-3 lg:left-3 lg:max-w-[calc(100%-1.5rem)] lg:rounded-[10px] lg:bg-white/95 lg:px-2.5 lg:py-1 lg:text-fl-ink lg:[--ring:#111113]">
+        <span>{media.caption}</span>
+        {howItWent && (
+          <a href={howItWent} className="inline-flex min-h-6 items-center font-semibold underline underline-offset-2">
+            How it went
+          </a>
+        )}
+      </figcaption>
+    </figure>
   );
 }
 

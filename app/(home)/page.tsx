@@ -4,16 +4,15 @@ import Link from "next/link";
 import { FloorReceipts } from "@/components/stoop/floor/receipts";
 import { BeforeAfter } from "@/components/stoop/home/before-after";
 import { HomeNav } from "@/components/stoop/home/home-nav";
-import { DemoVideoSlot, MediaBand } from "@/components/stoop/home/media-band";
+import { DemoVideoSlot, HeroVideo } from "@/components/stoop/home/media-band";
 import { ReceiptLink } from "@/components/stoop/home/receipt-link";
 import { ReserveStores } from "@/components/stoop/home/reserve-stores";
 import { StorePanel } from "@/components/stoop/home/store-panel";
 import { StoreTabs } from "@/components/stoop/home/store-tabs";
 import { RealTable, StoryBand } from "@/components/stoop/home/story-band";
 import { metaPostingEnabled } from "@/lib/config";
-import { beforeAfterItems } from "@/lib/marketing/before-after";
 import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
-import { BEFORE_AFTER, DEMO_VIDEO, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, WHO } from "@/lib/marketing/pilot";
+import { BEFORE_AFTER, DEMO_VIDEO, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, STORY_PHOTO, TABLE_PHOTO, TABLE_TITLE, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { landingCompare } from "@/lib/plan/view/floor";
 import { stampDate } from "@/lib/plan/view/format";
@@ -29,11 +28,11 @@ const H2 = "font-serif text-[clamp(1.875rem,1.3rem+2.5vw,3.375rem)] leading-[1.0
 const LEDE = "max-w-[46rem] text-lg leading-[1.5] text-pretty text-fl-muted lg:text-[1.1875rem]";
 
 const STEPS = [
-  { name: "Community", line: "Qloo finds the places nearby and the artists your city plays." },
+  { name: "Community", line: "Qloo finds your city's music and the places nearby." },
   { name: "Create", line: "Pick the day and budget. Type your deals." },
-  { name: "Event", line: "Stoop plans the table to fit the budget." },
-  { name: "Poster", line: "Your deals, word for word, ready to print." },
-  { name: "Promote", line: "Posts for each channel. Nothing goes out without you." },
+  { name: "Event", line: "Stoop plans the food, music and a prize wheel or drop board." },
+  { name: "Poster", line: "Your deals, word for word." },
+  { name: "Promote", line: "Posts for each channel, ready to share." },
 ] as const;
 
 /** A post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
@@ -55,8 +54,7 @@ export default function Home() {
     const report = loadPlanExampleReport(slug);
     const city = PLAN_EXAMPLES.find((e) => e.slug === slug)?.city ?? view.header.cityLine;
     const show = storeShowcase(view, slug, city);
-    const keys = show.verdict.flatMap((p) => (p.kind === "pick" ? [p.receipt] : []));
-    return { slug, view, report, show, receipts: pickReceipts(view.receipts, keys) };
+    return { slug, view, report, show, receipts: pickReceipts(view.receipts, show.picks.map((p) => p.receipt)) };
   });
   const leadStore = stores.find((s) => s.slug === lead)!;
   const leadView = leadStore.view;
@@ -70,8 +68,8 @@ export default function Home() {
   // Share mode readies every post the same way, so its status is said once, in the copy, not per post.
   const mixedStatus = new Set(posts.map((p) => p.statusText)).size > 1;
   const cityName = leadView.local.city?.name ?? leadStore.show.city;
-  const bandMedia = PILOT_COPY ? PILOT_MEDIA : null;
-  const pilotMedia = Boolean(bandMedia) || beforeAfterItems(PILOT_COPY ? BEFORE_AFTER : null).length > 0;
+  const heroMedia = PILOT_COPY ? PILOT_MEDIA : null;
+  const tablePhoto = PILOT_COPY ? TABLE_PHOTO : null;
   // The comparison below is the lead store's, so the tabs open on another community and the lead store comes last.
   const tabStores = [...stores.filter((s) => s.slug !== lead), leadStore];
 
@@ -79,35 +77,50 @@ export default function Home() {
     <>
       <HomeNav />
       <main className="flex-1">
-        {/* The hero fills the first screen, so the H1 stays the largest paint; the video (when set) loads after it. */}
-        <section id="hero" aria-labelledby="hero-title" className="mx-auto flex min-h-[calc(100svh-72px-40px)] max-w-[1248px] flex-col items-center justify-center px-4 pt-10 pb-12 text-center sm:px-8">
-          <p className="inline-flex min-h-8 items-center rounded-full border border-fl-line bg-white px-3.5 py-1 text-[0.8125rem] font-medium">
-            <span className="hidden sm:inline">{HERO.eyebrow}</span>
-            <span className="sm:hidden">{HERO.eyebrowShort}</span>
-          </p>
-          {/* Fluid size with a floor and a ceiling, so no word ever runs wider than the column (320 px and up). */}
-          <h1 id="hero-title" className="mt-6 max-w-[11em] font-serif text-[clamp(2.5rem,1.1rem+5.6vw,6rem)] leading-[1] font-normal tracking-[-0.02em] text-balance">
-            {HERO.headline}
-          </h1>
-          {/* Phones and small tablets: each sentence its own block, so none out-paints the H1. */}
-          <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted md:mt-6 md:max-w-[52rem] md:text-lg md:text-balance lg:text-[1.3125rem]">
-            {HERO.sub.map((line, i) => (
-              <span key={line} className="block md:inline">
-                {i > 0 ? ` ${line}` : line}
-              </span>
-            ))}
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-            <Link href="/start" className="inline-flex h-12 items-center justify-center rounded-[12px] bg-fl-ink px-6 text-base font-semibold text-white hover:bg-[#2a2a2e]">
-              Plan an event
-            </Link>
-            <Link href={leadHrefs.event} className="inline-flex min-h-11 items-center gap-1.5 text-base font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
-              See a real plan
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
+        {/*
+          The hero is the experience: three short lines across the page, then the sentence and the two ways
+          in beside the real table playing (under the buttons on phones). The H1 stays the largest paint:
+          it runs the full width above the video, and the video is sized below it at every width.
+        */}
+        <section id="hero" aria-labelledby="hero-title" className="mx-auto max-w-[1248px] px-4 pt-8 pb-14 sm:px-8 lg:pt-14 lg:pb-24">
+          <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-x-14">
+            <p className="order-1 inline-flex min-h-8 items-center self-start rounded-full border border-fl-line bg-white px-3.5 py-1 text-[0.8125rem] font-medium lg:col-span-2 lg:justify-self-start">{HERO.eyebrow}</p>
+            {/* Each sentence starts its own line; plain line breaks keep the H1 one element for the largest paint. */}
+            <h1 id="hero-title" className="order-2 mt-6 font-serif text-[clamp(2.75rem,1rem+5vw,5.5rem)] leading-[1.02] font-normal tracking-[-0.02em] text-balance lg:col-span-2">
+              {HERO.headline.map((line, i) => (
+                <span key={line}>
+                  {i > 0 && (
+                    <>
+                      {" "}
+                      <br />
+                    </>
+                  )}
+                  {/* The last two words stay together, so a phone never leaves one word alone on a line. */}
+                  {line.replace(/ (\S+)$/, " $1")}
+                </span>
+              ))}
+            </h1>
+            <div className="order-3 flex flex-col lg:col-start-1 lg:row-start-3 lg:mt-10">
+              <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-[1.5] text-pretty text-fl-muted lg:mt-0 lg:text-lg">{HERO.sub}</p>
+              <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
+                <Link href="/start" className="inline-flex h-12 items-center justify-center rounded-[12px] bg-fl-ink px-6 text-base font-semibold text-white hover:bg-[#2a2a2e]">
+                  Plan an event
+                </Link>
+                <Link href={leadHrefs.event} className="inline-flex min-h-11 items-center gap-1.5 text-base font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
+                  See a real plan
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                </Link>
+              </div>
+            </div>
+            {/* Sized below the H1 at every width (20rem wide below desktop), so the words stay the largest paint. */}
+            {heroMedia && <HeroVideo media={heroMedia} howItWent={tablePhoto ? "#real-table" : null} className="order-4 mt-8 w-full max-w-[20rem] lg:col-start-2 lg:row-start-3 lg:mt-10 lg:max-w-none lg:self-start" />}
+            {PILOT_LINE && <p className="order-5 mt-4 text-sm text-fl-muted lg:col-start-1">{PILOT_LINE}</p>}
           </div>
-          {/* A tidy left-aligned list, centered as a block: one column on phones, two by two from sm. The Qloo line leads. */}
-          <ul className="mt-7 grid w-fit max-w-full grid-cols-1 gap-x-10 gap-y-2 text-left text-sm text-fl-dim sm:grid-cols-2">
+        </section>
+
+        {/* One trust row under the first screen, so the hero is only the words, the buttons and the table. */}
+        <div className="border-y border-fl-rule">
+          <ul aria-label="Why stores trust it" className="mx-auto flex max-w-[1248px] flex-col gap-2 px-4 py-4 text-sm text-fl-dim sm:flex-row sm:flex-wrap sm:gap-x-10 sm:px-8">
             {HERO.trust.map((t, i) => (
               <li key={t} className={cn("flex items-start gap-2", i === 0 && "font-medium text-fl-ink")}>
                 <i aria-hidden="true" className="mt-[0.4375rem] block size-2 shrink-0 rounded-[2px] bg-fl-ink" />
@@ -115,25 +128,23 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          {PILOT_COPY && PILOT_LINE && <p className="mt-4 text-sm text-fl-muted">{PILOT_LINE}</p>}
-        </section>
-
-        <MediaBand media={bandMedia} />
+        </div>
 
         <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
-        {/* The real store leads: the founder's story, then the first table Stoop planned, then the example stores. */}
-        <StoryBand story={STORE_STORY} />
-        <RealTable title={TABLE_TITLE} photo={PILOT_COPY ? TABLE_PHOTO : null} result={PILOT_COPY ? PILOT_RESULT : null} resultLabel={PILOT_RESULT_LABEL} />
+        {/* One sequence: the problem (the story), proof in a real store, how Qloo decides, then why Qloo. */}
+        <StoryBand story={STORE_STORY} photo={PILOT_COPY ? STORY_PHOTO : null} />
 
-        <section id="examples" aria-labelledby="examples-title" className={cn("scroll-mt-20 bg-fl-band", pilotMedia && !STORE_STORY && "mt-16 lg:mt-24")}>
+        <RealTable title={TABLE_TITLE} photo={tablePhoto} result={PILOT_COPY ? PILOT_RESULT : null} resultLabel={PILOT_RESULT_LABEL} />
+
+        <section id="examples" aria-labelledby="examples-title" className="scroll-mt-20 bg-fl-band">
           <div className="mx-auto flex max-w-[1248px] flex-col gap-8 px-4 py-16 sm:px-8 lg:py-24">
             <div className="flex flex-col gap-3">
               <p className={EYEBROW}>See it work</p>
               <h2 id="examples-title" className={H2}>
                 Same table. Different community.
               </h2>
-              <p className={LEDE}>Three example stores, same kind of deals. Tap an underlined name for Qloo&apos;s reason.</p>
+              <p className={LEDE}>Three example stores. Tap a pick for Qloo&apos;s reason.</p>
             </div>
             <StoreTabs
               label="Example stores"
@@ -153,7 +164,7 @@ export default function Home() {
                 <h2 id="generic-title" className={H2}>
                   A generic AI plan could be for any store.
                 </h2>
-                <p className={LEDE}>Same model, same store, budget and deals, but no Qloo. Then Qloo checked what it picked.</p>
+                <p className={LEDE}>Same model, same deals, no Qloo.</p>
               </div>
               <table className="mt-8 w-full text-[0.9375rem] leading-[1.45] md:table-fixed">
                 <caption className="sr-only">The generic AI plan and Stoop&apos;s plan for {leadView.header.storeName}, line by line</caption>
@@ -171,37 +182,40 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {compare.map((r) => (
-                    <tr key={r.row} className="border-t border-fl-rule max-md:flex max-md:flex-col max-md:gap-2 max-md:py-4">
-                      <th scope="row" className="py-4 pr-4 text-left align-top font-semibold max-md:p-0">
-                        {r.row}
-                      </th>
-                      <td className="py-4 pr-8 align-top text-fl-muted max-md:p-0">
-                        <span className="mb-0.5 block text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase md:hidden">Generic AI plan</span>
-                        {r.generic}
-                        {r.genericReceipt && (
-                          <>
-                            {" "}
-                            <ReceiptLink receiptKey={r.genericReceipt} href={`${leadHrefs.event}#compare`} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Qloo's check of the generic plan's ${r.row.toLowerCase()}`}>
-                              Qloo&apos;s check
-                            </ReceiptLink>
-                          </>
-                        )}
-                      </td>
-                      <td className="py-4 align-top max-md:p-0">
-                        <span className="mb-0.5 block text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase md:hidden">Stoop</span>
-                        <span className="font-medium">{r.stoop}</span>
-                        {r.stoopReceipt && (
-                          <>
-                            {" "}
-                            <ReceiptLink receiptKey={r.stoopReceipt} href={leadHrefs.event} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Receipt: why Qloo picked the ${r.row.toLowerCase()}`}>
-                              Receipt
-                            </ReceiptLink>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {compare.map((r) => {
+                    const row = r.row;
+                    return (
+                      <tr key={r.row} className="border-t border-fl-rule max-md:flex max-md:flex-col max-md:gap-2 max-md:py-4">
+                        <th scope="row" className="py-4 pr-4 text-left align-top font-semibold max-md:p-0">
+                          {row}
+                        </th>
+                        <td className="py-4 pr-8 align-top text-fl-muted max-md:p-0">
+                          <span className="mb-0.5 block text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase md:hidden">Generic AI plan</span>
+                          {r.generic}
+                          {r.genericReceipt && (
+                            <>
+                              {" "}
+                              <ReceiptLink receiptKey={r.genericReceipt} href={`${leadHrefs.event}#compare`} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Qloo's check of the generic plan's ${row.toLowerCase()}`}>
+                                Qloo&apos;s check
+                              </ReceiptLink>
+                            </>
+                          )}
+                        </td>
+                        <td className="py-4 align-top max-md:p-0">
+                          <span className="mb-0.5 block text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase md:hidden">Stoop</span>
+                          <span className="font-medium">{r.stoop}</span>
+                          {r.stoopReceipt && (
+                            <>
+                              {" "}
+                              <ReceiptLink receiptKey={r.stoopReceipt} href={leadHrefs.event} className="text-sm font-medium whitespace-nowrap text-fl-ink underline underline-offset-[3px]" label={`Receipt: why Qloo picked the ${row.toLowerCase()}`}>
+                                Receipt
+                              </ReceiptLink>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               <p className="mt-4 text-[0.8125rem] text-fl-dim">
@@ -226,17 +240,13 @@ export default function Home() {
               {STEPS.map((s, i) => (
                 <li key={s.name} className={cn("flex flex-col gap-2 border-b border-fl-rule py-5 sm:pr-6 lg:border-b-0 lg:py-6", i > 0 && "lg:border-l lg:border-fl-rule lg:pl-6")}>
                   <p className="flex items-center gap-2 text-sm font-semibold tabular-nums">
-                    <span className="flex size-6 items-center justify-center rounded-full bg-fl-ink text-xs text-white">{i + 1}</span>
+                    <span className="flex size-6 items-center justify-center rounded-full bg-fl-ink font-mono text-xs text-white">{i + 1}</span>
                     {s.name}
                   </p>
                   <p className="text-[0.9375rem] leading-[1.45] text-pretty text-fl-muted">{s.line}</p>
                 </li>
               ))}
             </ol>
-            <Link href={leadHrefs.block} className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
-              See the steps in an example
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
             <DemoVideoSlot video={DEMO_VIDEO} />
           </div>
         </section>
@@ -266,7 +276,7 @@ export default function Home() {
               <ol aria-label="When the posts go out" className="flex flex-wrap gap-px overflow-hidden rounded-[20px] bg-fl-dark-rule">
                 {posts.map((p) => (
                   <li key={p.title} className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5 bg-fl-dark-2 px-4 py-3.5">
-                    <span className="text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
+                    <span className="font-mono text-[0.9375rem] font-semibold tabular-nums">{p.when}</span>
                     <span className="text-[0.8125rem] text-fl-dark-dim">{p.title}</span>
                     {mixedStatus && <PostStatus post={p} />}
                   </li>
@@ -276,7 +286,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Who it's for beside the Reserve card: the founder's story now opens the page, right after the hero. */}
+        {/* Who it's for beside the Reserve card: the founder's story opens the page, right after the hero. */}
         <section aria-labelledby="who-title" className="mx-auto grid max-w-[1248px] gap-10 px-4 py-16 sm:px-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
           <div className="flex flex-col gap-4">
             <h2 id="who-title" className={EYEBROW}>

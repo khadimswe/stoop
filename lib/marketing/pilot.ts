@@ -19,17 +19,14 @@ export const PILOT_COPY = true;
 export const PILOT_LINE = "";
 
 export const HERO = {
-  eyebrow: "For Metro by T-Mobile, Cricket and Boost Mobile stores",
-  /** The phone's eyebrow, short enough for one line at 320 px. */
-  eyebrowShort: "For Metro, Cricket and Boost stores",
-  headline: "Give your community a reason to stop.",
-  /**
-   * Qloo is named as what picks the music and the places, in the hero's first read. One line at every
-   * width: on phones each sentence is its own block, so none paints larger than the H1 (the LCP element).
-   */
-  sub: ["Every prepaid store sets up the same table outside.", "Stoop uses Qloo's taste data to plan yours: music your city plays, snacks from spots nearby and a prize wheel with your deals."],
-  /** The Qloo line leads and says what Qloo is. */
-  trust: ["Every pick backed by Qloo's taste data, with a receipt", "Built by a sales rep on a Metro floor", "Nothing posts until you approve", "Not affiliated with any carrier"],
+  /** Who it's for; the carriers are named only here and in the footer's trademark line. */
+  eyebrow: "For Metro by T-Mobile, Cricket and Boost stores",
+  /** Three short sentences, each starting its own line: the experience before the product. */
+  headline: ["The music they love.", "The food down the street.", "A table they stop for."],
+  /** One sentence: Qloo reads the community, Stoop plans the event and makes what promotes it. */
+  sub: "Stoop reads the community around your store with Qloo's taste data, plans your next event around it, then makes the poster and the posts.",
+  /** Under the first screen, one row: the Qloo line leads. */
+  trust: ["Every pick backed by Qloo's taste data", "Built by a sales rep on a Metro floor", "Nothing posts until you approve"],
 } as const;
 
 /** A self-hosted video: an H.264 mp4 (and an optional WebM), its first frame as a JPEG, optional captions. */
@@ -43,26 +40,18 @@ export interface LandscapeVideo {
   captions?: string | null;
 }
 
-/**
- * The line under the founder's video. His words: he sets them once the video is in (for example
- * "Kennesaw, GA · the first table Stoop planned"). Shown only with PILOT_MEDIA set.
- */
-export const PILOT_VIDEO_CAPTION = "Kennesaw, GA · the first table Stoop planned";
+/** The chip on the founder's video in the hero, next to its "How it went" link to the real table section. */
+export const PILOT_VIDEO_CAPTION = "Kennesaw, GA, Oct 30: the first table Stoop planned";
 
 /**
- * The founder's landscape video of a real table, right under the hero: 16:9, a muted loop that plays
- * inline once it scrolls into view (never under reduced motion, where it waits on its poster frame
- * with a play button). `sound: true` adds a sound button, only for a clip made with its audio kept.
- *
- * To turn it on (public/pilot/README.md has the ffmpeg command): put table.mp4 and table-poster.jpg in
- * public/pilot/, set PILOT_COPY = true above, and replace the null below with
- *
- *   { kind: "video", src: "/pilot/table.mp4", poster: "/pilot/table-poster.jpg", caption: PILOT_VIDEO_CAPTION }
- *
- * Null renders nothing: the example stores follow the hero.
+ * The founder's landscape video of the first table Stoop planned, in the hero (beside the words on
+ * desktop, under the buttons on phones): 16:9, a muted loop that plays inline once in view (never under
+ * reduced motion, where it waits on its poster frame with a play button). `sound: true` adds a sound
+ * button, only for a clip made with its audio kept. public/pilot/README.md has the ffmpeg command.
+ * Shown only with PILOT_COPY on; null renders nothing and the hero is the words alone.
  */
 export type PilotMedia = LandscapeVideo & { kind: "video"; caption: string; sound?: boolean };
-export const PILOT_MEDIA: PilotMedia | null = null;
+export const PILOT_MEDIA: PilotMedia | null = { kind: "video", src: "/pilot/table.mp4", poster: "/pilot/table-poster.jpg", caption: PILOT_VIDEO_CAPTION };
 
 /**
  * A longer walkthrough of the product, in "How it works": click to play, never autoplays. Same files
@@ -138,8 +127,8 @@ export function storyLines(story: StoreStory): { headline: string; body: string 
 /**
  * The real table section after the story, "The first table Stoop planned", shown only with PILOT_COPY
  * on (it shows a real store). Taken Oct 30 at the table Stoop planned, never the ice cream event. Made
- * from the founder's photo: the neighbor's window cropped off the left and its last two panes frosted
- * (beer signs), then upright, 1600 px wide, JPEG quality 80 and no metadata, as scripts/pilot-photo.ts does.
+ * from the founder's photo with its left edge cropped, unretouched, then upright, 1600 px wide, JPEG
+ * quality 80 and no metadata, as scripts/pilot-photo.ts does.
  */
 export const TABLE_PHOTO: (PilotPhoto & { width: number; height: number }) | null = {
   src: "/pilot/table.jpg",
@@ -149,8 +138,21 @@ export const TABLE_PHOTO: (PilotPhoto & { width: number; height: number }) | nul
   caption: "Kennesaw, GA, Oct 30, 2026: the table Stoop planned, outside our store. Stoop is independent and isn't affiliated with T-Mobile.",
 };
 
-/** The real table section's heading. */
-export const TABLE_TITLE = "The first table Stoop planned.";
+/** The real table section's heading, where the video chip's "How it went" link lands. */
+export const TABLE_TITLE = "How it went.";
+
+/**
+ * A real snapshot from the ice cream day, beside the story it tells, shown only with PILOT_COPY on. The
+ * founder's photo of the shaved-ice truck that served it, cropped so the owners' names and phone number
+ * are out of frame, no metadata. Small (it's 300 by 440). The truck's company is never named in text.
+ */
+export const STORY_PHOTO: (PilotPhoto & { width: number; height: number }) | null = {
+  src: "/pilot/ice-cream-day.jpg",
+  width: 300,
+  height: 440,
+  alt: "A shaved-ice truck parked at the curb on the ice cream day.",
+  caption: "The ice cream day, a few weeks ago. The truck was great. Our guess about the community wasn't.",
+};
 
 /**
  * The promote section, true in both modes of ENABLE_META_POSTING (lib/config.ts metaPostingEnabled).
@@ -164,15 +166,15 @@ export const POSTING_COPY = {
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "An announcement and reminders for Facebook, Instagram and WhatsApp. You share each one.",
-    note: "Posting straight to your Facebook Page turns on once Meta approves the app.",
+    body: "For Facebook, Instagram and WhatsApp.",
+    note: "Direct Facebook posting turns on once Meta approves.",
   },
 } as const;
 
 /** Who it's for, one line each. */
 export const WHO = [
-  { title: "Store managers", line: "This Saturday's table, poster and posts, done before your shift." },
-  { title: "Multi-store managers", line: "A different plan for each store, fit to its community." },
+  { title: "Store managers", line: "This Saturday's table, poster and posts." },
+  { title: "Multi-store managers", line: "A plan fit to each store's community." },
   { title: "District managers and dealer owners", line: "Every store's next event on one page." },
 ] as const;
 

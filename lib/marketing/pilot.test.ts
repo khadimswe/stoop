@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, storyLines } from "./pilot";
+import { PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, STORY_PHOTO, TABLE_PHOTO, storyLines } from "./pilot";
 
 const DASH = String.fromCharCode(0x2014);
 
@@ -29,6 +29,13 @@ describe("the story band", () => {
     expect(PILOT_RESULT.line).not.toMatch(/\b\d+\s+(phones|devices|lines|sales)\b/i);
     expect(PILOT_RESULT_LABEL).toMatch(/One day: a first look, not proof\.$/);
     for (const text of [PILOT_RESULT.line, PILOT_RESULT_LABEL]) expect(text.includes(DASH)).toBe(false);
+  });
+
+  it("captions the ice cream day snapshot in the founder's words, and its file is in public/", () => {
+    expect(STORY_PHOTO).not.toBeNull();
+    expect(STORY_PHOTO!.caption).toBe("The ice cream day, a few weeks ago. The truck was great. Our guess about the community wasn't.");
+    expect(STORY_PHOTO!.caption.includes(DASH)).toBe(false);
+    if (existsSync("data/plans")) expect(existsSync(`public${STORY_PHOTO!.src}`)).toBe(true);
   });
 
   it("captions the real photo as the table Stoop planned, with the not-affiliated line, and the file it names is in public/", () => {

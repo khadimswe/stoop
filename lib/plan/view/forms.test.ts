@@ -35,7 +35,7 @@ describe("the store form", () => {
     });
     expect(result.inputs.offers).toEqual([{ text: "$25 unlimited with port-in" }, { text: "Free case with any phone" }]);
     expect(result.inputs.notes).toBe("Saturday crowd is families");
-    expect(result.inputs).toMatchObject({ durationMinutes: 240, budgetUsd: 50, setting: "sidewalk_table", ageBands: ["25_to_29", "30_to_34"] });
+    expect(result.inputs).toMatchObject({ durationMinutes: 240, budgetUsd: 100, setting: "sidewalk_table", ageBands: ["25_to_29", "30_to_34"] });
   });
 
   it("says what is missing in plain words, and the first error leads", () => {
