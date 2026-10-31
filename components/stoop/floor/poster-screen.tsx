@@ -2,7 +2,7 @@
 
 import { ChevronLeft, Download, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMarketing, versioned } from "@/components/stoop/promote/use-marketing";
 import { posterRoute } from "@/lib/plan/view/plan";
 import type { PosterScreenView } from "@/lib/plan/view/promote";
@@ -43,16 +43,19 @@ function PosterImage({ id, alt, version, format, dim }: { id: string; alt: strin
 /**
  * Step 4, the poster, on a dark stage so the neon carries: Portrait 4:5 or Wide 1.91:1 (the link
  * preview), Download, and for a live plan "New version" (new background art, same words). While the
- * poster and posts are being made it says so; when the art could not be painted it says why.
+ * poster and posts are being made it says so; when the art could not be painted it says why. For
+ * anyone but a live plan's owner (`shared`, the notice they see) nothing is made or polled: the
+ * poster shows only once it is done, with the notice in place of the "making" state.
  */
-export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hrefs: { back: string; promote: string; steps: Partial<Record<Step, string>> }; live: boolean }) {
+export function PosterScreen({ view, hrefs, live, shared = null }: { view: PosterScreenView; hrefs: { back: string; promote: string; steps: Partial<Record<Step, string>> }; live: boolean; shared?: ReactNode }) {
   const [format, setFormat] = useState<Format>("portrait");
-  const m = useMarketing(view, live);
+  const m = useMarketing(view, live && !shared);
   const poster = m.marketing.poster;
   const making = m.phase === "making" || m.remaking;
   const title = view.concept?.title ?? view.header.storeName;
-  const hasPoster = poster.src !== null;
-  const download = format === "portrait" ? versioned(posterRoute(view.id), m.version) : versioned(posterRoute(view.id, "og"), m.version);
+  const settled = poster.status === "ready" || poster.status === "skipped" || poster.status === "failed";
+  const hasPoster = poster.src !== null && (!shared || settled);
+  const download = shared && !hasPoster ? null : format === "portrait" ? versioned(posterRoute(view.id), m.version) : versioned(posterRoute(view.id, "og"), m.version);
   const plain = !making && (poster.status === "skipped" || poster.status === "failed");
 
   const primary = (
@@ -79,7 +82,7 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
           <div className="lg:col-span-2">
             <ScreenTitle
               title="Poster"
-              meta={making ? (m.remaking ? `Painting a new background · ${title}` : `Making your poster and posts · ${title}`) : m.phase === "stalled" ? `Still working · ${title}` : `Ready · ${title}`}
+              meta={shared ? `Shared plan · ${title}` : making ? (m.remaking ? `Painting a new background · ${title}` : `Making your poster and posts · ${title}`) : m.phase === "stalled" ? `Still working · ${title}` : `Ready · ${title}`}
             />
           </div>
 
@@ -104,6 +107,7 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
           </div>
 
           <div className="flex flex-col gap-4 lg:sticky lg:top-20">
+            {shared}
             <div role="radiogroup" aria-label="Poster format" className="inline-grid grid-flow-col gap-0.5 self-center rounded-[10px] bg-fl-band p-[3px] lg:self-start">
               {(
                 [
@@ -139,7 +143,7 @@ export function PosterScreen({ view, hrefs, live }: { view: PosterScreenView; hr
               )}
             </div>
             {m.remake && !making && <Fine>New version paints a new background. The words stay exactly the same.</Fine>}
-            {plain && poster.reason && <Notice title="Plain background">{poster.reason}</Notice>}
+            {plain && poster.reason && <Notice title="Clean background">{poster.reason}</Notice>}
             {m.phase === "stalled" && <Notice title="This is taking longer than usual">Reload the page in a minute to see the poster.</Notice>}
             {m.message && (
               <Notice tone={m.message.tone} title={m.message.title}>

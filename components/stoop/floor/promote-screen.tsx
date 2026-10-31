@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { MetaConnect } from "@/components/stoop/promote/meta-connect";
 import { ShareMode } from "@/components/stoop/promote/share-mode";
 import { useMinuteNow } from "@/components/stoop/promote/timeline";
@@ -20,12 +20,14 @@ const useOrigin = () => useSyncExternalStore(noSubscription, () => window.locati
  * every example store) each post shares in one tap from here; with ENABLE_META_POSTING on and Meta
  * connected, the same timeline is approved and posted (components/stoop/promote/meta-connect.tsx).
  * Share mode shows at once: posting mode replaces it only once the server says posting is on.
+ * Anyone but a live plan's owner (`shared`, the notice they see) never gets the drafts, so they see
+ * that notice instead of "being written", and nothing is polled.
  */
-export function PromoteScreen({ view, inputs, hrefs }: { view: PromoteScreenView; inputs: PlanInputs; hrefs: { back: string; steps: Partial<Record<Step, string>> } }) {
+export function PromoteScreen({ view, inputs, hrefs, shared = null }: { view: PromoteScreenView; inputs: PlanInputs; hrefs: { back: string; steps: Partial<Record<Step, string>> }; shared?: ReactNode }) {
   const origin = useOrigin();
   const now = useMinuteNow();
   const example = planExampleSlug(view.id) !== null;
-  const m = useMarketing(view, !example);
+  const m = useMarketing(view, !example && !shared);
   const days = promoteTimeline({ id: view.id, marketing: m.marketing, wheel: view.wheel }, inputs, now);
   const eventUrl = `${origin}${m.marketing.eventPath}`;
   const making = m.phase !== "ready" && m.marketing.posts === null;
@@ -57,7 +59,12 @@ export function PromoteScreen({ view, inputs, hrefs }: { view: PromoteScreenView
         hrefs={hrefs.steps}
       />
       <main className="flex flex-1 flex-col">
-        {example ? (
+        {shared ? (
+          <div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 pt-5 pb-8">
+            {header}
+            {shared}
+          </div>
+        ) : example ? (
           share
         ) : (
           <MetaConnect planId={view.id} inputs={inputs} days={days} marketing={m.marketing} making={making} storeName={view.header.storeName} eventUrl={eventUrl} header={header} fallback={share} />

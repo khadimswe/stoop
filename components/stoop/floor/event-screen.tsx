@@ -153,7 +153,16 @@ export function EventScreen({
   const snacksTotal = groups.reduce((sum, g) => sum + g.items.reduce((s, i) => s + (i.usd ?? 0), 0), 0);
   const game = view.wheel ? gameWords(view.wheel.game) : null;
   const showAsk = Boolean(ask && view.concept);
-  const jumps = JUMPS.filter((j) => (j.id === "wheel" ? view.wheel : j.id === "get-the-ok" ? showAsk : true)).map((j) => (j.id === "wheel" && game ? { ...j, label: game.short } : j));
+  // A chip only for a section the page shows: a shared plan's public view has no timeline, say.
+  const shown: Record<(typeof JUMPS)[number]["id"], boolean> = {
+    play: play.artists.length > 0,
+    snacks: groups.length > 0,
+    wheel: Boolean(view.wheel && game),
+    timeline: view.runOfShow.length > 0,
+    "get-the-ok": showAsk,
+  };
+  const jumps = JUMPS.filter((j) => shown[j.id]).map((j) => (j.id === "wheel" && game ? { ...j, label: game.short } : j));
+  const howMade = view.trace.length > 0;
   // Short labels, so three columns still line up at 320 px.
   const stats = eventStats(view)
     .map((s, i) => (i === 0 ? { ...s, label: `${s.label} (est.)` } : i === 1 && s.label.includes("community") ? { ...s, label: s.value === "1" ? "community spot" : "community spots" } : s))
@@ -176,7 +185,7 @@ export function EventScreen({
       </div>
       {view.concept && <StatStrip label="The event in numbers" stats={stats} />}
 
-      {view.concept && (
+      {view.concept && jumps.length > 0 && (
         <nav aria-label="Jump to" className="-mx-4 -my-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
           {jumps.map((j) => (
             <a key={j.id} href={`#${j.id}`} className="inline-flex h-[34px] shrink-0 items-center rounded-[6px] border border-fl-line bg-white px-3 text-sm font-medium hover:bg-fl-sunk">
@@ -339,8 +348,9 @@ export function EventScreen({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <p className="ml-0.5 text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase">For judges</p>
+      {(judge || howMade) && (
+        <div className="flex flex-col gap-2">
+          <p className="ml-0.5 text-xs font-semibold tracking-[0.04em] text-fl-dim uppercase">For judges</p>
         <div className="overflow-hidden rounded-[20px] bg-white [&>details+details]:border-t [&>details+details]:border-fl-rule">
           {judge && (
             <Fold title="Compare with a generic AI plan" meta="Same budget and promos, no Qloo" id="compare">
@@ -403,6 +413,7 @@ export function EventScreen({
               </div>
             </Fold>
           )}
+          {howMade && (
           <Fold title="How it was made" meta={`${view.trace.length} steps · ${view.calls.live + view.calls.cached} Qloo calls`} id="how-it-was-made">
             <ol aria-label="Agent steps" className="flex flex-col">
               {view.trace.map((t) => (
@@ -418,8 +429,10 @@ export function EventScreen({
               ))}
             </ol>
           </Fold>
+          )}
         </div>
       </div>
+      )}
       {view.header.fictional && <Fine>{view.header.fictional}</Fine>}
     </>
   );
