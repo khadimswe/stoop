@@ -12,6 +12,7 @@ import { gameOf, gameWords, leftOffNote, offersLeftOff, type TableGame } from ".
 import { splitRefs } from "../refs";
 import { PLAN_MAX_TOTAL } from "../rubric";
 import { titleGenre } from "../words";
+import { cuisineLine } from "./cuisines";
 import { foodWords, plainStep, tidyPlanText } from "./trace-words";
 import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, type PlanInputs, type PlanItem, type PlanReport, type PlanTraceStep } from "../schema";
 import {
@@ -240,6 +241,8 @@ export interface LocalView {
     eventName: string | null;
     /** Places by distance, nearest first (their pin numbers). */
     places: PlaceView[];
+    /** The food places' top cuisine tags in one line (lib/plan/view/cuisines.ts), or null when too few carry one. */
+    cuisineLine: string | null;
   } | null;
   /** Music the block's own places point to, shown only when the plan uses it. */
   blockMusic: { places: { name: string; receipt: string | null }[]; artists: { name: string; receipt: string | null }[] } | null;
@@ -635,6 +638,7 @@ export function planView(source: PlanSource): PlanView {
             search: searchOf(ledger.get(p.evidenceIds[0] ?? "")?.label),
             eventSpot: canPlanAt(p),
           })),
+          cuisineLine: cuisineLine(block.places, from),
         }
       : null,
     blockMusic:
