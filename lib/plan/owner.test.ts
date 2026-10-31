@@ -18,6 +18,7 @@ import { PLANS_PER_NETWORK_DAILY, startPlan, type PlanStartContext } from "./run
 import { planReportSchema, type PlanInputs, type PlanReport } from "./schema";
 import { appendPlanEvents, getPlanMeta, loadPlanReport, setPlanMeta, type PlanMeta } from "./store";
 import { eventPageView } from "./view/event-page";
+import { playView } from "./view/floor";
 import { planView, sourceFromReport } from "./view/plan";
 
 const SECRET = "s".repeat(40);
@@ -58,9 +59,16 @@ describeRecorded("the public view of a plan", () => {
     expect(pub.inputs.budgetUsd).toBe(0);
     expect(pub.plan?.concepts).toHaveLength(1);
     expect(pub.plan).toMatchObject({ runOfShow: [], checklist: [], estimatedCostUsd: 0 });
-    // The table's facts only: the city's name without its artists, the places the snacks and the wheel
-    // name, no prices, and only the receipts those cite.
-    expect(pub.local.city?.artists ?? []).toEqual([]);
+    // The table's facts only: the city's artists (the music the table plays) with their receipts, never
+    // its styles; the places the food and the wheel name, no prices, and only the receipts those cite.
+    expect(pub.local.city?.artists).toEqual(report.local.city?.artists);
+    expect(pub.local.city?.styles).toEqual([]);
+    for (const a of pub.local.city?.artists ?? []) for (const id of a.evidenceIds) expect(pub.ledger.some((e) => e.id === id)).toBe(true);
+    // A stranger's plan page shows the playlist, and its music line keeps only artist refs.
+    const music = pub.plan?.concepts[0]?.items.find((i) => i.kind === "music");
+    const artistIds = new Set(pub.local.city?.artists.map((a) => a.id) ?? []);
+    expect(music?.refs.every((id) => artistIds.has(id))).toBe(true);
+    expect(playView(planView(sourceFromReport(pub, RUN_ID))).artists.length).toBeGreaterThan(0);
     expect(pub.plan?.shopping.every((s) => s.from && s.estUsd === undefined)).toBe(true);
     const shown = new Set([...(pub.plan?.shopping.map((s) => s.from) ?? []), ...(pub.plan?.wheel?.slices.flatMap((s) => s.refs) ?? [])]);
     expect(pub.local.block?.places.every((p) => shown.has(p.id)) ?? true).toBe(true);

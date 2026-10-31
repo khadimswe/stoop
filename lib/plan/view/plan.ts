@@ -12,6 +12,7 @@ import { gameOf, gameWords, leftOffNote, offersLeftOff, type TableGame } from ".
 import { splitRefs } from "../refs";
 import { PLAN_MAX_TOTAL } from "../rubric";
 import { titleGenre } from "../words";
+import { foodWords, plainStep, tidyPlanText } from "./trace-words";
 import { ITEM_KINDS, type ArtistRef, type Concept, type ItemKind, type Place, type PlanInputs, type PlanItem, type PlanReport, type PlanTraceStep } from "../schema";
 import {
   CARRIER_LABELS,
@@ -489,7 +490,7 @@ export function planView(source: PlanSource): PlanView {
   };
   /** Text with "[[id]]" tokens as parts; an unknown id reads "a local spot", never the id. */
   const parts = (text: string): TextPart[] =>
-    splitRefs(text).map((part) => {
+    splitRefs(tidyPlanText(text)).map((part) => {
       if (part.kind === "text") return part;
       const known = nameOf(part.id);
       return known ? { kind: "ref", id: part.id, name: known.name, receipt: known.receipt } : { kind: "text", text: "a local spot" };
@@ -523,7 +524,7 @@ export function planView(source: PlanSource): PlanView {
   const concept = (c: Concept): ConceptView => ({
     id: c.id,
     title: c.title,
-    hook: c.hook,
+    hook: tidyPlanText(c.hook),
     items: c.items.map((it, i) => item(c.id, it, i)),
     scores: c.scores,
     total: c.total,
@@ -792,7 +793,7 @@ export function shareLinks(eventUrl: string, whatsappText: string): { facebook: 
 
 const isQloo = (item: ItemView | undefined) => item?.origin === "qloo" || item?.origin === "interpreted";
 
-const USE_LABELS: Partial<Record<ItemKind, string>> = { food: "Snacks", partner: "Partner", venue: "Venue", giveaway: "Giveaway", activity: "Activity", music: "Music" };
+const USE_LABELS: Partial<Record<ItemKind, string>> = { food: "Food", partner: "Partner", venue: "Venue", giveaway: "Giveaway", activity: "Activity", music: "Music" };
 
 /** How the kept plan uses each block place, in words ("Snacks", "Gift card"). */
 function placeUsesOf(kept: Concept | null, plan: PlanReport["plan"], places: ReadonlyMap<string, Place>, gameTitle = "Prize wheel"): Record<string, string[]> {
@@ -868,18 +869,24 @@ export function fullAddress(store: Pick<PlanInputs["store"], "address" | "city" 
 
 /** The trace as one-line rows, the stage named above each run of steps (the shape TraceList renders). */
 export function traceRows(steps: readonly PlanTraceStep[]): PlanTraceRow[] {
-  return steps.map((step, i) => ({
-    key: String(i),
-    stage: step.stage,
-    stageLabel: PLAN_STAGE_LABELS[step.stage],
-    startsGroup: i === 0 || steps[i - 1]!.stage !== step.stage,
-    kind: step.kind,
-    label: titleGenre(step.label) ? "Checked a step that named a music genre" : usUnits(step.label),
-    reason: ((r) => (r ? usUnits(r) : r))(safeReason(step.label, step.reason)),
-    served: step.kind === "tool" ? (step.cached ? "cached" : "live") : null,
-    world: null,
-    evidenceId: step.evidenceId ?? null,
-  }));
+  return steps.map((step, i) => {
+    // The checks' own steps in plain words, validator paths never shown (./trace-words.ts).
+    const plain = plainStep(step.label, step.reason ?? null);
+    const reason = plain.written ? plain.reason : safeReason(step.label, plain.reason ?? undefined);
+    const words = (text: string) => (step.stage === "baseline" ? usUnits(text) : foodWords(usUnits(text)));
+    return {
+      key: String(i),
+      stage: step.stage,
+      stageLabel: PLAN_STAGE_LABELS[step.stage],
+      startsGroup: i === 0 || steps[i - 1]!.stage !== step.stage,
+      kind: step.kind,
+      label: titleGenre(plain.label) ? "Checked a step that named a music genre" : words(plain.label),
+      reason: reason ? words(reason) : reason,
+      served: step.kind === "tool" ? (step.cached ? "cached" : "live") : null,
+      world: null,
+      evidenceId: step.evidenceId ?? null,
+    };
+  });
 }
 
 /**

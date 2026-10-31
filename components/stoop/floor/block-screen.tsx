@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ReceiptView } from "@/lib/report/view/types";
 import { eventSpots, planHereHref, type EventSpot } from "@/lib/plan/event-spots";
-import { kindCounts, placeMeta } from "@/lib/plan/view/floor";
+import { kindCounts, lowerArticle, placeMeta } from "@/lib/plan/view/floor";
 import type { LocalView, PlaceView } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { BlockMap, type MapPlace } from "./block-map";
@@ -225,11 +225,11 @@ export function BlockScreen({
           {notice}
           <ScreenTitle
             title="Your community"
-            meta={`${street} · ${places.length > 0 ? `${places.length} places within ${block?.radiusText ?? "1.5 km"}${from === "the event" ? " of the event" : ""}, from Qloo` : `within ${block?.radiusText ?? "1.5 km"}`}`}
+            meta={`${street} · ${places.length > 0 ? `Qloo found ${places.length} places near ${from === "the event" ? "the event" : "your store"}, within ${block?.radiusText ?? "about 1 mile"}` : `within ${block?.radiusText ?? "about 1 mile"}`}`}
           />
           {block?.eventName && (
             <p className="-mt-5 text-[0.8125rem] text-pretty text-fl-dim">
-              Read around the event&apos;s place: {block.eventName}. Distances are from there; your store has its own pin.
+              This event is at {lowerArticle(block.eventName)}, so Qloo searched around it. Your store has its own pin.
             </p>
           )}
           {block && places.length > 0 ? (
@@ -285,7 +285,7 @@ export function BlockScreen({
                   />
                 ))}
               </RowGroup>
-              <Fine>Pin numbers on the map match this list, nearest {from === "the event" ? "the event" : "the store"} first. Ink pins are places the plan uses.</Fine>
+              <Fine>Pin numbers on the map match this list, nearest {from === "the event" ? "the event" : "the store"} first. Black pins are places your event uses.</Fine>
             </Section>
           )}
 

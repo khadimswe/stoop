@@ -31,7 +31,8 @@ test("landing to an example event to one receipt", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`${EVENT}$`));
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText("Fictional store. Not affiliated with or endorsed by T-Mobile.").first()).toBeVisible();
-  for (const jump of ["Play", "Snacks", "Wheel", "Timeline"]) await expect(page.getByRole("navigation", { name: "Jump to" }).getByRole("link", { name: jump })).toBeVisible();
+  for (const jump of ["Music", "Food and drinks", "Wheel", "Timeline"]) await expect(page.getByRole("navigation", { name: "Jump to" }).getByRole("link", { name: jump })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Jump to" }).getByRole("link", { name: /^Snacks$|^Play$/ })).toHaveCount(0);
 
   const why = page.getByRole("button", { name: /Why Qloo picked this.*the playlist/ });
   await why.click();

@@ -537,7 +537,7 @@ export function CreateScreen({
           <dt className="text-fl-dim">Promos</dt>
           <dd>{offersTyped ? `${offersTyped}, word for word` : "None yet"}</dd>
         </dl>
-        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, snacks and prizes from places in your community, {settingHasGame(values.setting) ? `${values.game === "drop_board" ? "a drop board" : "a prize wheel"} and a timeline` : "and a timeline"}.</p>
+        <p className="border-t border-fl-rule pt-2 text-[0.8125rem] text-pretty text-fl-dim">Music from your city, food and prizes from places in your community, {settingHasGame(values.setting) ? `${values.game === "drop_board" ? "a drop board" : "a prize wheel"} and a timeline` : "and a timeline"}.</p>
       </section>
       <p className="text-center text-xs text-fl-dim">{note}</p>
       {submitButton}

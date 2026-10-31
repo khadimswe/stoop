@@ -306,6 +306,7 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
     <EventScreen
       view={built.view}
       ask={owner ? askFacts(built.view, built.inputs) : null}
+      showBudget={owner}
       hrefs={{ back: hrefs.community, poster: hrefs.poster, steps: hrefs.steps }}
       top={
         marketing?.status === "current" ? (

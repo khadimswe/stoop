@@ -25,6 +25,9 @@ test("Plan it here on a community park opens the Create step set to that place",
   });
   await page.goto("/s/chicago-18th-street");
   await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  // The line under the title says what Qloo did, and the pin note names the event.
+  await expect(page.getByText(/Qloo found \d+ places near your store, within /)).toBeVisible();
+  await expect(page.getByText("Black pins are places your event uses.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: /^Parks \d+$/ }).click();
   await expect(page.getByText("Plan at your door, or take the table to one of these.")).toBeVisible();
   const list = page.getByRole("list", { name: "Places in your community" });
@@ -73,6 +76,13 @@ test("the Houston example's Event step has Get the OK drafts; a plan at the stor
   await page.goto("/plan/ex-houston-east-end");
   const card = page.locator("#get-the-ok");
   await expect(card.getByRole("heading", { name: "Get the OK" })).toBeVisible();
+  // The jump row leads to the drafts, and the trace reads as what the checks did, never a validator path.
+  await expect(page.getByRole("navigation", { name: "Jump to" }).getByRole("link", { name: "Get the OK" })).toHaveAttribute("href", "#get-the-ok");
+  const how = page.locator("#how-it-was-made");
+  await how.locator("summary").click();
+  await expect(how.getByText("Removed 1 line that didn't cite Qloo")).toBeVisible();
+  await expect(how.getByText(/concepts\.\d+\.items\.\d+:/)).toHaveCount(0);
+  await expect(how.getByText(/Dropped what still failed|problems back to Claude/)).toHaveCount(0);
   const drafts = card.getByRole("list", { name: "Drafts to send" });
   await expect(drafts.getByText("To your district manager", { exact: true })).toBeVisible();
   await expect(drafts.getByText("To the organizer", { exact: true })).toBeVisible();
@@ -102,6 +112,7 @@ test("the Houston example's Event step has Get the OK drafts; a plan at the stor
   await page.goto("/plan/ex-chicago-18th-street");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Get the OK" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Jump to" }).getByRole("link", { name: "Get the OK" })).toHaveCount(0);
   await page.goto("/e/ex-houston-east-end");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByText("Get the OK")).toHaveCount(0);
