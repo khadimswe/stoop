@@ -6,8 +6,8 @@ Every prepaid phone store (Metro by T-Mobile, Cricket, Boost Mobile) runs the sa
 
 Built for the Qloo Agentic Hackathon (2026) by a sales rep who works the floor at a Metro by T-Mobile store.
 
-- Live demo: `https://<live-demo-url>`
-- Judge's guide: `https://<live-demo-url>/judges`
+- Live demo: `https://stoop-liard.vercel.app`
+- Judge's guide: `https://stoop-liard.vercel.app/judges`
 
 ## Why
 
@@ -63,10 +63,10 @@ We ran Stoop for 12 real Metro locations across metro Atlanta with identical inp
 
 ## Use Stoop inside Claude (MCP)
 
-Stoop is a remote MCP server. Its `plan_store_event` tool plans an event for a store and sends back the plan link; when live plans are off or the day's share is used up, it sends back an example. Get a token at `https://<live-demo-url>/mcp` (shown once, daily caps, revocable), then:
+Stoop is a remote MCP server. Its `plan_store_event` tool plans an event for a store and sends back the plan link; when live plans are off or the day's share is used up, it sends back an example. Get a token at `https://stoop-liard.vercel.app/mcp` (shown once, daily caps, revocable), then:
 
 ```bash
-claude mcp add --transport http stoop https://<live-demo-url>/api/mcp --header "Authorization: Bearer stp_your_token_here"
+claude mcp add --transport http stoop https://stoop-liard.vercel.app/api/mcp --header "Authorization: Bearer stp_your_token_here"
 ```
 
 ## Architecture
