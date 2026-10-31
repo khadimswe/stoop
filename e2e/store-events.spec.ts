@@ -344,6 +344,8 @@ test("a new store round-trips through a stand-in example: Back, the way back and
   await page.getByRole("list", { name: "Matches" }).getByRole("button").first().click();
   // The picked address shows (with Change) before the next tap, so a slow runner never taps too early.
   await expect(page.getByRole("button", { name: "Change" })).toBeVisible();
+  // Typed again once the page is interactive: on a slow runner the first fill can land before hydration and be reset.
+  await page.getByLabel("Name").fill("Corner Wireless");
   await page.getByRole("button", { name: "See my community" }).first().click();
 
   // The Community step with live maps off: the store's own spot, the note once, the nearest example.
