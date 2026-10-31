@@ -69,7 +69,7 @@ test("the store-events guide walks the landing, the real table and the event in 
   await expect(path.getByRole("link", { name: "Open the drafts" })).toHaveAttribute("href", "/plan/ex-houston-east-end#get-the-ok");
   await expect(path.getByRole("link", { name: "Plan an event" })).toHaveAttribute("href", "/start");
   // It says plainly what happens when live plans are off.
-  await expect(path.getByText(/When live plans are off, Stoop says so plainly and opens the closest example store instead/)).toBeVisible();
+  await expect(path.getByText(/If live plans are paused, Stoop says so and opens the nearest example store\./)).toBeVisible();
   // The comparison step says what Qloo found, from the recorded run, in plain words.
   await expect(path.getByText(/none of its 3 artists make Qloo's own top 20 for Chicago adults 25 to 34\.$/)).toBeVisible();
 

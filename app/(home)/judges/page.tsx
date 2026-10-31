@@ -59,7 +59,7 @@ function pathSteps(check: string | null) {
     },
     {
       title: "Try your own store",
-      line: "Type a store's name and address, see its community, then plan the event. When live plans are off, Stoop says so plainly and opens the closest example store instead (same city, else same state, else the nearest), so nothing ever breaks.",
+      line: "Type a store's name and address, see its community, then plan the event in about a minute. If live plans are paused, Stoop says so and opens the nearest example store.",
       href: "/start",
       cta: "Plan an event",
     },
@@ -119,6 +119,11 @@ export default function JudgesPage() {
           <h2 id="path-title" className="font-serif text-[1.75rem] leading-tight font-normal">
             The path, in {steps.length} steps
           </h2>
+          <div>
+            <Link href={LEAD} className={PRIMARY_INLINE}>
+              Open the example event
+            </Link>
+          </div>
           <ol className="grid gap-x-8 gap-y-6 border-t border-fl-ink pt-6 sm:grid-cols-2">
             {steps.map((step, i) => (
               <li key={step.title} className="flex flex-col items-start gap-1.5">
@@ -132,11 +137,6 @@ export default function JudgesPage() {
               </li>
             ))}
           </ol>
-          <div>
-            <Link href={LEAD} className={PRIMARY_INLINE}>
-              Open the example event
-            </Link>
-          </div>
         </section>
 
         <section aria-labelledby="decides-title" className="flex flex-col gap-4">
