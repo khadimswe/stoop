@@ -9,6 +9,7 @@ import { kindCounts, lowerArticle, placeMeta } from "@/lib/plan/view/floor";
 import type { LocalView, PlaceView } from "@/lib/plan/view/plan";
 import { cn } from "cn";
 import { BlockMap, type MapPlace } from "./block-map";
+import { CommunityAges } from "./community-ages";
 import { ActionBar, BUTTON2, BUTTON2_SM, Fine, FloorHeader, FloorMark, IconSlot, NumBadge, PRIMARY, Row, RowGroup, ScreenTitle, Section, TEXT_LINK, type Step } from "./kit";
 import { FloorReceipts, OriginTag, ReceiptTrigger } from "./receipts";
 
@@ -108,6 +109,7 @@ export function BlockScreen({
   fictional,
   notice,
   backHref,
+  agesUrl,
 }: {
   storeName: string;
   cityLine: string;
@@ -131,6 +133,8 @@ export function BlockScreen({
   notice?: React.ReactNode;
   /** In the /start flow, back goes to the store form. */
   backHref?: string;
+  /** The plan's "Who loves these spots" route (/api/plan/<id>/ages): fetched after render, shown only with an answer. */
+  agesUrl?: string;
 }) {
   const block = local.block;
   const [kind, setKind] = useState<PlaceView["kind"] | "all">("all");
@@ -296,6 +300,8 @@ export function BlockScreen({
               <Fine>Pin numbers on the map match this list, nearest {from === "the event" ? "the event" : "the store"} first. Black pins are places your event uses.</Fine>
             </Section>
           )}
+
+          {agesUrl && places.length > 0 && <CommunityAges url={agesUrl} from={from} />}
 
           {local.city && local.city.artists.length > 0 && (
             <Section id="city-plays" title={`What ${local.city.name} plays`} aside={<OriginTag origin="qloo" receiptKey={local.city.artists[0]?.receipt ?? null} context={`what ${local.city.name} plays`} />}>

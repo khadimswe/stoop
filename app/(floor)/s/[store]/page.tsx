@@ -39,6 +39,7 @@ async function Block({ params }: { params: PageProps<"/s/[store]">["params"] }) 
         eventHref={h.event}
         steps={h.steps}
         fictional={view.header.fictional}
+        agesUrl={`/api/plan/ex-${store}/ages`}
       />
     </>
   );
