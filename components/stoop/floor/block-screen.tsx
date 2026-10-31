@@ -227,6 +227,14 @@ export function BlockScreen({
             title="Your community"
             meta={`${street} · ${places.length > 0 ? `Qloo found ${places.length} places near ${from === "the event" ? "the event" : "your store"}, within ${block?.radiusText ?? "about 1 mile"}` : `within ${block?.radiusText ?? "about 1 mile"}`}`}
           />
+          {block?.cuisineLine && places.length > 0 && (
+            <p className="-mt-5 text-sm text-pretty text-fl-dim">
+              {block.cuisineLine}{" "}
+              <span className="ml-1 inline-flex align-middle">
+                <OriginTag origin="qloo" />
+              </span>
+            </p>
+          )}
           {block?.eventName && (
             <p className="-mt-5 text-[0.8125rem] text-pretty text-fl-dim">
               This event is at {lowerArticle(block.eventName)}, so Qloo searched around it. Your store has its own pin.

@@ -56,6 +56,8 @@ test("landing to an example event to one receipt", async ({ page }) => {
 test("the five steps link forward and back", async ({ page }) => {
   await page.goto(`/s/${SLUG}`);
   await expect(page.getByRole("heading", { level: 1, name: "Your community" })).toBeVisible();
+  // Under the subtitle: the food places' top cuisine tags, in one line about the places.
+  await expect(page.getByText(/^The food spots near your store, by Qloo's tags: most often .+\./)).toBeVisible();
   // The current step's name stays whole, even on a phone.
   const steps = page.getByRole("navigation", { name: "Steps" });
   const current = steps.locator('[aria-current="step"]');
