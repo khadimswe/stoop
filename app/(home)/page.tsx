@@ -12,7 +12,7 @@ import { StoreTabs } from "@/components/stoop/home/store-tabs";
 import { RealTable, StoryBand } from "@/components/stoop/home/story-band";
 import { metaPostingEnabled } from "@/lib/config";
 import { pickReceipts, postTimeline, storeShowcase, type TimelinePost } from "@/lib/marketing/landing-stores";
-import { BEFORE_AFTER, DEMO_VIDEO, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, WHO } from "@/lib/marketing/pilot";
+import { BEFORE_AFTER, DEMO_VIDEO, HERO, PILOT_CARD, PILOT_COPY, PILOT_LINE, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, POSTING_COPY, STORE_STORY, STORY_PHOTO, TABLE_PHOTO, TABLE_TITLE, WHO } from "@/lib/marketing/pilot";
 import { LEAD_PLAN_EXAMPLE, PLAN_EXAMPLE_INPUTS, PLAN_EXAMPLES } from "@/lib/plan/example-list";
 import { landingCompare } from "@/lib/plan/view/floor";
 import { stampDate } from "@/lib/plan/view/format";
@@ -28,11 +28,11 @@ const H2 = "font-serif text-[clamp(1.875rem,1.3rem+2.5vw,3.375rem)] leading-[1.0
 const LEDE = "max-w-[46rem] text-lg leading-[1.5] text-pretty text-fl-muted lg:text-[1.1875rem]";
 
 const STEPS = [
-  { name: "Community", line: "Qloo finds your city's music and places nearby, or a park for the table." },
+  { name: "Community", line: "Qloo finds your city's music and the places nearby." },
   { name: "Create", line: "Pick the day and budget. Type your deals." },
   { name: "Event", line: "Stoop plans the food, music and a prize wheel or drop board." },
-  { name: "Poster", line: "Your deals, word for word, ready to print." },
-  { name: "Promote", line: "Posts for each channel. Nothing goes out without you." },
+  { name: "Poster", line: "Your deals, word for word." },
+  { name: "Promote", line: "Posts for each channel, ready to share." },
 ] as const;
 
 /** A post's status, as a plain label (never a button): a check when it's ready, a clock when it's scheduled. */
@@ -133,7 +133,7 @@ export default function Home() {
         <BeforeAfter config={PILOT_COPY ? BEFORE_AFTER : null} />
 
         {/* One sequence: the problem (the story), proof in a real store, how Qloo decides, then why Qloo. */}
-        <StoryBand story={STORE_STORY} />
+        <StoryBand story={STORE_STORY} photo={PILOT_COPY ? STORY_PHOTO : null} />
 
         <RealTable title={TABLE_TITLE} photo={tablePhoto} result={PILOT_COPY ? PILOT_RESULT : null} resultLabel={PILOT_RESULT_LABEL} />
 
@@ -164,7 +164,7 @@ export default function Home() {
                 <h2 id="generic-title" className={H2}>
                   A generic AI plan could be for any store.
                 </h2>
-                <p className={LEDE}>Same model, same deals, no Qloo. Then Qloo checked its picks.</p>
+                <p className={LEDE}>Same model, same deals, no Qloo.</p>
               </div>
               <table className="mt-8 w-full text-[0.9375rem] leading-[1.45] md:table-fixed">
                 <caption className="sr-only">The generic AI plan and Stoop&apos;s plan for {leadView.header.storeName}, line by line</caption>

@@ -138,8 +138,21 @@ export const TABLE_PHOTO: (PilotPhoto & { width: number; height: number }) | nul
   caption: "Kennesaw, GA, Oct 30, 2026: the table Stoop planned, outside our store. Stoop is independent and isn't affiliated with T-Mobile.",
 };
 
-/** The real table section's heading. */
-export const TABLE_TITLE = "The first table Stoop planned.";
+/** The real table section's heading, where the video chip's "How it went" link lands. */
+export const TABLE_TITLE = "How it went.";
+
+/**
+ * A real snapshot from the ice cream day, beside the story it tells, shown only with PILOT_COPY on. The
+ * founder's photo of the shaved-ice truck that served it, cropped so the owners' names and phone number
+ * are out of frame, no metadata. Small (it's 300 by 440). The truck's company is never named in text.
+ */
+export const STORY_PHOTO: (PilotPhoto & { width: number; height: number }) | null = {
+  src: "/pilot/ice-cream-day.jpg",
+  width: 300,
+  height: 440,
+  alt: "A shaved-ice truck parked at the curb on the ice cream day.",
+  caption: "The ice cream day, a few weeks ago. The truck was great. Our guess about the community wasn't.",
+};
 
 /**
  * The promote section, true in both modes of ENABLE_META_POSTING (lib/config.ts metaPostingEnabled).
@@ -153,15 +166,15 @@ export const POSTING_COPY = {
   },
   off: {
     title: "Posts written for your channels, ready in one tap.",
-    body: "For Facebook, Instagram and WhatsApp, shared from your phone.",
-    note: "Posting straight to Facebook turns on once Meta approves the app.",
+    body: "For Facebook, Instagram and WhatsApp.",
+    note: "Direct Facebook posting turns on once Meta approves.",
   },
 } as const;
 
 /** Who it's for, one line each. */
 export const WHO = [
-  { title: "Store managers", line: "This Saturday's table, poster and posts, done before your shift." },
-  { title: "Multi-store managers", line: "A different plan for each store, fit to its community." },
+  { title: "Store managers", line: "This Saturday's table, poster and posts." },
+  { title: "Multi-store managers", line: "A plan fit to each store's community." },
   { title: "District managers and dealer owners", line: "Every store's next event on one page." },
 ] as const;
 

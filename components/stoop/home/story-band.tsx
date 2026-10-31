@@ -2,25 +2,35 @@ import Image from "next/image";
 import { storyLines, type PilotPhoto, type StoreStory } from "@/lib/marketing/pilot";
 
 /**
- * Right after the hero: the founder's story, a big line and its text, then his name. Words only: no
- * photo sits beside it, so no picture reads as the event it tells. Null renders nothing.
+ * Right after the hero: the founder's story, a big line and its text, then his name, with a real
+ * snapshot from the day it tells (only once the store has agreed, PILOT_COPY): a small white-bordered
+ * print, slightly turned, still (no motion). Without the photo the band is the words alone. Null
+ * renders nothing.
  */
-export function StoryBand({ story }: { story: StoreStory | null }) {
+export function StoryBand({ story, photo }: { story: StoreStory | null; photo: (PilotPhoto & { width: number; height: number }) | null }) {
   if (!story) return null;
   const { headline, body } = storyLines(story);
   return (
     <section id="story" aria-labelledby="story-title" className="mx-auto w-full max-w-[1248px] px-4 py-16 sm:px-8 lg:py-24">
-      <div className="flex max-w-[56rem] flex-col gap-5">
-        {/* One sentence per line ("Going outside works." then "Guessing doesn't."), never broken mid-sentence. */}
-        <h2 id="story-title" className="font-serif text-[clamp(2rem,1rem+3.9vw,5.25rem)] leading-[1.04] font-normal tracking-[-0.02em]">
-          {headline.split(/(?<=\.) /).map((sentence, i) => (
-            <span key={sentence} className="block">
-              {i > 0 ? ` ${sentence}` : sentence}
-            </span>
-          ))}
-        </h2>
-        <p className="max-w-[44rem] text-lg leading-[1.5] text-pretty text-fl-muted lg:text-[1.1875rem]">{body}</p>
-        <p className="text-sm font-semibold">{story.credit}</p>
+      <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between lg:gap-16">
+        <div className="flex max-w-[56rem] flex-col gap-5">
+          {/* One sentence per line ("Going outside works." then "Guessing doesn't."), never broken mid-sentence. */}
+          <h2 id="story-title" className="font-serif text-[clamp(2rem,1rem+3.9vw,5.25rem)] leading-[1.04] font-normal tracking-[-0.02em]">
+            {headline.split(/(?<=\.) /).map((sentence, i) => (
+              <span key={sentence} className="block">
+                {i > 0 ? ` ${sentence}` : sentence}
+              </span>
+            ))}
+          </h2>
+          <p className="max-w-[44rem] text-lg leading-[1.5] text-pretty text-fl-muted lg:text-[1.1875rem]">{body}</p>
+          <p className="text-sm font-semibold">{story.credit}</p>
+        </div>
+        {photo && (
+          <figure className="w-[220px] shrink-0 rotate-[2.5deg] self-center bg-white p-2.5 pb-3 shadow-[0_10px_30px_-12px_rgba(17,17,19,0.35)] ring-1 ring-fl-rule sm:w-[240px] lg:self-auto">
+            <Image src={photo.src} alt={photo.alt} width={photo.width} height={photo.height} unoptimized loading="lazy" className="h-auto w-full bg-fl-band" />
+            <figcaption className="mt-2.5 px-0.5 text-[0.8125rem] leading-[1.4] text-pretty text-fl-ink">{photo.caption}</figcaption>
+          </figure>
+        )}
       </div>
     </section>
   );

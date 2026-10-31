@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { HERO, PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
+import { HERO, PILOT_COPY, PILOT_MEDIA, PILOT_RESULT, PILOT_RESULT_LABEL, STORE_STORY, STORY_PHOTO, TABLE_PHOTO, TABLE_TITLE, storyLines } from "../lib/marketing/pilot";
 import { andList, recordedNames } from "../lib/testing/recorded-names";
 
 // Qloo's names for the lead example, read from its recording (no test file holds Qloo response data).
@@ -387,7 +387,12 @@ test.describe("the store-events landing", () => {
   test("the founder's video plays in the hero, and the story follows the hero with no band between", async ({ page }) => {
     await page.goto("/");
     const hero = page.locator("#hero");
-    const next = await hero.evaluate((el) => el.nextElementSibling?.id ?? null);
+    // The next section after the hero (past the one-line trust row) is the story: no band between.
+    const next = await hero.evaluate((el) => {
+      let n = el.nextElementSibling;
+      while (n && n.tagName !== "SECTION") n = n.nextElementSibling;
+      return n?.id ?? null;
+    });
     expect(next).toBe(STORE_STORY ? "story" : "examples");
     await expect(page.getByText("What Stoop picked for this table")).toHaveCount(0);
     if (!(PILOT_COPY && PILOT_MEDIA)) {
@@ -418,8 +423,12 @@ test.describe("the store-events landing", () => {
     await expect(story.getByRole("heading", { level: 2, name: headline })).toBeVisible();
     await expect(story.getByText(body)).toBeVisible();
     await expect(story.getByText(STORE_STORY!.credit)).toBeVisible();
-    // The story is words only: no photo beside it, so no picture reads as the ice cream event.
-    await expect(story.getByRole("img")).toHaveCount(0);
+    // The only picture beside the story is from the ice cream day itself, and only once the store has agreed.
+    if (PILOT_COPY && STORY_PHOTO) {
+      await expect(story.getByRole("img")).toHaveCount(1);
+      await expect(story.getByRole("img", { name: STORY_PHOTO.alt })).toHaveAttribute("src", STORY_PHOTO.src);
+      await expect(story.getByText(STORY_PHOTO.caption)).toBeVisible();
+    } else await expect(story.getByRole("img")).toHaveCount(0);
     // The old "Built on the sales floor" quote is folded into the story.
     await expect(page.getByText("Built on the sales floor")).toHaveCount(0);
     // In page order, whatever the ids are asked in.
@@ -528,7 +537,7 @@ test.describe("the store-events landing", () => {
     const off = page.getByRole("heading", { level: 2, name: "Posts written for your channels, ready in one tap." });
     if ((await off.count()) > 0) {
       const section = page.locator("section", { has: off });
-      await expect(section.getByText("Posting straight to Facebook turns on once Meta approves the app.")).toBeVisible();
+      await expect(section.getByText("Direct Facebook posting turns on once Meta approves.")).toBeVisible();
       // One line names the channels once; the four send times sit in a compact row, as plain text.
       await expect(section.getByText(/Facebook, Instagram and WhatsApp/)).toHaveCount(1);
       const times = section.getByRole("list", { name: "When the posts go out" }).getByRole("listitem");
