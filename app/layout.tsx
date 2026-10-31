@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     deployment: process.env.VERCEL_URL,
   }),
   title: "Stoop",
-  description: "Stoop plans a store event for your community: music your city plays, snacks from the spots nearby, a prize wheel, a poster and posts.",
+  description: "Stoop plans a store event around your community: the music your city loves, food from the spots down the street, a prize game, the poster and the posts.",
 };
 
 export const viewport: Viewport = {
