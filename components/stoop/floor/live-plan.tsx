@@ -266,6 +266,7 @@ export function LiveStep({ planId, step }: { planId: string; step: LiveStepName 
         steps={hrefs.steps}
         reasons={reasons}
         fictional={null}
+        agesUrl={`/api/plan/${encodeURIComponent(planId)}/ages`}
       />
     );
   if (step === "create" && built) {
